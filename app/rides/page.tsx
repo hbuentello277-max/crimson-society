@@ -3,16 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[280px] items-center justify-center rounded-2xl border border-white/10 bg-[#0a0a0a]">
-      <p className="font-serif italic text-zinc-500">Loading the route…</p>
+    <div className="flex h-[320px] items-center justify-center rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[#0a0909]">
+      <p className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+        Summoning the route…
+      </p>
     </div>
   ),
 });
+
+type RoutePoint = { lat: number; lng: number };
 
 type Ride = {
   id: string;
@@ -25,24 +29,32 @@ type Ride = {
   distance: string;
   duration: string;
   cover: string;
+  previewImage?: string;
   host: { name: string; photo: string };
   going: { name: string; photo: string }[];
   description: string;
   privacy: "Open" | "Invite";
   lat: number;
   lng: number;
+  route?: RoutePoint[];
 };
 
 const PHOTOS = {
-  marco: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces",
-  elena: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces",
-  devin: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop&crop=faces",
-  aiyana: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces",
-  roman: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces",
-  sofia: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces",
+  marco:
+    "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces",
+  elena:
+    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces",
+  devin:
+    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop&crop=faces",
+  aiyana:
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces",
+  roman:
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces",
+  sofia:
+    "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces",
 };
 
-const UPCOMING: Ride[] = [
+const UPCOMING_SEED: Ride[] = [
   {
     id: "r1",
     name: "Sunday Canyon Run",
@@ -53,7 +65,10 @@ const UPCOMING: Ride[] = [
     type: "Canyon Run",
     distance: "180 mi",
     duration: "5h",
-    cover: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=900&h=600&fit=crop",
+    cover:
+      "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=1200&h=900&fit=crop",
+    previewImage:
+      "https://images.unsplash.com/photo-1517846693594-1567da72af75?w=1200&h=900&fit=crop",
     host: { name: "Marco Vélez", photo: PHOTOS.marco },
     going: [
       { name: "Elena", photo: PHOTOS.elena },
@@ -62,10 +77,16 @@ const UPCOMING: Ride[] = [
       { name: "Roman", photo: PHOTOS.roman },
     ],
     description:
-      "Dawn meet, full tank, no stops till the gorge. Pace is steady — bring water, your camera, and your patience for the lights out of Katy.",
+      "Dawn meet, full tank, no stops till the gorge. Pace is measured. Bring water, a clear head, and enough restraint to enjoy the road.",
     privacy: "Open",
     lat: 29.7858,
     lng: -95.8244,
+    route: [
+      { lat: 29.7858, lng: -95.8244 },
+      { lat: 29.7604, lng: -95.3698 },
+      { lat: 29.713, lng: -95.234 },
+      { lat: 29.684, lng: -95.102 },
+    ],
   },
   {
     id: "r2",
@@ -77,17 +98,24 @@ const UPCOMING: Ride[] = [
     type: "Night Run",
     distance: "60 mi",
     duration: "1.5h",
-    cover: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&h=600&fit=crop",
+    cover:
+      "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&h=900&fit=crop",
     host: { name: "Aiyana Cross", photo: PHOTOS.aiyana },
     going: [
       { name: "Marco", photo: PHOTOS.marco },
       { name: "Roman", photo: PHOTOS.roman },
     ],
     description:
-      "Empty loop. Cold air. We move clean — no horseplay, no light running. After-ride coffee at Agora.",
+      "Cold air, clean lines, no theatre. We move with discipline and finish over coffee.",
     privacy: "Open",
     lat: 29.7642,
-    lng: -95.4310,
+    lng: -95.431,
+    route: [
+      { lat: 29.7642, lng: -95.431 },
+      { lat: 29.752, lng: -95.41 },
+      { lat: 29.738, lng: -95.387 },
+      { lat: 29.75, lng: -95.358 },
+    ],
   },
   {
     id: "r3",
@@ -99,7 +127,10 @@ const UPCOMING: Ride[] = [
     type: "Track Day",
     distance: "—",
     duration: "Full day",
-    cover: "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=900&h=600&fit=crop",
+    cover:
+      "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=1200&h=900&fit=crop",
+    previewImage:
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&h=900&fit=crop",
     host: { name: "Devin Cole", photo: PHOTOS.devin },
     going: [
       { name: "Elena", photo: PHOTOS.elena },
@@ -107,10 +138,17 @@ const UPCOMING: Ride[] = [
       { name: "Marco", photo: PHOTOS.marco },
     ],
     description:
-      "Three sessions, intermediate group. Bring leathers, two tires, and a calm head. Garage spots reserved.",
+      "Three sessions, intermediate group. Bring leathers, spare attention, and respect for the line.",
     privacy: "Invite",
     lat: 30.1328,
     lng: -97.6411,
+    route: [
+      { lat: 30.1328, lng: -97.6411 },
+      { lat: 30.1304, lng: -97.6382 },
+      { lat: 30.1287, lng: -97.6419 },
+      { lat: 30.1318, lng: -97.6445 },
+      { lat: 30.1328, lng: -97.6411 },
+    ],
   },
   {
     id: "r4",
@@ -122,7 +160,8 @@ const UPCOMING: Ride[] = [
     type: "Touring",
     distance: "240 mi",
     duration: "7h",
-    cover: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=900&h=600&fit=crop",
+    cover:
+      "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=1200&h=900&fit=crop",
     host: { name: "Elena Ruiz", photo: PHOTOS.elena },
     going: [
       { name: "Roman", photo: PHOTOS.roman },
@@ -132,14 +171,21 @@ const UPCOMING: Ride[] = [
       { name: "Devin", photo: PHOTOS.devin },
     ],
     description:
-      "BBQ start, two scenic stops, sunset finish on FM-337. Tank full, mind clear.",
+      "A long loop through limestone and silence. Two scenic stops, sunset finish, no rushing the road.",
     privacy: "Open",
     lat: 30.1219,
     lng: -98.0353,
+    route: [
+      { lat: 30.1219, lng: -98.0353 },
+      { lat: 30.19, lng: -98.086 },
+      { lat: 30.248, lng: -98.169 },
+      { lat: 30.292, lng: -98.305 },
+      { lat: 30.22, lng: -98.19 },
+    ],
   },
 ];
 
-const PAST: Ride[] = [
+const PAST_SEED: Ride[] = [
   {
     id: "p1",
     name: "Galveston Coastal Run",
@@ -150,20 +196,56 @@ const PAST: Ride[] = [
     type: "Touring",
     distance: "120 mi",
     duration: "4h",
-    cover: "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=900&h=600&fit=crop",
+    cover:
+      "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=1200&h=900&fit=crop",
+    previewImage:
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&h=900&fit=crop",
     host: { name: "Roman Petrov", photo: PHOTOS.roman },
     going: [
       { name: "Marco", photo: PHOTOS.marco },
       { name: "Elena", photo: PHOTOS.elena },
     ],
-    description: "Sunrise on the seawall. Easy pace, clean line.",
+    description: "Sunrise over the seawall. Easy pace, clean line, no wasted motion.",
     privacy: "Open",
     lat: 29.3013,
     lng: -94.7977,
+    route: [
+      { lat: 29.3013, lng: -94.7977 },
+      { lat: 29.287, lng: -94.79 },
+      { lat: 29.275, lng: -94.776 },
+    ],
   },
 ];
 
-const HOSTED: Ride[] = [];
+type DraftRide = {
+  name: string;
+  date: string;
+  time: string;
+  meetPoint: string;
+  city: string;
+  type: Ride["type"];
+  description: string;
+  privacy: Ride["privacy"];
+  lat: number;
+  lng: number;
+  route: RoutePoint[];
+  previewImage: string;
+};
+
+const INITIAL_DRAFT: DraftRide = {
+  name: "",
+  date: "",
+  time: "",
+  meetPoint: "",
+  city: "",
+  type: "Night Run",
+  description: "",
+  privacy: "Open",
+  lat: 30.2672,
+  lng: -97.7431,
+  route: [],
+  previewImage: "",
+};
 
 export default function RidesPage() {
   const [tab, setTab] = useState<"upcoming" | "past" | "hosted">("upcoming");
@@ -172,271 +254,517 @@ export default function RidesPage() {
   const [pendingRsvp, setPendingRsvp] = useState<string | null>(null);
   const [showHostForm, setShowHostForm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [upcoming] = useState<Ride[]>(UPCOMING_SEED);
+  const [past] = useState<Ride[]>(PAST_SEED);
+  const [hosted, setHosted] = useState<Ride[]>([]);
+  const [draftRide, setDraftRide] = useState<DraftRide>(INITIAL_DRAFT);
 
-  const list = tab === "upcoming" ? UPCOMING : tab === "past" ? PAST : HOSTED;
-  const openRide = openId
-    ? [...UPCOMING, ...PAST].find((r) => r.id === openId)
-    : null;
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const allRides = useMemo(() => [...upcoming, ...past, ...hosted], [upcoming, past, hosted]);
+  const list = tab === "upcoming" ? upcoming : tab === "past" ? past : hosted;
+  const featuredRide = list[0] ?? null;
+  const secondaryRides = featuredRide ? list.slice(1) : list;
+  const openRide = openId ? allRides.find((r) => r.id === openId) ?? null : null;
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (pendingRsvp) setPendingRsvp(null);
+        else if (showHostForm) setShowHostForm(false);
+        else if (openId) setOpenId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openId, pendingRsvp, showHostForm]);
+
+  const pushToast = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+  };
 
   const confirmRsvp = (id: string) => {
-    setGoing((g) => ({ ...g, [id]: !g[id] }));
-    const wasGoing = !!going[id];
-    setToast(wasGoing ? "RSVP cancelled" : "You're going. Added to group chat.");
-    setTimeout(() => setToast(null), 2200);
+    const nextGoing = !going[id];
+    setGoing((g) => ({ ...g, [id]: nextGoing }));
+    pushToast(nextGoing ? "Your seat is held. Added to the ride chat." : "RSVP withdrawn.");
     setPendingRsvp(null);
   };
 
+  const openHostSheet = () => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    setShowHostForm(true);
+  };
+
+  const closeHostSheet = () => {
+    setShowHostForm(false);
+    previousFocus.current?.focus?.();
+  };
+
+  const openDetails = (id: string) => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    setOpenId(id);
+  };
+
+  const closeDetails = () => {
+    setOpenId(null);
+    previousFocus.current?.focus?.();
+  };
+
+  const updateDraft = <K extends keyof DraftRide>(key: K, value: DraftRide[K]) => {
+    setDraftRide((d) => ({ ...d, [key]: value }));
+  };
+
+  const handlePostRide = () => {
+    const hostName = "You";
+    const hostPhoto = PHOTOS.marco;
+
+    const newRide: Ride = {
+      id: `h-${Date.now()}`,
+      name: draftRide.name || "Untitled Run",
+      date: draftRide.date
+        ? new Date(`${draftRide.date}T00:00:00`).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          }).replace(",", " ·")
+        : "Date TBD",
+      time: draftRide.time || "Time TBD",
+      meetPoint: draftRide.meetPoint || "Meet point TBD",
+      city: draftRide.city || "Location TBD",
+      type: draftRide.type,
+      distance: draftRide.route.length > 1 ? "Route set" : "TBD",
+      duration: "TBD",
+      cover:
+        draftRide.previewImage ||
+        "https://images.unsplash.com/photo-1517846693594-1567da72af75?w=1200&h=900&fit=crop",
+      previewImage: draftRide.previewImage || undefined,
+      host: { name: hostName, photo: hostPhoto },
+      going: [],
+      description:
+        draftRide.description || "A new run has been posted. Route and details are set by the host.",
+      privacy: draftRide.privacy,
+      lat: draftRide.lat,
+      lng: draftRide.lng,
+      route: draftRide.route,
+    };
+
+    setHosted((prev) => [newRide, ...prev]);
+    setTab("hosted");
+    setDraftRide(INITIAL_DRAFT);
+    closeHostSheet();
+    pushToast("Ride posted to the ledger.");
+  };
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 90% 40% at 50% -10%, rgba(180,20,30,0.20), transparent 65%)",
+          background: `
+            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+          `,
         }}
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(127,17,27,0.84)] to-transparent"
+      />
 
-      <div className="relative mx-auto max-w-3xl px-6 pt-12 pb-28">
-        {/* Top bar */}
+      <div className="relative mx-auto max-w-[1180px] px-5 pb-28 pt-8 sm:px-8 sm:pt-10">
         <div className="flex items-center justify-between">
-          <span className="text-xs uppercase tracking-[0.4em] text-zinc-500">
-            The Calendar
-          </span>
+          <div className="text-[11px] uppercase tracking-[0.34em] text-zinc-500">
+            The Ledger
+          </div>
+
           <button
-            onClick={() => setShowHostForm(true)}
-            className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] hover:bg-[#b4141e]/30 transition"
+            onClick={openHostSheet}
+            className="rounded-full border border-[rgba(255,255,255,0.28)] bg-[rgba(255,255,255,0.02)] px-5 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.55)] hover:bg-[rgba(127,17,27,0.16)]"
           >
-            + Host a Ride
+            Host Ride
           </button>
         </div>
 
-        {/* Header */}
-        <header className="mt-10 text-center">
-          <div className="mx-auto flex items-center justify-center gap-4">
-            <span className="h-px w-12 bg-white/20" />
-            <span className="text-[#b4141e] text-xl">✦</span>
-            <span className="h-px w-12 bg-white/20" />
-          </div>
-          <h1 className="mt-6 font-serif text-7xl leading-none">Rides</h1>
-          <p className="mt-4 font-serif italic text-3xl text-[#e87a82]">
-            Curated routes. Sanctioned runs.
-          </p>
-        </header>
-
-        {/* Tabs */}
-        <div className="mt-10 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1">
+        <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
           {[
-            { k: "upcoming", label: "Upcoming" },
-            { k: "past", label: "Past" },
-            { k: "hosted", label: "Hosted" },
-          ].map((t) => (
-            <button
-              key={t.k}
-              onClick={() => setTab(t.k as typeof tab)}
-              className={`flex-1 rounded-full py-2.5 text-xs uppercase tracking-[0.3em] transition ${
-                tab === t.k
-                  ? "bg-[#b4141e]/30 text-[#e87a82]"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+            { k: "upcoming", label: "UPCOMING" },
+            { k: "past", label: "PAST" },
+            { k: "hosted", label: "HOSTED" },
+          ].map((t) => {
+            const active = tab === t.k;
+            return (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k as typeof tab)}
+                className={`rounded-full border px-5 py-3 text-[11px] uppercase tracking-[0.22em] transition duration-200 ${
+                  active
+                    ? "border-[rgba(127,17,27,0.72)] bg-[rgba(127,17,27,0.46)] text-[#f4d7db] shadow-[0_0_0_1px_rgba(127,17,27,0.18)_inset]"
+                    : "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.015)] text-zinc-400 hover:border-[rgba(127,17,27,0.34)] hover:text-zinc-200"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Ride list */}
-        <ul className="mt-6 space-y-5">
-          {list.map((r) => {
+        <section className="px-2 pb-4 pt-10 text-center sm:px-10 sm:pt-12">
+          <div className="mx-auto flex items-center justify-center gap-4">
+            <span className="h-px w-12 bg-[rgba(255,255,255,0.14)]" />
+            <span className="text-[13px] text-[rgba(185,37,52,0.98)]">✦</span>
+            <span className="h-px w-12 bg-[rgba(255,255,255,0.14)]" />
+          </div>
+
+          <h1 className="mt-6 font-serif text-[220px] leading-[0.82] tracking-[-0.04em] text-[#f5f1eb] sm:text-[320px]">
+            Rides
+          </h1>
+
+          <div className="-mt-1 space-y-1">
+            <p className="font-serif text-[42px] leading-[1.02] text-[rgba(214,109,123,0.92)] sm:text-[62px]">
+              Curated routes, disciplined company.
+            </p>
+
+            <p className="font-serif text-[42px] leading-[1.02] text-[#d8ccc7] sm:text-[62px]">
+              A clearer line between invitation and chaos.
+            </p>
+          </div>
+        </section>
+
+        {featuredRide && (
+          <section className="mt-10 overflow-hidden rounded-[34px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
+            <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px]">
+              <Image
+                src={featuredRide.cover}
+                alt={featuredRide.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 1180px"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#050405]/30 to-transparent" />
+              <div className="absolute inset-0 ring-1 ring-inset ring-[rgba(255,255,255,0.08)]" />
+
+              <div className="absolute left-5 top-5 flex flex-wrap gap-2">
+                <span className="rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
+                  {featuredRide.type}
+                </span>
+                {featuredRide.privacy === "Invite" && (
+                  <span className="rounded-full border border-[rgba(127,17,27,0.52)] bg-[rgba(127,17,27,0.22)] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#f3d1d6] backdrop-blur-md">
+                    Invite
+                  </span>
+                )}
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-[rgba(229,112,126,0.88)]">
+                  Featured Run
+                </p>
+                <h2 className="mt-3 max-w-3xl font-serif text-[38px] leading-none text-[#f5f1eb] sm:text-[54px]">
+                  {featuredRide.name}
+                </h2>
+                <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-zinc-300">
+                  {featuredRide.date} · {featuredRide.time}
+                </p>
+                <p className="mt-2 text-sm tracking-[0.16em] text-zinc-400 sm:text-[15px]">
+                  {featuredRide.distance} · {featuredRide.duration} · {featuredRide.meetPoint}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
+              <p className="max-w-2xl text-[15px] leading-7 text-zinc-300">
+                {featuredRide.description}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {tab !== "past" && (
+                  <button
+                    onClick={() => setPendingRsvp(featuredRide.id)}
+                    className={`rounded-full border px-5 py-3 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
+                      going[featuredRide.id]
+                        ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.28)] text-[#f4dadd]"
+                        : "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.03)] text-zinc-100 hover:border-[rgba(127,17,27,0.45)] hover:bg-[rgba(127,17,27,0.16)]"
+                    }`}
+                  >
+                    {going[featuredRide.id] ? "Going" : "Hold My Seat"}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => openDetails(featuredRide.id)}
+                  className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.4)] hover:bg-[rgba(127,17,27,0.12)]"
+                >
+                  Details
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <div className="mt-8 flex items-center justify-between gap-4 px-1">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+            {list.length} {list.length === 1 ? "ride" : "rides"}
+          </p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
+            Curated selection
+          </p>
+        </div>
+
+        <ul className="mt-4 space-y-4">
+          {secondaryRides.map((r) => {
             const isGoing = !!going[r.id];
+            const totalGoing = r.going.length + (isGoing ? 1 : 0);
+
             return (
               <li
                 key={r.id}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]"
+                className="overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.07),rgba(255,255,255,0.02))]"
               >
-                {/* Cover */}
-                <div className="relative h-48 w-full overflow-hidden">
-                  <Image src={r.cover} alt={r.name} fill sizes="(max-width: 768px) 100vw, 700px" className="object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent" />
-                  <div className="absolute right-3 top-3 flex gap-2">
-                    <span className="rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-zinc-200 backdrop-blur">
-                      {r.type}
-                    </span>
-                    {r.privacy === "Invite" && (
-                      <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-[#e87a82] backdrop-blur">
-                        Invite
-                      </span>
+                <div className="grid gap-0 md:grid-cols-[240px_1fr]">
+                  <div className="relative h-[190px] w-full overflow-hidden md:h-full">
+                    {r.previewImage ? (
+                      <Image
+                        src={r.previewImage}
+                        alt={`${r.name} preview`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 240px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <RideMap
+                        lat={r.lat}
+                        lng={r.lng}
+                        meetPoint={r.meetPoint}
+                        route={r.route ?? []}
+                        editable={false}
+                        compact
+                        hideHint
+                        height={190}
+                      />
                     )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#050405]/80 via-transparent to-transparent" />
+
+                    <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
+                      {r.type}
+                    </div>
                   </div>
-                  <div className="absolute bottom-3 left-4">
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-300">
-                      {r.date} · {r.time}
+
+                  <div className="p-5 sm:p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                          {r.date} · {r.time}
+                        </p>
+                        <h3 className="mt-3 font-serif text-[30px] leading-none text-[#f4f0ea]">
+                          {r.name}
+                        </h3>
+                      </div>
+
+                      <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">
+                        {totalGoing} going
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-300">
+                      <span>{r.meetPoint}</span>
+                      <span className="text-zinc-700">•</span>
+                      <span>{r.distance}</span>
+                      <span className="text-zinc-700">•</span>
+                      <span>{r.duration}</span>
+                    </div>
+
+                    <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
+                      {r.description}
                     </p>
-                    <h3 className="mt-1 font-serif text-3xl leading-none">{r.name}</h3>
-                  </div>
-                </div>
 
-                {/* Body */}
-                <div className="p-5">
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-zinc-400">
-                    <span className="flex items-center gap-2">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
-                        <path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z" />
-                        <circle cx="12" cy="9" r="2.5" />
-                      </svg>
-                      {r.meetPoint}
-                    </span>
-                    <span className="text-zinc-600">·</span>
-                    <span>{r.distance}</span>
-                    <span className="text-zinc-600">·</span>
-                    <span>{r.duration}</span>
-                  </div>
-
-                  {/* Host + going */}
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative h-8 w-8 overflow-hidden rounded-full border border-[#b4141e]/40">
-                        <Image src={r.host.photo} alt={r.host.name} fill sizes="32px" className="object-cover" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Hosted by</p>
-                        <p className="text-sm text-zinc-200">{r.host.name}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center">
-                      {r.going.slice(0, 4).map((g, i) => (
-                        <div
-                          key={g.name}
-                          className="relative h-7 w-7 overflow-hidden rounded-full border-2 border-[#050505]"
-                          style={{ marginLeft: i === 0 ? 0 : "-8px" }}
-                        >
-                          <Image src={g.photo} alt={g.name} fill sizes="28px" className="object-cover" />
+                    <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center">
+                          {r.going.slice(0, 4).map((g, i) => (
+                            <div
+                              key={g.name}
+                              className="relative h-9 w-9 overflow-hidden rounded-full border border-[#120b0d]"
+                              style={{ marginLeft: i === 0 ? 0 : "-8px" }}
+                            >
+                              <Image
+                                src={g.photo}
+                                alt={g.name}
+                                fill
+                                sizes="36px"
+                                className="object-cover"
+                              />
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      {r.going.length > 4 && (
-                        <span className="ml-2 text-xs text-zinc-500">+{r.going.length - 4}</span>
-                      )}
+
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                            Hosted by
+                          </p>
+                          <p className="text-xs text-zinc-300">{r.host.name}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {tab !== "past" ? (
+                          <>
+                            <button
+                              onClick={() => setPendingRsvp(r.id)}
+                              className={`rounded-full border px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
+                                isGoing
+                                  ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.28)] text-[#f4dadd]"
+                                  : "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] text-zinc-100 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.14)]"
+                              }`}
+                            >
+                              {isGoing ? "Going" : "Seat"}
+                            </button>
+
+                            <button
+                              onClick={() => openDetails(r.id)}
+                              className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
+                            >
+                              Details
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => openDetails(r.id)}
+                            className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
+                          >
+                            Recap
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  {/* Buttons */}
-                  {tab !== "past" && (
-                    <div className="mt-5 flex gap-2">
-                      <button
-                        onClick={() => setPendingRsvp(r.id)}
-                        className={`flex-1 rounded-full border py-3 text-xs uppercase tracking-[0.3em] transition ${
-                          isGoing
-                            ? "border-[#b4141e] bg-[#b4141e]/30 text-[#e87a82]"
-                            : "border-[#b4141e] bg-[#b4141e]/15 text-[#e87a82] hover:bg-[#b4141e]/25"
-                        }`}
-                      >
-                        {isGoing ? "✓ Going" : "I'm Going"}
-                      </button>
-                      <button
-                        onClick={() => setOpenId(r.id)}
-                        className="flex-1 rounded-full border border-white/10 py-3 text-xs uppercase tracking-[0.3em] text-zinc-300 hover:border-white/30 transition"
-                      >
-                        Details
-                      </button>
-                    </div>
-                  )}
-
-                  {tab === "past" && (
-                    <button
-                      onClick={() => setOpenId(r.id)}
-                      className="mt-5 w-full rounded-full border border-white/10 py-3 text-xs uppercase tracking-[0.3em] text-zinc-400 hover:border-white/30 transition"
-                    >
-                      View Recap
-                    </button>
-                  )}
                 </div>
               </li>
             );
           })}
 
           {list.length === 0 && (
-            <li className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 text-center">
-              <p className="font-serif italic text-xl text-zinc-400">
+            <li className="rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] p-12 text-center">
+              <p className="font-serif text-3xl text-[#f3efe9]">
                 {tab === "hosted"
-                  ? "You haven't hosted a ride yet. Be the one who calls the run."
-                  : "Nothing here yet."}
+                  ? "You have not called a run yet."
+                  : "Nothing has been entered into the book."}
+              </p>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-400">
+                {tab === "hosted"
+                  ? "Plot the line, set the terms, and call the company."
+                  : "Check again when the next route is posted."}
               </p>
             </li>
           )}
         </ul>
       </div>
 
-      {/* RIDE DETAIL SHEET */}
       {openRide && (
         <div
-          onClick={() => setOpenId(null)}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center overflow-y-auto"
+          onClick={closeDetails}
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/82 px-4 py-6 backdrop-blur-md sm:items-center"
+          aria-modal="true"
+          role="dialog"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative my-8 w-full max-w-lg rounded-t-3xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#050505] sm:rounded-3xl"
+            className="relative my-6 w-full max-w-3xl overflow-hidden rounded-[34px] border border-[rgba(255,255,255,0.08)] bg-[#090709] shadow-[0_30px_90px_-30px_rgba(0,0,0,0.95)]"
           >
             <button
-              onClick={() => setOpenId(null)}
-              className="absolute right-5 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-zinc-300 hover:text-white text-xl backdrop-blur"
+              onClick={closeDetails}
+              aria-label="Close ride details"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-zinc-300 transition hover:border-white/20 hover:text-white"
             >
               ×
             </button>
 
-            {/* Cover */}
-            <div className="relative h-56 w-full overflow-hidden rounded-t-3xl">
+            <div className="relative h-64 w-full overflow-hidden sm:h-80">
               <Image src={openRide.cover} alt={openRide.name} fill className="object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0d] via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-5">
-                <p className="text-xs uppercase tracking-[0.3em] text-zinc-300">
+              <div className="absolute inset-0 bg-gradient-to-t from-[#090709] via-[#090709]/15 to-transparent" />
+
+              <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-300">
                   {openRide.date} · {openRide.time}
                 </p>
-                <h2 className="mt-1 font-serif text-4xl leading-none">{openRide.name}</h2>
-                <p className="mt-1 text-sm text-zinc-400">{openRide.city}</p>
+                <h2 className="mt-3 font-serif text-4xl leading-none text-[#f4f0ea] sm:text-5xl">
+                  {openRide.name}
+                </h2>
+                <p className="mt-3 text-sm text-zinc-300">{openRide.city}</p>
               </div>
             </div>
 
-            <div className="space-y-5 p-6">
-              {/* Map */}
-              <RideMap lat={openRide.lat} lng={openRide.lng} meetPoint={openRide.meetPoint} />
-
-              {/* Quick stats */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500">Distance</p>
-                  <p className="mt-1 font-serif text-xl">{openRide.distance}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500">Duration</p>
-                  <p className="mt-1 font-serif text-xl">{openRide.duration}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500">Going</p>
-                  <p className="mt-1 font-serif text-xl">{openRide.going.length + (going[openRide.id] ? 1 : 0)}</p>
-                </div>
+            <div className="space-y-6 p-5 sm:p-7">
+              <div className="overflow-hidden rounded-[26px] border border-[rgba(255,255,255,0.08)] bg-black/40">
+                <RideMap
+                  lat={openRide.lat}
+                  lng={openRide.lng}
+                  meetPoint={openRide.meetPoint}
+                  route={openRide.route ?? []}
+                  editable={false}
+                  height={340}
+                />
               </div>
 
-              {/* Description */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Distance", value: openRide.distance },
+                  { label: "Duration", value: openRide.duration },
+                  {
+                    label: "Going",
+                    value: String(openRide.going.length + (going[openRide.id] ? 1 : 0)),
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[22px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 text-center"
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-lg font-medium text-zinc-100">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
               <div>
-                <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">The Run</p>
-                <p className="mt-2 text-base leading-relaxed text-zinc-300">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">The Run</p>
+                <p className="mt-3 max-w-2xl text-[15px] leading-7 text-zinc-300">
                   {openRide.description}
                 </p>
               </div>
 
-              {/* Riders */}
               <div>
-                <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                  Riders Going ({openRide.going.length})
-                </p>
-                <div className="mt-3 flex flex-wrap gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Riders Going
+                  </p>
+                  <p className="text-sm text-zinc-500">{openRide.going.length} confirmed</p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-4">
                   {openRide.going.map((g) => (
-                    <div key={g.name} className="flex flex-col items-center gap-1">
-                      <div className="relative h-12 w-12 overflow-hidden rounded-full border border-[#b4141e]/40">
-                        <Image src={g.photo} alt={g.name} fill sizes="48px" className="object-cover" />
+                    <div key={g.name} className="flex flex-col items-center gap-2">
+                      <div className="relative h-12 w-12 overflow-hidden rounded-full border border-[rgba(127,17,27,0.35)]">
+                        <Image
+                          src={g.photo}
+                          alt={g.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
                       </div>
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                         {g.name}
                       </span>
                     </div>
@@ -444,152 +772,350 @@ export default function RidesPage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Link
                   href={`/messages/${openRide.id}`}
-                  className="flex-1 rounded-full border border-white/10 py-3 text-center text-xs uppercase tracking-[0.3em] text-zinc-300 hover:border-[#b4141e]/60 hover:text-[#e87a82] transition"
+                  className="flex-1 rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] py-3 text-center text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
                 >
                   Group Chat
                 </Link>
-                <button
-                  onClick={() => setPendingRsvp(openRide.id)}
-                  className={`flex-1 rounded-full border py-3 text-xs uppercase tracking-[0.3em] transition ${
-                    going[openRide.id]
-                      ? "border-[#b4141e] bg-[#b4141e]/30 text-[#e87a82]"
-                      : "border-[#b4141e] bg-[#b4141e]/15 text-[#e87a82] hover:bg-[#b4141e]/25"
-                  }`}
-                >
-                  {going[openRide.id] ? "✓ Going" : "I'm Going"}
-                </button>
+
+                {tab !== "past" && (
+                  <button
+                    onClick={() => setPendingRsvp(openRide.id)}
+                    className={`flex-1 rounded-full border py-3 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
+                      going[openRide.id]
+                        ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.28)] text-[#f4dadd]"
+                        : "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] text-zinc-100 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.14)]"
+                    }`}
+                  >
+                    {going[openRide.id] ? "Going" : "Hold My Seat"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* RSVP CONFIRMATION */}
       {pendingRsvp && (
         <div
           onClick={() => setPendingRsvp(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm px-6"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/86 px-6 backdrop-blur-md"
+          aria-modal="true"
+          role="dialog"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#050505] p-7 text-center"
+            className="w-full max-w-sm rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[#090709] p-7 text-center shadow-[0_25px_60px_-25px_rgba(0,0,0,0.92)]"
           >
             <div className="mx-auto flex items-center justify-center gap-3">
-              <span className="h-px w-8 bg-white/20" />
-              <span className="text-[#b4141e]">✦</span>
-              <span className="h-px w-8 bg-white/20" />
+              <span className="h-px w-8 bg-white/15" />
+              <span className="text-[rgba(127,17,27,0.95)]">✦</span>
+              <span className="h-px w-8 bg-white/15" />
             </div>
-            <h3 className="mt-4 font-serif text-3xl">
-              {going[pendingRsvp] ? "Cancel RSVP?" : "Lock it in?"}
+
+            <h3 className="mt-5 font-serif text-3xl text-[#f3efe9]">
+              {going[pendingRsvp] ? "Withdraw your seat?" : "Confirm your place?"}
             </h3>
-            <p className="mt-3 text-sm text-zinc-400">
+
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
               {going[pendingRsvp]
-                ? "You'll be removed from the ride and the group chat."
-                : "You'll be added to the group chat and the host will be notified."}
+                ? "You will be removed from the ride and the private chat."
+                : "You will be added to the ride roster and the private chat."}
             </p>
+
             <div className="mt-6 flex gap-2">
               <button
                 onClick={() => setPendingRsvp(null)}
-                className="flex-1 rounded-full border border-white/10 py-3 text-xs uppercase tracking-[0.3em] text-zinc-300 hover:border-white/30 transition"
+                className="flex-1 rounded-full border border-white/10 bg-white/[0.02] py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-300 transition duration-200 hover:border-white/20"
               >
                 Cancel
               </button>
               <button
                 onClick={() => confirmRsvp(pendingRsvp)}
-                className="flex-1 rounded-full border border-[#b4141e] bg-[#b4141e]/25 py-3 text-xs uppercase tracking-[0.3em] text-[#e87a82] hover:bg-[#b4141e]/35 transition"
+                className="flex-1 rounded-full border border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.22)] py-3 text-[11px] uppercase tracking-[0.18em] text-[#f4dadd] transition duration-200 hover:bg-[rgba(127,17,27,0.28)]"
               >
-                {going[pendingRsvp] ? "Cancel RSVP" : "Confirm"}
+                {going[pendingRsvp] ? "Withdraw" : "Confirm"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* HOST A RIDE FORM */}
       {showHostForm && (
         <div
-          onClick={() => setShowHostForm(false)}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center overflow-y-auto"
+          onClick={closeHostSheet}
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/82 px-4 py-6 backdrop-blur-md sm:items-center"
+          aria-modal="true"
+          role="dialog"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative my-8 w-full max-w-md rounded-t-3xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#050505] p-7 sm:rounded-3xl"
+            className="relative my-6 w-full max-w-3xl rounded-[34px] border border-[rgba(255,255,255,0.08)] bg-[#090709] p-5 shadow-[0_30px_90px_-30px_rgba(0,0,0,0.95)] sm:p-6"
           >
             <button
-              onClick={() => setShowHostForm(false)}
-              className="absolute right-5 top-5 text-zinc-500 hover:text-white text-2xl"
+              onClick={closeHostSheet}
+              aria-label="Close host ride form"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-zinc-300 transition hover:border-white/20 hover:text-white"
             >
               ×
             </button>
 
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-[0.4em] text-zinc-500">Call the Run</p>
-              <h2 className="mt-3 font-serif text-4xl">Host a Ride</h2>
+            <div className="pr-10">
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-white/12" />
+                <span className="text-[rgba(127,17,27,0.95)]">✦</span>
+                <span className="h-px w-8 bg-white/12" />
+              </div>
+
+              <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                Call the Run
+              </p>
+              <h2 className="mt-3 font-serif text-4xl text-[#f3efe9] sm:text-5xl">
+                Host a Ride
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+                Set the terms, mark the meet point, and draw the route so every rider knows the line before the engines turn.
+              </p>
             </div>
 
-            <div className="mt-7 space-y-4">
-              <input
-                placeholder="Ride name"
-                className="w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20 transition"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="date"
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none transition"
-                />
-                <input
-                  type="time"
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none transition"
-                />
+            <div className="mt-7 grid gap-6 lg:grid-cols-[1.05fr_1.2fr]">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Ride name
+                  </label>
+                  <input
+                    value={draftRide.name}
+                    onChange={(e) => updateDraft("name", e.target.value)}
+                    placeholder="Midnight cathedral run"
+                    className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[rgba(127,17,27,0.55)] focus:ring-2 focus:ring-[rgba(127,17,27,0.18)]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={draftRide.date}
+                      onChange={(e) => updateDraft("date", e.target.value)}
+                      className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-[rgba(127,17,27,0.55)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                      Time
+                    </label>
+                    <input
+                      type="time"
+                      value={draftRide.time}
+                      onChange={(e) => updateDraft("time", e.target.value)}
+                      className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-[rgba(127,17,27,0.55)]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Meet point
+                  </label>
+                  <input
+                    value={draftRide.meetPoint}
+                    onChange={(e) => updateDraft("meetPoint", e.target.value)}
+                    placeholder="Address or landmark"
+                    className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[rgba(127,17,27,0.55)] focus:ring-2 focus:ring-[rgba(127,17,27,0.18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    City
+                  </label>
+                  <input
+                    value={draftRide.city}
+                    onChange={(e) => updateDraft("city", e.target.value)}
+                    placeholder="Austin, TX"
+                    className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[rgba(127,17,27,0.55)] focus:ring-2 focus:ring-[rgba(127,17,27,0.18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Preview image
+                  </label>
+                  <input
+                    value={draftRide.previewImage}
+                    onChange={(e) => updateDraft("previewImage", e.target.value)}
+                    placeholder="Paste an image URL of riders, bikes, or the mood of the run"
+                    className="w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[rgba(127,17,27,0.55)] focus:ring-2 focus:ring-[rgba(127,17,27,0.18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Ride type
+                  </label>
+                  <select
+                    value={draftRide.type}
+                    onChange={(e) => updateDraft("type", e.target.value as Ride["type"])}
+                    className="w-full appearance-none rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-[rgba(127,17,27,0.55)]"
+                  >
+                    <option className="bg-[#0b0b0c]">Night Run</option>
+                    <option className="bg-[#0b0b0c]">Canyon Run</option>
+                    <option className="bg-[#0b0b0c]">Touring</option>
+                    <option className="bg-[#0b0b0c]">Track Day</option>
+                    <option className="bg-[#0b0b0c]">Group Ride</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Description
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={draftRide.description}
+                    onChange={(e) => updateDraft("description", e.target.value)}
+                    placeholder="Set the mood, the pace, the stops, and the expectations."
+                    className="w-full resize-none rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm leading-6 text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[rgba(127,17,27,0.55)] focus:ring-2 focus:ring-[rgba(127,17,27,0.18)]"
+                  />
+                </div>
+
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Access
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateDraft("privacy", "Open")}
+                      className={`rounded-[18px] border px-4 py-3 text-[11px] uppercase tracking-[0.18em] transition ${
+                        draftRide.privacy === "Open"
+                          ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.22)] text-[#f4dadd]"
+                          : "border-[rgba(255,255,255,0.08)] text-zinc-400 hover:border-[rgba(127,17,27,0.32)]"
+                      }`}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateDraft("privacy", "Invite")}
+                      className={`rounded-[18px] border px-4 py-3 text-[11px] uppercase tracking-[0.18em] transition ${
+                        draftRide.privacy === "Invite"
+                          ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.22)] text-[#f4dadd]"
+                          : "border-[rgba(255,255,255,0.08)] text-zinc-400 hover:border-[rgba(127,17,27,0.32)]"
+                      }`}
+                    >
+                      Invite Only
+                    </button>
+                  </div>
+                </div>
               </div>
-              <input
-                placeholder="Meet point (address or place)"
-                className="w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20 transition"
-              />
-              <select className="w-full appearance-none rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 focus:border-[#b4141e]/60 focus:outline-none transition">
-                <option className="bg-[#0c0c0d]">Type · Night Run</option>
-                <option className="bg-[#0c0c0d]">Type · Canyon Run</option>
-                <option className="bg-[#0c0c0d]">Type · Touring</option>
-                <option className="bg-[#0c0c0d]">Type · Track Day</option>
-                <option className="bg-[#0c0c0d]">Type · Group Ride</option>
-              </select>
-              <textarea
-                rows={3}
-                placeholder="The run · what's the vibe, the pace, the stops?"
-                className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20 transition"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <button className="rounded-xl border border-[#b4141e] bg-[#b4141e]/15 px-4 py-3 text-sm uppercase tracking-[0.25em] text-[#e87a82]">
-                  Open
-                </button>
-                <button className="rounded-xl border border-white/10 px-4 py-3 text-sm uppercase tracking-[0.25em] text-zinc-400 hover:border-white/30 transition">
-                  Invite Only
-                </button>
+
+              <div>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                      Plot the line
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-300">
+                      Click once to set the meet point, then keep clicking to draw the route.
+                    </p>
+                  </div>
+                  <div className="text-right text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                    {draftRide.route.length} route points
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-[26px] border border-[rgba(255,255,255,0.08)] bg-black/40">
+                  <RideMap
+                    lat={draftRide.lat}
+                    lng={draftRide.lng}
+                    meetPoint={draftRide.meetPoint || "Meet point"}
+                    route={draftRide.route}
+                    editable
+                    height={420}
+                    onMeetPointChange={(point) => {
+                      updateDraft("lat", point.lat);
+                      updateDraft("lng", point.lng);
+                    }}
+                    onRouteChange={(route) => updateDraft("route", route)}
+                  />
+                </div>
+
+                <div className="mt-3 rounded-[22px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                    Host controls
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateDraft("route", [])}
+                      className="rounded-full border border-[rgba(255,255,255,0.12)] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[rgba(127,17,27,0.32)]"
+                    >
+                      Clear route
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateDraft(
+                          "route",
+                          draftRide.route.slice(0, Math.max(0, draftRide.route.length - 1))
+                        )
+                      }
+                      className="rounded-full border border-[rgba(255,255,255,0.12)] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[rgba(127,17,27,0.32)]"
+                    >
+                      Remove last point
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateDraft("lat", 30.2672);
+                        updateDraft("lng", -97.7431);
+                        updateDraft("route", []);
+                      }}
+                      className="rounded-full border border-[rgba(255,255,255,0.12)] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[rgba(127,17,27,0.32)]"
+                    >
+                      Reset map
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-zinc-400">
+                    The route appears as a live crimson line. Riders will see this same path inside the detail sheet before they RSVP.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setShowHostForm(false);
-                setToast("Ride posted to the calendar.");
-                setTimeout(() => setToast(null), 2200);
-              }}
-              className="mt-6 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/25 py-3.5 text-sm uppercase tracking-[0.3em] text-[#e87a82] hover:bg-[#b4141e]/35 transition"
-            >
-              Post the Ride
-            </button>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={closeHostSheet}
+                className="flex-1 rounded-full border border-white/10 bg-white/[0.02] py-3.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300 transition duration-200 hover:border-white/20"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePostRide}
+                className="flex-1 rounded-full border border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.22)] py-3.5 text-[11px] uppercase tracking-[0.18em] text-[#f4dadd] transition duration-200 hover:bg-[rgba(127,17,27,0.28)]"
+              >
+                Post the Ride
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/60 bg-[#0c0c0d]/95 px-5 py-3 text-xs uppercase tracking-[0.3em] text-[#e87a82] shadow-[0_0_24px_-6px_rgba(180,20,30,0.7)] backdrop-blur">
-          ✦ {toast}
+        <div className="fixed bottom-10 left-1/2 z-[70] -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-full border border-[rgba(127,17,27,0.28)] bg-[linear-gradient(180deg,rgba(127,17,27,0.2),rgba(11,11,12,0.95))] px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-zinc-100 shadow-[0_20px_40px_-20px_rgba(0,0,0,0.95)] backdrop-blur-md">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[rgba(127,17,27,0.95)]" />
+            {toast}
+          </div>
         </div>
       )}
     </main>

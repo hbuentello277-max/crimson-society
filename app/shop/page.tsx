@@ -10,7 +10,7 @@ import {
   badgeStyle,
   categoryLabels,
   formatPrice,
-  products,
+  fetchProducts,
 } from "@/lib/products";
 import { useCart, useCartCount } from "@/lib/cart-store";
 
@@ -25,6 +25,9 @@ export default function ShopPage() {
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [sizeError, setSizeError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [productList, setProductList] = useState<Product[]>([]);
 
   const cartCount = useCartCount();
   const addItem = useCart((s) => s.addItem);
@@ -33,7 +36,24 @@ export default function ShopPage() {
   const showToast = useCart((s) => s.showToast);
   const drawerOpen = useCart((s) => s.drawerOpen);
 
-  // Close the product sheet whenever the cart drawer opens
+  useEffect(() => {
+    async function loadProducts() {
+      setLoading(true);
+      setErrorMsg("");
+
+      try {
+        const data = await fetchProducts();
+        setProductList(data);
+      } catch (error: any) {
+        setErrorMsg(error.message || "Failed to load products.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
   useEffect(() => {
     if (drawerOpen) {
       setActive(null);
@@ -43,13 +63,30 @@ export default function ShopPage() {
   }, [drawerOpen]);
 
   const filtered = useMemo(() => {
-    let list = products;
-    if (category !== "all") list = list.filter((p) => p.category === category);
-    if (sort === "newest") list = [...list].sort((a) => (a.badge === "new" ? -1 : 1));
-    if (sort === "price-low") list = [...list].sort((a, b) => a.price - b.price);
-    if (sort === "price-high") list = [...list].sort((a, b) => b.price - a.price);
+    let list = [...productList];
+
+    if (category !== "all") {
+      list = list.filter((p) => p.category === category);
+    }
+
+    if (sort === "newest") {
+      list = [...list].sort((a, b) => {
+        if (a.badge === "new" && b.badge !== "new") return -1;
+        if (a.badge !== "new" && b.badge === "new") return 1;
+        return 0;
+      });
+    }
+
+    if (sort === "price-low") {
+      list = [...list].sort((a, b) => a.price - b.price);
+    }
+
+    if (sort === "price-high") {
+      list = [...list].sort((a, b) => b.price - a.price);
+    }
+
     return list;
-  }, [category, sort]);
+  }, [category, sort, productList]);
 
   const openProduct = (p: Product) => {
     setActive(p);
@@ -66,17 +103,30 @@ export default function ShopPage() {
     setSizeError(false);
   };
 
+  const isWaitlistState = (product: Product) =>
+    product.status === "out_of_stock" || product.status === "waitlist";
+
+  const isComingSoon = (product: Product) => product.status === "coming_soon";
+
   const handleAdd = () => {
     if (!active) return;
-    if (active.badge === "sold-out") {
+
+    if (isComingSoon(active)) {
+      showToast("Coming soon", "This piece has not been released yet");
+      return;
+    }
+
+    if (isWaitlistState(active)) {
       setShowWaitlist(true);
       return;
     }
+
     if (!size) {
       setSizeError(true);
       setTimeout(() => setSizeError(false), 1400);
       return;
     }
+
     addItem(active.id, size, active.name);
     closeProduct();
   };
@@ -84,6 +134,7 @@ export default function ShopPage() {
   const handleWaitlistSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!active || !waitlistEmail.trim()) return;
+
     joinWaitlist(active.id, waitlistEmail.trim());
     showToast("Added to the waitlist", "We'll write when it returns");
     closeProduct();
@@ -91,7 +142,6 @@ export default function ShopPage() {
 
   return (
     <main className="min-h-screen bg-[#050505] pb-32 text-white">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
         <div className="mx-auto max-w-2xl px-5 py-4">
           <div className="flex items-center justify-between">
@@ -99,6 +149,7 @@ export default function ShopPage() {
               <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Outfitter</p>
               <h1 className="font-serif text-3xl italic text-white">Shop</h1>
             </div>
+
             <button
               onClick={openDrawer}
               className="relative flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white/80 transition hover:border-[#b4141e]/60 hover:text-white"
@@ -113,6 +164,7 @@ export default function ShopPage() {
               >
                 {cartCount}
               </motion.span>
+
               {cartCount > 0 && (
                 <motion.span
                   initial={{ scale: 0 }}
@@ -127,7 +179,6 @@ export default function ShopPage() {
         </div>
       </header>
 
-      {/* Hero drop banner */}
       <section className="mx-auto max-w-2xl px-5 pt-6">
         <div className="relative overflow-hidden rounded-3xl border border-white/10">
           <div className="relative aspect-[16/10] w-full">
@@ -151,7 +202,6 @@ export default function ShopPage() {
         </div>
       </section>
 
-      {/* Filters */}
       <section className="mx-auto mt-6 max-w-2xl px-5">
         <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
           {(Object.keys(categoryLabels) as Category[]).map((c) => (
@@ -173,6 +223,7 @@ export default function ShopPage() {
           <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
             {filtered.length} piece{filtered.length === 1 ? "" : "s"}
           </p>
+
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">Sort</span>
             <select
@@ -189,59 +240,79 @@ export default function ShopPage() {
         </div>
       </section>
 
-      {/* Grid */}
       <section className="mx-auto mt-6 max-w-2xl px-5">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
-          {filtered.map((p) => (
-            <motion.button
-              key={p.id}
-              layout
-              whileHover={{ y: -3 }}
-              transition={{ type: "spring", stiffness: 300, damping: 22 }}
-              onClick={() => openProduct(p)}
-              className="group overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.18)]"
-            >
-              <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-                <Image
-                  src={p.images[0]}
-                  alt={p.name}
-                  fill
-                  className={`object-cover transition duration-500 group-hover:scale-105 ${
-                    p.badge === "sold-out" ? "opacity-50 grayscale" : ""
-                  }`}
-                />
-                {p.badge && (
-                  <span
-                    className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] backdrop-blur ${badgeStyle(
-                      p.badge
-                    )}`}
-                  >
-                    {badgeLabel(p.badge)}
-                  </span>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="truncate font-serif text-base italic text-white">{p.name}</p>
-                <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.2em] text-white/45">
-                  {p.tagline}
-                </p>
-                <p className="mt-2 text-sm text-[#e87a82]">{formatPrice(p.price)}</p>
-              </div>
-            </motion.button>
-          ))}
-        </div>
+        {loading ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/70">
+            Loading shop…
+          </div>
+        ) : errorMsg ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-300">
+            {errorMsg}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center">
+            <p className="font-serif text-2xl italic text-white">No pieces here yet.</p>
+            <p className="mt-2 text-sm text-white/50">
+              Add products from the admin shop panel and they’ll appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+            {filtered.map((p) => (
+              <motion.button
+                key={p.id}
+                layout
+                whileHover={{ y: -3 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                onClick={() => openProduct(p)}
+                className="group overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.18)]"
+              >
+                <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
+                  <Image
+                    src={p.images[0] || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"}
+                    alt={p.name}
+                    fill
+                    className={`object-cover transition duration-500 group-hover:scale-105 ${
+                      isWaitlistState(p) ? "opacity-50 grayscale" : ""
+                    }`}
+                  />
+
+                  {(p.badge || p.status === "coming_soon") && (
+                    <span
+                      className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] backdrop-blur ${
+                        p.status === "coming_soon"
+                          ? "border-white/20 bg-black/80 text-white/70"
+                          : badgeStyle(p.badge)
+                      }`}
+                    >
+                      {p.status === "coming_soon" ? "Coming Soon" : badgeLabel(p.badge)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-3">
+                  <p className="truncate font-serif text-base italic text-white">{p.name}</p>
+                  <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.2em] text-white/45">
+                    {p.tagline}
+                  </p>
+                  <p className="mt-2 text-sm text-[#e87a82]">{formatPrice(p.price)}</p>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        )}
 
         <div className="mt-12 flex items-center justify-center gap-3 text-white/30">
           <div className="h-px w-12 bg-white/15" />
           <span className="text-xs">✦</span>
           <div className="h-px w-12 bg-white/15" />
         </div>
+
         <p className="mt-4 text-center text-[10px] uppercase tracking-[0.4em] text-white/30">
           © Crimson Society · MMXXVI
         </p>
       </section>
 
-      {/* Product detail sheet */}
       <AnimatePresence>
         {active && (
           <motion.div
@@ -274,7 +345,6 @@ export default function ShopPage() {
                 </button>
               </div>
 
-              {/* Carousel */}
               <div className="mt-4 px-5">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-black">
                   <AnimatePresence mode="wait">
@@ -287,22 +357,26 @@ export default function ShopPage() {
                       className="absolute inset-0"
                     >
                       <Image
-                        src={active.images[imgIdx]}
+                        src={
+                          active.images[imgIdx] ||
+                          "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
+                        }
                         alt={active.name}
                         fill
-                        className={`object-cover ${
-                          active.badge === "sold-out" ? "opacity-60 grayscale" : ""
-                        }`}
+                        className={`object-cover ${isWaitlistState(active) ? "opacity-60 grayscale" : ""}`}
                       />
                     </motion.div>
                   </AnimatePresence>
-                  {active.badge && (
+
+                  {(active.badge || active.status === "coming_soon") && (
                     <span
-                      className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] backdrop-blur ${badgeStyle(
-                        active.badge
-                      )}`}
+                      className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] backdrop-blur ${
+                        active.status === "coming_soon"
+                          ? "border-white/20 bg-black/80 text-white/70"
+                          : badgeStyle(active.badge)
+                      }`}
                     >
-                      {badgeLabel(active.badge)}
+                      {active.status === "coming_soon" ? "Coming Soon" : badgeLabel(active.badge)}
                     </span>
                   )}
                 </div>
@@ -324,7 +398,6 @@ export default function ShopPage() {
                 )}
               </div>
 
-              {/* Info */}
               <div className="px-5 py-5">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
                   {categoryLabels[active.category]}
@@ -351,10 +424,14 @@ export default function ShopPage() {
                         >
                           {sizeError ? "Pick a size first" : "Size"}
                         </p>
-                        <button className="text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
+                        <button
+                          type="button"
+                          className="text-[10px] uppercase tracking-[0.25em] text-[#e87a82]"
+                        >
                           Size Guide
                         </button>
                       </div>
+
                       <motion.div
                         animate={sizeError ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
                         transition={{ duration: 0.4 }}
@@ -367,13 +444,15 @@ export default function ShopPage() {
                               setSize(s);
                               setSizeError(false);
                             }}
-                            disabled={active.badge === "sold-out"}
+                            disabled={isWaitlistState(active) || isComingSoon(active)}
                             className={`min-w-[3rem] rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.2em] transition ${
                               size === s
                                 ? "border-[#b4141e] bg-[#b4141e]/15 text-white shadow-[0_0_12px_rgba(180,20,30,0.3)]"
                                 : "border-white/10 bg-black/30 text-white/70 hover:border-white/30"
                             } ${
-                              active.badge === "sold-out" ? "cursor-not-allowed opacity-40" : ""
+                              isWaitlistState(active) || isComingSoon(active)
+                                ? "cursor-not-allowed opacity-40"
+                                : ""
                             }`}
                           >
                             {s}
@@ -385,12 +464,18 @@ export default function ShopPage() {
                     <button
                       onClick={handleAdd}
                       className={`mt-6 w-full rounded-full px-6 py-3.5 text-xs uppercase tracking-[0.3em] transition ${
-                        active.badge === "sold-out"
+                        isComingSoon(active)
+                          ? "border border-white/10 bg-white/[0.04] text-white/65 hover:border-white/20"
+                          : isWaitlistState(active)
                           ? "border border-white/10 bg-black/40 text-white/80 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-white"
                           : "bg-[#b4141e] text-white shadow-[0_0_25px_rgba(180,20,30,0.4)] hover:bg-[#d11827]"
                       }`}
                     >
-                      {active.badge === "sold-out" ? "Join the Waitlist" : "Add to Bag"}
+                      {isComingSoon(active)
+                        ? "Coming Soon"
+                        : isWaitlistState(active)
+                        ? "Join the Waitlist"
+                        : "Add to Bag"}
                     </button>
                   </>
                 )}
@@ -406,8 +491,9 @@ export default function ShopPage() {
                       Join the Waitlist
                     </p>
                     <p className="mt-1 text-sm text-white/70">
-                      Drop your email — we'll write when it returns.
+                      Drop your email — we&apos;ll write when it returns.
                     </p>
+
                     <div className="mt-3 flex gap-2">
                       <input
                         type="email"
@@ -424,6 +510,7 @@ export default function ShopPage() {
                         Notify
                       </button>
                     </div>
+
                     <button
                       type="button"
                       onClick={() => setShowWaitlist(false)}

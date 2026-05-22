@@ -55,6 +55,24 @@ type ProfileForm = {
   youtube_url: string;
 };
 
+function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Upload timed out. Please try again."));
+    }, ms);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 function ProfileSkeleton() {
   return (
     <div className="animate-pulse">
@@ -199,6 +217,7 @@ export default function ProfilePage() {
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [form, setForm] = useState<ProfileForm>({
     display_name: "Hector Buentello",
@@ -258,6 +277,8 @@ export default function ProfilePage() {
         return;
       }
 
+      setUserId(user.id);
+
       const profileResponse = await supabase
         .from("profiles")
         .select(
@@ -286,6 +307,8 @@ export default function ProfilePage() {
 
       if (profileData.profile_image_url) {
         setProfileImageUrl(withCacheBust(profileData.profile_image_url));
+      } else {
+        setProfileImageUrl("");
       }
 
       setForm((prev) => ({
@@ -389,27 +412,16 @@ export default function ProfilePage() {
 
     setMotorcycles((prev) => prev.filter((bike) => bike.id !== id));
 
-    if (!bikeToDelete || bikeToDelete.isNew) return;
+    if (!bikeToDelete || bikeToDelete.isNew || !userId) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    await supabase.from("motorcycles").delete().eq("id", id).eq("user_id", user.id);
+    await supabase.from("motorcycles").delete().eq("id", id).eq("user_id", userId);
   }
 
   async function saveGarage() {
     setSavingGarage(true);
     setGarageMsg("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!userId) {
       setGarageMsg("You need to be logged in to save.");
       setSavingGarage(false);
       return;
@@ -417,7 +429,7 @@ export default function ProfilePage() {
 
     const payload = motorcycles.map((bike) => ({
       id: bike.id,
-      user_id: user.id,
+      user_id: userId,
       label: bike.label,
       name: bike.name,
       year: bike.year,
@@ -443,12 +455,7 @@ export default function ProfilePage() {
     setSavingProfile(true);
     setProfileMsg("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!userId) {
       setProfileMsg("You need to be logged in to save.");
       setSavingProfile(false);
       return;
@@ -468,7 +475,7 @@ export default function ProfilePage() {
     const response = await supabase
       .from("profiles")
       .update(payload)
-      .eq("id", user.id);
+      .eq("id", userId);
 
     if (response.error) {
       setProfileMsg(response.error.message);
@@ -484,28 +491,35 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!userId) {
+      setProfileMsg("You need to be logged in to upload an image.");
+      e.target.value = "";
+      return;
+    }
+
     setUploadingImage(true);
-    setGarageMsg("");
+    setProfileMsg("Uploading photo...");
+    setErrorMsg("");
 
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        throw new Error("You need to be logged in to upload an image.");
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Please select an image file.");
       }
 
-      const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${user.id}/profile-${Date.now()}.${fileExt}`;
+      if (file.size > 6 * 1024 * 1024) {
+        throw new Error("Image must be under 6MB.");
+      }
 
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, {
+      const filePath = `${userId}/avatar.jpg`;
+
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from("avatars").upload(filePath, file, {
           upsert: true,
           contentType: file.type || "image/jpeg",
-        });
+          cacheControl: "0",
+        }),
+        15000
+      );
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
@@ -521,19 +535,23 @@ export default function ProfilePage() {
         throw new Error("Could not generate a public URL for the uploaded image.");
       }
 
-      const { error: profileUpdateError } = await supabase
-        .from("profiles")
-        .update({
-          profile_image_url: rawImageUrl,
-        })
-        .eq("id", user.id);
+      const { error: profileUpdateError } = await withTimeout(
+       Promise.resolve( 
+        supabase
+          .from("profiles")
+          .update({ profile_image_url: rawImageUrl })
+          .eq("id", userId)
+        ),
+        10000
+      );
 
       if (profileUpdateError) {
         throw new Error(`Profile update failed: ${profileUpdateError.message}`);
       }
 
-      setProfileImageUrl(withCacheBust(rawImageUrl));
-      setGarageMsg("Profile image updated.");
+      const freshUrl = withCacheBust(rawImageUrl);
+      setProfileImageUrl(freshUrl);
+      setProfileMsg("Profile photo updated.");
     } catch (error) {
       const message =
         error instanceof Error
@@ -541,7 +559,7 @@ export default function ProfilePage() {
           : "Something went wrong uploading the image.";
 
       console.error("PROFILE IMAGE UPLOAD ERROR:", error);
-      setGarageMsg(message);
+      setProfileMsg(message);
     } finally {
       setUploadingImage(false);
       e.target.value = "";
@@ -559,7 +577,7 @@ export default function ProfilePage() {
         }}
       />
 
-      <div className="relative mx-auto max-w-4xl px-6 pt-12 pb-28">
+      <div className="relative mx-auto max-w-4xl px-6 pb-28 pt-12">
         {loading ? (
           <ProfileSkeleton />
         ) : profileStatus === "suspended" || profileStatus === "blocked" ? (
@@ -596,6 +614,7 @@ export default function ProfilePage() {
                   <div className="relative h-32 w-32 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_40px_-6px_rgba(180,20,30,0.7)]">
                     {profileImageUrl ? (
                       <img
+                        key={profileImageUrl}
                         src={profileImageUrl}
                         alt={`${displayName} profile picture`}
                         className="h-full w-full object-cover"
@@ -614,6 +633,7 @@ export default function ProfilePage() {
                       accept="image/*"
                       onChange={handleProfileImageUpload}
                       className="hidden"
+                      disabled={uploadingImage}
                     />
                   </label>
 

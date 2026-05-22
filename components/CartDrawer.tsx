@@ -3,9 +3,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart, useCartItems } from "@/lib/cart-store";
-import { getProduct, formatPrice } from "@/lib/products";
+import { Product, fetchProducts, formatPrice } from "@/lib/products";
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -16,7 +16,24 @@ export default function CartDrawer() {
   const decrement = useCart((s) => s.decrement);
   const removeItem = useCart((s) => s.removeItem);
 
-  // Lock body scroll while drawer is open
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const data = await fetchProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error("Failed to load cart products:", error);
+      } finally {
+        setLoadingProducts(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -27,9 +44,19 @@ export default function CartDrawer() {
     }
   }, [open]);
 
-  const subtotal = items.reduce((sum, i) => {
-    const p = getProduct(i.productId);
-    return sum + (p?.price || 0) * i.quantity;
+  const productMap = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product]));
+  }, [products]);
+
+  const enrichedItems = useMemo(() => {
+    return items.map((item) => ({
+      ...item,
+      product: productMap.get(item.productId) ?? null,
+    }));
+  }, [items, productMap]);
+
+  const subtotal = enrichedItems.reduce((sum, item) => {
+    return sum + ((item.product?.price || 0) * item.quantity);
   }, 0);
 
   const shipping = subtotal === 0 ? 0 : subtotal >= 200 ? 0 : 12;
@@ -44,7 +71,6 @@ export default function CartDrawer() {
     <AnimatePresence>
       {open && (
         <>
-          {/* Solid backdrop — NO blur (prevents the murky doubled-blur look) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -54,7 +80,6 @@ export default function CartDrawer() {
             className="fixed inset-0 z-[100] bg-black/85"
           />
 
-          {/* Drawer */}
           <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
@@ -62,7 +87,6 @@ export default function CartDrawer() {
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
             className="fixed right-0 top-0 z-[101] flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#050505] text-white shadow-[-30px_0_60px_rgba(0,0,0,0.7)]"
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#050505] px-6 py-5">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Your</p>
@@ -77,7 +101,6 @@ export default function CartDrawer() {
               </button>
             </div>
 
-            {/* Items */}
             <div className="flex-1 overflow-y-auto bg-[#050505] px-6 py-5">
               {items.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
@@ -95,13 +118,19 @@ export default function CartDrawer() {
                     Keep Shopping
                   </button>
                 </div>
+              ) : loadingProducts ? (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+                  Loading your bag...
+                </div>
               ) : (
                 <div className="space-y-3">
                   <AnimatePresence initial={false}>
-                    {items.map((item) => {
-                      const p = getProduct(item.productId);
+                    {enrichedItems.map((item) => {
+                      const p = item.product;
                       if (!p) return null;
+
                       const lineTotal = p.price * item.quantity;
+
                       return (
                         <motion.div
                           key={item.key}
@@ -113,8 +142,17 @@ export default function CartDrawer() {
                           className="flex gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-3"
                         >
                           <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-white/10">
-                            <Image src={p.images[0]} alt={p.name} fill className="object-cover" />
+                            <Image
+                              src={
+                                p.images[0] ||
+                                "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
+                              }
+                              alt={p.name}
+                              fill
+                              className="object-cover"
+                            />
                           </div>
+
                           <div className="flex flex-1 flex-col">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
@@ -125,6 +163,7 @@ export default function CartDrawer() {
                                   Size {item.size}
                                 </p>
                               </div>
+
                               <button
                                 onClick={() => removeItem(item.key)}
                                 className="text-[10px] uppercase tracking-[0.25em] text-white/40 hover:text-[#e87a82]"
@@ -142,9 +181,11 @@ export default function CartDrawer() {
                                 >
                                   −
                                 </button>
+
                                 <span className="min-w-[1.5rem] text-center text-xs text-white">
                                   {item.quantity}
                                 </span>
+
                                 <button
                                   onClick={() => increment(item.key)}
                                   className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 hover:bg-white/5 hover:text-white"
@@ -153,6 +194,7 @@ export default function CartDrawer() {
                                   +
                                 </button>
                               </div>
+
                               <p className="text-sm text-[#e87a82]">{formatPrice(lineTotal)}</p>
                             </div>
                           </div>
@@ -164,7 +206,6 @@ export default function CartDrawer() {
               )}
             </div>
 
-            {/* Footer (totals + checkout) */}
             {items.length > 0 && (
               <div className="border-t border-white/10 bg-[#070707] px-6 py-5">
                 <div className="space-y-1.5 text-sm">
@@ -179,8 +220,11 @@ export default function CartDrawer() {
                     </span>
                   </div>
                 </div>
+
                 <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">Total</span>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">
+                    Total
+                  </span>
                   <span className="font-serif text-2xl italic text-[#e87a82]">
                     {formatPrice(total)}
                   </span>
@@ -198,6 +242,7 @@ export default function CartDrawer() {
                 >
                   Checkout
                 </button>
+
                 <button
                   onClick={closeDrawer}
                   className="mt-2 block w-full text-center text-[11px] uppercase tracking-[0.3em] text-white/45 hover:text-white"
