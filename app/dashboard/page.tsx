@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type PostType = "photo" | "reel" | "status";
 
@@ -146,6 +148,19 @@ const PULL_THRESHOLD = 70;
 const MAX_PULL = 120;
 
 export default function DashboardPage() {
+  const router = useRouter();
+  useEffect(() => {
+    async function checkUser() {
+      const {
+        data:  { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+      }
+    }
+    checkUser();
+  }, [router]);
+
   const [posts, setPosts] = useState<FeedPost[]>(seedPosts);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
@@ -158,30 +173,49 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [pullY, setPullY] = useState(0);
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const pullStartY = useRef<number | null>(null);
-  const isPulling = useRef(false);
 
-  const loadFeed = () => {
-    try {
-      const raw = localStorage.getItem("cs_posts");
-      const local: LocalPost[] = raw ? JSON.parse(raw) : [];
-      const merged = [...local.map(localToFeed), ...seedPosts];
-      setPosts(merged);
-      setLikeCounts((prev) => {
-        const next = { ...prev };
-        merged.forEach((p) => {
-          if (next[p.id] === undefined) next[p.id] = p.likes;
-        });
-        return next;
-      });
-    } catch {
-      setPosts(seedPosts);
-    }
+  const pullStartY = useRef<number | null>(null);
+  const isPulling = useRef<boolean>(false);
+ 
+  const loadFeed = async () => {
+      const { data, error } = await supabase
+      .from("Posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+      if (error) {
+        console.log(error);
+        return;
+      }
+const livePosts = (data || []).map((post) => ({
+      id: post.id,
+      type: "photo",
+      caption: post.caption || "",
+      location: "",
+      taggedRiders: [],
+      audience: "public",
+      photos: post.image_url ? [post.image_url] : [],
+      video: null,
+      musicLabel: "",
+      statusText: "",
+      statusBg: "",
+      createdAt: post.created_at,
+      author: {
+        name: post.author_name || "Unknown",
+        handle: post.author_handle || "@unknown",
+        photo: post.author_photo || null,
+      },
+      timeLabel: timeAgo(post.created_at),
+      likes: 0,
+      comments: [],
+      islocal: false,
+    })); 
+      setPosts([...livePosts, ...seedPosts] as FeedPost[]);
   };
 
   useEffect(() => {
-    loadFeed();
-    const onFocus = () => loadFeed();
+    void loadFeed();
+    const onFocus = () => void loadFeed();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
@@ -190,7 +224,7 @@ export default function DashboardPage() {
     if (refreshing) return;
     setRefreshing(true);
     setTimeout(() => {
-      loadFeed();
+      void loadFeed();
       setRefreshing(false);
       setPullY(0);
       setToast("Feed refreshed.");
@@ -666,4 +700,8 @@ export default function DashboardPage() {
       )}
     </main>
   );
+}
+
+function loadFeed() {
+  throw new Error("Function not implemented.");
 }

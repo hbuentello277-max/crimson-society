@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type PostType = "photo" | "reel" | "status";
 type Audience = "public" | "close" | "group";
@@ -76,32 +77,31 @@ export default function CreatePage() {
     return false;
   };
 
-  const handlePost = () => {
+  const handlePost =  async () => {
     if (!canPost()) return;
 
-    // Stash the new post so it can show up on the feed
-    const newPost = {
-      id: `local-${Date.now()}`,
-      type,
-      caption,
-      location,
-      taggedRiders,
-      audience,
-      photos,
-      video,
-      musicLabel,
-      statusText,
-      statusBg: statusBg.id,
-      createdAt: new Date().toISOString(),
-      author: { name: "Hector Buentello", handle: "@hbuentello", photo: null },
-    };
+    const {
+  data: { user },
+} = await supabase.auth.getUser();
 
-    try {
-      const existing = JSON.parse(localStorage.getItem("cs_posts") || "[]");
-      localStorage.setItem("cs_posts", JSON.stringify([newPost, ...existing]));
-    } catch {}
+if (!user) {
+  alert("You must be logged in.");
+  return;
+}
 
-    setToast("Posted to the brotherhood.");
+const { error } = await supabase.from("Posts").insert({
+  user_id: user.id,
+  caption: type === "status" ? statusText : caption,
+  image_url: photos[0] || video || "",
+});
+
+if (error) {
+  console.log(error);
+  alert(error.message);
+  return;
+}
+
+    setToast("Post created.");
     setTimeout(() => {
       router.push("/dashboard");
     }, 1100);

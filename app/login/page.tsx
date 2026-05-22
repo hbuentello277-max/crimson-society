@@ -1,8 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+
+async function login() {
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  window.location.href = "/dashboard";
+}
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] flex items-center justify-center px-6 py-12 text-white">
       {/* Ambient crimson glow */}
@@ -67,6 +85,8 @@ export default function LoginPage() {
               <input
                 type="email"
                 placeholder="member@crimsonsociety.cc"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-sm border border-white/10 bg-black/60 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:ring-1 focus:ring-[#b4141e]/40"
               />
             </div>
@@ -86,12 +106,15 @@ export default function LoginPage() {
               <input
                 type="password"
                 placeholder="••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-sm border border-white/10 bg-black/60 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:ring-1 focus:ring-[#b4141e]/40"
               />
             </div>
 
-            <Link
-              href="/dashboard"
+            <button
+              type="button"
+              onClick={login}
               className="group relative mt-4 inline-flex w-full items-center justify-center overflow-hidden rounded-sm bg-gradient-to-b from-[#b4141e] to-[#7a0d14] px-6 py-4 text-[11px] uppercase tracking-[0.45em] text-white shadow-[0_18px_40px_-12px_rgba(180,20,30,0.7)] transition hover:from-[#c8161f] hover:to-[#8a0e16]"
             >
               <span className="relative z-10 flex items-center gap-3">
@@ -103,7 +126,7 @@ export default function LoginPage() {
                 className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full"
               />
               <span aria-hidden className="absolute inset-x-6 top-0 h-px bg-white/30" />
-            </Link>
+            </button>
           </form>
 
           {/* Footer link */}

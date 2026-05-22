@@ -1,100 +1,238 @@
 "use client";
 
 import Link from "next/link";
+import { FormEvent, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-export default function SignupPage() {
+export default function SignUpPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+
+  const redirectTo = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/login`;
+  }, []);
+
+  async function handleSignUp(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setInfoMsg("");
+
+    if (password.length < 6) {
+      setErrorMsg("Password must be at least 6 characters.");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectTo,
+      },
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setAwaitingConfirmation(true);
+    setInfoMsg(`We sent a verification email to ${email}.`);
+    setLoading(false);
+  }
+
+  async function handleResend() {
+    if (!email) {
+      setErrorMsg("Enter your email first.");
+      return;
+    }
+
+    setResending(true);
+    setErrorMsg("");
+    setInfoMsg("");
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: redirectTo,
+      },
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
+      setResending(false);
+      return;
+    }
+
+    setInfoMsg(`Verification email sent again to ${email}.`);
+    setResending(false);
+  }
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] flex items-center justify-center px-6 py-12 text-white">
-      {/* Glow */}
+    <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(180,20,30,0.22), transparent 60%), radial-gradient(ellipse 50% 40% at 50% 100%, rgba(120,10,20,0.18), transparent 60%)",
-        }}
-      />
-      {/* Grain */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.6'/></svg>\")",
+            "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(180,20,30,0.24), transparent 65%)",
         }}
       />
 
-      <div className="relative w-full max-w-md">
-        <div className="relative rounded-sm border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 shadow-[0_30px_80px_-20px_rgba(180,20,30,0.4)] backdrop-blur-sm">
-          <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e] to-transparent" />
-
-          {/* Monogram */}
-          <div className="flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black">
-              <span className="font-serif text-xl italic text-[#b4141e]">CS</span>
-            </div>
-          </div>
-
-          {/* Header */}
-          <div className="mt-6 text-center">
-            <p className="text-[10px] uppercase tracking-[0.5em] text-zinc-500">Request Access</p>
-            <h1 className="mt-4 font-serif text-4xl font-light tracking-wide">
-              Join the <span className="italic text-[#b4141e]">Society</span>
-            </h1>
-            <div className="mt-5 flex items-center justify-center gap-3">
-              <span className="h-px w-10 bg-white/15" />
-              <span className="text-[10px] tracking-[0.4em] text-[#b4141e]">✦</span>
-              <span className="h-px w-10 bg-white/15" />
-            </div>
-            <p className="mt-4 text-[11px] tracking-[0.35em] uppercase text-zinc-400">Step I of II</p>
-          </div>
-
-          {/* Form */}
-          <form action="/profile/setup" className="mt-10 flex flex-col gap-5">
-            <Field label="Username" name="username" type="text" placeholder="@rider_name" />
-            <Field label="Email" name="email" type="email" placeholder="member@crimsonsociety.cc" />
-            <Field label="Password" name="password" type="password" placeholder="••••••••••" />
-
-            <button
-              type="submit"
-              className="group relative mt-4 inline-flex w-full items-center justify-center overflow-hidden rounded-sm bg-gradient-to-b from-[#b4141e] to-[#7a0d14] px-6 py-4 text-[11px] uppercase tracking-[0.45em] text-white shadow-[0_18px_40px_-12px_rgba(180,20,30,0.7)] transition hover:from-[#c8161f] hover:to-[#8a0e16]"
-            >
-              <span className="relative z-10 flex items-center gap-3">
-                Continue
-                <span className="transition group-hover:translate-x-0.5">→</span>
-              </span>
-              <span aria-hidden className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              <span aria-hidden className="absolute inset-x-6 top-0 h-px bg-white/30" />
-            </button>
-          </form>
-
-          {/* Footer */}
-          <p className="mt-8 text-center text-[11px] tracking-[0.2em] text-zinc-500">
-            Already initiated?{" "}
-            <Link href="/login" className="text-zinc-200 underline-offset-4 transition hover:text-[#b4141e] hover:underline">
-              Enter Society
-            </Link>
+      <div className="relative mx-auto flex min-h-screen max-w-xl items-center px-6 py-16">
+        <div className="w-full rounded-[28px] border border-white/10 bg-[#0b0b0c]/95 p-8 shadow-[0_0_60px_-20px_rgba(180,20,30,0.35)] backdrop-blur">
+          <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+            Crimson Society
           </p>
-        </div>
 
-        <p className="mt-6 text-center text-[9px] uppercase tracking-[0.5em] text-zinc-600">
-          Ride · Brotherhood · Legacy
-        </p>
+          {!awaitingConfirmation ? (
+            <>
+              <h1 className="mt-4 font-serif text-5xl leading-none text-white">
+                Request Access
+              </h1>
+
+              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
+                Enter your details, confirm your email, and step into the Society.
+              </p>
+
+              <form onSubmit={handleSignUp} className="mt-8 space-y-4">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  required
+                />
+
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  autoComplete="new-password"
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  required
+                />
+
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  required
+                />
+
+                {errorMsg && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                    <p className="text-sm text-red-300">{errorMsg}</p>
+                  </div>
+                )}
+
+                {infoMsg && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <p className="text-sm text-emerald-300">{infoMsg}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-full bg-[#b4141e]/90 px-5 py-3 text-xs uppercase tracking-[0.28em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "Creating..." : "Join the Society"}
+                </button>
+              </form>
+
+              <div className="mt-6">
+                <Link
+                  href="/login"
+                  className="text-xs uppercase tracking-[0.25em] text-zinc-500 transition hover:text-zinc-300"
+                >
+                  Back to Login
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 text-[#e87a82]">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 6h16v12H4z" />
+                  <path d="m22 7-10 7L2 7" />
+                </svg>
+              </div>
+
+              <h1 className="mt-6 font-serif text-5xl leading-none text-white">
+                Check Your Email
+              </h1>
+
+              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
+                We sent a verification link to{" "}
+                <span className="text-white">{email}</span>. Confirm your email
+                to activate your access and continue into the app.
+              </p>
+
+              {errorMsg && (
+                <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                  <p className="text-sm text-red-300">{errorMsg}</p>
+                </div>
+              )}
+
+              {infoMsg && (
+                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                  <p className="text-sm text-emerald-300">{infoMsg}</p>
+                </div>
+              )}
+
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resending ? "Sending..." : "Resend Email"}
+                </button>
+
+                <Link
+                  href="/login"
+                  className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
+                >
+                  Go to Login
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </main>
-  );
-}
-
-function Field({ label, name, type, placeholder }: { label: string; name: string; type: string; placeholder: string }) {
-  return (
-    <div>
-      <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">{label}</label>
-      <input
-        name={name}
-        type={type}
-        placeholder={placeholder}
-        className="w-full rounded-sm border border-white/10 bg-black/60 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:ring-1 focus:ring-[#b4141e]/40"
-      />
-    </div>
   );
 }
