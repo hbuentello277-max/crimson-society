@@ -318,73 +318,73 @@ export default function RidesPage() {
       }
     };
   }, []);
-  
-useEffect(() => {
-  if (!openRide?.id) return;
 
-  const rideId = openRide.id;
-  let isMounted = true;
+  useEffect(() => {
+    if (!openRide?.id) return;
 
-  async function loadInitialLiveRiders() {
-    const { data, error } = await supabase
-      .from("ride_live_locations")
-      .select("ride_id, user_id, rider_name, rider_photo, lat, lng")
-      .eq("ride_id", rideId);
+    const rideId = openRide.id;
+    let isMounted = true;
 
-    if (error) {
-      console.error("Failed loading live riders:", error.message);
-      return;
+    async function loadInitialLiveRiders() {
+      const { data, error } = await supabase
+        .from("ride_live_locations")
+        .select("ride_id, user_id, rider_name, rider_photo, lat, lng")
+        .eq("ride_id", rideId);
+
+      if (error) {
+        console.error("Failed loading live riders:", error.message);
+        return;
+      }
+
+      if (!isMounted) return;
+
+      setLiveRiders((prev) => ({
+        ...prev,
+        [rideId]: (data ?? []) as LiveRideRider[],
+      }));
     }
 
-    if (!isMounted) return;
+    loadInitialLiveRiders();
 
-    setLiveRiders((prev) => ({
-      ...prev,
-      [rideId]: (data ?? []) as LiveRideRider[],
-    }));
-  }
+    const channel = supabase
+      .channel(`ride-live-${rideId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ride_live_locations",
+          filter: `ride_id=eq.${rideId}`,
+        },
+        (payload) => {
+          setLiveRiders((prev) => {
+            const current = prev[rideId] ?? [];
 
-  loadInitialLiveRiders();
+            if (payload.eventType === "DELETE") {
+              const oldRow = payload.old as LiveRiderRow;
+              return {
+                ...prev,
+                [rideId]: current.filter((r) => r.user_id !== oldRow.user_id),
+              };
+            }
 
-  const channel = supabase
-    .channel(`ride-live-${rideId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "ride_live_locations",
-        filter: `ride_id=eq.${rideId}`,
-      },
-      (payload) => {
-        setLiveRiders((prev) => {
-          const current = prev[rideId] ?? [];
+            const nextRow = payload.new as LiveRiderRow;
+            const withoutSameUser = current.filter((r) => r.user_id !== nextRow.user_id);
 
-          if (payload.eventType === "DELETE") {
-            const oldRow = payload.old as LiveRiderRow;
             return {
               ...prev,
-              [rideId]: current.filter((r) => r.user_id !== oldRow.user_id),
+              [rideId]: [...withoutSameUser, nextRow],
             };
-          }
+          });
+        }
+      )
+      .subscribe();
 
-          const nextRow = payload.new as LiveRiderRow;
-          const withoutSameUser = current.filter((r) => r.user_id !== nextRow.user_id);
-
-          return {
-            ...prev,
-            [rideId]: [...withoutSameUser, nextRow],
-          };
-        });
-      }
-    )
-    .subscribe();
-
-  return () => {
-    isMounted = false;
-    supabase.removeChannel(channel);
-  };
-}, [openRide?.id]);
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [openRide?.id]);
 
   const pushToast = (message: string) => {
     setToast(message);
@@ -625,18 +625,18 @@ useEffect(() => {
 
       <div className="relative mx-auto max-w-[1180px] px-5 pb-28 pt-8 sm:px-8 sm:pt-10">
         <div className="flex items-center justify-between">
-          <div className="text-[11px] uppercase tracking-[0.34em] text-zinc-500">
+          <div className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
             The Ledger
           </div>
           <button
             onClick={openHostSheet}
-            className="rounded-full border border-[rgba(255,255,255,0.28)] bg-[rgba(255,255,255,0.02)] px-5 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.55)] hover:bg-[rgba(127,17,27,0.16)]"
+            className="rounded-full border border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.02)] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.55)] hover:bg-[rgba(127,17,27,0.16)]"
           >
             Host Ride
           </button>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
+        <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
           {[
             { k: "upcoming", label: "UPCOMING" },
             { k: "past", label: "PAST" },
@@ -647,9 +647,9 @@ useEffect(() => {
               <button
                 key={t.k}
                 onClick={() => setTab(t.k as typeof tab)}
-                className={`rounded-full border px-5 py-3 text-[11px] uppercase tracking-[0.22em] transition duration-200 ${
+                className={`rounded-full border px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition duration-200 ${
                   active
-                    ? "border-[rgba(127,17,27,0.72)] bg-[rgba(127,17,27,0.46)] text-[#f4d7db] shadow-[0_0_0_1px_rgba(127,17,27,0.18)_inset]"
+                    ? "border-[rgba(127,17,27,0.72)] bg-[rgba(127,17,27,0.42)] text-[#f4d7db] shadow-[0_0_0_1px_rgba(127,17,27,0.18)_inset]"
                     : "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.015)] text-zinc-400 hover:border-[rgba(127,17,27,0.34)] hover:text-zinc-200"
                 }`}
               >
@@ -659,26 +659,29 @@ useEffect(() => {
           })}
         </div>
 
-        <section className="px-2 pb-4 pt-10 text-center sm:px-10 sm:pt-12">
+        <section className="px-2 pb-3 pt-8 text-center sm:px-10 sm:pt-10">
           <div className="mx-auto flex items-center justify-center gap-4">
             <span className="h-px w-12 bg-white/20" />
             <span className="text-xl text-[#b4141e]">✦</span>
             <span className="h-px w-12 bg-white/20" />
           </div>
-          <h1 className="mt-6 font-serif text-7xl leading-none">Rides</h1>
-          <div className="-mt-1 space-y-1">
-            <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">
+
+          <h1 className="mt-5 font-serif text-7xl leading-none">Rides</h1>
+
+          <div className="mt-3">
+            <p className="font-serif text-[28px] italic leading-[1.08] text-[#e87a82] sm:text-[32px]">
               Curated routes, disciplined company.
             </p>
-            <p className="font-serif text-[42px] leading-[1.02] text-[#d8ccc7] sm:text-[62px]">
+
+            <p className="mx-auto mt-2 max-w-2xl text-[15px] font-normal leading-[1.55] text-zinc-400 sm:text-[16px]">
               A clearer line between invitation and chaos.
             </p>
           </div>
         </section>
 
         {featuredRide && (
-          <section className="mt-10 overflow-hidden rounded-[34px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
-            <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px]">
+          <section className="mt-8 overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
+            <div className="relative h-[248px] w-full overflow-hidden sm:h-[320px]">
               <Image
                 src={featuredRide.cover}
                 alt={featuredRide.name}
@@ -688,35 +691,36 @@ useEffect(() => {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
               <div className="absolute inset-0 ring-1 ring-inset ring-[rgba(255,255,255,0.08)]" />
-              <div className="absolute left-5 top-5 flex flex-wrap gap-2">
-                <span className="rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
+
+              <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                <span className="rounded-full border border-[rgba(255,255,255,0.16)] bg-black/30 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
                   {featuredRide.type}
                 </span>
                 {featuredRide.privacy === "Invite" && (
-                  <span className="rounded-full border border-[rgba(127,17,27,0.52)] bg-[rgba(127,17,27,0.22)] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#f3d1d6] backdrop-blur-md">
+                  <span className="rounded-full border border-[rgba(127,17,27,0.52)] bg-[rgba(127,17,27,0.22)] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[#f3d1d6] backdrop-blur-md">
                     Invite
                   </span>
                 )}
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-[rgba(229,112,126,0.88)]">
+              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+                <p className="text-[9px] uppercase tracking-[0.26em] text-[rgba(229,112,126,0.84)]">
                   Featured Run
                 </p>
-                <h2 className="mt-3 max-w-3xl font-serif text-[38px] leading-none text-[#f5f1eb] sm:text-[54px]">
+                <h2 className="mt-2.5 max-w-3xl font-serif text-[34px] leading-none text-[#f5f1eb] sm:text-[48px]">
                   {featuredRide.name}
                 </h2>
-                <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-zinc-300">
+                <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
                   {featuredRide.date} · {featuredRide.time}
                 </p>
-                <p className="mt-2 text-sm tracking-[0.16em] text-zinc-400 sm:text-[15px]">
+                <p className="mt-1.5 text-[13px] tracking-[0.12em] text-zinc-400 sm:text-[14px]">
                   {featuredRide.distance} · {featuredRide.duration} · {featuredRide.meetPoint}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
-              <p className="max-w-2xl text-[15px] leading-7 text-zinc-300">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+              <p className="max-w-2xl text-[14px] leading-6 text-zinc-300">
                 {featuredRide.description}
               </p>
 
@@ -724,7 +728,7 @@ useEffect(() => {
                 {tab !== "past" && (
                   <button
                     onClick={() => setPendingRsvp(featuredRide.id)}
-                    className={`rounded-full border px-5 py-3 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
+                    className={`rounded-full border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition duration-200 ${
                       going[featuredRide.id]
                         ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.28)] text-[#f4dadd]"
                         : "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.03)] text-zinc-100 hover:border-[rgba(127,17,27,0.45)] hover:bg-[rgba(127,17,27,0.16)]"
@@ -736,7 +740,7 @@ useEffect(() => {
 
                 <button
                   onClick={() => openDetails(featuredRide.id)}
-                  className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.4)] hover:bg-[rgba(127,17,27,0.12)]"
+                  className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.4)] hover:bg-[rgba(127,17,27,0.12)]"
                 >
                   Details
                 </button>
@@ -763,16 +767,16 @@ useEffect(() => {
               return (
                 <li
                   key={r.id}
-                  className="overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.07),rgba(255,255,255,0.02))]"
+                  className="overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.07),rgba(255,255,255,0.02))]"
                 >
-                  <div className="grid gap-0 md:grid-cols-[240px_1fr]">
-                    <div className="relative h-[190px] w-full overflow-hidden md:h-full">
+                  <div className="grid gap-0 md:grid-cols-[220px_1fr]">
+                    <div className="relative h-[176px] w-full overflow-hidden md:h-full">
                       {r.previewImage ? (
                         <Image
                           src={r.previewImage}
                           alt={`${r.name} preview`}
                           fill
-                          sizes="(max-width: 768px) 100vw, 240px"
+                          sizes="(max-width: 768px) 100vw, 220px"
                           className="object-cover"
                         />
                       ) : (
@@ -784,33 +788,33 @@ useEffect(() => {
                           editable={false}
                           compact
                           hideHint
-                          height={190}
+                          height={176}
                         />
                       )}
 
                       <div className="absolute inset-0 bg-gradient-to-t from-[#05040580] via-transparent to-transparent" />
-                      <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
+                      <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.16)] bg-black/30 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
                         {r.type}
                       </div>
                     </div>
 
-                    <div className="p-5 sm:p-6">
+                    <div className="p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
                             {r.date} · {r.time}
                           </p>
-                          <h3 className="mt-3 font-serif text-[30px] leading-none text-[#f4f0ea]">
+                          <h3 className="mt-2.5 font-serif text-[26px] leading-none text-[#f4f0ea] sm:text-[28px]">
                             {r.name}
                           </h3>
                         </div>
 
-                        <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">
+                        <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-300">
                           {totalGoing} going
                         </div>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-300">
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-zinc-300 sm:text-sm">
                         <span>{r.meetPoint}</span>
                         <span className="text-zinc-700">•</span>
                         <span>{r.distance}</span>
@@ -818,24 +822,24 @@ useEffect(() => {
                         <span>{r.duration}</span>
                       </div>
 
-                      <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
+                      <p className="mt-3.5 max-w-2xl text-[14px] leading-6 text-zinc-300">
                         {r.description}
                       </p>
 
-                      <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center">
                             {r.going.slice(0, 4).map((g, i) => (
                               <div
                                 key={g.name}
-                                className="relative h-9 w-9 overflow-hidden rounded-full border border-[#120b0d]"
+                                className="relative h-8 w-8 overflow-hidden rounded-full border border-[#120b0d]"
                                 style={{ marginLeft: i === 0 ? 0 : -8 }}
                               >
                                 <Image
                                   src={g.photo}
                                   alt={g.name}
                                   fill
-                                  sizes="36px"
+                                  sizes="32px"
                                   className="object-cover"
                                 />
                               </div>
@@ -843,7 +847,7 @@ useEffect(() => {
                           </div>
 
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                            <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">
                               Hosted by
                             </p>
                             <p className="text-xs text-zinc-300">{r.host.name}</p>
@@ -854,7 +858,7 @@ useEffect(() => {
                           {tab !== "past" ? (
                             <button
                               onClick={() => setPendingRsvp(r.id)}
-                              className={`rounded-full border px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
+                              className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition duration-200 ${
                                 isGoing
                                   ? "border-[rgba(127,17,27,0.82)] bg-[rgba(127,17,27,0.28)] text-[#f4dadd]"
                                   : "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] text-zinc-100 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.14)]"
@@ -866,7 +870,7 @@ useEffect(() => {
 
                           <button
                             onClick={() => openDetails(r.id)}
-                            className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
+                            className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
                           >
                             {tab === "past" ? "Recap" : "Details"}
                           </button>
@@ -1102,8 +1106,8 @@ useEffect(() => {
                 Host a Ride
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-                Set the terms, mark the meet point, and draw the route so every rider
-                knows the line before the engines turn.
+                Set the terms, mark the meet point, and draw the route so every rider knows
+                the line before the engines turn.
               </p>
             </div>
 
@@ -1279,6 +1283,7 @@ useEffect(() => {
                   <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                     Host controls
                   </p>
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1313,8 +1318,8 @@ useEffect(() => {
                   </div>
 
                   <p className="mt-3 text-xs leading-5 text-zinc-400">
-                    The route appears as a live crimson line. Riders will see this same
-                    path inside the detail sheet before they RSVP.
+                    The route appears as a live crimson line. Riders will see this same path
+                    inside the detail sheet before they RSVP.
                   </p>
                 </div>
               </div>

@@ -27,7 +27,8 @@ const MEMBERS: Member[] = [
     bike: "Ducati Panigale V4",
     style: ["Track"],
     rides: 47,
-    photo: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces",
     bio: "Canyon runs after midnight. Apex hunter.",
   },
   {
@@ -38,7 +39,8 @@ const MEMBERS: Member[] = [
     bike: "Triumph Speed Triple",
     style: ["Street", "Touring"],
     rides: 63,
-    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=faces",
     bio: "PCH regular. Coffee before sunrise.",
   },
   {
@@ -49,7 +51,8 @@ const MEMBERS: Member[] = [
     bike: "BMW S1000RR",
     style: ["Track", "Street"],
     rides: 29,
-    photo: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&h=400&fit=crop&crop=faces",
     bio: "Two wheels. One law: throttle.",
   },
   {
@@ -60,7 +63,8 @@ const MEMBERS: Member[] = [
     bike: "KTM 890 Duke R",
     style: ["Stunt", "Street"],
     rides: 38,
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=faces",
     bio: "Stoppies in empty lots. Smoke and silence.",
   },
   {
@@ -71,7 +75,8 @@ const MEMBERS: Member[] = [
     bike: "Harley Fat Bob",
     style: ["Cruiser", "Touring"],
     rides: 81,
-    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=faces",
     bio: "Cross-country. One bag. No plan.",
   },
   {
@@ -82,7 +87,8 @@ const MEMBERS: Member[] = [
     bike: "Aprilia RSV4",
     style: ["Track"],
     rides: 52,
-    photo: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=400&h=400&fit=crop&crop=faces",
+    photo:
+      "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=400&h=400&fit=crop&crop=faces",
     bio: "Italian iron. Last lap energy.",
   },
 ];
@@ -96,7 +102,10 @@ export default function ConnectPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const handleConnect = (id: string) => {
-    setStatuses((s) => ({ ...s, [id]: s[id] === "pending" ? "connected" : "pending" }));
+    setStatuses((s) => ({
+      ...s,
+      [id]: s[id] === "pending" ? "connected" : "pending",
+    }));
   };
 
   const filtered = MEMBERS.filter((m) => {
@@ -108,13 +117,16 @@ export default function ConnectPage() {
       m.handle.toLowerCase().includes(q) ||
       m.city.toLowerCase().includes(q) ||
       m.bike.toLowerCase().includes(q);
+
     return matchesFilter && matchesQuery;
   });
 
-  const openMember = openId ? MEMBERS.find((m) => m.id === openId) ?? null : null;
+  const openMember = openId
+    ? MEMBERS.find((m) => m.id === openId) ?? null
+    : null;
 
   return (
-     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+    <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -124,9 +136,10 @@ export default function ConnectPage() {
             radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
             linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
           `,
-      }}
-    />
-      <div className="relative mx-auto max-w-3xl px-6 pt-12 pb-20">
+        }}
+      />
+
+      <div className="relative mx-auto max-w-3xl px-6 pb-20 pt-12">
         {/* Top bar */}
         <div className="flex items-center justify-between">
           <Link
@@ -135,6 +148,7 @@ export default function ConnectPage() {
           >
             ← Return
           </Link>
+
           <span className="text-xs uppercase tracking-[0.4em] text-zinc-600">
             Pillar I
           </span>
@@ -144,57 +158,67 @@ export default function ConnectPage() {
         <header className="mt-10 text-center">
           <div className="mx-auto flex items-center justify-center gap-4">
             <span className="h-px w-12 bg-white/20" />
-            <span className="text-[#b4141e] text-xl">✦</span>
+            <span className="text-xl text-[#b4141e]">✦</span>
             <span className="h-px w-12 bg-white/20" />
           </div>
+
           <h1 className="mt-6 font-serif text-7xl leading-none">Connect</h1>
-          <p className="mt-4 font-serif italic text-3xl text-[#e87a82]">
+
+          <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">
             Find riders near you.
           </p>
-          <p className="mx-auto font-serif text-[17px] text-bg-white/20 leading-relaxed">
+
+          <p className="mx-auto font-serif text-[17px] leading-relaxed text-zinc-400">
             Browse the Order. Request a ride. Build your inner circle.
           </p>
         </header>
 
-        {/* Search */}
-        <div className="mt-12">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name or city"
-            className="w-full rounded-full border border-white/10 bg-white/[0.03] px-6 py-4 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20 transition"
-          />
-        </div>
+        {/* Search + Filters */}
+        <section className="mt-10">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.02] px-4 py-4 backdrop-blur-sm sm:px-5">
+            {/* Search */}
+            <div>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name or city"
+                className="w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-[15px] text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
+              />
+            </div>
 
-        {/* Filters */}
-        <div className="mt-6 flex flex-wrap gap-2">
-          {FILTERS.map((f) => {
-            const active = filter === f;
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-full border px-5 py-2 text-sm uppercase tracking-[0.25em] transition ${
-                  active
-                    ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                    : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
-                }`}
-              >
-                {f}
-              </button>
-            );
-          })}
-        </div>
+            {/* Filters */}
+            <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
+              {FILTERS.map((f) => {
+                const active = filter === f;
 
-        {/* Count */}
-        <p className="mt-10 text-sm uppercase tracking-[0.4em] text-zinc-500">
-          {filtered.length} {filtered.length === 1 ? "Rider" : "Riders"}
-        </p>
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`rounded-full border px-3.5 py-1.5 text-[11px] uppercase tracking-[0.22em] transition ${
+                      active
+                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Count */}
+            <p className="mt-4 text-[11px] uppercase tracking-[0.34em] text-zinc-500">
+              {filtered.length} {filtered.length === 1 ? "Rider" : "Riders"}
+            </p>
+          </div>
+        </section>
 
         {/* Members */}
         <ul className="mt-5 space-y-4">
           {filtered.map((m) => {
             const status = statuses[m.id] ?? "none";
+
             return (
               <li
                 key={m.id}
@@ -220,10 +244,14 @@ export default function ConnectPage() {
                     onClick={() => setOpenId(m.id)}
                     className="flex-1 text-left"
                   >
-                    <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
+                    <h3 className="font-serif text-3xl leading-tight">
+                      {m.name}
+                    </h3>
+
                     <p className="mt-1 text-sm uppercase tracking-[0.25em] text-zinc-500">
                       {m.handle} · {m.city}
                     </p>
+
                     <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
                   </button>
 
@@ -233,7 +261,7 @@ export default function ConnectPage() {
                     disabled={status === "connected"}
                     className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
                       status === "connected"
-                        ? "border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82] cursor-default"
+                        ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
                         : status === "pending"
                         ? "border-white/20 text-zinc-300 hover:border-white/40"
                         : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
@@ -257,6 +285,7 @@ export default function ConnectPage() {
                       {s}
                     </span>
                   ))}
+
                   <span className="ml-auto text-xs uppercase tracking-[0.3em] text-zinc-600">
                     {m.rides} Rides
                   </span>
@@ -267,7 +296,9 @@ export default function ConnectPage() {
 
           {filtered.length === 0 && (
             <li className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
-              <p className="text-base text-zinc-500">No riders match. Try a different filter.</p>
+              <p className="text-base text-zinc-500">
+                No riders match. Try a different filter.
+              </p>
             </li>
           )}
         </ul>
@@ -293,7 +324,7 @@ export default function ConnectPage() {
           >
             <button
               onClick={() => setOpenId(null)}
-              className="absolute right-5 top-5 text-zinc-500 hover:text-white text-2xl"
+              className="absolute right-5 top-5 text-2xl text-zinc-500 transition hover:text-white"
             >
               ×
             </button>
@@ -308,7 +339,9 @@ export default function ConnectPage() {
                   className="object-cover"
                 />
               </div>
+
               <h2 className="mt-6 font-serif text-5xl">{openMember.name}</h2>
+
               <p className="mt-2 text-sm uppercase tracking-[0.3em] text-zinc-500">
                 {openMember.handle} · {openMember.city}
               </p>
@@ -319,7 +352,7 @@ export default function ConnectPage() {
                 <span className="h-px w-10 bg-white/20" />
               </div>
 
-              <p className="mt-5 font-serif italic text-xl text-zinc-300">
+              <p className="mt-5 font-serif text-xl italic text-zinc-300">
                 "{openMember.bio}"
               </p>
 
@@ -328,13 +361,18 @@ export default function ConnectPage() {
                   <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
                     Machine
                   </p>
-                  <p className="mt-1.5 text-base text-zinc-200">{openMember.bike}</p>
+                  <p className="mt-1.5 text-base text-zinc-200">
+                    {openMember.bike}
+                  </p>
                 </div>
+
                 <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
                   <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
                     Rides
                   </p>
-                  <p className="mt-1.5 text-base text-zinc-200">{openMember.rides}</p>
+                  <p className="mt-1.5 text-base text-zinc-200">
+                    {openMember.rides}
+                  </p>
                 </div>
               </div>
 
@@ -349,15 +387,16 @@ export default function ConnectPage() {
                 ))}
               </div>
 
-                            <Link
+              <Link
                 href={`/messages/${openMember.id}`}
-                className="mt-8 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] hover:bg-[#b4141e]/30 transition"
+                className="mt-8 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
               >
                 Message
               </Link>
+
               <button
                 onClick={() => setOpenId(null)}
-                className="mt-3 w-full rounded-full border border-white/10 py-3.5 text-sm uppercase tracking-[0.3em] text-zinc-400 hover:text-white transition"
+                className="mt-3 w-full rounded-full border border-white/10 py-3.5 text-sm uppercase tracking-[0.3em] text-zinc-400 transition hover:text-white"
               >
                 Close
               </button>
