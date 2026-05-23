@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -218,6 +218,7 @@ export default function MessagesPage() {
       c.name.toLowerCase().includes(q) ||
       c.handle.toLowerCase().includes(q) ||
       c.lastMessage.toLowerCase().includes(q);
+
     if (!matchesSearch) return false;
     if (tab === "unread") return c.unread > 0;
     if (tab === "groups") return !!c.isGroup;
@@ -226,24 +227,40 @@ export default function MessagesPage() {
 
   const sendMessage = () => {
     if (!draft.trim() || !activeId) return;
+
     const newMsg: Message = {
       id: `me-${Date.now()}`,
       text: draft.trim(),
       senderId: "me",
-      timeLabel: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      timeLabel: new Date().toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
     };
+
     setThreads((prev) => ({
       ...prev,
       [activeId]: [...(prev[activeId] || []), newMsg],
     }));
+
     setDraft("");
   };
 
-  // ─────── Thread View ───────
   if (active) {
     return (
-      <main className="flex h-screen flex-col bg-[#050505] text-white">
-        {/* Thread header */}
+      <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+              radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+              linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+            `,
+          }}
+        />
+
         <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
           <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
             <button
@@ -255,7 +272,13 @@ export default function MessagesPage() {
             </button>
 
             <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/10">
-              <Image src={active.photo} alt={active.name} fill className="object-cover" />
+              <Image
+                src={active.photo}
+                alt={active.name}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
               {active.online && (
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-[#050505] bg-[#b4141e]" />
               )}
@@ -267,7 +290,7 @@ export default function MessagesPage() {
                 {active.isGroup
                   ? `${active.members} riders`
                   : active.online
-                  ? "Online · " + active.handle
+                  ? `Online · ${active.handle}`
                   : active.handle}
               </p>
             </div>
@@ -278,6 +301,7 @@ export default function MessagesPage() {
             >
               ☎
             </button>
+
             <button
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
               aria-label="Details"
@@ -287,10 +311,8 @@ export default function MessagesPage() {
           </div>
         </header>
 
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+        <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto flex max-w-2xl flex-col gap-3">
-            {/* Encryption notice */}
             <div className="mb-2 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/30">
               <div className="h-px w-8 bg-white/15" />
               <span>End-to-End · Riders Only</span>
@@ -301,6 +323,7 @@ export default function MessagesPage() {
               const isMe = m.senderId === "me";
               const prev = activeThread[i - 1];
               const showAvatar = !isMe && (!prev || prev.senderId !== m.senderId);
+
               return (
                 <div
                   key={m.id}
@@ -314,6 +337,7 @@ export default function MessagesPage() {
                             src={m.senderPhoto}
                             alt={m.senderName || ""}
                             fill
+                            sizes="28px"
                             className="object-cover"
                           />
                         </div>
@@ -321,12 +345,17 @@ export default function MessagesPage() {
                     </div>
                   )}
 
-                  <div className={`flex max-w-[78%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+                  <div
+                    className={`flex max-w-[78%] flex-col ${
+                      isMe ? "items-end" : "items-start"
+                    }`}
+                  >
                     {active.isGroup && !isMe && showAvatar && m.senderName && (
                       <span className="mb-0.5 ml-3 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
                         {m.senderName}
                       </span>
                     )}
+
                     <div
                       className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
                         isMe
@@ -336,6 +365,7 @@ export default function MessagesPage() {
                     >
                       {m.text}
                     </div>
+
                     <span className="mt-1 px-1 text-[10px] uppercase tracking-[0.25em] text-white/35">
                       {m.timeLabel}
                     </span>
@@ -346,7 +376,6 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Input bar */}
         <div className="border-t border-white/10 bg-[#050505]/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
             <button
@@ -355,6 +384,7 @@ export default function MessagesPage() {
             >
               ＋
             </button>
+
             <div className="flex flex-1 items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2">
               <input
                 value={draft}
@@ -367,6 +397,7 @@ export default function MessagesPage() {
                 ◧
               </button>
             </div>
+
             <button
               onClick={sendMessage}
               disabled={!draft.trim()}
@@ -385,17 +416,24 @@ export default function MessagesPage() {
     );
   }
 
-  // ─────── Inbox View ───────
   return (
-    <main className="min-h-screen bg-[#050505] pb-32 text-white">
-      {/* Header */}
+    <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+          `,
+        }}
+      />
+
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
         <div className="mx-auto max-w-2xl px-5 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Private Line</p>
-              <h1 className="font-serif text-3xl italic text-white">Messages</h1>
-            </div>
+            <div className="w-[72px]" />
             <Link
               href="/connect"
               className="rounded-full bg-[#b4141e] px-4 py-2 text-xs uppercase tracking-[0.25em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] hover:bg-[#d11827]"
@@ -404,45 +442,49 @@ export default function MessagesPage() {
             </Link>
           </div>
 
-          {/* Search */}
-          <div className="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2.5">
-            <span className="text-white/40">⌕</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search riders, groups..."
-              className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-            />
+          <div className="mt-10 text-center">
+            <div className="mx-auto flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-white/20" />
+              <span className="text-xl text-[#b4141e]">✦</span>
+              <span className="h-px w-12 bg-white/20" />
+            </div>
+
+            <h1 className="mt-6 font-serif text-7xl leading-none text-white">
+              Messages
+            </h1>
           </div>
 
-          {/* Tabs */}
-          <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5">
-            {(["all", "unread", "groups"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`rounded-xl py-2 text-[11px] uppercase tracking-[0.3em] transition ${
-                  tab === t
-                    ? "bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
-                    : "text-white/55 hover:text-white"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="mt-10">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2.5">
+              <span className="text-white/40">⌕</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search riders, groups..."
+                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5">
+              {(["all", "unread", "groups"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-xl py-2 text-[11px] uppercase tracking-[0.3em] transition ${
+                    tab === t
+                      ? "bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
+                      : "text-white/55 hover:text-white"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Ornament */}
-      <div className="mx-auto mt-6 flex max-w-2xl items-center justify-center gap-3 px-5 text-white/30">
-        <div className="h-px w-12 bg-white/15" />
-        <span className="text-xs">✦</span>
-        <div className="h-px w-12 bg-white/15" />
-      </div>
-
-      {/* Conversation list */}
-      <div className="mx-auto mt-6 max-w-2xl px-5">
+      <div className="relative mx-auto mt-8 max-w-2xl px-5">
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 text-center">
             <p className="font-serif text-2xl italic text-white">Silence on the line.</p>
@@ -459,7 +501,13 @@ export default function MessagesPage() {
                 className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.15)]"
               >
                 <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full border border-white/10">
-                  <Image src={c.photo} alt={c.name} fill className="object-cover" />
+                  <Image
+                    src={c.photo}
+                    alt={c.name}
+                    fill
+                    sizes="48px"
+                    className="object-cover"
+                  />
                   {c.online && (
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0c0c0d] bg-[#b4141e]" />
                   )}
@@ -477,6 +525,7 @@ export default function MessagesPage() {
                       {c.timeLabel}
                     </span>
                   </div>
+
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p
                       className={`truncate text-xs ${
@@ -485,6 +534,7 @@ export default function MessagesPage() {
                     >
                       {c.lastMessage}
                     </p>
+
                     {c.unread > 0 && (
                       <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b4141e] px-1.5 text-[10px] font-medium text-white shadow-[0_0_12px_rgba(180,20,30,0.5)]">
                         {c.unread}
@@ -497,12 +547,12 @@ export default function MessagesPage() {
           </div>
         )}
 
-        {/* Footer ornament */}
         <div className="mt-10 flex items-center justify-center gap-3 text-white/30">
           <div className="h-px w-12 bg-white/15" />
           <span className="text-xs">✦</span>
           <div className="h-px w-12 bg-white/15" />
         </div>
+
         <p className="mt-4 text-center text-[10px] uppercase tracking-[0.4em] text-white/30">
           © Crimson Society · MMXXVI
         </p>

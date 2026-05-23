@@ -16,11 +16,20 @@ import "leaflet/dist/leaflet.css";
 
 type RoutePoint = { lat: number; lng: number };
 
+export type LiveRideRider = {
+  user_id: string;
+  rider_name: string | null;
+  rider_photo: string | null;
+  lat: number;
+  lng: number;
+};
+
 type RideMapProps = {
   lat: number;
   lng: number;
   meetPoint: string;
   route?: RoutePoint[];
+  riders?: LiveRideRider[];
   editable?: boolean;
   height?: number;
   compact?: boolean;
@@ -58,6 +67,34 @@ const meetIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
+function createRiderIcon(name?: string | null) {
+  const initial = (name?.trim()?.charAt(0) || "R").toUpperCase();
+
+  return L.divIcon({
+    html: `
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:20px;
+        height:20px;
+        border-radius:9999px;
+        background:linear-gradient(180deg, rgba(245,241,235,0.98), rgba(214,109,123,0.96));
+        color:#25080c;
+        font-size:10px;
+        font-weight:700;
+        border:1.5px solid rgba(127,17,27,0.72);
+        box-shadow:
+          0 0 0 5px rgba(127,17,27,0.16),
+          0 8px 18px rgba(0,0,0,0.45);
+      ">${initial}</div>
+    `,
+    className: "",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
 function FitToRoute({
   lat,
   lng,
@@ -73,7 +110,9 @@ function FitToRoute({
 
   useEffect(() => {
     if (route.length > 1) {
-      const bounds = L.latLngBounds(route.map((p) => [p.lat, p.lng] as [number, number]));
+      const bounds = L.latLngBounds(
+        route.map((p) => [p.lat, p.lng] as [number, number])
+      );
       map.fitBounds(bounds.pad(compact ? 0.12 : 0.18), { animate: true });
     } else {
       map.setView([lat, lng], compact ? 10 : 11, { animate: true });
@@ -121,6 +160,7 @@ export default function RideMap({
   lng,
   meetPoint,
   route = [],
+  riders = [],
   editable = false,
   height = 320,
   compact = false,
@@ -174,6 +214,18 @@ export default function RideMap({
             </Tooltip>
           )}
         </Marker>
+
+        {riders.map((rider) => (
+          <Marker
+            key={rider.user_id}
+            position={[rider.lat, rider.lng]}
+            icon={createRiderIcon(rider.rider_name)}
+          >
+            <Tooltip direction="top" offset={[0, -12]} opacity={1} permanent={false}>
+              {rider.rider_name || "Rider"}
+            </Tooltip>
+          </Marker>
+        ))}
 
         {displayRoute.length > 1 && (
           <>

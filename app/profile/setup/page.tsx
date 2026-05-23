@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser", "Night"];
+const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
 
 export default function ProfileSetup() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -16,7 +16,7 @@ export default function ProfileSetup() {
   const [tiktok, setTiktok] = useState("");
   const [youtube, setYoutube] = useState("");
 
-  // Chapter II — Machine
+  // Chapter II — Motorcycle
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");

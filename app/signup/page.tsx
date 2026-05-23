@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function SignUpPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -16,14 +19,56 @@ export default function SignUpPage() {
 
   const redirectTo = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/login`;
+    return `${window.location.origin}/auth/callback`;
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (mounted && session) {
+        router.replace("/dashboard");
+      }
+    }
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        session &&
+        (event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "INITIAL_SESSION")
+      ) {
+        router.replace("/dashboard");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   async function handleSignUp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
     setInfoMsg("");
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      setErrorMsg("Enter your email address.");
+      setLoading(false);
+      return;
+    }
 
     if (password.length < 6) {
       setErrorMsg("Password must be at least 6 characters.");
@@ -38,7 +83,7 @@ export default function SignUpPage() {
     }
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: trimmedEmail,
       password,
       options: {
         emailRedirectTo: redirectTo,
@@ -51,13 +96,16 @@ export default function SignUpPage() {
       return;
     }
 
+    setEmail(trimmedEmail);
     setAwaitingConfirmation(true);
-    setInfoMsg(`We sent a verification email to ${email}.`);
+    setInfoMsg(`We sent a confirmation email to ${trimmedEmail}.`);
     setLoading(false);
   }
 
   async function handleResend() {
-    if (!email) {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
       setErrorMsg("Enter your email first.");
       return;
     }
@@ -68,7 +116,7 @@ export default function SignUpPage() {
 
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email,
+      email: trimmedEmail,
       options: {
         emailRedirectTo: redirectTo,
       },
@@ -80,7 +128,7 @@ export default function SignUpPage() {
       return;
     }
 
-    setInfoMsg(`Verification email sent again to ${email}.`);
+    setInfoMsg(`Confirmation email sent again to ${trimmedEmail}.`);
     setResending(false);
   }
 
@@ -195,9 +243,14 @@ export default function SignUpPage() {
               </h1>
 
               <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
-                We sent a verification link to{" "}
-                <span className="text-white">{email}</span>. Confirm your email
-                to activate your access and continue into the app.
+                We sent a confirmation link to{" "}
+                <span className="text-white">{email}</span>. Open the email and
+                click the link to activate your access.
+              </p>
+
+              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-500">
+                After confirmation, you should be returned through the auth callback
+                flow so your app can complete authentication more smoothly.
               </p>
 
               {errorMsg && (
@@ -219,7 +272,9 @@ export default function SignUpPage() {
                   disabled={resending}
                   className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {resending ? "Sending..." : "Resend Email"}
+                  {resending
+                    ? "Sending..."
+                    : "Didn’t get it? Resend confirmation email."}
                 </button>
 
                 <Link

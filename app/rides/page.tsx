@@ -4,19 +4,28 @@ import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import type { LiveRideRider } from "@/components/RideMap";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[320px] items-center justify-center rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[#0a0909]">
       <p className="text-sm uppercase tracking-[0.22em] text-zinc-500">
-        Summoning the route…
+        Summoning the route
       </p>
     </div>
   ),
 });
 
 type RoutePoint = { lat: number; lng: number };
+type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
+type RidePrivacy = "Open" | "Invite";
+
+type Rider = {
+  name: string;
+  photo: string;
+};
 
 type Ride = {
   id: string;
@@ -25,19 +34,45 @@ type Ride = {
   time: string;
   meetPoint: string;
   city: string;
-  type: "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
+  type: RideType;
   distance: string;
   duration: string;
   cover: string;
   previewImage?: string;
-  host: { name: string; photo: string };
-  going: { name: string; photo: string }[];
+  host: Rider;
+  going: Rider[];
   description: string;
-  privacy: "Open" | "Invite";
+  privacy: RidePrivacy;
   lat: number;
   lng: number;
   route?: RoutePoint[];
 };
+
+type DraftRide = {
+  name: string;
+  date: string;
+  time: string;
+  meetPoint: string;
+  city: string;
+  type: RideType;
+  description: string;
+  privacy: RidePrivacy;
+  lat: number;
+  lng: number;
+  route: RoutePoint[];
+  previewImage: string;
+};
+
+type LiveRiderRow = {
+  ride_id: string;
+  user_id: string;
+  rider_name: string | null;
+  rider_photo: string | null;
+  lat: number;
+  lng: number;
+};
+
+type LiveRidersState = Record<string, LiveRideRider[]>;
 
 const PHOTOS = {
   marco:
@@ -58,7 +93,7 @@ const UPCOMING_SEED: Ride[] = [
   {
     id: "r1",
     name: "Sunday Canyon Run",
-    date: "Sun · May 24",
+    date: "Sun May 24",
     time: "5:30 AM",
     meetPoint: "Buc-ee's, Katy",
     city: "Houston, TX",
@@ -91,7 +126,7 @@ const UPCOMING_SEED: Ride[] = [
   {
     id: "r2",
     name: "Midnight on the Loop",
-    date: "Fri · May 22",
+    date: "Fri May 22",
     time: "11:00 PM",
     meetPoint: "Memorial Park",
     city: "Houston, TX",
@@ -119,8 +154,8 @@ const UPCOMING_SEED: Ride[] = [
   },
   {
     id: "r3",
-    name: "Track Day · COTA",
-    date: "Sat · Jun 7",
+    name: "Track Day COTA",
+    date: "Sat Jun 7",
     time: "8:00 AM",
     meetPoint: "COTA Paddock B",
     city: "Austin, TX",
@@ -153,7 +188,7 @@ const UPCOMING_SEED: Ride[] = [
   {
     id: "r4",
     name: "Hill Country Loop",
-    date: "Sat · May 31",
+    date: "Sat May 31",
     time: "7:00 AM",
     meetPoint: "The Salt Lick BBQ",
     city: "Driftwood, TX",
@@ -189,7 +224,7 @@ const PAST_SEED: Ride[] = [
   {
     id: "p1",
     name: "Galveston Coastal Run",
-    date: "Sat · May 10",
+    date: "Sat May 10",
     time: "6:00 AM",
     meetPoint: "Seawall Boulevard",
     city: "Galveston, TX",
@@ -205,7 +240,8 @@ const PAST_SEED: Ride[] = [
       { name: "Marco", photo: PHOTOS.marco },
       { name: "Elena", photo: PHOTOS.elena },
     ],
-    description: "Sunrise over the seawall. Easy pace, clean line, no wasted motion.",
+    description:
+      "Sunrise over the seawall. Easy pace, clean line, no wasted motion.",
     privacy: "Open",
     lat: 29.3013,
     lng: -94.7977,
@@ -216,21 +252,6 @@ const PAST_SEED: Ride[] = [
     ],
   },
 ];
-
-type DraftRide = {
-  name: string;
-  date: string;
-  time: string;
-  meetPoint: string;
-  city: string;
-  type: Ride["type"];
-  description: string;
-  privacy: Ride["privacy"];
-  lat: number;
-  lng: number;
-  route: RoutePoint[];
-  previewImage: string;
-};
 
 const INITIAL_DRAFT: DraftRide = {
   name: "",
@@ -258,9 +279,12 @@ export default function RidesPage() {
   const [past] = useState<Ride[]>(PAST_SEED);
   const [hosted, setHosted] = useState<Ride[]>([]);
   const [draftRide, setDraftRide] = useState<DraftRide>(INITIAL_DRAFT);
+  const [liveRiders, setLiveRiders] = useState<LiveRidersState>({});
 
   const previousFocus = useRef<HTMLElement | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trackingWatchRef = useRef<number | null>(null);
+  const trackingRideRef = useRef<string | null>(null);
 
   const allRides = useMemo(() => [...upcoming, ...past, ...hosted], [upcoming, past, hosted]);
   const list = tab === "upcoming" ? upcoming : tab === "past" ? past : hosted;
@@ -282,9 +306,85 @@ export default function RidesPage() {
         else if (openId) setOpenId(null);
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openId, pendingRsvp, showHostForm]);
+
+  useEffect(() => {
+    return () => {
+      if (trackingWatchRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(trackingWatchRef.current);
+      }
+    };
+  }, []);
+  
+useEffect(() => {
+  if (!openRide?.id) return;
+
+  const rideId = openRide.id;
+  let isMounted = true;
+
+  async function loadInitialLiveRiders() {
+    const { data, error } = await supabase
+      .from("ride_live_locations")
+      .select("ride_id, user_id, rider_name, rider_photo, lat, lng")
+      .eq("ride_id", rideId);
+
+    if (error) {
+      console.error("Failed loading live riders:", error.message);
+      return;
+    }
+
+    if (!isMounted) return;
+
+    setLiveRiders((prev) => ({
+      ...prev,
+      [rideId]: (data ?? []) as LiveRideRider[],
+    }));
+  }
+
+  loadInitialLiveRiders();
+
+  const channel = supabase
+    .channel(`ride-live-${rideId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "ride_live_locations",
+        filter: `ride_id=eq.${rideId}`,
+      },
+      (payload) => {
+        setLiveRiders((prev) => {
+          const current = prev[rideId] ?? [];
+
+          if (payload.eventType === "DELETE") {
+            const oldRow = payload.old as LiveRiderRow;
+            return {
+              ...prev,
+              [rideId]: current.filter((r) => r.user_id !== oldRow.user_id),
+            };
+          }
+
+          const nextRow = payload.new as LiveRiderRow;
+          const withoutSameUser = current.filter((r) => r.user_id !== nextRow.user_id);
+
+          return {
+            ...prev,
+            [rideId]: [...withoutSameUser, nextRow],
+          };
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    isMounted = false;
+    supabase.removeChannel(channel);
+  };
+}, [openRide?.id]);
 
   const pushToast = (message: string) => {
     setToast(message);
@@ -292,10 +392,151 @@ export default function RidesPage() {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const confirmRsvp = (id: string) => {
+  async function getCurrentUserProfile() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    return {
+      user,
+      rider_name:
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.user_metadata?.username ||
+        user.email ||
+        "Rider",
+      rider_photo: user.user_metadata?.avatar_url || null,
+    };
+  }
+
+  async function writeLiveLocation(
+    rideId: string,
+    lat: number,
+    lng: number,
+    riderName: string,
+    riderPhoto: string | null,
+    userId: string
+  ) {
+    const { error } = await supabase.from("ride_live_locations").upsert(
+      {
+        ride_id: rideId,
+        user_id: userId,
+        rider_name: riderName,
+        rider_photo: riderPhoto,
+        lat,
+        lng,
+      },
+      { onConflict: "ride_id,user_id" }
+    );
+
+    if (error) {
+      console.error("Failed writing live location:", error.message);
+    } else {
+      console.log("Live location written:", { rideId, userId, lat, lng });
+    }
+  }
+
+  async function startRideTracking(rideId: string) {
+    const profile = await getCurrentUserProfile();
+
+    if (!profile || !navigator.geolocation) {
+      console.warn("No user or geolocation unavailable");
+      return;
+    }
+
+    trackingRideRef.current = rideId;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        await writeLiveLocation(
+          rideId,
+          position.coords.latitude,
+          position.coords.longitude,
+          profile.rider_name,
+          profile.rider_photo,
+          profile.user.id
+        );
+      },
+      (error) => {
+        console.error("Initial geolocation failed:", error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+
+    if (trackingWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(trackingWatchRef.current);
+    }
+
+    trackingWatchRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        if (!trackingRideRef.current) return;
+
+        await writeLiveLocation(
+          trackingRideRef.current,
+          position.coords.latitude,
+          position.coords.longitude,
+          profile.rider_name,
+          profile.rider_photo,
+          profile.user.id
+        );
+      },
+      (error) => {
+        console.error("Live tracking failed:", error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000,
+      }
+    );
+  }
+
+  async function stopRideTracking(rideId: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (trackingWatchRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(trackingWatchRef.current);
+      trackingWatchRef.current = null;
+    }
+
+    trackingRideRef.current = null;
+
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("ride_live_locations")
+      .delete()
+      .eq("ride_id", rideId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Failed removing live location:", error.message);
+    } else {
+      console.log("Stopped tracking for:", { rideId, userId: user.id });
+    }
+  }
+
+  const confirmRsvp = async (id: string) => {
     const nextGoing = !going[id];
+
     setGoing((g) => ({ ...g, [id]: nextGoing }));
-    pushToast(nextGoing ? "Your seat is held. Added to the ride chat." : "RSVP withdrawn.");
+
+    if (nextGoing) {
+      await startRideTracking(id);
+      pushToast("Your seat is held. Added to the ride chat.");
+    } else {
+      await stopRideTracking(id);
+      pushToast("RSVP withdrawn.");
+    }
+
     setPendingRsvp(null);
   };
 
@@ -331,11 +572,13 @@ export default function RidesPage() {
       id: `h-${Date.now()}`,
       name: draftRide.name || "Untitled Run",
       date: draftRide.date
-        ? new Date(`${draftRide.date}T00:00:00`).toLocaleDateString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          }).replace(",", " ·")
+        ? new Date(`${draftRide.date}T00:00:00`)
+            .toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })
+            .replace(",", "")
         : "Date TBD",
       time: draftRide.time || "Time TBD",
       meetPoint: draftRide.meetPoint || "Meet point TBD",
@@ -350,7 +593,8 @@ export default function RidesPage() {
       host: { name: hostName, photo: hostPhoto },
       going: [],
       description:
-        draftRide.description || "A new run has been posted. Route and details are set by the host.",
+        draftRide.description ||
+        "A new run has been posted. Route and details are set by the host.",
       privacy: draftRide.privacy,
       lat: draftRide.lat,
       lng: draftRide.lng,
@@ -370,11 +614,8 @@ export default function RidesPage() {
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background: `
-            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
-            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
-            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
-          `,
+          background:
+            "radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%), radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%), linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)",
         }}
       />
       <div
@@ -387,7 +628,6 @@ export default function RidesPage() {
           <div className="text-[11px] uppercase tracking-[0.34em] text-zinc-500">
             The Ledger
           </div>
-
           <button
             onClick={openHostSheet}
             className="rounded-full border border-[rgba(255,255,255,0.28)] bg-[rgba(255,255,255,0.02)] px-5 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.55)] hover:bg-[rgba(127,17,27,0.16)]"
@@ -421,20 +661,15 @@ export default function RidesPage() {
 
         <section className="px-2 pb-4 pt-10 text-center sm:px-10 sm:pt-12">
           <div className="mx-auto flex items-center justify-center gap-4">
-            <span className="h-px w-12 bg-[rgba(255,255,255,0.14)]" />
-            <span className="text-[13px] text-[rgba(185,37,52,0.98)]">✦</span>
-            <span className="h-px w-12 bg-[rgba(255,255,255,0.14)]" />
+            <span className="h-px w-12 bg-white/20" />
+            <span className="text-xl text-[#b4141e]">✦</span>
+            <span className="h-px w-12 bg-white/20" />
           </div>
-
-          <h1 className="mt-6 font-serif text-[220px] leading-[0.82] tracking-[-0.04em] text-[#f5f1eb] sm:text-[320px]">
-            Rides
-          </h1>
-
+          <h1 className="mt-6 font-serif text-7xl leading-none">Rides</h1>
           <div className="-mt-1 space-y-1">
-            <p className="font-serif text-[42px] leading-[1.02] text-[rgba(214,109,123,0.92)] sm:text-[62px]">
+            <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">
               Curated routes, disciplined company.
             </p>
-
             <p className="font-serif text-[42px] leading-[1.02] text-[#d8ccc7] sm:text-[62px]">
               A clearer line between invitation and chaos.
             </p>
@@ -451,9 +686,8 @@ export default function RidesPage() {
                 sizes="(max-width: 768px) 100vw, 1180px"
                 className="object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#050405]/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
               <div className="absolute inset-0 ring-1 ring-inset ring-[rgba(255,255,255,0.08)]" />
-
               <div className="absolute left-5 top-5 flex flex-wrap gap-2">
                 <span className="rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
                   {featuredRide.type}
@@ -511,114 +745,113 @@ export default function RidesPage() {
           </section>
         )}
 
-        <div className="mt-8 flex items-center justify-between gap-4 px-1">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-            {list.length} {list.length === 1 ? "ride" : "rides"}
-          </p>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
-            Curated selection
-          </p>
-        </div>
+        <section>
+          <div className="mt-8 flex items-center justify-between gap-4 px-1">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+              {list.length} {list.length === 1 ? "ride" : "rides"}
+            </p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
+              Curated selection
+            </p>
+          </div>
 
-        <ul className="mt-4 space-y-4">
-          {secondaryRides.map((r) => {
-            const isGoing = !!going[r.id];
-            const totalGoing = r.going.length + (isGoing ? 1 : 0);
+          <ul className="mt-4 space-y-4">
+            {secondaryRides.map((r) => {
+              const isGoing = !!going[r.id];
+              const totalGoing = r.going.length + (isGoing ? 1 : 0);
 
-            return (
-              <li
-                key={r.id}
-                className="overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.07),rgba(255,255,255,0.02))]"
-              >
-                <div className="grid gap-0 md:grid-cols-[240px_1fr]">
-                  <div className="relative h-[190px] w-full overflow-hidden md:h-full">
-                    {r.previewImage ? (
-                      <Image
-                        src={r.previewImage}
-                        alt={`${r.name} preview`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 240px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <RideMap
-                        lat={r.lat}
-                        lng={r.lng}
-                        meetPoint={r.meetPoint}
-                        route={r.route ?? []}
-                        editable={false}
-                        compact
-                        hideHint
-                        height={190}
-                      />
-                    )}
+              return (
+                <li
+                  key={r.id}
+                  className="overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.07),rgba(255,255,255,0.02))]"
+                >
+                  <div className="grid gap-0 md:grid-cols-[240px_1fr]">
+                    <div className="relative h-[190px] w-full overflow-hidden md:h-full">
+                      {r.previewImage ? (
+                        <Image
+                          src={r.previewImage}
+                          alt={`${r.name} preview`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 240px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <RideMap
+                          lat={r.lat}
+                          lng={r.lng}
+                          meetPoint={r.meetPoint}
+                          route={r.route ?? []}
+                          editable={false}
+                          compact
+                          hideHint
+                          height={190}
+                        />
+                      )}
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#050405]/80 via-transparent to-transparent" />
-
-                    <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
-                      {r.type}
-                    </div>
-                  </div>
-
-                  <div className="p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                          {r.date} · {r.time}
-                        </p>
-                        <h3 className="mt-3 font-serif text-[30px] leading-none text-[#f4f0ea]">
-                          {r.name}
-                        </h3>
-                      </div>
-
-                      <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">
-                        {totalGoing} going
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#05040580] via-transparent to-transparent" />
+                      <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.18)] bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
+                        {r.type}
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-300">
-                      <span>{r.meetPoint}</span>
-                      <span className="text-zinc-700">•</span>
-                      <span>{r.distance}</span>
-                      <span className="text-zinc-700">•</span>
-                      <span>{r.duration}</span>
-                    </div>
-
-                    <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
-                      {r.description}
-                    </p>
-
-                    <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center">
-                          {r.going.slice(0, 4).map((g, i) => (
-                            <div
-                              key={g.name}
-                              className="relative h-9 w-9 overflow-hidden rounded-full border border-[#120b0d]"
-                              style={{ marginLeft: i === 0 ? 0 : "-8px" }}
-                            >
-                              <Image
-                                src={g.photo}
-                                alt={g.name}
-                                fill
-                                sizes="36px"
-                                className="object-cover"
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
-                            Hosted by
+                    <div className="p-5 sm:p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                            {r.date} · {r.time}
                           </p>
-                          <p className="text-xs text-zinc-300">{r.host.name}</p>
+                          <h3 className="mt-3 font-serif text-[30px] leading-none text-[#f4f0ea]">
+                            {r.name}
+                          </h3>
+                        </div>
+
+                        <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">
+                          {totalGoing} going
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {tab !== "past" ? (
-                          <>
+                      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-300">
+                        <span>{r.meetPoint}</span>
+                        <span className="text-zinc-700">•</span>
+                        <span>{r.distance}</span>
+                        <span className="text-zinc-700">•</span>
+                        <span>{r.duration}</span>
+                      </div>
+
+                      <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
+                        {r.description}
+                      </p>
+
+                      <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center">
+                            {r.going.slice(0, 4).map((g, i) => (
+                              <div
+                                key={g.name}
+                                className="relative h-9 w-9 overflow-hidden rounded-full border border-[#120b0d]"
+                                style={{ marginLeft: i === 0 ? 0 : -8 }}
+                              >
+                                <Image
+                                  src={g.photo}
+                                  alt={g.name}
+                                  fill
+                                  sizes="36px"
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                              Hosted by
+                            </p>
+                            <p className="text-xs text-zinc-300">{r.host.name}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {tab !== "past" ? (
                             <button
                               onClick={() => setPendingRsvp(r.id)}
                               className={`rounded-full border px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] transition duration-200 ${
@@ -629,45 +862,38 @@ export default function RidesPage() {
                             >
                               {isGoing ? "Going" : "Seat"}
                             </button>
+                          ) : null}
 
-                            <button
-                              onClick={() => openDetails(r.id)}
-                              className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
-                            >
-                              Details
-                            </button>
-                          </>
-                        ) : (
                           <button
                             onClick={() => openDetails(r.id)}
                             className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5 text-[11px] uppercase tracking-[0.18em] text-zinc-100 transition duration-200 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.12)]"
                           >
-                            Recap
+                            {tab === "past" ? "Recap" : "Details"}
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            );
-          })}
+                </li>
+              );
+            })}
 
-          {list.length === 0 && (
-            <li className="rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] p-12 text-center">
-              <p className="font-serif text-3xl text-[#f3efe9]">
-                {tab === "hosted"
-                  ? "You have not called a run yet."
-                  : "Nothing has been entered into the book."}
-              </p>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-400">
-                {tab === "hosted"
-                  ? "Plot the line, set the terms, and call the company."
-                  : "Check again when the next route is posted."}
-              </p>
-            </li>
-          )}
-        </ul>
+            {list.length === 0 && (
+              <li className="rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(127,17,27,0.08),rgba(255,255,255,0.02))] p-12 text-center">
+                <p className="font-serif text-3xl text-[#f3efe9]">
+                  {tab === "hosted"
+                    ? "You have not called a run yet."
+                    : "Nothing has been entered into the book."}
+                </p>
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-400">
+                  {tab === "hosted"
+                    ? "Plot the line, set the terms, and call the company."
+                    : "Check again when the next route is posted."}
+                </p>
+              </li>
+            )}
+          </ul>
+        </section>
       </div>
 
       {openRide && (
@@ -691,8 +917,7 @@ export default function RidesPage() {
 
             <div className="relative h-64 w-full overflow-hidden sm:h-80">
               <Image src={openRide.cover} alt={openRide.name} fill className="object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#090709] via-[#090709]/15 to-transparent" />
-
+              <div className="absolute inset-0 bg-gradient-to-t from-[#090709] via-[#09070915] to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-300">
                   {openRide.date} · {openRide.time}
@@ -711,6 +936,7 @@ export default function RidesPage() {
                   lng={openRide.lng}
                   meetPoint={openRide.meetPoint}
                   route={openRide.route ?? []}
+                  riders={liveRiders[openRide.id] ?? []}
                   editable={false}
                   height={340}
                 />
@@ -876,7 +1102,8 @@ export default function RidesPage() {
                 Host a Ride
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-                Set the terms, mark the meet point, and draw the route so every rider knows the line before the engines turn.
+                Set the terms, mark the meet point, and draw the route so every rider
+                knows the line before the engines turn.
               </p>
             </div>
 
@@ -962,7 +1189,7 @@ export default function RidesPage() {
                   </label>
                   <select
                     value={draftRide.type}
-                    onChange={(e) => updateDraft("type", e.target.value as Ride["type"])}
+                    onChange={(e) => updateDraft("type", e.target.value as RideType)}
                     className="w-full appearance-none rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-[rgba(127,17,27,0.55)]"
                   >
                     <option className="bg-[#0b0b0c]">Night Run</option>
@@ -1086,7 +1313,8 @@ export default function RidesPage() {
                   </div>
 
                   <p className="mt-3 text-xs leading-5 text-zinc-400">
-                    The route appears as a live crimson line. Riders will see this same path inside the detail sheet before they RSVP.
+                    The route appears as a live crimson line. Riders will see this same
+                    path inside the detail sheet before they RSVP.
                   </p>
                 </div>
               </div>

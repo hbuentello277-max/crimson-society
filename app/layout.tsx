@@ -4,6 +4,7 @@ import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import CartDrawer from "@/components/CartDrawer";
 import CartToast from "@/components/CartToast";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const serif = Cormorant_Garamond({
   subsets: ["latin"],
@@ -29,10 +30,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
       <body className="bg-[#050505] font-sans text-white antialiased">
-        {children}
-        <BottomNav />
-        <CartDrawer />
-        <CartToast />
+        <AuthProvider>
+          {children}
+          <BottomNav />
+          <CartDrawer />
+          <CartToast />
+        </AuthProvider>
       </body>
     </html>
   );

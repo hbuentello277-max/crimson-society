@@ -25,7 +25,7 @@ const MEMBERS: Member[] = [
     name: "Marco Vélez",
     city: "Austin, TX",
     bike: "Ducati Panigale V4",
-    style: ["Night", "Track"],
+    style: ["Track"],
     rides: 47,
     photo: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces",
     bio: "Canyon runs after midnight. Apex hunter.",
@@ -80,14 +80,14 @@ const MEMBERS: Member[] = [
     name: "Sofia Marín",
     city: "Miami, FL",
     bike: "Aprilia RSV4",
-    style: ["Track", "Night"],
+    style: ["Track"],
     rides: 52,
     photo: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=400&h=400&fit=crop&crop=faces",
     bio: "Italian iron. Last lap energy.",
   },
 ];
 
-const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser", "Night"];
+const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
 
 export default function ConnectPage() {
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
@@ -114,17 +114,18 @@ export default function ConnectPage() {
   const openMember = openId ? MEMBERS.find((m) => m.id === openId) ?? null : null;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
-      {/* Ambient crimson glow */}
+     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180,20,30,0.25), transparent 65%)",
-        }}
-      />
-
+          background: `
+            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+          `,
+      }}
+    />
       <div className="relative mx-auto max-w-3xl px-6 pt-12 pb-20">
         {/* Top bar */}
         <div className="flex items-center justify-between">
@@ -150,8 +151,8 @@ export default function ConnectPage() {
           <p className="mt-4 font-serif italic text-3xl text-[#e87a82]">
             Find riders near you.
           </p>
-          <p className="mx-auto mt-6 max-w-md text-base text-zinc-400 leading-relaxed">
-            Browse the Order. Request a ride. Build the inner circle.
+          <p className="mx-auto font-serif text-[17px] text-bg-white/20 leading-relaxed">
+            Browse the Order. Request a ride. Build your inner circle.
           </p>
         </header>
 
@@ -160,7 +161,7 @@ export default function ConnectPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, city, or machine"
+            placeholder="Search by name or city"
             className="w-full rounded-full border border-white/10 bg-white/[0.03] px-6 py-4 text-base text-zinc-200 placeholder:text-zinc-600 focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20 transition"
           />
         </div>

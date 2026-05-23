@@ -1,29 +1,131 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
-const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [showResend, setShowResend] = useState(false);
 
-async function login() {
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const emailRedirectTo = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return `${window.location.origin}/dashboard`;
+  }, []);
 
-  if (error) {
-    alert(error.message);
-    return;
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (mounted && session) {
+        router.replace("/dashboard");
+      }
+    }
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        session &&
+        (event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "INITIAL_SESSION")
+      ) {
+        router.replace("/dashboard");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  async function login() {
+    setLoading(true);
+    setMessage("");
+    setShowResend(false);
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password.trim()) {
+      setMessage("Enter your email and password.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
+
+    if (error) {
+      const lowerMessage = error.message.toLowerCase();
+
+      if (
+        lowerMessage.includes("email not confirmed") ||
+        lowerMessage.includes("email_not_confirmed") ||
+        lowerMessage.includes("confirm")
+      ) {
+        setMessage("Your email has not been confirmed yet.");
+        setShowResend(true);
+        setLoading(false);
+        return;
+      }
+
+      setMessage(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.replace("/dashboard");
   }
 
-  window.location.href = "/dashboard";
-}
+  async function resendConfirmationEmail() {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setMessage("Enter your email first so we know where to resend it.");
+      return;
+    }
+
+    setResending(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: trimmedEmail,
+      options: {
+        emailRedirectTo,
+      },
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setResending(false);
+      return;
+    }
+
+    setMessage("Confirmation email sent. Check your inbox and spam folder.");
+    setShowResend(true);
+    setResending(false);
+  }
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] flex items-center justify-center px-6 py-12 text-white">
-      {/* Ambient crimson glow */}
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505] px-6 py-12 text-white">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -32,7 +134,7 @@ async function login() {
             "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(180,20,30,0.22), transparent 60%), radial-gradient(ellipse 50% 40% at 50% 100%, rgba(120,10,20,0.18), transparent 60%)",
         }}
       />
-      {/* Film grain */}
+
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
@@ -43,19 +145,17 @@ async function login() {
       />
 
       <div className="relative w-full max-w-md">
-        {/* Card */}
         <div className="relative rounded-sm border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 shadow-[0_30px_80px_-20px_rgba(180,20,30,0.4)] backdrop-blur-sm">
-          {/* Crimson hairline accent */}
           <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e] to-transparent" />
 
-          {/* Monogram */}
           <div className="flex justify-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black">
-              <span className="font-serif text-xl italic text-[#b4141e]">CS</span>
+              <span className="font-serif text-xl italic text-[#b4141e]">
+                CS
+              </span>
             </div>
           </div>
 
-          {/* Wordmark */}
           <div className="mt-6 text-center">
             <p className="text-[10px] uppercase tracking-[0.5em] text-zinc-500">
               Members Only
@@ -64,20 +164,26 @@ async function login() {
               Crimson <span className="italic text-[#b4141e]">Society</span>
             </h1>
 
-            {/* Ornament */}
             <div className="mt-5 flex items-center justify-center gap-3">
               <span className="h-px w-10 bg-white/15" />
-              <span className="text-[10px] tracking-[0.4em] text-[#b4141e]">✦</span>
+              <span className="text-[10px] tracking-[0.4em] text-[#b4141e]">
+                ✦
+              </span>
               <span className="h-px w-10 bg-white/15" />
             </div>
 
-            <p className="mt-4 text-[11px] tracking-[0.35em] uppercase text-zinc-400">
+            <p className="mt-4 text-[11px] uppercase tracking-[0.35em] text-zinc-400">
               Welcome Back
             </p>
           </div>
 
-          {/* Form */}
-          <form className="mt-10 flex flex-col gap-5">
+          <form
+            className="mt-10 flex flex-col gap-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              login();
+            }}
+          >
             <div>
               <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
                 Email
@@ -112,24 +218,45 @@ async function login() {
               />
             </div>
 
+            {message && (
+              <div className="rounded-sm border border-[#b4141e]/20 bg-[#b4141e]/10 px-4 py-3 text-sm text-zinc-200">
+                {message}
+              </div>
+            )}
+
+            {showResend && (
+              <button
+                type="button"
+                onClick={resendConfirmationEmail}
+                disabled={resending}
+                className="text-left text-[11px] uppercase tracking-[0.25em] text-zinc-300 transition hover:text-[#e87a82] disabled:opacity-60"
+              >
+                {resending
+                  ? "Sending confirmation email..."
+                  : "Didn’t get it? Resend confirmation email."}
+              </button>
+            )}
+
             <button
-              type="button"
-              onClick={login}
-              className="group relative mt-4 inline-flex w-full items-center justify-center overflow-hidden rounded-sm bg-gradient-to-b from-[#b4141e] to-[#7a0d14] px-6 py-4 text-[11px] uppercase tracking-[0.45em] text-white shadow-[0_18px_40px_-12px_rgba(180,20,30,0.7)] transition hover:from-[#c8161f] hover:to-[#8a0e16]"
+              type="submit"
+              disabled={loading}
+              className="group relative mt-4 inline-flex w-full items-center justify-center overflow-hidden rounded-sm bg-gradient-to-b from-[#b4141e] to-[#7a0d14] px-6 py-4 text-[11px] uppercase tracking-[0.45em] text-white shadow-[0_18px_40px_-12px_rgba(180,20,30,0.7)] transition hover:from-[#c8161f] hover:to-[#8a0e16] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="relative z-10 flex items-center gap-3">
-                Enter Society
+                {loading ? "Entering..." : "Enter Society"}
                 <span className="transition group-hover:translate-x-0.5">→</span>
               </span>
               <span
                 aria-hidden
                 className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full"
               />
-              <span aria-hidden className="absolute inset-x-6 top-0 h-px bg-white/30" />
+              <span
+                aria-hidden
+                className="absolute inset-x-6 top-0 h-px bg-white/30"
+              />
             </button>
           </form>
 
-          {/* Footer link */}
           <p className="mt-8 text-center text-[11px] tracking-[0.2em] text-zinc-500">
             New here?{" "}
             <Link
@@ -141,7 +268,6 @@ async function login() {
           </p>
         </div>
 
-        {/* Sub-footer */}
         <p className="mt-6 text-center text-[9px] uppercase tracking-[0.5em] text-zinc-600">
           Ride · Brotherhood · Legacy
         </p>

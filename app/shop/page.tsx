@@ -141,21 +141,32 @@ export default function ShopPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#050505] pb-32 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#050405] pb-32 text-white">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+          `,
+        }}
+      />
+
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
         <div className="mx-auto max-w-2xl px-5 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Outfitter</p>
-              <h1 className="font-serif text-3xl italic text-white">Shop</h1>
-            </div>
+            <div className="w-[72px]" />
 
             <button
+              type="button"
               onClick={openDrawer}
               className="relative flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white/80 transition hover:border-[#b4141e]/60 hover:text-white"
             >
               <span>Bag</span>
               <span className="text-[10px] text-white/50">·</span>
+
               <motion.span
                 key={cartCount}
                 initial={{ scale: 1.4, color: "#ffffff" }}
@@ -176,22 +187,88 @@ export default function ShopPage() {
               )}
             </button>
           </div>
+
+          <div className="mt-10 text-center">
+            <div className="mx-auto flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-white/20" />
+              <span className="text-xl text-[#b4141e]">✦</span>
+              <span className="h-px w-12 bg-white/20" />
+            </div>
+
+            <h1 className="mt-6 font-serif text-7xl leading-none text-white">
+              Shop
+            </h1>
+
+            <p className="mt-4 font-serif italic text-3xl text-[#e87a82]">
+              Outfitter
+            </p>
+
+            <p className="mx-auto mt-3 max-w-xl text-xs uppercase tracking-[0.28em] text-white/50">
+              Limited pieces · Crimson Society issue · Hand-finished drop
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
+              {(Object.keys(categoryLabels) as Category[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={`flex-shrink-0 rounded-full border px-4 py-2 text-[11px] uppercase tracking-[0.25em] transition ${
+                    category === c
+                      ? "border-[#b4141e] bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
+                      : "border-white/10 bg-black/30 text-white/55 hover:text-white"
+                  }`}
+                >
+                  {categoryLabels[c]}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                {filtered.length} piece{filtered.length === 1 ? "" : "s"}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                  Sort
+                </span>
+
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-white outline-none hover:border-white/30"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="newest">Newest</option>
+                  <option value="price-low">Price · Low</option>
+                  <option value="price-high">Price · High</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-2xl px-5 pt-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10">
+      <section className="relative mx-auto max-w-2xl px-5 pt-10">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
           <div className="relative aspect-[16/10] w-full">
             <Image
               src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1400"
               alt="Spring drop"
               fill
-              className="object-cover opacity-70"
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-cover object-[center_68%] opacity-60"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/35 to-transparent" />
           </div>
+
           <div className="absolute inset-0 flex flex-col justify-end p-6">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Spring Drop · 26</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">
+              Spring Drop · 26
+            </p>
             <h2 className="mt-1 font-serif text-3xl italic leading-tight text-white">
               The Long Shadow
             </h2>
@@ -202,45 +279,7 @@ export default function ShopPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-6 max-w-2xl px-5">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
-          {(Object.keys(categoryLabels) as Category[]).map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`flex-shrink-0 rounded-full border px-4 py-2 text-[11px] uppercase tracking-[0.25em] transition ${
-                category === c
-                  ? "border-[#b4141e] bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
-                  : "border-white/10 bg-black/30 text-white/55 hover:text-white"
-              }`}
-            >
-              {categoryLabels[c]}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-3 flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-            {filtered.length} piece{filtered.length === 1 ? "" : "s"}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">Sort</span>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-white outline-none hover:border-white/30"
-            >
-              <option value="featured">Featured</option>
-              <option value="newest">Newest</option>
-              <option value="price-low">Price · Low</option>
-              <option value="price-high">Price · High</option>
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-6 max-w-2xl px-5">
+      <section className="relative mx-auto mt-6 max-w-2xl px-5">
         {loading ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/70">
             Loading shop…
@@ -261,6 +300,7 @@ export default function ShopPage() {
             {filtered.map((p) => (
               <motion.button
                 key={p.id}
+                type="button"
                 layout
                 whileHover={{ y: -3 }}
                 transition={{ type: "spring", stiffness: 300, damping: 22 }}
@@ -269,10 +309,14 @@ export default function ShopPage() {
               >
                 <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
                   <Image
-                    src={p.images[0] || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"}
+                    src={
+                      p.images[0] ||
+                      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
+                    }
                     alt={p.name}
                     fill
-                    className={`object-cover transition duration-500 group-hover:scale-105 ${
+                    sizes="(max-width: 640px) 50vw, 320px"
+                    className={`object-cover object-[center_62%] transition duration-500 group-hover:scale-105 ${
                       isWaitlistState(p) ? "opacity-50 grayscale" : ""
                     }`}
                   />
@@ -336,8 +380,12 @@ export default function ShopPage() {
               </div>
 
               <div className="flex items-center justify-between px-5 pt-3">
-                <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">Detail</p>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
+                  Detail
+                </p>
+
                 <button
+                  type="button"
                   onClick={closeProduct}
                   className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/70 hover:bg-white/5"
                 >
@@ -363,7 +411,10 @@ export default function ShopPage() {
                         }
                         alt={active.name}
                         fill
-                        className={`object-cover ${isWaitlistState(active) ? "opacity-60 grayscale" : ""}`}
+                        sizes="(max-width: 768px) 100vw, 768px"
+                        className={`object-cover object-[center_62%] ${
+                          isWaitlistState(active) ? "opacity-60 grayscale" : ""
+                        }`}
                       />
                     </motion.div>
                   </AnimatePresence>
@@ -376,7 +427,9 @@ export default function ShopPage() {
                           : badgeStyle(active.badge)
                       }`}
                     >
-                      {active.status === "coming_soon" ? "Coming Soon" : badgeLabel(active.badge)}
+                      {active.status === "coming_soon"
+                        ? "Coming Soon"
+                        : badgeLabel(active.badge)}
                     </span>
                   )}
                 </div>
@@ -385,13 +438,22 @@ export default function ShopPage() {
                   <div className="mt-3 flex gap-2">
                     {active.images.map((src, i) => (
                       <button
-                        key={i}
+                        key={`${src}-${i}`}
+                        type="button"
                         onClick={() => setImgIdx(i)}
                         className={`relative h-16 w-16 overflow-hidden rounded-xl border transition ${
-                          i === imgIdx ? "border-[#b4141e]" : "border-white/10 hover:border-white/30"
+                          i === imgIdx
+                            ? "border-[#b4141e]"
+                            : "border-white/10 hover:border-white/30"
                         }`}
                       >
-                        <Image src={src} alt="" fill className="object-cover" />
+                        <Image
+                          src={src}
+                          alt={`${active.name} thumbnail ${i + 1}`}
+                          fill
+                          sizes="64px"
+                          className="object-cover object-[center_62%]"
+                        />
                       </button>
                     ))}
                   </div>
@@ -402,15 +464,24 @@ export default function ShopPage() {
                 <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
                   {categoryLabels[active.category]}
                 </p>
-                <h2 className="mt-1 font-serif text-3xl italic text-white">{active.name}</h2>
+
+                <h2 className="mt-1 font-serif text-3xl italic text-white">
+                  {active.name}
+                </h2>
+
                 <p className="mt-1 text-xs uppercase tracking-[0.25em] text-white/50">
                   {active.tagline}
                 </p>
+
                 <p className="mt-3 text-xl text-[#e87a82]">{formatPrice(active.price)}</p>
 
                 <div className="mt-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/40">Notes</p>
-                  <p className="text-sm leading-relaxed text-white/80">{active.description}</p>
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/40">
+                    Notes
+                  </p>
+                  <p className="text-sm leading-relaxed text-white/80">
+                    {active.description}
+                  </p>
                 </div>
 
                 {!showWaitlist && (
@@ -424,6 +495,7 @@ export default function ShopPage() {
                         >
                           {sizeError ? "Pick a size first" : "Size"}
                         </p>
+
                         <button
                           type="button"
                           className="text-[10px] uppercase tracking-[0.25em] text-[#e87a82]"
@@ -440,6 +512,7 @@ export default function ShopPage() {
                         {active.sizes.map((s) => (
                           <button
                             key={s}
+                            type="button"
                             onClick={() => {
                               setSize(s);
                               setSizeError(false);
@@ -462,6 +535,7 @@ export default function ShopPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={handleAdd}
                       className={`mt-6 w-full rounded-full px-6 py-3.5 text-xs uppercase tracking-[0.3em] transition ${
                         isComingSoon(active)
@@ -490,6 +564,7 @@ export default function ShopPage() {
                     <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">
                       Join the Waitlist
                     </p>
+
                     <p className="mt-1 text-sm text-white/70">
                       Drop your email — we&apos;ll write when it returns.
                     </p>
@@ -503,6 +578,7 @@ export default function ShopPage() {
                         placeholder="you@example.com"
                         className="flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#b4141e]/60"
                       />
+
                       <button
                         type="submit"
                         className="rounded-full bg-[#b4141e] px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-white hover:bg-[#d11827]"
