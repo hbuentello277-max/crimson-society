@@ -45,52 +45,48 @@ type ProfileForm = {
 function ProfileSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
         <div className="h-3 w-28 rounded-full bg-white/10" />
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-28 rounded-full bg-white/10" />
-          <div className="h-10 w-28 rounded-full bg-white/10" />
-          <div className="h-10 w-28 rounded-full bg-white/10" />
+        <div className="mx-auto h-8 w-24 rounded-full bg-white/10" />
+        <div className="ml-auto flex w-[150px] flex-col gap-2">
+          <div className="h-8 rounded-full bg-white/10" />
+          <div className="h-8 rounded-full bg-white/10" />
+          <div className="h-8 rounded-full bg-white/10" />
         </div>
       </div>
 
-      <div className="mt-8 rounded-[34px] border border-white/10 bg-white/[0.03] p-6 md:p-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="flex gap-5">
-            <div className="h-28 w-28 rounded-full bg-white/10 md:h-32 md:w-32" />
-            <div className="flex-1 space-y-4 pt-2">
-              <div className="h-10 w-60 rounded-full bg-white/10" />
-              <div className="h-4 w-48 rounded-full bg-white/10" />
-              <div className="h-16 max-w-xl rounded-2xl bg-white/10" />
-              <div className="flex gap-2">
-                <div className="h-9 w-24 rounded-full bg-white/10" />
-                <div className="h-9 w-24 rounded-full bg-white/10" />
-                <div className="h-9 w-24 rounded-full bg-white/10" />
+      <div className="mt-6 rounded-[34px] border border-white/10 bg-white/[0.03] p-6 md:p-8">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex gap-4">
+              <div className="h-24 w-24 rounded-full bg-white/10 md:h-28 md:w-28" />
+              <div className="space-y-3 pt-1">
+                <div className="h-6 w-20 rounded-full bg-white/10" />
+                <div className="h-10 w-56 rounded-full bg-white/10" />
+                <div className="h-4 w-48 rounded-full bg-white/10" />
+                <div className="flex flex-col gap-2">
+                  <div className="h-7 w-28 rounded-full bg-white/10" />
+                  <div className="h-7 w-24 rounded-full bg-white/10" />
+                  <div className="h-7 w-28 rounded-full bg-white/10" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-3 md:w-[320px]">
-            {[0, 1, 2].map((item) => (
-              <div
-                key={item}
-                className="h-[96px] rounded-[24px] border border-white/10 bg-white/[0.03]"
-              />
-            ))}
+            <div className="grid grid-cols-3 gap-2 md:w-[290px]">
+              {[0, 1, 2].map((item) => (
+                <div
+                  key={item}
+                  className="h-[76px] rounded-[18px] border border-white/10 bg-white/[0.03]"
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+      <div className="mt-5 rounded-[26px] border border-white/10 bg-white/[0.03] p-6">
         <div className="h-3 w-36 rounded-full bg-white/10" />
-        <div className="mt-5 grid gap-4 md:grid-cols-[1.25fr_0.75fr]">
-          <div className="h-40 rounded-[28px] bg-white/10" />
-          <div className="grid gap-3">
-            <div className="h-[72px] rounded-[22px] bg-white/10" />
-            <div className="h-[72px] rounded-[22px] bg-white/10" />
-            <div className="h-[72px] rounded-[22px] bg-white/10" />
-          </div>
-        </div>
+        <div className="mt-3 h-8 w-32 rounded-full bg-white/10" />
       </div>
 
       <div className="mt-8 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1">
@@ -164,7 +160,7 @@ function SocialChip({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
+      className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
     >
       {label}
     </a>
@@ -412,10 +408,6 @@ export default function ProfilePage() {
     ? `@${form.username.trim().replace(/^@+/, "")}`
     : "@member";
   const displayLocation = form.location.trim() || "Location pending";
-  const displayQuote = form.quote.trim() || "Build your identity.";
-  const displayBio =
-    form.bio.trim() ||
-    "Add a short bio to tell the Society what drives you.";
 
   const instagramUrl = normalizeUrl(form.instagram_url);
   const tiktokUrl = normalizeUrl(form.tiktok_url);
@@ -638,45 +630,51 @@ export default function ProfilePage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-[11px] uppercase tracking-[0.38em] text-zinc-500">
-            Your Profile
-          </span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
+          <div className="flex items-center">
+            <span className="text-[11px] uppercase tracking-[0.38em] text-zinc-500">
+              Your Profile
+            </span>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex justify-center">
             {isAdmin && (
               <Link
                 href="/admin"
-                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
+                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3.5 py-1.5 text-[10px] uppercase tracking-[0.22em] text-[#e87a82] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
               >
                 Admin
               </Link>
             )}
+          </div>
 
-            <Link
-              href="/profile/edit"
-              className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
-            >
-              Edit Profile
-            </Link>
+          <div className="flex justify-end">
+            <div className="flex w-[150px] flex-col items-stretch gap-2">
+              <Link
+                href="/profile/edit"
+                className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
+              >
+                Edit Profile
+              </Link>
 
-            <button
-              type="button"
-              onClick={handleShareProfile}
-              className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/25 hover:text-white"
-            >
-              Share Profile
-            </button>
+              <button
+                type="button"
+                onClick={handleShareProfile}
+                className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/25 hover:text-white"
+              >
+                Share Profile
+              </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                setProfileView(isPremium ? "apex-dashboard" : "apex-paywall")
-              }
-              className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
-            >
-              Blackcard Access
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setProfileView(isPremium ? "apex-dashboard" : "apex-paywall")
+                }
+                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
+              >
+                Blackcard Access
+              </button>
+            </div>
           </div>
         </div>
 
@@ -686,56 +684,41 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <section className="mt-8 overflow-hidden rounded-[34px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_30%)]" />
-          <div className="relative px-6 py-7 md:px-8 md:py-8">
-            <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-              <div className="flex flex-col gap-6 md:flex-row md:items-start">
-                <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_40px_-6px_rgba(180,20,30,0.65)] md:h-32 md:w-32">
-                  {profileImageUrl ? (
-                    <img
-                      key={profileImageUrl}
-                      src={profileImageUrl}
-                      alt={`${displayName} profile picture`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-white/10 text-[11px] uppercase tracking-[0.22em] text-zinc-400">
-                      No Photo
-                    </div>
-                  )}
-                </div>
+        <section className="mt-6 overflow-hidden rounded-[34px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_30%)]" />
+          <div className="relative px-6 py-6 md:px-8 md:py-6">
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-4 md:gap-5">
+                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_40px_-6px_rgba(180,20,30,0.65)] md:h-28 md:w-28">
+                    {profileImageUrl ? (
+                      <img
+                        key={profileImageUrl}
+                        src={profileImageUrl}
+                        alt={`${displayName} profile picture`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-white/10 text-[11px] uppercase tracking-[0.22em] text-zinc-400">
+                        No Photo
+                      </div>
+                    )}
+                  </div>
 
-                <div className="max-w-2xl">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <h1 className="font-serif text-4xl leading-none text-white sm:text-5xl">
-                      {displayName}
-                    </h1>
-                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-zinc-400">
+                  <div className="min-w-0 pt-1">
+                    <span className="inline-flex rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.24em] text-zinc-400">
                       Member
                     </span>
-                  </div>
 
-                  <p className="mt-3 text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-                    {displayUsername} · {displayLocation}
-                  </p>
+                    <h1 className="mt-3 font-serif text-[34px] leading-none text-white sm:text-[40px]">
+                      {displayName}
+                    </h1>
 
-                  <div className="mt-5 flex items-center gap-4">
-                    <span className="h-px w-12 bg-white/15" />
-                    <span className="text-[#b4141e]">✦</span>
-                    <span className="h-px w-12 bg-white/15" />
-                  </div>
+                    <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+                      {displayUsername} · {displayLocation}
+                    </p>
 
-                  <p className="mt-5 max-w-xl font-serif text-lg italic text-zinc-300 sm:text-xl">
-                    “{displayQuote}”
-                  </p>
-
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400">
-                    {displayBio}
-                  </p>
-
-                  {(instagramUrl || tiktokUrl || youtubeUrl) && (
-                    <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <div className="mt-4 flex flex-col items-start gap-2">
                       {instagramUrl && (
                         <SocialChip href={instagramUrl} label="Instagram" />
                       )}
@@ -746,89 +729,37 @@ export default function ProfilePage() {
                         <SocialChip href={youtubeUrl} label="YouTube" />
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 md:w-[340px]">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-[24px] border border-white/10 bg-black/20 px-4 py-5 text-center backdrop-blur-sm"
-                  >
-                    <p className="font-serif text-3xl leading-none text-white md:text-4xl">
-                      {stat.n}
-                    </p>
-                    <p className="mt-3 text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                      {stat.label}
-                    </p>
                   </div>
-                ))}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 md:w-[290px]">
+                  {stats.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-[18px] border border-white/10 bg-black/20 px-3 py-3 text-center backdrop-blur-sm"
+                    >
+                      <p className="font-serif text-[28px] leading-none text-white">
+                        {stat.n}
+                      </p>
+                      <p className="mt-2 text-[9px] uppercase tracking-[0.18em] text-zinc-500">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 overflow-hidden rounded-[30px] border border-[#b4141e]/20 bg-gradient-to-b from-[#121114] via-[#0c0c0d] to-[#070707] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
-          <div className="grid gap-4 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">
-                Blackcard Access
-              </p>
-              <h2 className="mt-3 font-serif text-3xl text-white md:text-4xl">
-                Apex Members
-              </h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400">
-                A hidden tier reserved for riders with first access to drops,
-                preferred ride placement, and privileges held beyond the public
-                line.
-              </p>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {["Exclusive drops", "Member-only rides", "Reserved spots"].map(
-                  (item) => (
-                    <span
-                      key={item}
-                      className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.25em] text-zinc-400"
-                    >
-                      {item}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-                  Status
-                </p>
-                <p className="mt-3 font-serif text-2xl text-white">
-                  {isPremium ? "Access Granted" : "Reserved Entry"}
-                </p>
-              </div>
-
-              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-                  Tier
-                </p>
-                <p className="mt-3 text-sm leading-6 text-zinc-300">
-                  {selectedPlan === "yearly"
-                    ? "Yearly preference selected."
-                    : "Monthly preference selected."}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setProfileView(isPremium ? "apex-dashboard" : "apex-paywall")
-                }
-                className="rounded-[22px] border border-[#b4141e]/35 bg-[#b4141e]/10 px-5 py-4 text-left text-xs uppercase tracking-[0.25em] text-[#f0c8cb] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
-              >
-                Enter Blackcard
-              </button>
-            </div>
+        <section className="mt-5 overflow-hidden rounded-[26px] border border-[#b4141e]/20 bg-gradient-to-b from-[#121114] via-[#0c0c0d] to-[#070707] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
+          <div className="px-6 py-5 md:px-7">
+            <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">
+              BLACKCARD ACCESS
+            </p>
+            <h2 className="mt-2 font-serif text-2xl text-white">
+              Apex Member
+            </h2>
           </div>
         </section>
 
@@ -916,8 +847,7 @@ export default function ProfilePage() {
                       {bike.name || "Unnamed Motorcycle"}
                     </h3>
                     <p className="mt-3 text-sm text-zinc-400">
-                      {bike.year || "Year pending"} ·{" "}
-                      {bike.finish || "Finish pending"}
+                      {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
                     </p>
                   </div>
 
