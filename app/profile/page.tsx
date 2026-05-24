@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -41,6 +41,36 @@ type ProfileForm = {
   tiktok_url: string;
   youtube_url: string;
 };
+
+function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Upload timed out. Please try again."));
+    }, ms);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+function normalizeUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function withCacheBust(url: string) {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}t=${Date.now()}`;
+}
 
 function ProfileSkeleton() {
   return (
@@ -136,18 +166,6 @@ function RestrictedAccountScreen({ status }: { status: string }) {
   );
 }
 
-function normalizeUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}
-
-function withCacheBust(url: string) {
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}t=${Date.now()}`;
-}
-
 function SocialChip({
   href,
   label,
@@ -189,174 +207,6 @@ function EmptyPanel({
   );
 }
 
-function ApexPaywall({
-  onBack,
-  selectedPlan,
-  setSelectedPlan,
-  onUnlock,
-}: {
-  onBack: () => void;
-  selectedPlan: "monthly" | "yearly";
-  setSelectedPlan: (plan: "monthly" | "yearly") => void;
-  onUnlock: () => void;
-}) {
-  const previews = [
-    "Exclusive drops",
-    "Discounted merch",
-    "Early access collections",
-    "Member-only rides",
-    "Reserved ride spots",
-    "Premium profile badge",
-  ];
-
-  return (
-    <section className="mt-8 overflow-hidden rounded-[32px] border border-[#b4141e]/25 bg-gradient-to-b from-[#121114] via-[#0b0b0d] to-[#060606] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
-      <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(180,20,30,0.2),transparent_45%)] px-6 py-8 md:px-8 md:py-10">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-        >
-          Back to Profile
-        </button>
-
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <span className="h-px w-10 bg-white/15" />
-          <span className="text-[#b4141e]">✦</span>
-          <span className="h-px w-10 bg-white/15" />
-        </div>
-
-        <p className="mt-6 text-center text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-          Apex Members
-        </p>
-        <h1 className="mt-4 text-center font-serif text-5xl leading-none text-white md:text-6xl">
-          Reserved for premium riders
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-center font-serif text-sm leading-7 text-zinc-400">
-          Entry grants earlier access, preferred placement, private privileges,
-          and a quieter tier of access held beyond the public line.
-        </p>
-      </div>
-
-      <div className="px-6 py-8 md:px-8">
-        <div className="grid gap-4 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setSelectedPlan("monthly")}
-            className={`rounded-[26px] border p-6 text-left transition ${
-              selectedPlan === "monthly"
-                ? "border-[#b4141e]/60 bg-[#b4141e]/10 shadow-[0_0_30px_-18px_rgba(180,20,30,0.55)]"
-                : "border-white/10 bg-white/[0.03] hover:border-[#b4141e]/35"
-            }`}
-          >
-            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-              Monthly Plan
-            </p>
-            <h2 className="mt-3 font-serif text-4xl text-white">$24</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Flexible entry for Blackcard Access
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedPlan("yearly")}
-            className={`rounded-[26px] border p-6 text-left transition ${
-              selectedPlan === "yearly"
-                ? "border-[#b4141e]/60 bg-[#b4141e]/10 shadow-[0_0_30px_-18px_rgba(180,20,30,0.55)]"
-                : "border-white/10 bg-white/[0.03] hover:border-[#b4141e]/35"
-            }`}
-          >
-            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-              Yearly Plan
-            </p>
-            <h2 className="mt-3 font-serif text-4xl text-white">$240</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Preferred value with priority standing.
-            </p>
-          </button>
-        </div>
-
-        <div className="mt-8 grid gap-3 md:grid-cols-2">
-          {previews.map((feature) => (
-            <div
-              key={feature}
-              className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-zinc-300"
-            >
-              {feature}
-            </div>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={onUnlock}
-          className="mt-8 w-full rounded-full bg-[#b4141e]/80 px-5 py-3 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e]"
-        >
-          Continue with {selectedPlan === "monthly" ? "Monthly" : "Yearly"}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function ApexDashboard({ onBack }: { onBack: () => void }) {
-  const sections = [
-    "Exclusive drops",
-    "Discounted merch",
-    "Early access collections",
-    "Member-only rides",
-    "Reserved ride spots",
-    "Future loyalty rewards",
-    "Future private chats",
-    "Premium profile badge",
-  ];
-
-  return (
-    <section className="mt-8 overflow-hidden rounded-[32px] border border-[#b4141e]/20 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#060606] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
-      <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(180,20,30,0.18),transparent_45%)] px-6 py-8 md:px-8 md:py-10">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-        >
-          Back to Profile
-        </button>
-
-        <p className="mt-8 text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-          Apex Members
-        </p>
-        <h1 className="mt-4 font-serif text-5xl leading-none text-white md:text-6xl">
-          Blackcard Access Granted
-        </h1>
-        <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-400">
-          A private tier of access reserved for members with first claim on
-          releases, protected ride placement, and future privileges kept beyond
-          the public floor.
-        </p>
-      </div>
-
-      <div className="grid gap-4 px-6 py-8 md:grid-cols-2 md:px-8 xl:grid-cols-3">
-        {sections.map((section) => (
-          <div
-            key={section}
-            className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5"
-          >
-            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-              Apex
-            </p>
-            <h2 className="mt-3 font-serif text-2xl text-white">{section}</h2>
-            <p className="mt-4 text-sm leading-6 text-zinc-400">
-              Placeholder for premium access, upcoming releases, and member-only
-              experiences.
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export default function ProfilePage() {
   const { session, loading: authLoading, profile, status, isAdmin } = useAuth();
 
@@ -367,14 +217,14 @@ export default function ProfilePage() {
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [savingGarage, setSavingGarage] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [garageMsg, setGarageMsg] = useState("");
+  const [profileMsg, setProfileMsg] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState("");
-  const [isPremium, setIsPremium] = useState(false);
-  const [profileView, setProfileView] = useState<
-    "profile" | "apex-paywall" | "apex-dashboard"
-  >("profile");
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
-    "yearly"
-  );
+
+  const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<ProfileForm>({
     display_name: "Hector Buentello",
@@ -408,6 +258,10 @@ export default function ProfilePage() {
     ? `@${form.username.trim().replace(/^@+/, "")}`
     : "@member";
   const displayLocation = form.location.trim() || "Location pending";
+  const displayQuote = form.quote.trim() || "Build your identity.";
+  const displayBio =
+    form.bio.trim() ||
+    "Add a short bio to tell the Society what drives you.";
 
   const instagramUrl = normalizeUrl(form.instagram_url);
   const tiktokUrl = normalizeUrl(form.tiktok_url);
@@ -427,8 +281,8 @@ export default function ProfilePage() {
         youtube_url: (profile as any).youtube_url ?? "",
       }));
 
-      if (profile.profile_image_url) {
-        setProfileImageUrl(withCacheBust(profile.profile_image_url));
+      if ((profile as any).profile_image_url) {
+        setProfileImageUrl(withCacheBust((profile as any).profile_image_url));
       } else {
         setProfileImageUrl("");
       }
@@ -441,6 +295,8 @@ export default function ProfilePage() {
 
       setLoading(true);
       setErrorMsg("");
+      setGarageMsg("");
+      setProfileMsg("");
 
       if (!session?.user) {
         setErrorMsg("You need to be logged in.");
@@ -510,16 +366,198 @@ export default function ProfilePage() {
     void loadProfilePage();
   }, [authLoading, session, profile, status]);
 
+  function updateFormField(field: keyof ProfileForm, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function updateMotorcycle(
+    id: string,
+    field: keyof Omit<Motorcycle, "id" | "isNew">,
+    value: string
+  ) {
+    setMotorcycles((prev) =>
+      prev.map((bike) => (bike.id === id ? { ...bike, [field]: value } : bike))
+    );
+  }
+
+  function addMotorcycle() {
+    setMotorcycles((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        label: `Garage ${prev.length + 1}`,
+        name: "",
+        year: "",
+        finish: "",
+        isNew: true,
+      },
+    ]);
+  }
+
+  async function deleteMotorcycle(id: string) {
+    const bikeToDelete = motorcycles.find((bike) => bike.id === id);
+
+    setMotorcycles((prev) => prev.filter((bike) => bike.id !== id));
+
+    if (!bikeToDelete || bikeToDelete.isNew || !userId) return;
+
+    await supabase.from("motorcycles").delete().eq("id", id).eq("user_id", userId);
+  }
+
+  async function saveGarage() {
+    setSavingGarage(true);
+    setGarageMsg("");
+
+    if (!userId) {
+      setGarageMsg("You need to be logged in to save.");
+      setSavingGarage(false);
+      return;
+    }
+
+    const payload = motorcycles.map((bike) => ({
+      id: bike.id,
+      user_id: userId,
+      label: bike.label.trim(),
+      name: bike.name.trim(),
+      year: bike.year.trim(),
+      finish: bike.finish.trim(),
+    }));
+
+    const response = await supabase
+      .from("motorcycles")
+      .upsert(payload, { onConflict: "id" });
+
+    if (response.error) {
+      setGarageMsg("Could not save garage.");
+      setSavingGarage(false);
+      return;
+    }
+
+    setMotorcycles((prev) => prev.map((bike) => ({ ...bike, isNew: false })));
+    setGarageMsg("Garage saved.");
+    setSavingGarage(false);
+  }
+
+  async function saveProfileDetails() {
+    setSavingProfile(true);
+    setProfileMsg("");
+
+    if (!userId) {
+      setProfileMsg("You need to be logged in to save.");
+      setSavingProfile(false);
+      return;
+    }
+
+    const payload = {
+      display_name: form.display_name.trim(),
+      username: form.username.trim().replace(/^@+/, ""),
+      bio: form.bio.trim(),
+      location: form.location.trim(),
+      quote: form.quote.trim(),
+      instagram_url: form.instagram_url.trim(),
+      tiktok_url: form.tiktok_url.trim(),
+      youtube_url: form.youtube_url.trim(),
+    };
+
+    const response = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId);
+
+    if (response.error) {
+      setProfileMsg(response.error.message);
+      setSavingProfile(false);
+      return;
+    }
+
+    setProfileMsg("Profile details saved.");
+    setSavingProfile(false);
+  }
+
+  async function handleProfileImageUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!userId) {
+      setProfileMsg("You need to be logged in to upload an image.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingImage(true);
+    setProfileMsg("Uploading photo...");
+    setErrorMsg("");
+
+    try {
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Please select an image file.");
+      }
+
+      if (file.size > 6 * 1024 * 1024) {
+        throw new Error("Image must be under 6MB.");
+      }
+
+      const filePath = `${userId}/avatar.jpg`;
+
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from("avatars").upload(filePath, file, {
+          upsert: true,
+          contentType: file.type || "image/jpeg",
+          cacheControl: "0",
+        }),
+        15000
+      );
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const rawImageUrl = publicUrlData.publicUrl;
+
+      if (!rawImageUrl) {
+        throw new Error("Could not generate a public URL for the uploaded image.");
+      }
+
+      const { error: profileUpdateError } = await withTimeout(
+        Promise.resolve(
+          supabase
+            .from("profiles")
+            .update({ profile_image_url: rawImageUrl })
+            .eq("id", userId)
+        ),
+        10000
+      );
+
+      if (profileUpdateError) {
+        throw new Error(`Profile update failed: ${profileUpdateError.message}`);
+      }
+
+      setProfileImageUrl(withCacheBust(rawImageUrl));
+      setProfileMsg("Profile photo updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Something went wrong uploading the image.";
+
+      console.error("PROFILE IMAGE UPLOAD ERROR:", error);
+      setProfileMsg(message);
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  }
+
   async function handleShareProfile() {
     const shareUrl =
       typeof window !== "undefined" ? window.location.href : "/profile";
 
     try {
-      if (
-        typeof navigator !== "undefined" &&
-        navigator.share &&
-        session?.user
-      ) {
+      if (typeof navigator !== "undefined" && navigator.share && session?.user) {
         await navigator.share({
           title: `${displayName} • Crimson Society`,
           text: `${displayName} ${displayUsername}`,
@@ -573,50 +611,6 @@ export default function ProfilePage() {
     );
   }
 
-  if (profileView === "apex-paywall") {
-    return (
-      <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(180,20,30,0.25), transparent 65%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-4xl px-6 pb-28 pt-12">
-          <ApexPaywall
-            onBack={() => setProfileView("profile")}
-            selectedPlan={selectedPlan}
-            setSelectedPlan={setSelectedPlan}
-            onUnlock={() => {
-              setIsPremium(true);
-              setProfileView("apex-dashboard");
-            }}
-          />
-        </div>
-      </main>
-    );
-  }
-
-  if (profileView === "apex-dashboard") {
-    return (
-      <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(180,20,30,0.25), transparent 65%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-5xl px-6 pb-28 pt-12">
-          <ApexDashboard onBack={() => setProfileView("profile")} />
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div
@@ -650,12 +644,12 @@ export default function ProfilePage() {
 
           <div className="flex justify-end">
             <div className="flex w-[150px] flex-col items-stretch gap-2">
-              <Link
-                href="/profile/edit"
+              <a
+                href="#identity-editor"
                 className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
               >
-                Edit Profile
-              </Link>
+                Edit Identity
+              </a>
 
               <button
                 type="button"
@@ -665,15 +659,12 @@ export default function ProfilePage() {
                 Share Profile
               </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setProfileView(isPremium ? "apex-dashboard" : "apex-paywall")
-                }
+              <Link
+                href="/blackcard"
                 className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
               >
                 Blackcard Access
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -706,9 +697,16 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="min-w-0 pt-1">
-                    <span className="inline-flex rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.24em] text-zinc-400">
-                      Member
-                    </span>
+                    <label className="inline-flex cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.24em] text-zinc-400 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">
+                      {uploadingImage ? "Uploading..." : "Change Photo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfileImageUpload}
+                        className="hidden"
+                        disabled={uploadingImage}
+                      />
+                    </label>
 
                     <h1 className="mt-3 font-serif text-[34px] leading-none text-white sm:text-[40px]">
                       {displayName}
@@ -716,6 +714,14 @@ export default function ProfilePage() {
 
                     <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
                       {displayUsername} · {displayLocation}
+                    </p>
+
+                    <p className="mt-3 max-w-xl font-serif text-lg italic text-zinc-300">
+                      “{displayQuote}”
+                    </p>
+
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+                      {displayBio}
                     </p>
 
                     <div className="mt-4 flex flex-col items-start gap-2">
@@ -758,8 +764,294 @@ export default function ProfilePage() {
               BLACKCARD ACCESS
             </p>
             <h2 className="mt-2 font-serif text-2xl text-white">
-              Apex Member
+              Enter the premium tier
             </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+              Manage your identity here, then enter Blackcard from its dedicated page.
+            </p>
+          </div>
+        </section>
+
+        <section
+          id="identity-editor"
+          className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm"
+        >
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+                Identity
+              </p>
+              <h2 className="mt-2 font-serif text-3xl text-white">
+                Craft your identity
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={saveProfileDetails}
+              disabled={savingProfile}
+              className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {savingProfile ? "Saving..." : "Save Identity"}
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={form.display_name}
+                onChange={(e) => updateFormField("display_name", e.target.value)}
+                placeholder="Display name"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Username
+              </label>
+              <input
+                type="text"
+                value={form.username}
+                onChange={(e) => updateFormField("username", e.target.value)}
+                placeholder="username"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Bio
+              </label>
+              <textarea
+                value={form.bio}
+                onChange={(e) => updateFormField("bio", e.target.value)}
+                placeholder="Tell the Society what drives you."
+                rows={4}
+                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Location
+              </label>
+              <input
+                type="text"
+                value={form.location}
+                onChange={(e) => updateFormField("location", e.target.value)}
+                placeholder="City, State"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Quote
+              </label>
+              <input
+                type="text"
+                value={form.quote}
+                onChange={(e) => updateFormField("quote", e.target.value)}
+                placeholder="A line that defines you"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+          </div>
+
+          {profileMsg && (
+            <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">
+              {profileMsg}
+            </p>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+                Social Links
+              </p>
+              <h2 className="mt-2 font-serif text-3xl text-white">
+                Connect your channels
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={saveProfileDetails}
+              disabled={savingProfile}
+              className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {savingProfile ? "Saving..." : "Save Links"}
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Instagram URL
+              </label>
+              <input
+                type="url"
+                value={form.instagram_url}
+                onChange={(e) => updateFormField("instagram_url", e.target.value)}
+                placeholder="https://instagram.com/yourname"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                TikTok URL
+              </label>
+              <input
+                type="url"
+                value={form.tiktok_url}
+                onChange={(e) => updateFormField("tiktok_url", e.target.value)}
+                placeholder="https://tiktok.com/@yourname"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                YouTube URL
+              </label>
+              <input
+                type="url"
+                value={form.youtube_url}
+                onChange={(e) => updateFormField("youtube_url", e.target.value)}
+                placeholder="https://youtube.com/@yourchannel"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
+          </div>
+
+          {(instagramUrl || tiktokUrl || youtubeUrl) && (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {instagramUrl && <SocialChip href={instagramUrl} label="Instagram" />}
+              {tiktokUrl && <SocialChip href={tiktokUrl} label="TikTok" />}
+              {youtubeUrl && <SocialChip href={youtubeUrl} label="YouTube" />}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-6 space-y-4">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+                Garage
+              </p>
+              <h2 className="mt-2 font-serif text-3xl text-white">
+                Motorcycles
+              </h2>
+            </div>
+          </div>
+
+          {motorcycles.map((bike, index) => (
+            <div key={bike.id} className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6">
+                <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+                  {bike.label}
+                </p>
+                <p className="mt-3 font-serif text-3xl text-white">
+                  {bike.name || "Unnamed Motorcycle"}
+                </p>
+                <p className="mt-2 text-sm text-zinc-400">
+                  {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
+                </p>
+
+                <div className="mt-6 flex items-center gap-4">
+                  <span className="h-px w-12 bg-white/15" />
+                  <span className="text-[#b4141e]">✦</span>
+                  <span className="h-px w-12 bg-white/15" />
+                </div>
+
+                <p className="mt-5 text-sm leading-7 text-zinc-500">
+                  Every machine in the garage becomes part of the member story.
+                </p>
+              </div>
+
+              <div className="rounded-[28px] border border-white/10 bg-white/[0.02] p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+                    Edit Motorcycle {index + 1}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteMotorcycle(bike.id)}
+                    className="text-[10px] uppercase tracking-[0.25em] text-red-300 transition hover:text-red-200"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="text"
+                    value={bike.label}
+                    onChange={(e) => updateMotorcycle(bike.id, "label", e.target.value)}
+                    placeholder="Label"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  />
+
+                  <input
+                    type="text"
+                    value={bike.name}
+                    onChange={(e) => updateMotorcycle(bike.id, "name", e.target.value)}
+                    placeholder="Motorcycle name"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  />
+
+                  <input
+                    type="text"
+                    value={bike.year}
+                    onChange={(e) => updateMotorcycle(bike.id, "year", e.target.value)}
+                    placeholder="Year"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  />
+
+                  <input
+                    type="text"
+                    value={bike.finish}
+                    onChange={(e) => updateMotorcycle(bike.id, "finish", e.target.value)}
+                    placeholder="Finish / color"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={addMotorcycle}
+              className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+            >
+              Add Motorcycle
+            </button>
+
+            <button
+              type="button"
+              onClick={saveGarage}
+              disabled={savingGarage}
+              className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {savingGarage ? "Saving..." : "Save Garage"}
+            </button>
+
+            {garageMsg && (
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+                {garageMsg}
+              </p>
+            )}
           </div>
         </section>
 
@@ -859,8 +1151,7 @@ export default function ProfilePage() {
                     </div>
 
                     <p className="mt-5 text-sm leading-7 text-zinc-500">
-                      Every machine in the garage becomes part of the member
-                      story.
+                      Every machine in the garage becomes part of the member story.
                     </p>
                   </div>
                 </article>

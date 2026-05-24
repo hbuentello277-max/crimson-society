@@ -528,7 +528,7 @@ export default function ProfileEditPage() {
               Profile Settings
             </p>
             <h1 className="mt-3 font-serif text-4xl text-white md:text-5xl">
-              Edit Identity
+              Edit Profile
             </h1>
           </div>
 
@@ -610,10 +610,10 @@ export default function ProfileEditPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                Identity
+                Profile
               </p>
               <h2 className="mt-2 font-serif text-3xl text-white">
-                Craft your identity
+                Craft your Profile
               </h2>
             </div>
 
