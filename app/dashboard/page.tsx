@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -184,6 +184,7 @@ export default function DashboardPage() {
   const [commentDraft, setCommentDraft] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedLoading, setFeedLoading] = useState(false);
   const [pullY, setPullY] = useState(0);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -199,9 +200,10 @@ export default function DashboardPage() {
     }
   }, [loading, session, router]);
 
-  const loadFeed = async () => {
+  const loadFeed = useCallback(async () => {
     if (!session) return;
 
+    setFeedLoading(true);
     const { data, error } = await supabase
       .from('"Posts"')
       .select(`
@@ -236,15 +238,17 @@ export default function DashboardPage() {
       console.log("code:", error.code);
       setToast("Could not load posts.");
       setTimeout(() => setToast(null), 1800);
+      setFeedLoading(false);
       return;
     }
 
     const livePosts = ((data || []) as RawPost[]).map(mapPostToFeed);
     setPosts(livePosts.length > 0 ? [...livePosts, ...seedPosts] : seedPosts);
-  };
+    setFeedLoading(false);
+  }, [session]);
 
   useEffect(() => {
-    if (loading || !session) return;
+    if (!session) return;
 
     void loadFeed();
 
@@ -254,7 +258,7 @@ export default function DashboardPage() {
 
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [loading, session]);
+  }, [loadFeed, session]);
 
   const doRefresh = () => {
     if (refreshing) return;
@@ -375,11 +379,11 @@ export default function DashboardPage() {
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
   const willRefresh = pullY >= PULL_THRESHOLD;
 
-  if (loading) {
+  if (loading && !session) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
         <p className="text-sm uppercase tracking-[0.3em] text-white/50">
-          Loading...
+          Opening...
         </p>
       </main>
     );
@@ -460,6 +464,18 @@ export default function DashboardPage() {
       >
         <div className="mx-auto max-w-2xl px-5 pt-6">
           <div className="space-y-6">
+            {feedLoading && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <div className="flex animate-pulse items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-white/10" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-32 rounded-full bg-white/10" />
+                    <div className="h-2 w-44 rounded-full bg-white/10" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {posts.map((p) => {
               const count = likeCounts[p.id] ?? p.likes;
               const isLiked = !!liked[p.id];

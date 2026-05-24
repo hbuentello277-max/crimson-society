@@ -4,93 +4,57 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/AuthProvider";
 
-type SplashState = "checking" | "guest" | "authenticated";
-
-const AUTH_REDIRECT_DELAY = 1100;
+const AUTH_REDIRECT_DELAY = 1750;
+const SPLASH_FADE_MS = 420;
 const AUTHED_DESTINATION = "/dashboard"; // change to "/feed" or "/dashboard" if that is your real app home
 
 export default function LandingPage() {
   const router = useRouter();
-  const [state, setState] = useState<SplashState>("checking");
+  const { session, loading } = useAuth();
   const [splashFailed, setSplashFailed] = useState(false);
+  const [isFading, setIsFading] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showGuestHero = state === "guest";
+  const showGuestButtons = !loading && !session;
 
   useEffect(() => {
     let mounted = true;
 
-    const clearRedirectTimer = () => {
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-        redirectTimerRef.current = null;
-      }
-    };
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
 
-    const scheduleRedirect = () => {
-      clearRedirectTimer();
-      redirectTimerRef.current = setTimeout(() => {
-        router.replace(AUTHED_DESTINATION);
-      }, AUTH_REDIRECT_DELAY);
-    };
+    if (!session) {
+      setIsFading(false);
+      return () => {
+        mounted = false;
+      };
+    }
 
-    const hydrateSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+    redirectTimerRef.current = setTimeout(() => {
       if (!mounted) return;
 
-      if (session) {
-        setState("authenticated");
-        scheduleRedirect();
-      } else {
-        setState("guest");
-      }
-    };
-
-    void hydrateSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
-      if (session) {
-        setState("authenticated");
-        scheduleRedirect();
-      } else {
-        clearRedirectTimer();
-        setState("guest");
-      }
-    });
+      setIsFading(true);
+      fadeTimerRef.current = setTimeout(() => {
+        if (mounted) router.replace(AUTHED_DESTINATION);
+      }, SPLASH_FADE_MS);
+    }, AUTH_REDIRECT_DELAY);
 
     return () => {
       mounted = false;
-      clearRedirectTimer();
-      subscription.unsubscribe();
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     };
-  }, [router]);
-
-  if (!showGuestHero) {
-    return (
-      <main className="relative min-h-dvh overflow-hidden bg-[#050505] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 44% at 50% -6%, rgba(180,20,30,0.2), transparent 64%)",
-          }}
-        />
-      </main>
-    );
-  }
+  }, [router, session]);
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#050505] text-white">
+    <main
+      className={`relative min-h-dvh overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
+        isFading ? "opacity-0" : "opacity-100"
+      }`}
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -138,20 +102,22 @@ export default function LandingPage() {
               Ride Different.
             </h1>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Link
-                href="/login"
-                className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
-              >
-                Enter Society
-              </Link>
-              <Link
-                href="/shop"
-                className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
-              >
-                Explore Drops
-              </Link>
-            </div>
+            {showGuestButtons && (
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
+                >
+                  Enter Society
+                </Link>
+                <Link
+                  href="/shop"
+                  className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
+                >
+                  Explore Drops
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
