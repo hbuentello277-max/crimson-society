@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -17,17 +17,7 @@ export default function LandingPage() {
   const [splashFailed, setSplashFailed] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showButtons = state === "guest";
-  const isAuthedSplash = state === "authenticated";
-
-  const splashCopy = useMemo(
-    () => ({
-      eyebrow: "Crimson Society",
-      title: "Built for the riders who move with intent.",
-      body: "A private line of access for those who value discipline, presence, and the road itself.",
-    }),
-    []
-  );
+  const showGuestHero = state === "guest";
 
   useEffect(() => {
     let mounted = true;
@@ -84,8 +74,23 @@ export default function LandingPage() {
     };
   }, [router]);
 
+  if (!showGuestHero) {
+    return (
+      <main className="relative min-h-dvh overflow-hidden bg-[#050505] text-white">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 80% 44% at 50% -6%, rgba(180,20,30,0.2), transparent 64%)",
+          }}
+        />
+      </main>
+    );
+  }
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
+    <main className="relative min-h-dvh overflow-hidden bg-[#050505] text-white">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -97,66 +102,56 @@ export default function LandingPage() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
-      <section className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-6 py-10">
-        <div className="w-full max-w-[30rem] text-center">
-          <div className="mx-auto flex items-center justify-center gap-4">
-            <span className="h-px w-10 bg-white/15" />
-            <span className="text-[#b4141e]">✦</span>
-            <span className="h-px w-10 bg-white/15" />
-          </div>
+      <section className="relative min-h-dvh w-full">
+        <div className="relative mx-auto min-h-dvh w-full overflow-hidden bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
+          {!splashFailed && (
+            <Image
+              src="/splash.png"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 640px) 100vw, 480px"
+              className="object-cover object-top"
+              onError={() => setSplashFailed(true)}
+            />
+          )}
+          {splashFailed && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_54%)] px-8 text-center">
+              <span className="text-4xl text-[#b4141e]">✦</span>
+              <p className="mt-4 font-serif text-4xl text-white">
+                Crimson Society
+              </p>
+            </div>
+          )}
 
-          <div className="relative mx-auto mt-8 flex h-[280px] w-[280px] items-center justify-center overflow-hidden rounded-[34px] border border-[#b4141e]/25 bg-gradient-to-b from-[#151113] via-[#090909] to-black shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)] sm:h-[340px] sm:w-[340px]">
-            {!splashFailed && (
-              <Image
-                src="/splash.png"
-                alt=""
-                fill
-                priority
-                sizes="(max-width: 640px) 280px, 340px"
-                className="object-cover"
-                onError={() => setSplashFailed(true)}
-              />
-            )}
-            {splashFailed && (
-              <div className="relative z-10 flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_54%)] px-8 text-center">
-                <span className="text-3xl text-[#b4141e]">✦</span>
-                <p className="mt-4 font-serif text-3xl text-white">
-                  Crimson Society
-                </p>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
-          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/78" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(180,20,30,0.24),transparent_68%)]" />
 
-          <div
-            className={`transition-all duration-500 ${
-              isAuthedSplash
-                ? "mt-0 opacity-0 pointer-events-none translate-y-2"
-                : "mt-8 opacity-100 translate-y-0"
-            }`}
-          >
-            <p className="text-[11px] uppercase tracking-[0.38em] text-[#e87a82]">
-              {splashCopy.eyebrow}
-            </p>
+          <div className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] text-center">
+            <div className="mx-auto flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-white/20" />
+              <span className="text-[#b4141e]">✦</span>
+              <span className="h-px w-12 bg-white/20" />
+            </div>
 
-            <h1 className="mt-4 font-serif text-[2.4rem] leading-[0.96] text-white sm:text-[3.1rem]">
-              {splashCopy.title}
+            <h1 className="mt-4 font-serif text-[2.55rem] leading-none text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)]">
+              Ride Different.
             </h1>
 
-            <p className="mx-auto mt-4 max-w-[28rem] text-[13px] leading-6 text-zinc-400/85 sm:text-sm">
-              {splashCopy.body}
-            </p>
-
-            {showButtons && (
-              <div className="mt-7 flex items-center justify-center">
-                <Link
-                  href="/login"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-6 py-3 text-[11px] uppercase tracking-[0.28em] text-[#f3d1d5] transition hover:border-[#b4141e]/65 hover:bg-[#b4141e]/18"
-                >
-                  Join Society
-                </Link>
-              </div>
-            )}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Link
+                href="/login"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
+              >
+                Enter Society
+              </Link>
+              <Link
+                href="/shop"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
+              >
+                Explore Drops
+              </Link>
+            </div>
           </div>
         </div>
       </section>
