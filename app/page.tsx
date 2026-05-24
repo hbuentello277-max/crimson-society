@@ -27,7 +27,6 @@ export default function LandingPage() {
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
 
     if (!session) {
-      setIsFading(false);
       return () => {
         mounted = false;
       };
@@ -67,7 +66,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
       <section className="relative min-h-dvh w-full">
-        <div className="relative mx-auto min-h-dvh w-full overflow-hidden bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
+        <div className="relative mx-auto flex min-h-dvh w-full items-center justify-center overflow-hidden bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
           {!splashFailed && (
             <Image
               src="/splash.png"
@@ -75,7 +74,7 @@ export default function LandingPage() {
               fill
               priority
               sizes="(max-width: 640px) 100vw, 480px"
-              className="object-cover object-top"
+              className="object-contain object-center"
               onError={() => setSplashFailed(true)}
             />
           )}

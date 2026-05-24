@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { LiveRideRider } from "@/components/RideMap";
@@ -269,6 +270,7 @@ const INITIAL_DRAFT: DraftRide = {
 };
 
 export default function RidesPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<"upcoming" | "past" | "hosted">("upcoming");
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
@@ -285,6 +287,7 @@ export default function RidesPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackingWatchRef = useRef<number | null>(null);
   const trackingRideRef = useRef<string | null>(null);
+  const detailHistoryPushed = useRef(false);
 
   const allRides = useMemo(() => [...upcoming, ...past, ...hosted], [upcoming, past, hosted]);
   const list = tab === "upcoming" ? upcoming : tab === "past" ? past : hosted;
@@ -310,6 +313,18 @@ export default function RidesPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openId, pendingRsvp, showHostForm]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (detailHistoryPushed.current) {
+        detailHistoryPushed.current = false;
+        dismissDetails();
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -552,13 +567,27 @@ export default function RidesPage() {
 
   const openDetails = (id: string) => {
     previousFocus.current = document.activeElement as HTMLElement | null;
+    if (typeof window !== "undefined" && !detailHistoryPushed.current) {
+      window.history.pushState({ crimsonRideDetail: id }, "", window.location.href);
+      detailHistoryPushed.current = true;
+    }
     setOpenId(id);
   };
 
-  const closeDetails = () => {
+  const dismissDetails = () => {
     setOpenId(null);
     previousFocus.current?.focus?.();
   };
+
+  const closeDetails = () => {
+    if (detailHistoryPushed.current) {
+      router.back();
+      return;
+    }
+    dismissDetails();
+  };
+
+  const backFromDetails = closeDetails;
 
   const updateDraft = <K extends keyof DraftRide>(key: K, value: DraftRide[K]) => {
     setDraftRide((d) => ({ ...d, [key]: value }));
@@ -734,7 +763,7 @@ export default function RidesPage() {
                         : "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.03)] text-zinc-100 hover:border-[rgba(127,17,27,0.45)] hover:bg-[rgba(127,17,27,0.16)]"
                     }`}
                   >
-                    {going[featuredRide.id] ? "Going" : "Hold My Seat"}
+                    {going[featuredRide.id] ? "Going" : "JOIN RIDE"}
                   </button>
                 )}
 
@@ -864,7 +893,7 @@ export default function RidesPage() {
                                   : "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] text-zinc-100 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.14)]"
                               }`}
                             >
-                              {isGoing ? "Going" : "Seat"}
+                              {isGoing ? "Going" : "JOIN RIDE"}
                             </button>
                           ) : null}
 
@@ -911,6 +940,14 @@ export default function RidesPage() {
             onClick={(e) => e.stopPropagation()}
             className="relative my-6 w-full max-w-3xl overflow-hidden rounded-[34px] border border-[rgba(255,255,255,0.08)] bg-[#090709] shadow-[0_30px_90px_-30px_rgba(0,0,0,0.95)]"
           >
+            <button
+              onClick={backFromDetails}
+              aria-label="Back from ride details"
+              className="absolute left-5 top-[calc(1.25rem+env(safe-area-inset-top))] z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-lg text-[#f4dadd] shadow-[0_12px_35px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md transition hover:border-[rgba(127,17,27,0.5)] hover:text-white"
+            >
+              ←
+            </button>
+
             <button
               onClick={closeDetails}
               aria-label="Close ride details"
@@ -1019,7 +1056,7 @@ export default function RidesPage() {
                         : "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.02)] text-zinc-100 hover:border-[rgba(127,17,27,0.42)] hover:bg-[rgba(127,17,27,0.14)]"
                     }`}
                   >
-                    {going[openRide.id] ? "Going" : "Hold My Seat"}
+                    {going[openRide.id] ? "Going" : "JOIN RIDE"}
                   </button>
                 )}
               </div>
