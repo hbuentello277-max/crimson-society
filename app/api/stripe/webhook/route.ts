@@ -1,82 +1,120 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2026-04-22.dahlia",
-});
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
 
 function toIso(unix: number | null | undefined) {
   return unix ? new Date(unix * 1000).toISOString() : null;
 }
 
+async function upsertStripeCustomer(userId: string, customerId: string) {
+  const supabaseAdmin = getSupabaseAdmin();
+
+  const { error } = await supabaseAdmin.from("stripe_customers").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: customerId,
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
 async function upsertSubscription(subscription: Stripe.Subscription) {
+  const supabaseAdmin = getSupabaseAdmin();
+
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer.id;
 
-  const subscriptionId = subscription.id;
-  const status = subscription.status;
-  const cancelAtPeriodEnd = subscription.cancel_at_period_end;
-
   const metadata = subscription.metadata || {};
-  let userId = metadata.user_id || null;
+  let userId = metadata.supabase_user_id || metadata.user_id || null;
   const planType = metadata.plan_type || null;
   const membershipPlanId = metadata.membership_plan_id || null;
 
   if (!userId && customerId) {
-    const { data: customerRow } = await supabaseAdmin
+    const { data: customerRow, error: customerLookupError } = await supabaseAdmin
       .from("stripe_customers")
       .select("user_id")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
 
+    if (customerLookupError) {
+      throw customerLookupError;
+    }
+
     userId = customerRow?.user_id ?? null;
   }
 
-  if (!userId) return;
+  if (!userId) {
+    console.warn("No user_id found for subscription", subscription.id);
+    return;
+  }
 
-  await supabaseAdmin.from("subscriptions").upsert(
-    {
-      user_id: userId,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: subscriptionId,
-      plan_type: planType,
-      status,
-      current_period_start: toIso(subscription.items.data[0]?.current_period_start),
-      current_period_end: toIso(subscription.items.data[0]?.current_period_end),
-      cancel_at_period_end: cancelAtPeriodEnd,
-      membership_plan_id: membershipPlanId,
-    },
-    { onConflict: "stripe_subscription_id" }
-  );
+  const item = subscription.items.data[0];
+
+  const { error } = await supabaseAdmin
+    .from("subscriptions")
+    .upsert(
+      {
+        user_id: userId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        plan_type: planType,
+        status: subscription.status,
+        current_period_start: toIso(item?.current_period_start),
+        current_period_end: toIso(item?.current_period_end),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        membership_plan_id: membershipPlanId,
+      },
+      { onConflict: "stripe_subscription_id" }
+    );
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function POST(req: Request) {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return new NextResponse("Missing STRIPE_WEBHOOK_SECRET", { status: 500 });
+  }
+
   const body = await req.text();
   const signature = (await headers()).get("stripe-signature");
 
   if (!signature) {
-    return new NextResponse("Missing signature", { status: 400 });
+    return new NextResponse("Missing stripe-signature", { status: 400 });
   }
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET as string
-    );
-  } catch (err) {
-    console.error("WEBHOOK SIGNATURE ERROR", err);
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+  } catch (error) {
+    console.error("Webhook signature verification failed:", error);
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
@@ -85,7 +123,25 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        if (session.mode === "subscription" && session.subscription) {
+        if (session.mode !== "subscription") {
+          break;
+        }
+
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id ?? null;
+
+        const userId =
+          session.metadata?.supabase_user_id ||
+          session.metadata?.user_id ||
+          null;
+
+        if (customerId && userId) {
+          await upsertStripeCustomer(userId, customerId);
+        }
+
+        if (session.subscription) {
           const subscription = await stripe.subscriptions.retrieve(
             typeof session.subscription === "string"
               ? session.subscription
@@ -93,36 +149,6 @@ export async function POST(req: Request) {
           );
 
           await upsertSubscription(subscription);
-
-          const customerId =
-            typeof session.customer === "string"
-              ? session.customer
-              : session.customer?.id ?? null;
-
-          const userId = session.metadata?.user_id ?? null;
-
-          if (customerId && userId) {
-            await supabaseAdmin.from("stripe_customers").upsert({
-              user_id: userId,
-              stripe_customer_id: customerId,
-            });
-          }
-
-          await supabaseAdmin.from("subscriptions").upsert(
-            {
-              user_id: session.metadata?.user_id ?? null,
-              stripe_customer_id: customerId,
-              stripe_subscription_id:
-                typeof session.subscription === "string"
-                  ? session.subscription
-                  : session.subscription.id,
-              stripe_checkout_session_id: session.id,
-              plan_type: session.metadata?.plan_type ?? null,
-              membership_plan_id: session.metadata?.membership_plan_id ?? null,
-              status: "active",
-            },
-            { onConflict: "stripe_subscription_id" }
-          );
         }
 
         break;

@@ -2,104 +2,130 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { formatPrice } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
-type SavedOrder = {
-  orderId: string;
-  total: number;
-  form: { name: string; email: string };
-};
+type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
+  | "unpaid"
+  | null;
 
 export default function CheckoutSuccessPage() {
-  const [order, setOrder] = useState<SavedOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<SubscriptionStatus>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("cs-last-order");
-      if (raw) setOrder(JSON.parse(raw));
-    } catch {}
+    let interval: NodeJS.Timeout;
+
+    async function loadStatus() {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          setErrorMsg(userError.message);
+          setLoading(false);
+          return;
+        }
+
+        if (!user) {
+          setErrorMsg("You need to be logged in.");
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("subscriptions")
+          .select("status")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          setErrorMsg(error.message);
+          setLoading(false);
+          return;
+        }
+
+        setStatus((data?.status as SubscriptionStatus) ?? null);
+        setLoading(false);
+      } catch (error: any) {
+        console.error(error);
+        setErrorMsg(error?.message || "Unable to confirm subscription.");
+        setLoading(false);
+      }
+    }
+
+    loadStatus();
+    interval = setInterval(loadStatus, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
+  const isActive = status === "active" || status === "trialing";
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#050505] px-5 pb-32 pt-10 text-white">
-      <motion.div
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 220, damping: 18 }}
-        className="flex h-20 w-20 items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/10 text-3xl text-[#e87a82] shadow-[0_0_45px_rgba(180,20,30,0.4)]"
-      >
-        ✓
-      </motion.div>
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-14">
+        <div className="w-full rounded-[32px] border border-white/10 bg-[#090909] p-8 md:p-10 shadow-[0_0_80px_rgba(120,0,0,0.12)]">
+          <p className="text-xs uppercase tracking-[0.35em] text-red-500/70">
+            Checkout
+          </p>
 
-      <motion.div
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="mt-6 max-w-md text-center"
-      >
-        <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Confirmed</p>
-        <h1 className="mt-2 font-serif text-4xl italic leading-tight text-white">
-          Welcome to the Society.
-        </h1>
-        <p className="mt-3 text-sm text-white/65">
-          Your order has been received. We hand-press every piece — expect a shipping confirmation
-          within 48 hours.
-        </p>
-      </motion.div>
+          <h1 className="mt-4 text-4xl font-light tracking-tight">
+            Payment received.
+          </h1>
 
-      {order && (
-        <motion.div
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-6 w-full max-w-md space-y-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">Order</span>
-            <span className="font-mono text-sm text-white">#{order.orderId}</span>
+          {loading && (
+            <p className="mt-4 text-sm text-zinc-400">
+              We’re confirming your membership with Blackcard now.
+            </p>
+          )}
+
+          {!loading && errorMsg && (
+            <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+              <p className="text-sm text-red-300">{errorMsg}</p>
+            </div>
+          )}
+
+          {!loading && !errorMsg && isActive && (
+            <p className="mt-4 text-sm leading-7 text-zinc-300">
+              Your membership is active. You can return to Blackcard and access the premium area.
+            </p>
+          )}
+
+          {!loading && !errorMsg && !isActive && (
+            <p className="mt-4 text-sm leading-7 text-zinc-400">
+              Your payment completed, but the subscription has not been marked active yet.
+              This usually means the webhook is still processing.
+            </p>
+          )}
+
+          <div className="mt-8 flex flex-col gap-3">
+            <Link
+              href="/blackcard"
+              className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-4 text-xs font-semibold uppercase tracking-[0.28em] text-black transition hover:bg-red-500"
+            >
+              Return to Blackcard
+            </Link>
+
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 px-6 py-4 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
+            >
+              Back Home
+            </Link>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">Total</span>
-            <span className="font-serif text-xl italic text-[#e87a82]">
-              {formatPrice(order.total)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">Receipt</span>
-            <span className="truncate text-sm text-white">{order.form.email}</span>
-          </div>
-        </motion.div>
-      )}
-
-      <motion.div
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.45 }}
-        className="mt-8 flex flex-col gap-2"
-      >
-        <Link
-          href="/shop"
-          className="rounded-full bg-[#b4141e] px-6 py-3 text-center text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_25px_rgba(180,20,30,0.4)] hover:bg-[#d11827]"
-        >
-          Keep Shopping
-        </Link>
-        <Link
-          href="/dashboard"
-          className="text-center text-[11px] uppercase tracking-[0.3em] text-white/45 hover:text-white"
-        >
-          Back to the Feed
-        </Link>
-      </motion.div>
-
-      <div className="mt-12 flex items-center justify-center gap-3 text-white/30">
-        <div className="h-px w-12 bg-white/15" />
-        <span className="text-xs">✦</span>
-        <div className="h-px w-12 bg-white/15" />
+        </div>
       </div>
-      <p className="mt-4 text-center text-[10px] uppercase tracking-[0.4em] text-white/30">
-        © Crimson Society · MMXXVI
-      </p>
     </main>
   );
 }
