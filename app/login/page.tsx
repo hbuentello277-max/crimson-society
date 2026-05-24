@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const emailRedirectTo = useMemo(() => {
     if (typeof window === "undefined") return undefined;
-    return `${window.location.origin}/dashboard`;
+    return `${window.location.origin}/auth/callback`;
   }, []);
 
   useEffect(() => {

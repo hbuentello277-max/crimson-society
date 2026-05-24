@@ -97,7 +97,7 @@ export default function LandingPage() {
               href="/login"
               className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
             >
-              Enter Society
+              Join Society
             </Link>
             <Link
               href="/shop"

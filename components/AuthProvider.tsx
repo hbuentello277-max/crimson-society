@@ -3,15 +3,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { ensureUserProfile, type AppProfile } from "@/lib/profile";
 
-type Profile = {
-  id: string;
-  role: string | null;
-  status: string | null;
-  display_name?: string | null;
-  username?: string | null;
-  profile_image_url?: string | null;
-} | null;
+type Profile = AppProfile | null;
 
 type AuthContextType = {
   session: Session | null;
@@ -38,19 +32,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, role, status, display_name, username, profile_image_url")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) {
-      setProfile(null);
-      return;
-    }
-
-    setProfile((data as Profile) ?? null);
+  async function loadProfile(nextSession: Session) {
+    const nextProfile = await ensureUserProfile(nextSession.user);
+    setProfile(nextProfile);
   }
 
   useEffect(() => {
@@ -69,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setSession(data.session);
-      await loadProfile(data.session.user.id);
+      await loadProfile(data.session);
       if (mounted) setLoading(false);
     }
 
@@ -81,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession ?? null);
 
       if (nextSession?.user?.id) {
-        await loadProfile(nextSession.user.id);
+        await loadProfile(nextSession);
       } else {
         setProfile(null);
       }

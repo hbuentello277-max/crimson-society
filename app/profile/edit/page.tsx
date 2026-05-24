@@ -31,6 +31,7 @@ type ProfileForm = {
   instagram_url: string;
   tiktok_url: string;
   youtube_url: string;
+  website_url: string;
 };
 
 function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
@@ -147,7 +148,7 @@ function SocialPreviewChip({
   label,
 }: {
   href: string;
-  label: "Instagram" | "TikTok" | "YouTube";
+  label: "Instagram" | "TikTok" | "YouTube" | "Website";
 }) {
   return (
     <a
@@ -185,6 +186,7 @@ export default function ProfileEditPage() {
     instagram_url: "",
     tiktok_url: "",
     youtube_url: "",
+    website_url: "",
   });
 
   const displayName = form.display_name.trim() || "Unnamed Member";
@@ -196,6 +198,7 @@ export default function ProfileEditPage() {
   const instagramUrl = normalizeUrl(form.instagram_url);
   const tiktokUrl = normalizeUrl(form.tiktok_url);
   const youtubeUrl = normalizeUrl(form.youtube_url);
+  const websiteUrl = normalizeUrl(form.website_url);
 
   const garageCountLabel = useMemo(() => {
     if (motorcycles.length === 0) return "No motorcycles loaded";
@@ -215,6 +218,7 @@ export default function ProfileEditPage() {
         instagram_url: (profile as any).instagram_url ?? "",
         tiktok_url: (profile as any).tiktok_url ?? "",
         youtube_url: (profile as any).youtube_url ?? "",
+        website_url: (profile as any).website_url ?? "",
       }));
 
       if (profile.profile_image_url) {
@@ -380,6 +384,7 @@ export default function ProfileEditPage() {
       instagram_url: form.instagram_url.trim(),
       tiktok_url: form.tiktok_url.trim(),
       youtube_url: form.youtube_url.trim(),
+      website_url: form.website_url.trim(),
     };
 
     const response = await supabase.from("profiles").update(payload).eq("id", userId);
@@ -743,7 +748,7 @@ export default function ProfileEditPage() {
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
                 YouTube URL
               </label>
@@ -755,9 +760,22 @@ export default function ProfileEditPage() {
                 className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
               />
             </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Website URL
+              </label>
+              <input
+                type="url"
+                value={form.website_url}
+                onChange={(e) => updateFormField("website_url", e.target.value)}
+                placeholder="https://your-site.com"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+              />
+            </div>
           </div>
 
-          {(instagramUrl || tiktokUrl || youtubeUrl) && (
+          {(instagramUrl || tiktokUrl || youtubeUrl || websiteUrl) && (
             <div className="mt-6 flex flex-wrap gap-3">
               {instagramUrl && (
                 <SocialPreviewChip href={instagramUrl} label="Instagram" />
@@ -767,6 +785,9 @@ export default function ProfileEditPage() {
               )}
               {youtubeUrl && (
                 <SocialPreviewChip href={youtubeUrl} label="YouTube" />
+              )}
+              {websiteUrl && (
+                <SocialPreviewChip href={websiteUrl} label="Website" />
               )}
             </div>
           )}

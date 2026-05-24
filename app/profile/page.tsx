@@ -39,6 +39,7 @@ type ProfileDetails = {
   instagram_url: string | null;
   tiktok_url: string | null;
   youtube_url: string | null;
+  website_url: string | null;
   profile_image_url: string | null;
 };
 
@@ -48,10 +49,26 @@ type ProfileSummary = {
   profile_image_url?: string | null;
 };
 
-type TabKey = "posts" | "rides" | "garage" | "saved";
+type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
+  | "unpaid"
+  | null;
+
+type MembershipRow = {
+  status: SubscriptionStatus;
+  plan_type: string | null;
+  current_period_end: string | null;
+};
+
+type TabKey = "posts" | "rides" | "garage" | "saved" | "blackcard";
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
-const tabs = [
+const baseTabs = [
   { k: "posts", label: "Posts" },
   { k: "rides", label: "Rides" },
   { k: "garage", label: "Garage" },
@@ -67,6 +84,7 @@ const fallbackProfile: ProfileDetails = {
   instagram_url: null,
   tiktok_url: null,
   youtube_url: null,
+  website_url: null,
   profile_image_url: null,
 };
 
@@ -85,6 +103,16 @@ function mapMotorcycle(bike: MotorcycleRow): Motorcycle {
     year: bike.year ?? "",
     finish: bike.finish ?? "",
   };
+}
+
+function hasActiveMembership(membership: MembershipRow | null) {
+  if (!membership) return false;
+  if (membership.status !== "active" && membership.status !== "trialing") {
+    return false;
+  }
+  if (!membership.current_period_end) return true;
+
+  return new Date(membership.current_period_end).getTime() >= Date.now();
 }
 
 function ProfileSkeleton() {
@@ -203,6 +231,7 @@ export default function ProfilePage() {
   const [postCount, setPostCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [membership, setMembership] = useState<MembershipRow | null>(null);
 
   const userId = session?.user?.id ?? null;
   const authProfile = profile as ProfileSummary | null;
@@ -235,6 +264,15 @@ export default function ProfilePage() {
   const instagramUrl = normalizeUrl(activeProfile.instagram_url);
   const tiktokUrl = normalizeUrl(activeProfile.tiktok_url);
   const youtubeUrl = normalizeUrl(activeProfile.youtube_url);
+  const websiteUrl = normalizeUrl(activeProfile.website_url);
+  const membershipActive = hasActiveMembership(membership);
+  const visibleTabs = useMemo(
+    () =>
+      membershipActive
+        ? [...baseTabs, { k: "blackcard" as const, label: "Blackcard Member" }]
+        : baseTabs,
+    [membershipActive]
+  );
 
   const stats = useMemo(
     () => [
@@ -264,11 +302,11 @@ export default function ProfilePage() {
       setProfileState("loading");
       setErrorMsg("");
 
-      const [profileResponse, countResponse] = await Promise.all([
+      const [profileResponse, countResponse, membershipResponse] = await Promise.all([
         supabase
           .from("profiles")
           .select(
-            "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, profile_image_url"
+            "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url, profile_image_url"
           )
           .eq("id", userId)
           .maybeSingle(),
@@ -276,6 +314,13 @@ export default function ProfilePage() {
           .from("Posts")
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId),
+        supabase
+          .from("subscriptions")
+          .select("status, plan_type, current_period_end")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -288,6 +333,7 @@ export default function ProfilePage() {
 
       setDetails((profileResponse.data as ProfileDetails | null) ?? null);
       setPostCount(countResponse.count ?? 0);
+      setMembership((membershipResponse.data as MembershipRow | null) ?? null);
       setProfileState("loaded");
     }
 
@@ -297,6 +343,12 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [authLoading, profile, status, userId]);
+
+  useEffect(() => {
+    if (!membershipActive && tab === "blackcard") {
+      setTab("posts");
+    }
+  }, [membershipActive, tab]);
 
   const loadPosts = useCallback(async () => {
     if (!userId || postsState === "loading" || postsState === "loaded") return;
@@ -505,7 +557,7 @@ export default function ProfilePage() {
                     {displayBio}
                   </p>
 
-                  {(instagramUrl || tiktokUrl || youtubeUrl) && (
+                  {(instagramUrl || tiktokUrl || youtubeUrl || websiteUrl) && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {instagramUrl && (
                         <SocialIcon href={instagramUrl} label="Instagram" mark="IG" />
@@ -515,6 +567,9 @@ export default function ProfilePage() {
                       )}
                       {youtubeUrl && (
                         <SocialIcon href={youtubeUrl} label="YouTube" mark="YT" />
+                      )}
+                      {websiteUrl && (
+                        <SocialIcon href={websiteUrl} label="Website" mark="WEB" />
                       )}
                     </div>
                   )}
@@ -540,19 +595,22 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
+        <Link
+          href="/blackcard"
+          className="mt-4 block rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)] transition hover:border-[#b4141e]/50"
+        >
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">
                 BLACKCARD ACCESS
               </p>
               <h2 className="mt-1 font-serif text-xl text-white">
-                Blackcard Member
+                {membershipActive ? "Blackcard Member" : "Blackcard Access"}
               </h2>
             </div>
             <span className="text-xl text-[#b4141e]">✦</span>
           </div>
-        </section>
+        </Link>
 
         {profileState === "loading" && (
           <p className="mt-4 text-center text-[10px] uppercase tracking-[0.25em] text-zinc-600">
@@ -561,7 +619,7 @@ export default function ProfilePage() {
         )}
 
         <div className="mt-6 flex gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
-          {tabs.map((item) => (
+          {visibleTabs.map((item) => (
             <button
               key={item.k}
               type="button"
@@ -691,6 +749,23 @@ export default function ProfilePage() {
               title="Posts you’ve saved appear here."
               body="Keep references, builds, and visuals that inspire your next move."
             />
+          </section>
+        )}
+
+        {tab === "blackcard" && membershipActive && (
+          <section className="mt-5">
+            <div className="rounded-[26px] border border-[#b4141e]/25 bg-[#090909] p-6 shadow-[0_20px_70px_-45px_rgba(180,20,30,0.95)]">
+              <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
+                Apex Status
+              </p>
+              <h3 className="mt-3 font-serif text-3xl text-white">
+                Blackcard active
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-zinc-400">
+                {membership?.plan_type || "Apex"} membership is active for this
+                profile.
+              </p>
+            </div>
           </section>
         )}
       </div>

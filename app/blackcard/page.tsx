@@ -19,6 +19,16 @@ type MembershipRow = {
   current_period_end: string | null;
 };
 
+function hasActiveMembership(membership: MembershipRow | null) {
+  if (!membership) return false;
+  if (membership.status !== "active" && membership.status !== "trialing") {
+    return false;
+  }
+  if (!membership.current_period_end) return true;
+
+  return new Date(membership.current_period_end).getTime() >= Date.now();
+}
+
 function CheckoutButton({
   planType,
   label,
@@ -126,8 +136,7 @@ export default function BlackcardPage() {
     loadMembership();
   }, []);
 
-  const isPremium =
-    membership?.status === "active" || membership?.status === "trialing";
+  const isPremium = hasActiveMembership(membership);
 
   if (loading) {
     return (
