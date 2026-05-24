@@ -50,7 +50,7 @@ export default function LandingPage() {
 
   return (
     <main
-      className={`relative min-h-dvh overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
+      className={`relative min-h-[100dvh] bg-[#050505] text-white transition-opacity duration-500 ${
         isFading ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -65,8 +65,8 @@ export default function LandingPage() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
-      <section className="relative min-h-dvh w-full">
-        <div className="relative mx-auto flex min-h-dvh w-full items-center justify-center overflow-hidden bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
+      <section className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center pb-[calc(env(safe-area-inset-bottom)+28px)]">
+        <div className="relative mx-auto flex min-h-0 w-full flex-1 items-center justify-center bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
           {!splashFailed && (
             <Image
               src="/splash.png"
@@ -89,36 +89,24 @@ export default function LandingPage() {
 
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/78" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(180,20,30,0.24),transparent_68%)]" />
-
-          <div className="absolute inset-x-0 bottom-0 z-10 px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] text-center">
-            <div className="mx-auto flex items-center justify-center gap-4">
-              <span className="h-px w-12 bg-white/20" />
-              <span className="text-[#b4141e]">✦</span>
-              <span className="h-px w-12 bg-white/20" />
-            </div>
-
-            <h1 className="mt-4 font-serif text-[2.55rem] leading-none text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)]">
-              Ride Different.
-            </h1>
-
-            {showGuestButtons && (
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <Link
-                  href="/login"
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
-                >
-                  Enter Society
-                </Link>
-                <Link
-                  href="/shop"
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
-                >
-                  Explore Drops
-                </Link>
-              </div>
-            )}
-          </div>
         </div>
+
+        {showGuestButtons && (
+          <div className="relative z-10 mt-3 grid w-full grid-cols-2 gap-3 px-5 sm:max-w-[30rem]">
+            <Link
+              href="/login"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
+            >
+              Enter Society
+            </Link>
+            <Link
+              href="/shop"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
+            >
+              Explore Drops
+            </Link>
+          </div>
+        )}
       </section>
     </main>
   );

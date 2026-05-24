@@ -587,7 +587,13 @@ export default function RidesPage() {
     dismissDetails();
   };
 
-  const backFromDetails = closeDetails;
+  const backFromDetails = () => {
+    if (detailHistoryPushed.current) {
+      router.back();
+      return;
+    }
+    router.push("/rides");
+  };
 
   const updateDraft = <K extends keyof DraftRide>(key: K, value: DraftRide[K]) => {
     setDraftRide((d) => ({ ...d, [key]: value }));
@@ -943,7 +949,7 @@ export default function RidesPage() {
             <button
               onClick={backFromDetails}
               aria-label="Back from ride details"
-              className="absolute left-5 top-[calc(1.25rem+env(safe-area-inset-top))] z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-lg text-[#f4dadd] shadow-[0_12px_35px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md transition hover:border-[rgba(127,17,27,0.5)] hover:text-white"
+              className="absolute left-5 top-[calc(env(safe-area-inset-top)+16px)] z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-lg text-[#f4dadd] shadow-[0_12px_35px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md transition hover:border-[rgba(127,17,27,0.5)] hover:text-white"
             >
               ←
             </button>
