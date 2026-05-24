@@ -14,6 +14,7 @@ const AUTHED_DESTINATION = "/dashboard"; // change to "/feed" or "/dashboard" if
 export default function LandingPage() {
   const router = useRouter();
   const [state, setState] = useState<SplashState>("checking");
+  const [splashFailed, setSplashFailed] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showButtons = state === "guest";
@@ -104,14 +105,26 @@ export default function LandingPage() {
             <span className="h-px w-10 bg-white/15" />
           </div>
 
-          <div className="relative mx-auto mt-8 h-[280px] w-[280px] overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.03] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)] sm:h-[340px] sm:w-[340px]">
-            <Image
-              src="/images/splash.jpg"
-              alt="Crimson Society splash"
-              fill
-              priority
-              className="object-cover"
-            />
+          <div className="relative mx-auto mt-8 flex h-[280px] w-[280px] items-center justify-center overflow-hidden rounded-[34px] border border-[#b4141e]/25 bg-gradient-to-b from-[#151113] via-[#090909] to-black shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)] sm:h-[340px] sm:w-[340px]">
+            {!splashFailed && (
+              <Image
+                src="/splash.png"
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 640px) 280px, 340px"
+                className="object-cover"
+                onError={() => setSplashFailed(true)}
+              />
+            )}
+            {splashFailed && (
+              <div className="relative z-10 flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_54%)] px-8 text-center">
+                <span className="text-3xl text-[#b4141e]">✦</span>
+                <p className="mt-4 font-serif text-3xl text-white">
+                  Crimson Society
+                </p>
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
           </div>
 

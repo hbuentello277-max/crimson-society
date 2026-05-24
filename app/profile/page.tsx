@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
 type ProfilePost = {
   id: string;
@@ -20,7 +20,6 @@ type Motorcycle = {
   name: string;
   year: string;
   finish: string;
-  isNew: boolean;
 };
 
 type MotorcycleRow = {
@@ -31,106 +30,84 @@ type MotorcycleRow = {
   finish: string | null;
 };
 
-type ProfileForm = {
-  display_name: string;
-  username: string;
-  bio: string;
-  location: string;
-  quote: string;
-  instagram_url: string;
-  tiktok_url: string;
-  youtube_url: string;
+type ProfileDetails = {
+  display_name: string | null;
+  username: string | null;
+  bio: string | null;
+  location: string | null;
+  quote: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  profile_image_url: string | null;
 };
 
-function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("Upload timed out. Please try again."));
-    }, ms);
+type ProfileSummary = {
+  display_name?: string | null;
+  username?: string | null;
+  profile_image_url?: string | null;
+};
 
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
+type TabKey = "posts" | "rides" | "garage" | "saved";
+type LoadState = "idle" | "loading" | "loaded" | "error";
 
-function normalizeUrl(value: string) {
-  const trimmed = value.trim();
+const tabs = [
+  { k: "posts", label: "Posts" },
+  { k: "rides", label: "Rides" },
+  { k: "garage", label: "Garage" },
+  { k: "saved", label: "Saved" },
+] as const;
+
+const fallbackProfile: ProfileDetails = {
+  display_name: "Crimson Member",
+  username: "member",
+  bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
+  location: "Location pending",
+  quote: "Bound by the road. Kept by the code.",
+  instagram_url: null,
+  tiktok_url: null,
+  youtube_url: null,
+  profile_image_url: null,
+};
+
+function normalizeUrl(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
 }
 
-function withCacheBust(url: string) {
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}t=${Date.now()}`;
+function mapMotorcycle(bike: MotorcycleRow): Motorcycle {
+  return {
+    id: bike.id,
+    label: bike.label ?? "Garage",
+    name: bike.name ?? "",
+    year: bike.year ?? "",
+    finish: bike.finish ?? "",
+  };
 }
 
 function ProfileSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
+      <div className="flex items-center justify-between">
         <div className="h-3 w-28 rounded-full bg-white/10" />
-        <div className="mx-auto h-8 w-24 rounded-full bg-white/10" />
-        <div className="ml-auto flex w-[150px] flex-col gap-2">
-          <div className="h-8 rounded-full bg-white/10" />
-          <div className="h-8 rounded-full bg-white/10" />
-          <div className="h-8 rounded-full bg-white/10" />
-        </div>
+        <div className="h-8 w-28 rounded-full bg-white/10" />
       </div>
-
-      <div className="mt-6 rounded-[34px] border border-white/10 bg-white/[0.03] p-6 md:p-8">
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex gap-4">
-              <div className="h-24 w-24 rounded-full bg-white/10 md:h-28 md:w-28" />
-              <div className="space-y-3 pt-1">
-                <div className="h-6 w-20 rounded-full bg-white/10" />
-                <div className="h-10 w-56 rounded-full bg-white/10" />
-                <div className="h-4 w-48 rounded-full bg-white/10" />
-                <div className="flex flex-col gap-2">
-                  <div className="h-7 w-28 rounded-full bg-white/10" />
-                  <div className="h-7 w-24 rounded-full bg-white/10" />
-                  <div className="h-7 w-28 rounded-full bg-white/10" />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 md:w-[290px]">
-              {[0, 1, 2].map((item) => (
-                <div
-                  key={item}
-                  className="h-[76px] rounded-[18px] border border-white/10 bg-white/[0.03]"
-                />
-              ))}
-            </div>
+      <div className="mt-6 rounded-[30px] border border-white/10 bg-white/[0.03] p-6">
+        <div className="flex gap-4">
+          <div className="h-24 w-24 rounded-full bg-white/10" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="h-8 w-44 rounded-full bg-white/10" />
+            <div className="h-3 w-32 rounded-full bg-white/10" />
+            <div className="h-4 w-full max-w-sm rounded-full bg-white/10" />
+            <div className="h-4 w-3/4 rounded-full bg-white/10" />
           </div>
         </div>
       </div>
-
-      <div className="mt-5 rounded-[26px] border border-white/10 bg-white/[0.03] p-6">
-        <div className="h-3 w-36 rounded-full bg-white/10" />
-        <div className="mt-3 h-8 w-32 rounded-full bg-white/10" />
-      </div>
-
-      <div className="mt-8 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1">
+      <div className="mt-5 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1">
         {[0, 1, 2, 3].map((item) => (
           <div key={item} className="h-10 flex-1 rounded-full bg-white/10" />
-        ))}
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
-        {[0, 1, 2, 3, 4, 5].map((item) => (
-          <div
-            key={item}
-            className="aspect-square rounded-[22px] border border-white/5 bg-white/[0.03]"
-          />
         ))}
       </div>
     </div>
@@ -145,17 +122,14 @@ function RestrictedAccountScreen({ status }: { status: string }) {
       <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
         Account Status
       </p>
-
       <h2 className="mt-4 font-serif text-5xl text-white">
         Access Restricted
       </h2>
-
       <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
         {isBlocked
           ? "Your account has been blocked. Access is no longer available."
           : "Your account has been suspended. You cannot use app features right now."}
       </p>
-
       <Link
         href="/login"
         className="mt-8 rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
@@ -166,34 +140,31 @@ function RestrictedAccountScreen({ status }: { status: string }) {
   );
 }
 
-function SocialChip({
+function SocialIcon({
   href,
   label,
+  mark,
 }: {
   href: string;
-  label: "Instagram" | "TikTok" | "YouTube";
+  label: string;
+  mark: string;
 }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
+      aria-label={label}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
     >
-      {label}
+      {mark}
     </a>
   );
 }
 
-function EmptyPanel({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
+function EmptyPanel({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-10 text-center shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]">
+    <div className="rounded-[26px] border border-white/10 bg-white/[0.025] p-8 text-center shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]">
       <div className="mx-auto flex items-center justify-center gap-4">
         <span className="h-px w-10 bg-white/15" />
         <span className="text-[#b4141e]">✦</span>
@@ -207,350 +178,170 @@ function EmptyPanel({
   );
 }
 
+function TabSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      {[0, 1, 2, 3, 4, 5].map((item) => (
+        <div
+          key={item}
+          className="aspect-square animate-pulse rounded-[22px] border border-white/5 bg-white/[0.03]"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { session, loading: authLoading, profile, status, isAdmin } = useAuth();
-
-  const [tab, setTab] = useState<"posts" | "rides" | "garage" | "saved">(
-    "posts"
-  );
+  const [tab, setTab] = useState<TabKey>("posts");
+  const [details, setDetails] = useState<ProfileDetails | null>(null);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [postsState, setPostsState] = useState<LoadState>("idle");
+  const [garageState, setGarageState] = useState<LoadState>("idle");
+  const [profileState, setProfileState] = useState<LoadState>("idle");
+  const [postCount, setPostCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
-  const [savingGarage, setSavingGarage] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [garageMsg, setGarageMsg] = useState("");
-  const [profileMsg, setProfileMsg] = useState("");
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const userId = session?.user?.id ?? null;
+  const authProfile = profile as ProfileSummary | null;
 
-  const [form, setForm] = useState<ProfileForm>({
-    display_name: "Hector Buentello",
-    username: "hbuentello",
-    bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
-    location: "Houston, TX",
-    quote: "Bound by the road. Kept by the code.",
-    instagram_url: "",
-    tiktok_url: "",
-    youtube_url: "",
-  });
+  const activeProfile = useMemo<ProfileDetails>(() => {
+    return {
+      ...fallbackProfile,
+      ...details,
+      display_name:
+        details?.display_name ?? authProfile?.display_name ?? fallbackProfile.display_name,
+      username: details?.username ?? authProfile?.username ?? fallbackProfile.username,
+      profile_image_url:
+        details?.profile_image_url ??
+        authProfile?.profile_image_url ??
+        fallbackProfile.profile_image_url,
+    };
+  }, [authProfile, details]);
+
+  const displayName = activeProfile.display_name?.trim() || "Crimson Member";
+  const username = activeProfile.username?.trim().replace(/^@+/, "") || "member";
+  const displayUsername = `@${username}`;
+  const displayLocation = activeProfile.location?.trim() || "Location pending";
+  const displayQuote =
+    activeProfile.quote?.trim() || "Bound by the road. Kept by the code.";
+  const displayBio =
+    activeProfile.bio?.trim() ||
+    "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.";
+  const avatarUrl = avatarFailed ? "" : activeProfile.profile_image_url?.trim() ?? "";
+
+  const instagramUrl = normalizeUrl(activeProfile.instagram_url);
+  const tiktokUrl = normalizeUrl(activeProfile.tiktok_url);
+  const youtubeUrl = normalizeUrl(activeProfile.youtube_url);
 
   const stats = useMemo(
     () => [
       { n: "62", label: "Rides" },
       { n: "148", label: "Connections" },
-      { n: String(posts.length), label: "Posts" },
+      { n: String(postCount), label: "Posts" },
     ],
-    [posts.length]
+    [postCount]
   );
 
-  const tabs = [
-    { k: "posts", label: "Posts" },
-    { k: "rides", label: "Rides" },
-    { k: "garage", label: "Garage" },
-    { k: "saved", label: "Saved" },
-  ] as const;
-
-  const displayName = form.display_name.trim() || "Unnamed Member";
-  const displayUsername = form.username.trim()
-    ? `@${form.username.trim().replace(/^@+/, "")}`
-    : "@member";
-  const displayLocation = form.location.trim() || "Location pending";
-  const displayQuote = form.quote.trim() || "Build your identity.";
-  const displayBio =
-    form.bio.trim() ||
-    "Add a short bio to tell the Society what drives you.";
-
-  const instagramUrl = normalizeUrl(form.instagram_url);
-  const tiktokUrl = normalizeUrl(form.tiktok_url);
-  const youtubeUrl = normalizeUrl(form.youtube_url);
+  useEffect(() => {
+    if (!userId) return;
+    setAvatarFailed(false);
+  }, [userId, activeProfile.profile_image_url]);
 
   useEffect(() => {
-    if (profile) {
-      setForm((prev) => ({
-        ...prev,
-        display_name: profile.display_name ?? prev.display_name,
-        username: profile.username ?? prev.username,
-        bio: (profile as any).bio ?? prev.bio,
-        location: (profile as any).location ?? prev.location,
-        quote: (profile as any).quote ?? prev.quote,
-        instagram_url: (profile as any).instagram_url ?? "",
-        tiktok_url: (profile as any).tiktok_url ?? "",
-        youtube_url: (profile as any).youtube_url ?? "",
-      }));
+    let cancelled = false;
 
-      if ((profile as any).profile_image_url) {
-        setProfileImageUrl(withCacheBust((profile as any).profile_image_url));
-      } else {
-        setProfileImageUrl("");
-      }
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    async function loadProfilePage() {
-      if (authLoading) return;
-
-      setLoading(true);
-      setErrorMsg("");
-      setGarageMsg("");
-      setProfileMsg("");
-
-      if (!session?.user) {
-        setErrorMsg("You need to be logged in.");
-        setLoading(false);
-        return;
-      }
-
+    async function loadMainProfile() {
+      if (authLoading || !userId) return;
       if (!profile) {
         setErrorMsg("Your profile could not be loaded.");
-        setLoading(false);
+        return;
+      }
+      if (status === "suspended" || status === "blocked") return;
+
+      setProfileState("loading");
+      setErrorMsg("");
+
+      const [profileResponse, countResponse] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, profile_image_url"
+          )
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("Posts")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId),
+      ]);
+
+      if (cancelled) return;
+
+      if (profileResponse.error) {
+        setErrorMsg("Could not load profile details.");
+        setProfileState("error");
         return;
       }
 
-      if (status === "suspended" || status === "blocked") {
-        setLoading(false);
-        return;
-      }
-
-      const motorcyclesResponse = await supabase
-        .from("motorcycles")
-        .select("id, label, name, year, finish")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: true });
-
-      const motorcycleData = (motorcyclesResponse.data ?? []) as MotorcycleRow[];
-
-      if (!motorcyclesResponse.error && motorcycleData.length > 0) {
-        setMotorcycles(
-          motorcycleData.map((bike) => ({
-            id: bike.id,
-            label: bike.label ?? "Garage One",
-            name: bike.name ?? "",
-            year: bike.year ?? "",
-            finish: bike.finish ?? "",
-            isNew: false,
-          }))
-        );
-      } else {
-        setMotorcycles([
-          {
-            id: crypto.randomUUID(),
-            label: "Garage One",
-            name: "Ducati Panigale V4",
-            year: "2023",
-            finish: "Crimson over Carbon",
-            isNew: true,
-          },
-        ]);
-      }
-
-      const postsResponse = await supabase
-        .from("Posts")
-        .select("id, user_id, image_url, caption, created_at")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (postsResponse.error) {
-        setErrorMsg("Could not load your posts.");
-        setLoading(false);
-        return;
-      }
-
-      setPosts((postsResponse.data as ProfilePost[]) || []);
-      setLoading(false);
+      setDetails((profileResponse.data as ProfileDetails | null) ?? null);
+      setPostCount(countResponse.count ?? 0);
+      setProfileState("loaded");
     }
 
-    void loadProfilePage();
-  }, [authLoading, session, profile, status]);
+    void loadMainProfile();
 
-  function updateFormField(field: keyof ProfileForm, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, profile, status, userId]);
 
-  function updateMotorcycle(
-    id: string,
-    field: keyof Omit<Motorcycle, "id" | "isNew">,
-    value: string
-  ) {
-    setMotorcycles((prev) =>
-      prev.map((bike) => (bike.id === id ? { ...bike, [field]: value } : bike))
-    );
-  }
+  const loadPosts = useCallback(async () => {
+    if (!userId || postsState === "loading" || postsState === "loaded") return;
 
-  function addMotorcycle() {
-    setMotorcycles((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        label: `Garage ${prev.length + 1}`,
-        name: "",
-        year: "",
-        finish: "",
-        isNew: true,
-      },
-    ]);
-  }
+    setPostsState("loading");
+    const response = await supabase
+      .from("Posts")
+      .select("id, user_id, image_url, caption, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-  async function deleteMotorcycle(id: string) {
-    const bikeToDelete = motorcycles.find((bike) => bike.id === id);
-
-    setMotorcycles((prev) => prev.filter((bike) => bike.id !== id));
-
-    if (!bikeToDelete || bikeToDelete.isNew || !userId) return;
-
-    await supabase.from("motorcycles").delete().eq("id", id).eq("user_id", userId);
-  }
-
-  async function saveGarage() {
-    setSavingGarage(true);
-    setGarageMsg("");
-
-    if (!userId) {
-      setGarageMsg("You need to be logged in to save.");
-      setSavingGarage(false);
+    if (response.error) {
+      setPostsState("error");
       return;
     }
 
-    const payload = motorcycles.map((bike) => ({
-      id: bike.id,
-      user_id: userId,
-      label: bike.label.trim(),
-      name: bike.name.trim(),
-      year: bike.year.trim(),
-      finish: bike.finish.trim(),
-    }));
+    const nextPosts = (response.data as ProfilePost[]) ?? [];
+    setPosts(nextPosts);
+    setPostCount(nextPosts.length);
+    setPostsState("loaded");
+  }, [postsState, userId]);
 
+  const loadGarage = useCallback(async () => {
+    if (!userId || garageState === "loading" || garageState === "loaded") return;
+
+    setGarageState("loading");
     const response = await supabase
       .from("motorcycles")
-      .upsert(payload, { onConflict: "id" });
+      .select("id, label, name, year, finish")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
 
     if (response.error) {
-      setGarageMsg("Could not save garage.");
-      setSavingGarage(false);
+      setGarageState("error");
       return;
     }
 
-    setMotorcycles((prev) => prev.map((bike) => ({ ...bike, isNew: false })));
-    setGarageMsg("Garage saved.");
-    setSavingGarage(false);
-  }
+    setMotorcycles(((response.data ?? []) as MotorcycleRow[]).map(mapMotorcycle));
+    setGarageState("loaded");
+  }, [garageState, userId]);
 
-  async function saveProfileDetails() {
-    setSavingProfile(true);
-    setProfileMsg("");
-
-    if (!userId) {
-      setProfileMsg("You need to be logged in to save.");
-      setSavingProfile(false);
-      return;
-    }
-
-    const payload = {
-      display_name: form.display_name.trim(),
-      username: form.username.trim().replace(/^@+/, ""),
-      bio: form.bio.trim(),
-      location: form.location.trim(),
-      quote: form.quote.trim(),
-      instagram_url: form.instagram_url.trim(),
-      tiktok_url: form.tiktok_url.trim(),
-      youtube_url: form.youtube_url.trim(),
-    };
-
-    const response = await supabase
-      .from("profiles")
-      .update(payload)
-      .eq("id", userId);
-
-    if (response.error) {
-      setProfileMsg(response.error.message);
-      setSavingProfile(false);
-      return;
-    }
-
-    setProfileMsg("Profile details saved.");
-    setSavingProfile(false);
-  }
-
-  async function handleProfileImageUpload(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!userId) {
-      setProfileMsg("You need to be logged in to upload an image.");
-      e.target.value = "";
-      return;
-    }
-
-    setUploadingImage(true);
-    setProfileMsg("Uploading photo...");
-    setErrorMsg("");
-
-    try {
-      if (!file.type.startsWith("image/")) {
-        throw new Error("Please select an image file.");
-      }
-
-      if (file.size > 6 * 1024 * 1024) {
-        throw new Error("Image must be under 6MB.");
-      }
-
-      const filePath = `${userId}/avatar.jpg`;
-
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from("avatars").upload(filePath, file, {
-          upsert: true,
-          contentType: file.type || "image/jpeg",
-          cacheControl: "0",
-        }),
-        15000
-      );
-
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      const rawImageUrl = publicUrlData.publicUrl;
-
-      if (!rawImageUrl) {
-        throw new Error("Could not generate a public URL for the uploaded image.");
-      }
-
-      const { error: profileUpdateError } = await withTimeout(
-        Promise.resolve(
-          supabase
-            .from("profiles")
-            .update({ profile_image_url: rawImageUrl })
-            .eq("id", userId)
-        ),
-        10000
-      );
-
-      if (profileUpdateError) {
-        throw new Error(`Profile update failed: ${profileUpdateError.message}`);
-      }
-
-      setProfileImageUrl(withCacheBust(rawImageUrl));
-      setProfileMsg("Profile photo updated.");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Something went wrong uploading the image.";
-
-      console.error("PROFILE IMAGE UPLOAD ERROR:", error);
-      setProfileMsg(message);
-    } finally {
-      setUploadingImage(false);
-      e.target.value = "";
-    }
-  }
+  useEffect(() => {
+    if (tab === "posts") void loadPosts();
+    if (tab === "garage") void loadGarage();
+  }, [loadGarage, loadPosts, tab]);
 
   async function handleShareProfile() {
     const shareUrl =
@@ -574,7 +365,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
         <div
@@ -585,9 +376,27 @@ export default function ProfilePage() {
               "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(180,20,30,0.25), transparent 65%)",
           }}
         />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
           <ProfileSkeleton />
+        </div>
+      </main>
+    );
+  }
+
+  if (!session?.user) {
+    return (
+      <main className="relative flex min-h-screen items-center justify-center bg-[#050505] px-6 text-center text-white">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.35em] text-[#e87a82]">
+            Crimson Society
+          </p>
+          <h1 className="mt-4 font-serif text-4xl">Sign in to view profile</h1>
+          <Link
+            href="/login"
+            className="mt-8 inline-flex rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-[#f1c3c7]"
+          >
+            Login
+          </Link>
         </div>
       </main>
     );
@@ -623,444 +432,141 @@ export default function ProfilePage() {
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
-      <div className="relative mx-auto max-w-6xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
-          <div className="flex items-center">
-            <span className="text-[11px] uppercase tracking-[0.38em] text-zinc-500">
-              Your Profile
-            </span>
-          </div>
-
-          <div className="flex justify-center">
+      <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">
+            Profile
+          </span>
+          <div className="flex items-center gap-2">
             {isAdmin && (
               <Link
                 href="/admin"
-                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3.5 py-1.5 text-[10px] uppercase tracking-[0.22em] text-[#e87a82] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
+                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-[#e87a82]"
               >
                 Admin
               </Link>
             )}
-          </div>
-
-          <div className="flex justify-end">
-            <div className="flex w-[150px] flex-col items-stretch gap-2">
-              <a
-                href="#identity-editor"
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-[#f0c8cb]"
-              >
-                Edit Identity
-              </a>
-
-              <button
-                type="button"
-                onClick={handleShareProfile}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/25 hover:text-white"
-              >
-                Share Profile
-              </button>
-
-              <Link
-                href="/blackcard"
-                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3.5 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15"
-              >
-                Blackcard Access
-              </Link>
-            </div>
+            <button
+              type="button"
+              onClick={handleShareProfile}
+              className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-white"
+            >
+              Share
+            </button>
+            <Link
+              href="/profile/edit"
+              className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:border-[#b4141e]/65 hover:bg-[#b4141e]/18"
+            >
+              Edit Identity
+            </Link>
           </div>
         </div>
 
         {errorMsg && (
-          <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+          <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
             <p className="text-sm text-red-300">{errorMsg}</p>
           </div>
         )}
 
-        <section className="mt-6 overflow-hidden rounded-[34px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_30%)]" />
-          <div className="relative px-6 py-6 md:px-8 md:py-6">
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-4 md:gap-5">
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_40px_-6px_rgba(180,20,30,0.65)] md:h-28 md:w-28">
-                    {profileImageUrl ? (
-                      <img
-                        key={profileImageUrl}
-                        src={profileImageUrl}
-                        alt={`${displayName} profile picture`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-white/10 text-[11px] uppercase tracking-[0.22em] text-zinc-400">
-                        No Photo
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 pt-1">
-                    <label className="inline-flex cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.24em] text-zinc-400 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">
-                      {uploadingImage ? "Uploading..." : "Change Photo"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleProfileImageUpload}
-                        className="hidden"
-                        disabled={uploadingImage}
-                      />
-                    </label>
-
-                    <h1 className="mt-3 font-serif text-[34px] leading-none text-white sm:text-[40px]">
-                      {displayName}
-                    </h1>
-
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-                      {displayUsername} · {displayLocation}
-                    </p>
-
-                    <p className="mt-3 max-w-xl font-serif text-lg italic text-zinc-300">
-                      “{displayQuote}”
-                    </p>
-
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-                      {displayBio}
-                    </p>
-
-                    <div className="mt-4 flex flex-col items-start gap-2">
-                      {instagramUrl && (
-                        <SocialChip href={instagramUrl} label="Instagram" />
-                      )}
-                      {tiktokUrl && (
-                        <SocialChip href={tiktokUrl} label="TikTok" />
-                      )}
-                      {youtubeUrl && (
-                        <SocialChip href={youtubeUrl} label="YouTube" />
-                      )}
+        <section className="mt-5 overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
+          <div className="relative px-5 py-6 sm:px-7">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_32%)]" />
+            <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 bg-black shadow-[0_0_40px_-10px_rgba(180,20,30,0.8)] sm:h-28 sm:w-28">
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt={`${displayName} profile picture`}
+                      fill
+                      sizes="112px"
+                      className="object-cover"
+                      onError={() => setAvatarFailed(true)}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-3xl text-[#f0c8cb]">
+                      {displayName.charAt(0).toUpperCase()}
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 md:w-[290px]">
-                  {stats.map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="rounded-[18px] border border-white/10 bg-black/20 px-3 py-3 text-center backdrop-blur-sm"
-                    >
-                      <p className="font-serif text-[28px] leading-none text-white">
-                        {stat.n}
-                      </p>
-                      <p className="mt-2 text-[9px] uppercase tracking-[0.18em] text-zinc-500">
-                        {stat.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-5 overflow-hidden rounded-[26px] border border-[#b4141e]/20 bg-gradient-to-b from-[#121114] via-[#0c0c0d] to-[#070707] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">
-          <div className="px-6 py-5 md:px-7">
-            <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">
-              BLACKCARD ACCESS
-            </p>
-            <h2 className="mt-2 font-serif text-2xl text-white">
-              Enter the premium tier
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-              Manage your identity here, then enter Blackcard from its dedicated page.
-            </p>
-          </div>
-        </section>
-
-        <section
-          id="identity-editor"
-          className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm"
-        >
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                Identity
-              </p>
-              <h2 className="mt-2 font-serif text-3xl text-white">
-                Craft your identity
-              </h2>
-            </div>
-
-            <button
-              type="button"
-              onClick={saveProfileDetails}
-              disabled={savingProfile}
-              className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {savingProfile ? "Saving..." : "Save Identity"}
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Display Name
-              </label>
-              <input
-                type="text"
-                value={form.display_name}
-                onChange={(e) => updateFormField("display_name", e.target.value)}
-                placeholder="Display name"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Username
-              </label>
-              <input
-                type="text"
-                value={form.username}
-                onChange={(e) => updateFormField("username", e.target.value)}
-                placeholder="username"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Bio
-              </label>
-              <textarea
-                value={form.bio}
-                onChange={(e) => updateFormField("bio", e.target.value)}
-                placeholder="Tell the Society what drives you."
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Location
-              </label>
-              <input
-                type="text"
-                value={form.location}
-                onChange={(e) => updateFormField("location", e.target.value)}
-                placeholder="City, State"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Quote
-              </label>
-              <input
-                type="text"
-                value={form.quote}
-                onChange={(e) => updateFormField("quote", e.target.value)}
-                placeholder="A line that defines you"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-          </div>
-
-          {profileMsg && (
-            <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">
-              {profileMsg}
-            </p>
-          )}
-        </section>
-
-        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                Social Links
-              </p>
-              <h2 className="mt-2 font-serif text-3xl text-white">
-                Connect your channels
-              </h2>
-            </div>
-
-            <button
-              type="button"
-              onClick={saveProfileDetails}
-              disabled={savingProfile}
-              className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {savingProfile ? "Saving..." : "Save Links"}
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Instagram URL
-              </label>
-              <input
-                type="url"
-                value={form.instagram_url}
-                onChange={(e) => updateFormField("instagram_url", e.target.value)}
-                placeholder="https://instagram.com/yourname"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                TikTok URL
-              </label>
-              <input
-                type="url"
-                value={form.tiktok_url}
-                onChange={(e) => updateFormField("tiktok_url", e.target.value)}
-                placeholder="https://tiktok.com/@yourname"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                YouTube URL
-              </label>
-              <input
-                type="url"
-                value={form.youtube_url}
-                onChange={(e) => updateFormField("youtube_url", e.target.value)}
-                placeholder="https://youtube.com/@yourchannel"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-              />
-            </div>
-          </div>
-
-          {(instagramUrl || tiktokUrl || youtubeUrl) && (
-            <div className="mt-6 flex flex-wrap gap-3">
-              {instagramUrl && <SocialChip href={instagramUrl} label="Instagram" />}
-              {tiktokUrl && <SocialChip href={tiktokUrl} label="TikTok" />}
-              {youtubeUrl && <SocialChip href={youtubeUrl} label="YouTube" />}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-6 space-y-4">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                Garage
-              </p>
-              <h2 className="mt-2 font-serif text-3xl text-white">
-                Motorcycles
-              </h2>
-            </div>
-          </div>
-
-          {motorcycles.map((bike, index) => (
-            <div key={bike.id} className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6">
-                <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                  {bike.label}
-                </p>
-                <p className="mt-3 font-serif text-3xl text-white">
-                  {bike.name || "Unnamed Motorcycle"}
-                </p>
-                <p className="mt-2 text-sm text-zinc-400">
-                  {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
-                </p>
-
-                <div className="mt-6 flex items-center gap-4">
-                  <span className="h-px w-12 bg-white/15" />
-                  <span className="text-[#b4141e]">✦</span>
-                  <span className="h-px w-12 bg-white/15" />
-                </div>
-
-                <p className="mt-5 text-sm leading-7 text-zinc-500">
-                  Every machine in the garage becomes part of the member story.
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.02] p-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                    Edit Motorcycle {index + 1}
+                <div className="min-w-0 pt-1">
+                  <h1 className="font-serif text-[32px] leading-none text-white sm:text-[42px]">
+                    {displayName}
+                  </h1>
+                  <p className="mt-2 break-words text-[11px] uppercase tracking-[0.2em] text-zinc-500">
+                    {displayUsername} · {displayLocation}
+                  </p>
+                  <p className="mt-3 max-w-xl font-serif text-lg italic leading-7 text-zinc-300">
+                    “{displayQuote}”
+                  </p>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                    {displayBio}
                   </p>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteMotorcycle(bike.id)}
-                    className="text-[10px] uppercase tracking-[0.25em] text-red-300 transition hover:text-red-200"
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  <input
-                    type="text"
-                    value={bike.label}
-                    onChange={(e) => updateMotorcycle(bike.id, "label", e.target.value)}
-                    placeholder="Label"
-                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  />
-
-                  <input
-                    type="text"
-                    value={bike.name}
-                    onChange={(e) => updateMotorcycle(bike.id, "name", e.target.value)}
-                    placeholder="Motorcycle name"
-                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  />
-
-                  <input
-                    type="text"
-                    value={bike.year}
-                    onChange={(e) => updateMotorcycle(bike.id, "year", e.target.value)}
-                    placeholder="Year"
-                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  />
-
-                  <input
-                    type="text"
-                    value={bike.finish}
-                    onChange={(e) => updateMotorcycle(bike.id, "finish", e.target.value)}
-                    placeholder="Finish / color"
-                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  />
+                  {(instagramUrl || tiktokUrl || youtubeUrl) && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {instagramUrl && (
+                        <SocialIcon href={instagramUrl} label="Instagram" mark="IG" />
+                      )}
+                      {tiktokUrl && (
+                        <SocialIcon href={tiktokUrl} label="TikTok" mark="TT" />
+                      )}
+                      {youtubeUrl && (
+                        <SocialIcon href={youtubeUrl} label="YouTube" mark="YT" />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              <div className="grid grid-cols-3 gap-2 sm:w-[280px]">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-[16px] border border-white/10 bg-black/20 px-2 py-3 text-center backdrop-blur-sm"
+                  >
+                    <p className="font-serif text-[24px] leading-none text-white">
+                      {stat.n}
+                    </p>
+                    <p className="mt-2 text-[8px] uppercase tracking-[0.16em] text-zinc-500">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={addMotorcycle}
-              className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-            >
-              Add Motorcycle
-            </button>
-
-            <button
-              type="button"
-              onClick={saveGarage}
-              disabled={savingGarage}
-              className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {savingGarage ? "Saving..." : "Save Garage"}
-            </button>
-
-            {garageMsg && (
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-                {garageMsg}
-              </p>
-            )}
           </div>
         </section>
 
-        <div className="mt-8 flex gap-2 rounded-full border border-white/10 bg-white/[0.02] p-1">
+        <section className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">
+                BLACKCARD ACCESS
+              </p>
+              <h2 className="mt-1 font-serif text-xl text-white">
+                Blackcard Member
+              </h2>
+            </div>
+            <span className="text-xl text-[#b4141e]">✦</span>
+          </div>
+        </section>
+
+        {profileState === "loading" && (
+          <p className="mt-4 text-center text-[10px] uppercase tracking-[0.25em] text-zinc-600">
+            Refining profile details
+          </p>
+        )}
+
+        <div className="mt-6 flex gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
           {tabs.map((item) => (
             <button
               key={item.k}
+              type="button"
               onClick={() => setTab(item.k)}
-              className={`flex-1 rounded-full py-2.5 text-xs uppercase tracking-[0.3em] transition ${
+              className={`min-h-10 flex-1 rounded-full px-1 text-[10px] uppercase tracking-[0.18em] transition sm:text-xs sm:tracking-[0.28em] ${
                 tab === item.k
                   ? "bg-[#b4141e]/30 text-[#e87a82]"
                   : "text-zinc-500 hover:text-zinc-300"
@@ -1073,19 +579,25 @@ export default function ProfilePage() {
 
         {tab === "posts" && (
           <section className="mt-5">
-            {!errorMsg && posts.length === 0 && (
+            {postsState === "loading" && <TabSkeleton />}
+            {postsState === "error" && (
               <EmptyPanel
-                title="No posts yet."
-                body="Your grid becomes the visual archive of your ride life."
+                title="Posts could not load."
+                body="The profile stays available while the grid retries later."
               />
             )}
-
-            {!errorMsg && posts.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {postsState === "loaded" && posts.length === 0 && (
+              <EmptyPanel
+                title="No posts yet."
+                body="The visual archive of ride life will appear here."
+              />
+            )}
+            {postsState === "loaded" && posts.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
                 {posts.map((post) => (
                   <div
                     key={post.id}
-                    className="group relative aspect-square overflow-hidden rounded-[22px] border border-white/5 bg-white/[0.02]"
+                    className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]"
                   >
                     {post.image_url ? (
                       <Image
@@ -1097,13 +609,12 @@ export default function ProfilePage() {
                         unoptimized
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.25em] text-zinc-400">
+                      <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.2em] text-zinc-400">
                         {post.caption || "No image available"}
                       </div>
                     )}
-
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-4 opacity-0 transition duration-300 group-hover:opacity-100">
-                      <p className="line-clamp-2 text-xs uppercase tracking-[0.18em] text-zinc-200">
+                      <p className="line-clamp-2 text-xs uppercase tracking-[0.16em] text-zinc-200">
                         {post.caption || "Crimson Society"}
                       </p>
                     </div>
@@ -1125,38 +636,52 @@ export default function ProfilePage() {
 
         {tab === "garage" && (
           <section className="mt-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {motorcycles.map((bike) => (
-                <article
-                  key={bike.id}
-                  className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707] shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]"
-                >
-                  <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(180,20,30,0.14),transparent_48%)] px-5 py-5">
-                    <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                      {bike.label}
-                    </p>
-                    <h3 className="mt-3 font-serif text-3xl leading-none text-white">
-                      {bike.name || "Unnamed Motorcycle"}
-                    </h3>
-                    <p className="mt-3 text-sm text-zinc-400">
-                      {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
-                    </p>
-                  </div>
-
-                  <div className="px-5 py-5">
-                    <div className="flex items-center gap-4">
-                      <span className="h-px w-10 bg-white/15" />
-                      <span className="text-[#b4141e]">✦</span>
-                      <span className="h-px w-10 bg-white/15" />
+            {garageState === "loading" && <TabSkeleton />}
+            {garageState === "error" && (
+              <EmptyPanel
+                title="Garage could not load."
+                body="Motorcycle details are kept separate from the public profile shell."
+              />
+            )}
+            {garageState === "loaded" && motorcycles.length === 0 && (
+              <EmptyPanel
+                title="No motorcycles listed."
+                body="Garage entries can be added from profile editing."
+              />
+            )}
+            {garageState === "loaded" && motorcycles.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {motorcycles.map((bike) => (
+                  <article
+                    key={bike.id}
+                    className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707] shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]"
+                  >
+                    <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(180,20,30,0.14),transparent_48%)] px-5 py-5">
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                        {bike.label || "Garage"}
+                      </p>
+                      <h3 className="mt-3 font-serif text-3xl leading-none text-white">
+                        {bike.name || "Unnamed Motorcycle"}
+                      </h3>
+                      <p className="mt-3 text-sm text-zinc-400">
+                        {bike.year || "Year pending"} ·{" "}
+                        {bike.finish || "Finish pending"}
+                      </p>
                     </div>
-
-                    <p className="mt-5 text-sm leading-7 text-zinc-500">
-                      Every machine in the garage becomes part of the member story.
-                    </p>
-                  </div>
-                </article>
-              ))}
-            </div>
+                    <div className="px-5 py-5">
+                      <div className="flex items-center gap-4">
+                        <span className="h-px w-10 bg-white/15" />
+                        <span className="text-[#b4141e]">✦</span>
+                        <span className="h-px w-10 bg-white/15" />
+                      </div>
+                      <p className="mt-5 text-sm leading-7 text-zinc-500">
+                        Every machine in the garage becomes part of the member story.
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
