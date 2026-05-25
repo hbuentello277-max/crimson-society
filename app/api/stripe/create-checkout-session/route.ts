@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { stripe } from "@/lib/stripe";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { normalizeMembershipPlanType } from "@/lib/membership";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-const PLAN_TYPE_TO_PRICE_ID: Record<string, string | undefined> = {
-  apex_monthly: process.env.STRIPE_APEX_MONTHLY_PRICE_ID,
-  apex_yearly: process.env.STRIPE_APEX_YEARLY_PRICE_ID,
+const PLAN_TYPE_TO_FALLBACK_PRICE_ID: Record<string, string | undefined> = {
+  monthly: process.env.STRIPE_APEX_MONTHLY_PRICE_ID,
+  yearly: process.env.STRIPE_APEX_YEARLY_PRICE_ID,
 };
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
+    const supabase = await createServerSupabaseClient();
 
     const {
       data: { user },
@@ -38,16 +24,50 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const planType = body.planType as string | undefined;
+    const planType = normalizeMembershipPlanType(body.planType as string | undefined);
 
     if (!planType) {
       return NextResponse.json(
-        { error: "Missing planType" },
+        { error: "Missing or invalid planType" },
         { status: 400 }
       );
     }
 
-    const priceId = PLAN_TYPE_TO_PRICE_ID[planType];
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+
+    if (!profile || profile.status !== "active") {
+      return NextResponse.json(
+        { error: "Your account is not eligible for checkout." },
+        { status: 403 }
+      );
+    }
+
+    const { data: plan, error: planError } = await supabase
+      .from("membership_plans")
+      .select("id, plan_type, active, stripe_price_id")
+      .eq("plan_type", planType)
+      .maybeSingle();
+
+    if (planError) {
+      return NextResponse.json({ error: planError.message }, { status: 500 });
+    }
+
+    if (!plan?.active) {
+      return NextResponse.json(
+        { error: "This membership plan is not active." },
+        { status: 400 }
+      );
+    }
+
+    const priceId = plan.stripe_price_id || PLAN_TYPE_TO_FALLBACK_PRICE_ID[planType];
 
     if (!priceId) {
       return NextResponse.json(
@@ -111,11 +131,13 @@ export async function POST(req: NextRequest) {
       metadata: {
         supabase_user_id: user.id,
         plan_type: planType,
+        membership_plan_id: plan.id,
       },
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
           plan_type: planType,
+          membership_plan_id: plan.id,
         },
       },
     });

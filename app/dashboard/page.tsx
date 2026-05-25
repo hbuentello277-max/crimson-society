@@ -160,6 +160,11 @@ function pickSound(postSounds: RawPost["post_sounds"]) {
 function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
   const sound = pickSound(post.post_sounds);
+  const imageUrl = getBestImageUrl(
+    post.image_display_url || post.video_thumbnail_url,
+    post.image_url,
+    "feed",
+  );
 
   const name = profile?.display_name || profile?.full_name || "Unknown Rider";
   const handle = profile?.username ? `@${profile.username}` : "@unknown";
@@ -175,19 +180,7 @@ function mapPostToFeed(post: RawPost): FeedPost {
     },
     location: post.location || "",
     caption: post.caption || "",
-    photos: getBestImageUrl(
-      post.image_display_url || post.video_thumbnail_url,
-      post.image_url,
-      "feed",
-    )
-      ? [
-          getBestImageUrl(
-            post.image_display_url || post.video_thumbnail_url,
-            post.image_url,
-            "feed",
-          ) as string,
-        ]
-      : [],
+    photos: imageUrl ? [imageUrl] : [],
     video: getVideoPlaybackUrl(
       post.video_playback_url || post.video_url,
       post.video_hls_url,

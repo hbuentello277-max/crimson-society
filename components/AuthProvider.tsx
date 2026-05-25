@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { ensureUserProfile, type AppProfile } from "@/lib/profile";
@@ -16,6 +16,7 @@ type AuthContextType = {
   isAdmin: boolean;
   isModerator: boolean;
   refreshProfile: () => Promise<Profile>;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isModerator: false,
   refreshProfile: async () => null,
+  signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -34,62 +36,115 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(nextSession: Session) {
+  const loadProfile = useCallback(async (nextSession: Session) => {
     const nextProfile = await ensureUserProfile(nextSession.user);
     setProfile(nextProfile);
     return nextProfile;
-  }
+  }, []);
 
-  async function refreshProfile() {
+  const refreshProfile = useCallback(async () => {
     if (!session?.user) {
       setProfile(null);
       return null;
     }
 
     return loadProfile(session);
-  }
+  }, [loadProfile, session]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
+    let sawInitialSession = false;
+    let requestId = 0;
 
-    async function loadSession() {
-      const { data, error } = await supabase.auth.getSession();
+    async function applySession(nextSession: Session | null) {
+      const currentRequest = ++requestId;
 
       if (!mounted) return;
 
-      if (error || !data.session) {
+      if (!nextSession?.user?.id) {
         setSession(null);
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      setSession(data.session);
-      await loadProfile(data.session);
-      if (mounted) setLoading(false);
+      const nextProfile = await ensureUserProfile(nextSession.user);
+
+      if (!mounted || currentRequest !== requestId) return;
+
+      setSession(nextSession);
+      setProfile(nextProfile);
+      setLoading(false);
     }
 
-    loadSession();
+    const fallbackTimer = window.setTimeout(async () => {
+      if (!mounted || sawInitialSession) return;
+
+      const { data } = await supabase.auth.getSession();
+      await applySession(data.session ?? null);
+    }, 750);
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession ?? null);
-
-      if (nextSession?.user?.id) {
-        await loadProfile(nextSession);
-      } else {
-        setProfile(null);
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "INITIAL_SESSION") {
+        sawInitialSession = true;
       }
 
-      setLoading(false);
+      void applySession(nextSession ?? null);
     });
 
     return () => {
       mounted = false;
+      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadProfile(session);
+      }
+    };
+
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => document.removeEventListener("visibilitychange", refreshOnFocus);
+  }, [loadProfile, session]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function validateSession() {
+      if (!session?.user?.id) return;
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (cancelled) return;
+
+      if (error || !user) {
+        setSession(null);
+        setProfile(null);
+      }
+    }
+
+    void validateSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   const role = profile?.role ?? null;
   const status = profile?.status ?? null;
@@ -108,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isModerator,
         refreshProfile,
+        signOut,
       }}
     >
       {children}

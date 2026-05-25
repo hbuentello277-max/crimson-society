@@ -268,7 +268,14 @@ function PerkCard({
 }
 
 export default function ProfilePage() {
-  const { session, loading: authLoading, profile, status, isAdmin } = useAuth();
+  const {
+    session,
+    loading: authLoading,
+    profile,
+    status,
+    isAdmin,
+    signOut,
+  } = useAuth();
   const [tab, setTab] = useState<TabKey>("posts");
   const [details, setDetails] = useState<ProfileDetails | null>(null);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
@@ -371,7 +378,9 @@ export default function ProfilePage() {
           .from("subscriptions")
           .select("status, plan_type, current_period_end, created_at")
           .eq("user_id", userId)
-          .order("created_at", { ascending: false })
+          .in("status", ["active", "trialing"])
+          .or(`current_period_end.is.null,current_period_end.gte.${new Date().toISOString()}`)
+          .order("current_period_end", { ascending: false, nullsFirst: true })
           .limit(1)
           .maybeSingle(),
         supabase
@@ -476,6 +485,11 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleSignOut() {
+    await signOut();
+    window.location.assign("/login");
+  }
+
   if (authLoading) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -570,6 +584,13 @@ export default function ProfilePage() {
             >
               Edit Identity
             </Link>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-200"
+            >
+              Logout
+            </button>
           </div>
         </div>
 

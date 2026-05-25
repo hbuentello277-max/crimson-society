@@ -20,7 +20,7 @@ export type AppProfile = {
 const PROFILE_SELECT =
   "id, role, status, display_name, username, profile_image_url, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url";
 
-function cleanUsername(value: string) {
+export function cleanUsername(value: string) {
   const cleaned = value
     .trim()
     .replace(/^@+/, "")
@@ -46,8 +46,6 @@ function profileDefaults(user: User) {
 
   return {
     id: user.id,
-    role: "user",
-    status: "active",
     display_name: displayName,
     username: cleanUsername(username),
     profile_image_url:

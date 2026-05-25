@@ -9,33 +9,28 @@ type Props = {
   onRefresh: () => Promise<void>;
 };
 
+function emptyPlan(planType: "monthly" | "yearly"): MembershipPlan {
+  return {
+    id: "",
+    plan_type: planType,
+    title: planType === "monthly" ? "Monthly Plan" : "Yearly Plan",
+    description:
+      planType === "monthly"
+        ? "Flexible entry for Blackcard Access"
+        : "Preferred value with priority standing",
+    price: 0,
+    active: false,
+    perks: [],
+    created_at: null,
+    updated_at: null,
+  };
+}
+
 export default function AdminPricingManager({ plans, onRefresh }: Props) {
   const [formPlans, setFormPlans] = useState<Record<"monthly" | "yearly", MembershipPlan>>(
     () => ({
-      monthly:
-        plans.find((plan) => plan.plan_type === "monthly") ?? {
-          id: "",
-          plan_type: "monthly",
-          title: "Monthly Plan",
-          description: "Flexible entry for Blackcard Access",
-          price: 24,
-          active: true,
-          perks: [],
-          created_at: null,
-          updated_at: null,
-        },
-      yearly:
-        plans.find((plan) => plan.plan_type === "yearly") ?? {
-          id: "",
-          plan_type: "yearly",
-          title: "Yearly Plan",
-          description: "Preferred value with priority standing",
-          price: 240,
-          active: true,
-          perks: [],
-          created_at: null,
-          updated_at: null,
-        },
+      monthly: plans.find((plan) => plan.plan_type === "monthly") ?? emptyPlan("monthly"),
+      yearly: plans.find((plan) => plan.plan_type === "yearly") ?? emptyPlan("yearly"),
     })
   );
 
@@ -44,30 +39,8 @@ export default function AdminPricingManager({ plans, onRefresh }: Props) {
 
   useEffect(() => {
     setFormPlans({
-      monthly:
-        plans.find((plan) => plan.plan_type === "monthly") ?? {
-          id: "",
-          plan_type: "monthly",
-          title: "Monthly Plan",
-          description: "Flexible entry for Blackcard Access",
-          price: 24,
-          active: true,
-          perks: [],
-          created_at: null,
-          updated_at: null,
-        },
-      yearly:
-        plans.find((plan) => plan.plan_type === "yearly") ?? {
-          id: "",
-          plan_type: "yearly",
-          title: "Yearly Plan",
-          description: "Preferred value with priority standing",
-          price: 240,
-          active: true,
-          perks: [],
-          created_at: null,
-          updated_at: null,
-        },
+      monthly: plans.find((plan) => plan.plan_type === "monthly") ?? emptyPlan("monthly"),
+      yearly: plans.find((plan) => plan.plan_type === "yearly") ?? emptyPlan("yearly"),
     });
   }, [plans]);
 

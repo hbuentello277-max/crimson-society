@@ -4,6 +4,7 @@ export type MembershipPlan = {
   title: string;
   description: string;
   price: number;
+  stripe_price_id?: string | null;
   active: boolean;
   perks: string[];
   created_at: string | null;
@@ -16,6 +17,7 @@ export type MembershipPlanRow = {
   title: string | null;
   description: string | null;
   price: number | string | null;
+  stripe_price_id?: string | null;
   active: boolean | null;
   perks: string[] | null;
   created_at: string | null;
@@ -40,6 +42,7 @@ export function sanitizePlan(row: MembershipPlanRow): MembershipPlan {
         ? "Flexible entry for Blackcard Access"
         : "Preferred value with priority standing"),
     price: Number(row.price ?? 0),
+    stripe_price_id: row.stripe_price_id ?? null,
     active: row.active ?? true,
     perks: Array.isArray(row.perks) ? row.perks : [],
     created_at: row.created_at,

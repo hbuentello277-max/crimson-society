@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { cleanUsername } from "@/lib/profile";
 
 type Motorcycle = {
   id: string;
@@ -178,11 +179,11 @@ export default function ProfileEditPage() {
   const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<ProfileForm>({
-    display_name: "Hector Buentello",
-    username: "hbuentello",
-    bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
-    location: "Houston, TX",
-    quote: "Bound by the road. Kept by the code.",
+    display_name: "",
+    username: "",
+    bio: "",
+    location: "",
+    quote: "",
     instagram_url: "",
     tiktok_url: "",
     youtube_url: "",
@@ -208,28 +209,20 @@ export default function ProfileEditPage() {
 
   useEffect(() => {
     if (profile) {
-      const timer = window.setTimeout(() => {
-        setForm((prev) => ({
-          ...prev,
-          display_name: profile.display_name ?? prev.display_name,
-          username: profile.username ?? prev.username,
-          bio: profile.bio ?? prev.bio,
-          location: profile.location ?? prev.location,
-          quote: profile.quote ?? prev.quote,
-          instagram_url: profile.instagram_url ?? "",
-          tiktok_url: profile.tiktok_url ?? "",
-          youtube_url: profile.youtube_url ?? "",
-          website_url: profile.website_url ?? "",
-        }));
-
-        if (profile.profile_image_url) {
-          setProfileImageUrl(withCacheBust(profile.profile_image_url));
-        } else {
-          setProfileImageUrl("");
-        }
-      }, 0);
-
-      return () => window.clearTimeout(timer);
+      setForm({
+        display_name: profile.display_name ?? "",
+        username: profile.username ?? "",
+        bio: profile.bio ?? "",
+        location: profile.location ?? "",
+        quote: profile.quote ?? "",
+        instagram_url: profile.instagram_url ?? "",
+        tiktok_url: profile.tiktok_url ?? "",
+        youtube_url: profile.youtube_url ?? "",
+        website_url: profile.website_url ?? "",
+      });
+      setProfileImageUrl(
+        profile.profile_image_url ? withCacheBust(profile.profile_image_url) : ""
+      );
     }
   }, [profile]);
 
@@ -283,9 +276,9 @@ export default function ProfileEditPage() {
           {
             id: crypto.randomUUID(),
             label: "Garage One",
-            name: "Ducati Panigale V4",
-            year: "2023",
-            finish: "Crimson over Carbon",
+            name: "",
+            year: "",
+            finish: "",
             isNew: true,
           },
         ]);
@@ -381,14 +374,14 @@ export default function ProfileEditPage() {
 
     const payload = {
       display_name: form.display_name.trim(),
-      username: form.username.trim().replace(/^@+/, ""),
+      username: cleanUsername(form.username),
       bio: form.bio.trim(),
       location: form.location.trim(),
       quote: form.quote.trim(),
-      instagram_url: form.instagram_url.trim(),
-      tiktok_url: form.tiktok_url.trim(),
-      youtube_url: form.youtube_url.trim(),
-      website_url: form.website_url.trim(),
+      instagram_url: normalizeUrl(form.instagram_url),
+      tiktok_url: normalizeUrl(form.tiktok_url),
+      youtube_url: normalizeUrl(form.youtube_url),
+      website_url: normalizeUrl(form.website_url),
     };
 
     const response = await supabase
@@ -494,6 +487,7 @@ export default function ProfileEditPage() {
       }
 
       setProfileImageUrl(withCacheBust(rawImageUrl));
+      await refreshProfile();
       setProfileMsg("Profile photo updated.");
     } catch (error) {
       const message =

@@ -2,22 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-
-type SubscriptionStatus =
-  | "trialing"
-  | "active"
-  | "past_due"
-  | "canceled"
-  | "incomplete"
-  | "incomplete_expired"
-  | "unpaid"
-  | null;
-
-type MembershipRow = {
-  status: SubscriptionStatus;
-  plan_type: string | null;
-  current_period_end: string | null;
-};
+import {
+  checkoutPlanType,
+  formatMembershipPlanType,
+  hasActiveMembership,
+  type MembershipPlanType,
+  type MembershipRow,
+} from "@/lib/membership";
+import {
+  formatPrice,
+  sanitizePlan,
+  type MembershipPlan,
+  type MembershipPlanRow,
+} from "@/components/blackcard/types";
 
 const lockedPerks = [
   "Crimson Credits",
@@ -30,21 +27,11 @@ const lockedPerks = [
   "Coming soon rewards",
 ];
 
-function hasActiveMembership(membership: MembershipRow | null) {
-  if (!membership) return false;
-  if (membership.status !== "active" && membership.status !== "trialing") {
-    return false;
-  }
-  if (!membership.current_period_end) return true;
-
-  return new Date(membership.current_period_end).getTime() >= Date.now();
-}
-
 function CheckoutButton({
   planType,
   label,
 }: {
-  planType: "apex_monthly" | "apex_yearly";
+  planType: MembershipPlanType;
   label: string;
 }) {
   const [loading, setLoading] = useState(false);
@@ -58,7 +45,7 @@ function CheckoutButton({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ planType }),
+        body: JSON.stringify({ planType: checkoutPlanType(planType) }),
       });
 
       const data = await res.json();
@@ -96,6 +83,7 @@ function CheckoutButton({
 export default function BlackcardPage() {
   const [loading, setLoading] = useState(true);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -103,6 +91,19 @@ export default function BlackcardPage() {
       try {
         setLoading(true);
         setErrorMsg("");
+
+        const { data: planData, error: planError } = await supabase
+          .from("membership_plans")
+          .select(
+            "id, plan_type, title, description, price, stripe_price_id, active, perks, created_at, updated_at"
+          )
+          .order("price", { ascending: true });
+
+        if (planError) {
+          setErrorMsg(planError.message);
+        } else {
+          setPlans(((planData ?? []) as MembershipPlanRow[]).map(sanitizePlan));
+        }
 
         const {
           data: { user },
@@ -125,6 +126,8 @@ export default function BlackcardPage() {
           .from("subscriptions")
           .select("status, plan_type, current_period_end")
           .eq("user_id", user.id)
+          .in("status", ["active", "trialing"])
+          .or(`current_period_end.is.null,current_period_end.gte.${new Date().toISOString()}`)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -223,7 +226,7 @@ export default function BlackcardPage() {
                   Membership on record
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  {membership?.plan_type || "apex"} · {membership?.status}
+                  {formatMembershipPlanType(membership?.plan_type)} · {membership?.status}
                   {membership?.current_period_end
                     ? ` · renews ${new Date(membership.current_period_end).toLocaleDateString()}`
                     : ""}
@@ -258,38 +261,53 @@ export default function BlackcardPage() {
           )}
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
-            <div className="rounded-[24px] border border-red-900/30 bg-[#120707] p-6">
-              <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
-                Monthly
-              </p>
-              <h2 className="mt-3 text-2xl font-light">Apex Monthly</h2>
-              <p className="mt-2 text-sm text-zinc-400">
-                Flexible recurring access to the premium Crimson Society tier.
-              </p>
-              <div className="mt-6">
-                <CheckoutButton
-                  planType="apex_monthly"
-                  label="Start Monthly Membership"
-                />
+            {plans.filter((plan) => plan.active).map((plan, index) => (
+              <div
+                key={plan.id || plan.plan_type}
+                className={`rounded-[24px] border p-6 ${
+                  index === 0
+                    ? "border-red-900/30 bg-[#120707]"
+                    : "border-white/10 bg-white/[0.03]"
+                }`}
+              >
+                <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
+                  {plan.plan_type === "monthly" ? "Monthly" : "Annual"}
+                </p>
+                <h2 className="mt-3 text-2xl font-light">{plan.title}</h2>
+                <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
+                <p className="mt-5 font-serif text-4xl text-white">
+                  ${formatPrice(plan.price)}
+                  <span className="ml-2 font-sans text-xs uppercase tracking-[0.2em] text-zinc-500">
+                    / {plan.plan_type === "monthly" ? "mo" : "yr"}
+                  </span>
+                </p>
+                {plan.perks.length > 0 && (
+                  <ul className="mt-5 space-y-2">
+                    {plan.perks.slice(0, 5).map((perk) => (
+                      <li key={perk} className="text-sm text-zinc-400">
+                        <span className="mr-2 text-[#b4141e]">✦</span>
+                        {perk}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-6">
+                  <CheckoutButton
+                    planType={plan.plan_type}
+                    label={`Start ${plan.plan_type === "monthly" ? "Monthly" : "Annual"} Membership`}
+                  />
+                </div>
               </div>
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-6">
-              <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
-                Annual
-              </p>
-              <h2 className="mt-3 text-2xl font-light">Apex Yearly</h2>
-              <p className="mt-2 text-sm text-zinc-400">
-                Full-year Blackcard access for riders committed to the inner circle.
-              </p>
-              <div className="mt-6">
-                <CheckoutButton
-                  planType="apex_yearly"
-                  label="Start Annual Membership"
-                />
-              </div>
-            </div>
+            ))}
           </div>
+
+          {plans.filter((plan) => plan.active).length === 0 && (
+            <div className="mt-10 rounded-[24px] border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm text-zinc-400">
+                No active Blackcard plans are available right now.
+              </p>
+            </div>
+          )}
 
           <section className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
             <p className="text-xs uppercase tracking-[0.28em] text-red-400/80">

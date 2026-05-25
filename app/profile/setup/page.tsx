@@ -2,11 +2,24 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { cleanUsername } from "@/lib/profile";
 
 const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
 
+function normalizeUrl(value: string) {
+  const trimmed = value.trim().replace(/^@+/, "");
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 export default function ProfileSetup() {
+  const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   // Chapter I — Rider
   const [name, setName] = useState("");
@@ -32,11 +45,66 @@ export default function ProfileSetup() {
   const next = () => setStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
   const back = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
 
+  async function finishSetup() {
+    if (saving) return;
+
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+      if (!user) throw new Error("Sign in before completing setup.");
+
+      const displayName = name.trim() || user.email?.split("@")[0] || "Crimson Member";
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName,
+          username: cleanUsername(displayName),
+          bio: bio.trim(),
+          location: city.trim(),
+          instagram_url: normalizeUrl(instagram),
+          tiktok_url: normalizeUrl(tiktok),
+          youtube_url: normalizeUrl(youtube),
+          quote: styles.length ? styles.join(" / ") : null,
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      if (make.trim() || model.trim() || year.trim() || color.trim()) {
+        const { error: motorcycleError } = await supabase.from("motorcycles").upsert(
+          {
+            user_id: user.id,
+            label: "Garage One",
+            name: [make.trim(), model.trim()].filter(Boolean).join(" "),
+            year: year.trim(),
+            finish: color.trim(),
+          },
+          { onConflict: "user_id,label" }
+        );
+
+        if (motorcycleError) throw motorcycleError;
+      }
+
+      router.replace("/dashboard");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save setup.");
+      setSaving(false);
+    }
+  }
+
   return (
   <>
   <Link
     href="/profile"
-    className="fixed left-5 top-5 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/70 text-3xl text-white backdrop-blur-md active:scale-95"
+    className="fixed left-5 top-[calc(env(safe-area-inset-top)+1.25rem)] z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/70 text-3xl text-white backdrop-blur-md active:scale-95"
     aria-label="Go back"
   >
     ‹
@@ -296,14 +364,20 @@ export default function ProfileSetup() {
               Continue →
             </button>
           ) : (
-            <Link
-              href="/dashboard"
+            <button
+              type="button"
+              onClick={finishSetup}
+              disabled={saving}
               className="ml-auto rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-7 py-3 text-xs uppercase tracking-[0.3em] text-[#e87a82] hover:bg-[#b4141e]/30 transition"
             >
-              Enter the Society
-            </Link>
+              {saving ? "Saving..." : "Enter the Society"}
+            </button>
           )}
         </div>
+
+        {message && (
+          <p className="mt-5 text-center text-sm text-red-300">{message}</p>
+        )}
 
         {/* Footer */}
         <footer className="mt-auto pt-16 text-center">
