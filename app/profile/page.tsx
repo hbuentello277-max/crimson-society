@@ -63,6 +63,13 @@ type MembershipRow = {
   status: SubscriptionStatus;
   plan_type: string | null;
   current_period_end: string | null;
+  created_at: string | null;
+};
+
+type CrimsonCreditsRow = {
+  credits_balance: number | null;
+  lifetime_credits_earned: number | null;
+  lifetime_credits_spent: number | null;
 };
 
 type TabKey = "posts" | "rides" | "garage" | "saved" | "blackcard";
@@ -113,6 +120,22 @@ function hasActiveMembership(membership: MembershipRow | null) {
   if (!membership.current_period_end) return true;
 
   return new Date(membership.current_period_end).getTime() >= Date.now();
+}
+
+function formatPlanType(planType?: string | null) {
+  if (!planType) return "Blackcard";
+  if (planType.includes("year")) return "Yearly";
+  if (planType.includes("month")) return "Monthly";
+  return planType.replace(/_/g, " ");
+}
+
+function formatMemberDate(value?: string | null) {
+  if (!value) return "On record";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function ProfileSkeleton() {
@@ -219,6 +242,28 @@ function TabSkeleton() {
   );
 }
 
+function PerkCard({
+  title,
+  body,
+  statusLabel,
+}: {
+  title: string;
+  body: string;
+  statusLabel: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.025] p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="font-serif text-xl text-white">{title}</h4>
+        <span className="rounded-full border border-[#b4141e]/25 bg-[#b4141e]/10 px-3 py-1 text-[9px] uppercase tracking-[0.2em] text-[#e87a82]">
+          {statusLabel}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-zinc-500">{body}</p>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { session, loading: authLoading, profile, status, isAdmin } = useAuth();
   const [tab, setTab] = useState<TabKey>("posts");
@@ -232,6 +277,7 @@ export default function ProfilePage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
+  const [credits, setCredits] = useState<CrimsonCreditsRow | null>(null);
 
   const userId = session?.user?.id ?? null;
   const authProfile = profile as ProfileSummary | null;
@@ -266,6 +312,9 @@ export default function ProfilePage() {
   const youtubeUrl = normalizeUrl(activeProfile.youtube_url);
   const websiteUrl = normalizeUrl(activeProfile.website_url);
   const membershipActive = hasActiveMembership(membership);
+  const creditsBalance = credits?.credits_balance ?? 0;
+  const lifetimeCreditsEarned = credits?.lifetime_credits_earned ?? 0;
+  const lifetimeCreditsSpent = credits?.lifetime_credits_spent ?? 0;
   const visibleTabs = useMemo(
     () =>
       membershipActive
@@ -302,7 +351,8 @@ export default function ProfilePage() {
       setProfileState("loading");
       setErrorMsg("");
 
-      const [profileResponse, countResponse, membershipResponse] = await Promise.all([
+      const [profileResponse, countResponse, membershipResponse, creditsResponse] =
+        await Promise.all([
         supabase
           .from("profiles")
           .select(
@@ -316,10 +366,15 @@ export default function ProfilePage() {
           .eq("user_id", userId),
         supabase
           .from("subscriptions")
-          .select("status, plan_type, current_period_end")
+          .select("status, plan_type, current_period_end, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("crimson_credits")
+          .select("credits_balance, lifetime_credits_earned, lifetime_credits_spent")
+          .eq("user_id", userId)
           .maybeSingle(),
       ]);
 
@@ -334,6 +389,7 @@ export default function ProfilePage() {
       setDetails((profileResponse.data as ProfileDetails | null) ?? null);
       setPostCount(countResponse.count ?? 0);
       setMembership((membershipResponse.data as MembershipRow | null) ?? null);
+      setCredits((creditsResponse.data as CrimsonCreditsRow | null) ?? null);
       setProfileState("loaded");
     }
 
@@ -754,17 +810,101 @@ export default function ProfilePage() {
 
         {tab === "blackcard" && membershipActive && (
           <section className="mt-5">
-            <div className="rounded-[26px] border border-[#b4141e]/25 bg-[#090909] p-6 shadow-[0_20px_70px_-45px_rgba(180,20,30,0.95)]">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-                Apex Status
-              </p>
-              <h3 className="mt-3 font-serif text-3xl text-white">
-                Blackcard active
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-zinc-400">
-                {membership?.plan_type || "Apex"} membership is active for this
-                profile.
-              </p>
+            <div className="rounded-[26px] border border-[#b4141e]/25 bg-[#090909] p-5 shadow-[0_20px_70px_-45px_rgba(180,20,30,0.95)] md:p-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
+                    Blackcard Member
+                  </p>
+                  <h3 className="mt-3 font-serif text-3xl text-white">
+                    Crimson Credits
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-zinc-400">
+                    V1 rewards foundation for Blackcard status, perks, and future
+                    member-only unlocks.
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] border border-[#b4141e]/25 bg-black/30 px-5 py-4 text-right">
+                  <p className="text-[9px] uppercase tracking-[0.28em] text-zinc-500">
+                    Balance
+                  </p>
+                  <p className="mt-2 font-serif text-4xl leading-none text-white">
+                    {creditsBalance}
+                  </p>
+                  <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-[#e87a82]">
+                    Crimson Credits
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 md:grid-cols-4">
+                {[
+                  { label: "Status", value: membership?.status || "active" },
+                  { label: "Plan", value: formatPlanType(membership?.plan_type) },
+                  { label: "Member Since", value: formatMemberDate(membership?.created_at) },
+                  {
+                    label: "Lifetime",
+                    value: `${lifetimeCreditsEarned} earned / ${lifetimeCreditsSpent} spent`,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[18px] border border-white/10 bg-white/[0.025] p-4"
+                  >
+                    <p className="text-[9px] uppercase tracking-[0.26em] text-zinc-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-sm capitalize text-zinc-200">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <PerkCard
+                  title="Early merch access"
+                  body="Blackcard members get the first window on future Crimson Society releases."
+                  statusLabel="Included"
+                />
+                <PerkCard
+                  title="Member-only rides"
+                  body="A reserved layer for future private ride drops and curated routes."
+                  statusLabel="Coming"
+                />
+                <PerkCard
+                  title="Private Blackcard chat"
+                  body="A future member-only space for Blackcard coordination and announcements."
+                  statusLabel="Coming"
+                />
+                <PerkCard
+                  title="Priority ride access"
+                  body="Foundation is in place for elevated ride placement and future priority signals."
+                  statusLabel="Coming"
+                />
+                <PerkCard
+                  title="Limited merch reservations"
+                  body="Future limited-item reservation logic will connect back to Blackcard status."
+                  statusLabel="Coming"
+                />
+                <PerkCard
+                  title="Exclusive drops/giveaways"
+                  body="Crimson Credits are ready to support future rewards and drops."
+                  statusLabel="Coming"
+                />
+              </div>
+
+              <div className="mt-6 rounded-[22px] border border-dashed border-[#b4141e]/30 bg-[#b4141e]/5 p-5">
+                <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
+                  Coming Soon Rewards
+                </p>
+                <p className="mt-3 text-sm leading-7 text-zinc-400">
+                  Redemption, private rewards, and deeper ride priority are planned
+                  for later versions. Crimson Credits are visible now, but cannot be
+                  changed from the client.
+                </p>
+              </div>
             </div>
           </section>
         )}

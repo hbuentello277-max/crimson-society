@@ -19,6 +19,17 @@ type MembershipRow = {
   current_period_end: string | null;
 };
 
+const lockedPerks = [
+  "Crimson Credits",
+  "Early merch access",
+  "Member-only rides",
+  "Private Blackcard chat",
+  "Priority ride access",
+  "Limited merch reservations",
+  "Exclusive drops/giveaways",
+  "Coming soon rewards",
+];
+
 function hasActiveMembership(membership: MembershipRow | null) {
   if (!membership) return false;
   if (membership.status !== "active" && membership.status !== "trialing") {
@@ -279,8 +290,27 @@ export default function BlackcardPage() {
               </div>
             </div>
           </div>
+
+          <section className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
+            <p className="text-xs uppercase tracking-[0.28em] text-red-400/80">
+              Locked Blackcard Preview
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {lockedPerks.map((perk) => (
+                <div
+                  key={perk}
+                  className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-black/20 px-4 py-3"
+                >
+                  <span className="text-sm text-zinc-300">{perk}</span>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">
+                    Locked
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
-    </main>
+      </main>
   );
 }
