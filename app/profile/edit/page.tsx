@@ -163,7 +163,7 @@ function SocialPreviewChip({
 }
 
 export default function ProfileEditPage() {
-  const { session, loading: authLoading, profile, status } = useAuth();
+  const { session, loading: authLoading, profile, status, refreshProfile } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -208,24 +208,28 @@ export default function ProfileEditPage() {
 
   useEffect(() => {
     if (profile) {
-      setForm((prev) => ({
-        ...prev,
-        display_name: profile.display_name ?? prev.display_name,
-        username: profile.username ?? prev.username,
-        bio: (profile as any).bio ?? prev.bio,
-        location: (profile as any).location ?? prev.location,
-        quote: (profile as any).quote ?? prev.quote,
-        instagram_url: (profile as any).instagram_url ?? "",
-        tiktok_url: (profile as any).tiktok_url ?? "",
-        youtube_url: (profile as any).youtube_url ?? "",
-        website_url: (profile as any).website_url ?? "",
-      }));
+      const timer = window.setTimeout(() => {
+        setForm((prev) => ({
+          ...prev,
+          display_name: profile.display_name ?? prev.display_name,
+          username: profile.username ?? prev.username,
+          bio: profile.bio ?? prev.bio,
+          location: profile.location ?? prev.location,
+          quote: profile.quote ?? prev.quote,
+          instagram_url: profile.instagram_url ?? "",
+          tiktok_url: profile.tiktok_url ?? "",
+          youtube_url: profile.youtube_url ?? "",
+          website_url: profile.website_url ?? "",
+        }));
 
-      if (profile.profile_image_url) {
-        setProfileImageUrl(withCacheBust(profile.profile_image_url));
-      } else {
-        setProfileImageUrl("");
-      }
+        if (profile.profile_image_url) {
+          setProfileImageUrl(withCacheBust(profile.profile_image_url));
+        } else {
+          setProfileImageUrl("");
+        }
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
   }, [profile]);
 
@@ -387,7 +391,14 @@ export default function ProfileEditPage() {
       website_url: form.website_url.trim(),
     };
 
-    const response = await supabase.from("profiles").update(payload).eq("id", userId);
+    const response = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId)
+      .select(
+        "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url, profile_image_url"
+      )
+      .maybeSingle();
 
     if (response.error) {
       setProfileMsg(response.error.message);
@@ -395,6 +406,27 @@ export default function ProfileEditPage() {
       return;
     }
 
+    if (!response.data) {
+      setProfileMsg("No profile row was updated. Please refresh and try again.");
+      setSavingProfile(false);
+      return;
+    }
+
+    setForm({
+      display_name: response.data.display_name ?? "",
+      username: response.data.username ?? "",
+      bio: response.data.bio ?? "",
+      location: response.data.location ?? "",
+      quote: response.data.quote ?? "",
+      instagram_url: response.data.instagram_url ?? "",
+      tiktok_url: response.data.tiktok_url ?? "",
+      youtube_url: response.data.youtube_url ?? "",
+      website_url: response.data.website_url ?? "",
+    });
+    setProfileImageUrl(
+      response.data.profile_image_url ? withCacheBust(response.data.profile_image_url) : ""
+    );
+    await refreshProfile();
     setProfileMsg("Profile details saved.");
     setSavingProfile(false);
   }

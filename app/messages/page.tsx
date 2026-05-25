@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
 type Conversation = {
   id: string;
   name: string;
   handle: string;
-  photo: string;
+  photo: string | null;
   lastMessage: string;
   timeLabel: string;
   unread: number;
@@ -22,14 +25,49 @@ type Message = {
   text: string;
   senderId: string;
   senderName?: string;
-  senderPhoto?: string;
+  senderPhoto?: string | null;
   timeLabel: string;
+  createdAt: string;
 };
 
-const conversations: Conversation[] = [
+type ProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  profile_image_url: string | null;
+  avatar_url: string | null;
+};
+
+type ConversationRow = {
+  id: string;
+  conversation_type: string | null;
+  title: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type MemberRow = {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string | null;
+  profiles: ProfileRow | ProfileRow[] | null;
+};
+
+type MessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string | null;
+  created_at: string;
+  profiles: ProfileRow | ProfileRow[] | null;
+};
+
+const seedConversations: Conversation[] = [
   {
     id: "marco",
-    name: "Marco Vélez",
+    name: "Marco Velez",
     handle: "@nightrider",
     photo: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
     lastMessage: "Sunrise run tomorrow. You in?",
@@ -58,35 +96,6 @@ const conversations: Conversation[] = [
     isGroup: true,
     members: 8,
   },
-  {
-    id: "aiyana",
-    name: "Aiyana Cross",
-    handle: "@savagegrace",
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
-    lastMessage: "Sending the route now.",
-    timeLabel: "6h",
-    unread: 0,
-  },
-  {
-    id: "night-circle",
-    name: "Night Circle",
-    handle: "14 members",
-    photo: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=200",
-    lastMessage: "Sofia: 11pm. Don't be late.",
-    timeLabel: "1d",
-    unread: 0,
-    isGroup: true,
-    members: 14,
-  },
-  {
-    id: "roman",
-    name: "Roman Petrov",
-    handle: "@longshadow",
-    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
-    lastMessage: "Pulled the cover off her this morning.",
-    timeLabel: "2d",
-    unread: 0,
-  },
 ];
 
 const seedThreads: Record<string, Message[]> = {
@@ -98,12 +107,14 @@ const seedThreads: Record<string, Message[]> = {
       senderName: "Marco",
       senderPhoto: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
       timeLabel: "9:42 PM",
+      createdAt: new Date().toISOString(),
     },
     {
       id: "m2",
       text: "I saw the post. Looked like a movie.",
       senderId: "me",
       timeLabel: "9:48 PM",
+      createdAt: new Date().toISOString(),
     },
     {
       id: "m3",
@@ -112,14 +123,7 @@ const seedThreads: Record<string, Message[]> = {
       senderName: "Marco",
       senderPhoto: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
       timeLabel: "10:11 PM",
-    },
-    {
-      id: "m4",
-      text: "5am at the espresso bar on Westheimer?",
-      senderId: "marco",
-      senderName: "Marco",
-      senderPhoto: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-      timeLabel: "10:11 PM",
+      createdAt: new Date().toISOString(),
     },
   ],
   elena: [
@@ -130,12 +134,7 @@ const seedThreads: Record<string, Message[]> = {
       senderName: "Elena",
       senderPhoto: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
       timeLabel: "8:30 PM",
-    },
-    {
-      id: "e2",
-      text: "Hand-cut at 2am. Worth it.",
-      senderId: "me",
-      timeLabel: "8:34 PM",
+      createdAt: new Date().toISOString(),
     },
   ],
   "canyon-crew": [
@@ -146,64 +145,403 @@ const seedThreads: Record<string, Message[]> = {
       senderName: "Devin",
       senderPhoto: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200",
       timeLabel: "7:12 PM",
-    },
-    {
-      id: "c2",
-      text: "Sofia: I'll be there 10 min late.",
-      senderId: "sofia",
-      senderName: "Sofia",
-      senderPhoto: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-      timeLabel: "7:14 PM",
-    },
-    {
-      id: "c3",
-      text: "Locked. See you all in 20.",
-      senderId: "me",
-      timeLabel: "7:22 PM",
-    },
-  ],
-  aiyana: [
-    {
-      id: "a1",
-      text: "Sending the route now.",
-      senderId: "aiyana",
-      senderName: "Aiyana",
-      senderPhoto: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
-      timeLabel: "5:08 PM",
-    },
-  ],
-  "night-circle": [
-    {
-      id: "n1",
-      text: "Sofia: 11pm. Don't be late.",
-      senderId: "sofia",
-      senderName: "Sofia",
-      senderPhoto: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-      timeLabel: "Yesterday",
-    },
-  ],
-  roman: [
-    {
-      id: "r1",
-      text: "Pulled the cover off her this morning.",
-      senderId: "roman",
-      senderName: "Roman",
-      senderPhoto: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
-      timeLabel: "Mon",
+      createdAt: new Date().toISOString(),
     },
   ],
 };
 
+function pickProfile(profileInput: ProfileRow | ProfileRow[] | null | undefined) {
+  if (Array.isArray(profileInput)) return profileInput[0] ?? null;
+  return profileInput ?? null;
+}
+
+function profileName(profile: ProfileRow | null | undefined) {
+  return profile?.display_name || profile?.full_name || profile?.username || "Crimson Rider";
+}
+
+function profileHandle(profile: ProfileRow | null | undefined) {
+  return profile?.username ? `@${profile.username}` : "@member";
+}
+
+function profilePhoto(profile: ProfileRow | null | undefined) {
+  return profile?.profile_image_url || profile?.avatar_url || null;
+}
+
+function timeLabel(value?: string | null) {
+  if (!value) return "";
+  const diff = Date.now() - new Date(value).getTime();
+  const mins = Math.max(0, Math.floor(diff / 60000));
+  if (mins < 1) return "Now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function messageTime(value: string) {
+  return new Date(value).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function directKeyFor(a: string, b: string) {
+  return [a, b].sort().join(":");
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function mapMessage(row: MessageRow): Message {
+  const sender = pickProfile(row.profiles);
+
+  return {
+    id: row.id,
+    text: row.body || "",
+    senderId: row.sender_id,
+    senderName: profileName(sender),
+    senderPhoto: profilePhoto(sender),
+    timeLabel: messageTime(row.created_at),
+    createdAt: row.created_at,
+  };
+}
+
+function buildConversations(
+  rows: ConversationRow[],
+  members: MemberRow[],
+  messages: MessageRow[],
+  userId: string,
+) {
+  return rows.map((conversation) => {
+    const conversationMembers = members.filter(
+      (member) => member.conversation_id === conversation.id,
+    );
+    const myMembership = conversationMembers.find((member) => member.user_id === userId);
+    const otherMembers = conversationMembers.filter((member) => member.user_id !== userId);
+    const otherProfile = pickProfile(otherMembers[0]?.profiles);
+    const latest = messages
+      .filter((message) => message.conversation_id === conversation.id)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )[0];
+    const lastReadAt = myMembership?.last_read_at
+      ? new Date(myMembership.last_read_at).getTime()
+      : 0;
+    const unread = messages.filter(
+      (message) =>
+        message.conversation_id === conversation.id &&
+        message.sender_id !== userId &&
+        new Date(message.created_at).getTime() > lastReadAt,
+    ).length;
+    const isGroup = conversation.conversation_type === "group";
+
+    return {
+      id: conversation.id,
+      name: isGroup
+        ? conversation.title || "Crimson Group"
+        : profileName(otherProfile),
+      handle: isGroup
+        ? `${conversationMembers.length} riders`
+        : profileHandle(otherProfile),
+      photo: conversation.avatar_url || profilePhoto(otherProfile),
+      lastMessage: latest?.body || "No messages yet.",
+      timeLabel: timeLabel(latest?.created_at || conversation.updated_at),
+      unread,
+      isGroup,
+      members: conversationMembers.length,
+      online: false,
+    };
+  });
+}
+
+function MessagesAvatar({
+  photo,
+  name,
+  online,
+  isGroup,
+  size = 48,
+}: {
+  photo: string | null;
+  name: string;
+  online?: boolean;
+  isGroup?: boolean;
+  size?: number;
+}) {
+  return (
+    <div
+      className="relative flex-shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#b4141e]"
+      style={{ height: size, width: size }}
+    >
+      {photo ? (
+        <Image
+          src={photo}
+          alt={name}
+          fill
+          sizes={`${size}px`}
+          className="object-cover"
+          unoptimized={photo.includes("supabase")}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
+          {name.charAt(0).toUpperCase()}
+        </div>
+      )}
+      {online && (
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0c0c0d] bg-[#b4141e]" />
+      )}
+      {isGroup && (
+        <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border border-[#0c0c0d] bg-[#b4141e] text-[8px] text-white">
+          ◈
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function MessagesPage() {
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const router = useRouter();
+  const params = useParams<{ id?: string }>();
+  const { session, loading: authLoading } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  const [activeId, setActiveId] = useState<string | null>(params?.id ?? null);
+  const [conversations, setConversations] = useState<Conversation[]>(seedConversations);
   const [threads, setThreads] = useState<Record<string, Message[]>>(seedThreads);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "unread" | "groups">("all");
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const active = conversations.find((c) => c.id === activeId) || null;
   const activeThread = activeId ? threads[activeId] || [] : [];
+
+  const markConversationRead = useCallback(
+    async (conversationId: string) => {
+      if (!userId || usingFallback) return;
+
+      await supabase
+        .from("conversation_members")
+        .update({ last_read_at: new Date().toISOString() })
+        .eq("conversation_id", conversationId)
+        .eq("user_id", userId);
+
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unread: 0 }
+            : conversation,
+        ),
+      );
+    },
+    [userId, usingFallback],
+  );
+
+  const loadConversations = useCallback(async () => {
+    if (!userId) return;
+
+    setLoadingMessages(true);
+    setErrorMsg("");
+
+    const membershipsResponse = await supabase
+      .from("conversation_members")
+      .select("conversation_id, user_id, last_read_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+      .eq("user_id", userId);
+
+    if (membershipsResponse.error) {
+      setUsingFallback(true);
+      setErrorMsg("Messages are running in preview mode until the database migration is applied.");
+      setLoadingMessages(false);
+      return;
+    }
+
+    const ownMemberships = (membershipsResponse.data || []) as unknown as MemberRow[];
+    const conversationIds = ownMemberships.map((member) => member.conversation_id);
+
+    if (conversationIds.length === 0) {
+      setConversations([]);
+      setThreads({});
+      setUsingFallback(false);
+      setLoadingMessages(false);
+      return;
+    }
+
+    const [conversationsResponse, allMembersResponse, messagesResponse] =
+      await Promise.all([
+        supabase
+          .from("conversations")
+          .select("id, conversation_type, title, avatar_url, created_at, updated_at")
+          .in("id", conversationIds)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("conversation_members")
+          .select("conversation_id, user_id, last_read_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+          .in("conversation_id", conversationIds),
+        supabase
+          .from("messages")
+          .select("id, conversation_id, sender_id, body, created_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+          .in("conversation_id", conversationIds)
+          .order("created_at", { ascending: true })
+          .limit(300),
+      ]);
+
+    if (conversationsResponse.error || allMembersResponse.error || messagesResponse.error) {
+      setUsingFallback(true);
+      setErrorMsg(
+        conversationsResponse.error?.message ||
+          allMembersResponse.error?.message ||
+          messagesResponse.error?.message ||
+          "Could not load messages.",
+      );
+      setLoadingMessages(false);
+      return;
+    }
+
+    const conversationRows = (conversationsResponse.data || []) as ConversationRow[];
+    const allMembers = (allMembersResponse.data || []) as unknown as MemberRow[];
+    const messageRows = (messagesResponse.data || []) as unknown as MessageRow[];
+    const nextConversations = buildConversations(
+      conversationRows,
+      allMembers,
+      messageRows,
+      userId,
+    ).sort((a, b) => {
+      const aMessage = messageRows
+        .filter((message) => message.conversation_id === a.id)
+        .at(-1);
+      const bMessage = messageRows
+        .filter((message) => message.conversation_id === b.id)
+        .at(-1);
+      return (
+        new Date(bMessage?.created_at || 0).getTime() -
+        new Date(aMessage?.created_at || 0).getTime()
+      );
+    });
+    const nextThreads = messageRows.reduce<Record<string, Message[]>>((acc, row) => {
+      acc[row.conversation_id] = [...(acc[row.conversation_id] || []), mapMessage(row)];
+      return acc;
+    }, {});
+
+    setConversations(nextConversations);
+    setThreads(nextThreads);
+    setUsingFallback(false);
+    setLoadingMessages(false);
+  }, [userId]);
+
+  const openDirectConversation = useCallback(
+    async (peerId: string) => {
+      if (!userId || !isUuid(peerId) || peerId === userId || usingFallback) return;
+
+      const directKey = directKeyFor(userId, peerId);
+      const existing = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("direct_key", directKey)
+        .maybeSingle();
+
+      let conversationId = existing.data?.id as string | undefined;
+
+      if (!conversationId) {
+        const created = await supabase
+          .from("conversations")
+          .insert({
+            conversation_type: "direct",
+            direct_key: directKey,
+            created_by: userId,
+          })
+          .select("id")
+          .single();
+
+        if (created.error || !created.data) {
+          setErrorMsg(created.error?.message || "Could not open conversation.");
+          return;
+        }
+
+        conversationId = created.data.id as string;
+        const membersResponse = await supabase.from("conversation_members").insert([
+          { conversation_id: conversationId, user_id: userId, last_read_at: new Date().toISOString() },
+          { conversation_id: conversationId, user_id: peerId },
+        ]);
+
+        if (membersResponse.error) {
+          setErrorMsg(membersResponse.error.message);
+          return;
+        }
+      }
+
+      await loadConversations();
+      setActiveId(conversationId);
+      window.history.replaceState(null, "", `/messages/${conversationId}`);
+    },
+    [loadConversations, userId, usingFallback],
+  );
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session) router.replace("/login");
+  }, [authLoading, router, session]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const timer = window.setTimeout(() => {
+      void loadConversations();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadConversations, userId]);
+
+  useEffect(() => {
+    if (!params?.id || !userId) return;
+    if (conversations.some((conversation) => conversation.id === params.id)) {
+      const timer = window.setTimeout(() => setActiveId(params.id ?? null), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const timer = window.setTimeout(() => {
+      void openDirectConversation(params.id ?? "");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [conversations, openDirectConversation, params?.id, userId]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const timer = window.setTimeout(() => {
+      void markConversationRead(activeId);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeId, markConversationRead]);
+
+  useEffect(() => {
+    if (!userId || usingFallback) return;
+
+    const channel = supabase
+      .channel(`messages-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          void loadConversations();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_members" },
+        () => {
+          void loadConversations();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadConversations, userId, usingFallback]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -211,44 +549,102 @@ export default function MessagesPage() {
     }
   }, [activeId, threads]);
 
-  const filtered = conversations.filter((c) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      !q ||
-      c.name.toLowerCase().includes(q) ||
-      c.handle.toLowerCase().includes(q) ||
-      c.lastMessage.toLowerCase().includes(q);
+  const filtered = useMemo(
+    () =>
+      conversations.filter((c) => {
+        const q = search.toLowerCase();
+        const matchesSearch =
+          !q ||
+          c.name.toLowerCase().includes(q) ||
+          c.handle.toLowerCase().includes(q) ||
+          c.lastMessage.toLowerCase().includes(q);
 
-    if (!matchesSearch) return false;
-    if (tab === "unread") return c.unread > 0;
-    if (tab === "groups") return !!c.isGroup;
-    return true;
-  });
+        if (!matchesSearch) return false;
+        if (tab === "unread") return c.unread > 0;
+        if (tab === "groups") return !!c.isGroup;
+        return true;
+      }),
+    [conversations, search, tab],
+  );
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!draft.trim() || !activeId) return;
 
-    const newMsg: Message = {
-      id: `me-${Date.now()}`,
-      text: draft.trim(),
-      senderId: "me",
-      timeLabel: new Date().toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      }),
-    };
+    const body = draft.trim();
+    setDraft("");
 
+    if (usingFallback || !userId || !isUuid(activeId)) {
+      const newMsg: Message = {
+        id: `me-${Date.now()}`,
+        text: body,
+        senderId: "me",
+        timeLabel: messageTime(new Date().toISOString()),
+        createdAt: new Date().toISOString(),
+      };
+
+      setThreads((prev) => ({
+        ...prev,
+        [activeId]: [...(prev[activeId] || []), newMsg],
+      }));
+      return;
+    }
+
+    const inserted = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: activeId,
+        sender_id: userId,
+        body,
+      })
+      .select("id, conversation_id, sender_id, body, created_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+      .single();
+
+    if (inserted.error || !inserted.data) {
+      setErrorMsg(inserted.error?.message || "Message could not be sent.");
+      setDraft(body);
+      return;
+    }
+
+    const newMessage = mapMessage(inserted.data as unknown as MessageRow);
     setThreads((prev) => ({
       ...prev,
-      [activeId]: [...(prev[activeId] || []), newMsg],
+      [activeId]: [...(prev[activeId] || []), newMessage],
     }));
-
-    setDraft("");
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === activeId
+          ? {
+              ...conversation,
+              lastMessage: body,
+              timeLabel: "Now",
+            }
+          : conversation,
+      ),
+    );
   };
+
+  function closeConversation() {
+    setActiveId(null);
+    if (typeof window !== "undefined" && window.location.pathname !== "/messages") {
+      window.history.replaceState(null, "", "/messages");
+    }
+  }
+
+  if (authLoading || (!session && !authLoading)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050405] text-white">
+        <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
+          Opening messages
+        </p>
+      </main>
+    );
+  }
+
+  if (!session) return null;
 
   if (active) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+      <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#050405] text-zinc-100">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -264,25 +660,19 @@ export default function MessagesPage() {
         <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
           <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
             <button
-              onClick={() => setActiveId(null)}
+              onClick={closeConversation}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
               aria-label="Back"
             >
               ‹
             </button>
 
-            <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/10">
-              <Image
-                src={active.photo}
-                alt={active.name}
-                fill
-                sizes="40px"
-                className="object-cover"
-              />
-              {active.online && (
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-[#050505] bg-[#b4141e]" />
-              )}
-            </div>
+            <MessagesAvatar
+              photo={active.photo}
+              name={active.name}
+              online={active.online}
+              size={40}
+            />
 
             <div className="flex-1">
               <p className="text-sm text-white">{active.name}</p>
@@ -290,8 +680,8 @@ export default function MessagesPage() {
                 {active.isGroup
                   ? `${active.members} riders`
                   : active.online
-                  ? `Online · ${active.handle}`
-                  : active.handle}
+                    ? `Online · ${active.handle}`
+                    : active.handle}
               </p>
             </div>
 
@@ -319,8 +709,17 @@ export default function MessagesPage() {
               <div className="h-px w-8 bg-white/15" />
             </div>
 
+            {activeThread.length === 0 && (
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-8 text-center">
+                <p className="font-serif text-xl italic text-white">Start the line.</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.28em] text-white/35">
+                  No messages yet
+                </p>
+              </div>
+            )}
+
             {activeThread.map((m, i) => {
-              const isMe = m.senderId === "me";
+              const isMe = m.senderId === userId || m.senderId === "me";
               const prev = activeThread[i - 1];
               const showAvatar = !isMe && (!prev || prev.senderId !== m.senderId);
 
@@ -331,16 +730,12 @@ export default function MessagesPage() {
                 >
                   {!isMe && (
                     <div className="h-7 w-7 flex-shrink-0">
-                      {showAvatar && m.senderPhoto && (
-                        <div className="relative h-7 w-7 overflow-hidden rounded-full border border-white/10">
-                          <Image
-                            src={m.senderPhoto}
-                            alt={m.senderName || ""}
-                            fill
-                            sizes="28px"
-                            className="object-cover"
-                          />
-                        </div>
+                      {showAvatar && (
+                        <MessagesAvatar
+                          photo={m.senderPhoto ?? null}
+                          name={m.senderName || ""}
+                          size={28}
+                        />
                       )}
                     </div>
                   )}
@@ -389,7 +784,7 @@ export default function MessagesPage() {
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
                 placeholder={`Message ${active.name.split(" ")[0]}...`}
                 className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
               />
@@ -399,7 +794,7 @@ export default function MessagesPage() {
             </div>
 
             <button
-              onClick={sendMessage}
+              onClick={() => void sendMessage()}
               disabled={!draft.trim()}
               className={`flex h-10 w-10 items-center justify-center rounded-full transition ${
                 draft.trim()
@@ -485,7 +880,22 @@ export default function MessagesPage() {
       </header>
 
       <div className="relative mx-auto mt-8 max-w-2xl px-5">
-        {filtered.length === 0 ? (
+        {errorMsg && (
+          <div className="mb-4 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 p-4 text-sm text-[#f1c3c7]">
+            {errorMsg}
+          </div>
+        )}
+
+        {loadingMessages && !usingFallback ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="h-20 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
+              />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 text-center">
             <p className="font-serif text-2xl italic text-white">Silence on the line.</p>
             <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/40">
@@ -497,26 +907,20 @@ export default function MessagesPage() {
             {filtered.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setActiveId(c.id)}
+                onClick={() => {
+                  setActiveId(c.id);
+                  if (isUuid(c.id)) {
+                    window.history.replaceState(null, "", `/messages/${c.id}`);
+                  }
+                }}
                 className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.15)]"
               >
-                <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full border border-white/10">
-                  <Image
-                    src={c.photo}
-                    alt={c.name}
-                    fill
-                    sizes="48px"
-                    className="object-cover"
-                  />
-                  {c.online && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0c0c0d] bg-[#b4141e]" />
-                  )}
-                  {c.isGroup && (
-                    <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border border-[#0c0c0d] bg-[#b4141e] text-[8px] text-white">
-                      ◈
-                    </span>
-                  )}
-                </div>
+                <MessagesAvatar
+                  photo={c.photo}
+                  name={c.name}
+                  online={c.online}
+                  isGroup={c.isGroup}
+                />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">

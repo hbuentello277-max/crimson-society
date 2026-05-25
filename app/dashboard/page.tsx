@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
+import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
+import type { CrimsonSound } from "@/lib/sounds";
 
 type PostType = "photo" | "reel" | "status";
 
@@ -18,7 +20,7 @@ type FeedPost = {
   caption?: string;
   photos?: string[];
   video?: string | null;
-  musicLabel?: string;
+  sound?: CrimsonSound | null;
   statusText?: string;
   statusBg?: string;
   mediaStatus?: string;
@@ -57,6 +59,10 @@ type RawPost = {
   profiles?: RawProfile | RawProfile[];
   post_likes?: { count: number }[];
   post_comments?: { count: number }[];
+  post_sounds?: {
+    id: string;
+    sounds: CrimsonSound | CrimsonSound[] | null;
+  }[];
 };
 
 const statusBgMap: Record<string, string> = {
@@ -94,7 +100,6 @@ const seedPosts: FeedPost[] = [
     caption: "Sunset run. No words.",
     video: null,
     photos: ["https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=1200"],
-    musicLabel: "King Krule — Easy Easy",
     timeLabel: "5h",
     likes: 612,
     comments: 84,
@@ -146,8 +151,15 @@ function pickProfile(profileInput: RawProfile | RawProfile[] | undefined) {
   return profileInput ?? null;
 }
 
+function pickSound(postSounds: RawPost["post_sounds"]) {
+  const sound = postSounds?.[0]?.sounds;
+  if (Array.isArray(sound)) return sound[0] ?? null;
+  return sound ?? null;
+}
+
 function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
+  const sound = pickSound(post.post_sounds);
 
   const name = profile?.display_name || profile?.full_name || "Unknown Rider";
   const handle = profile?.username ? `@${profile.username}` : "@unknown";
@@ -180,7 +192,7 @@ function mapPostToFeed(post: RawPost): FeedPost {
       post.video_playback_url || post.video_url,
       post.video_hls_url,
     ),
-    musicLabel: "",
+    sound,
     statusText: post.status_text || "",
     statusBg: post.status_bg || "noir",
     mediaStatus: post.media_status || "ready",
@@ -256,7 +268,29 @@ export default function DashboardPage() {
           profile_image_url
         ),
         post_likes(count),
-        post_comments(count)
+        post_comments(count),
+        post_sounds (
+          id,
+          sounds (
+            id,
+            title,
+            artist,
+            duration_seconds,
+            mood,
+            bpm,
+            cover_image_url,
+            audio_url,
+            preview_url,
+            license_type,
+            rights_owner,
+            source_url,
+            approved,
+            featured,
+            usage_count,
+            category_id,
+            created_at
+          )
+        )
       `)
       .order("created_at", { ascending: false });
 
@@ -606,10 +640,9 @@ export default function DashboardPage() {
                         </div>
                       ) : null}
 
-                      {p.musicLabel && (
-                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] text-white backdrop-blur">
-                          <span className="text-[#e87a82]">♪</span>
-                          {p.musicLabel}
+                      {p.sound && (
+                        <div className="absolute bottom-3 left-3 right-3 flex">
+                          <CrimsonSoundAttribution sound={p.sound} compact />
                         </div>
                       )}
                     </div>
@@ -675,6 +708,12 @@ export default function DashboardPage() {
                     <p className="px-4 pb-2 pt-2 text-sm text-white/85">
                       <span className="text-white">{p.author.handle}</span> {p.caption}
                     </p>
+                  )}
+
+                  {p.type === "photo" && p.sound && (
+                    <div className="px-4 pb-2 pt-2">
+                      <CrimsonSoundAttribution sound={p.sound} compact />
+                    </div>
                   )}
 
                   {p.taggedRiders && p.taggedRiders.length > 0 && (

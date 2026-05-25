@@ -259,6 +259,25 @@ export default function AdminPage() {
               </div>
             )}
 
+            <div className="mt-8 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
+                    Crimson Sounds
+                  </p>
+                  <h2 className="mt-2 font-serif text-2xl text-white">
+                    Internal sound library
+                  </h2>
+                </div>
+                <Link
+                  href="/admin/sounds"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black/30 px-5 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+                >
+                  Manage Sounds
+                </Link>
+              </div>
+            </div>
+
             <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-2xl font-semibold">Profiles</h2>

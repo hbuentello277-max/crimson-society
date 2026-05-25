@@ -15,6 +15,7 @@ type AuthContextType = {
   status: string | null;
   isAdmin: boolean;
   isModerator: boolean;
+  refreshProfile: () => Promise<Profile>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   status: null,
   isAdmin: false,
   isModerator: false,
+  refreshProfile: async () => null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -35,6 +37,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function loadProfile(nextSession: Session) {
     const nextProfile = await ensureUserProfile(nextSession.user);
     setProfile(nextProfile);
+    return nextProfile;
+  }
+
+  async function refreshProfile() {
+    if (!session?.user) {
+      setProfile(null);
+      return null;
+    }
+
+    return loadProfile(session);
   }
 
   useEffect(() => {
@@ -95,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         status,
         isAdmin,
         isModerator,
+        refreshProfile,
       }}
     >
       {children}

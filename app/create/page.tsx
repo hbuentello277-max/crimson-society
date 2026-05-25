@@ -11,6 +11,10 @@ import {
   uploadOriginalMedia,
   type UploadedOriginalMedia,
 } from "@/lib/media";
+import CrimsonSoundPicker, {
+  CrimsonSoundAttribution,
+} from "@/components/CrimsonSoundPicker";
+import type { CrimsonSound } from "@/lib/sounds";
 
 type PostType = "photo" | "reel" | "status";
 type Audience = "public" | "close" | "group";
@@ -54,12 +58,14 @@ export default function CreatePage() {
   const [photos, setPhotos] = useState<PreviewPhoto[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [musicLabel, setMusicLabel] = useState("");
+  const [selectedSound, setSelectedSound] = useState<CrimsonSound | null>(null);
+  const [showSoundPicker, setShowSoundPicker] = useState(false);
   const [statusBg, setStatusBg] = useState(statusBackgrounds[0]);
   const [statusText, setStatusText] = useState("");
   const [showRiderPicker, setShowRiderPicker] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -110,6 +116,12 @@ export default function CreatePage() {
   ];
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
     if (type !== "photo") {
       photos.forEach((p) => URL.revokeObjectURL(p.preview));
       setPhotos([]);
@@ -119,12 +131,13 @@ export default function CreatePage() {
       if (videoPreview) URL.revokeObjectURL(videoPreview);
       setVideoFile(null);
       setVideoPreview(null);
-      setMusicLabel("");
     }
 
     if (type !== "status") {
       setStatusText("");
       setStatusBg(statusBackgrounds[0]);
+    } else {
+      setSelectedSound(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
@@ -283,6 +296,18 @@ export default function CreatePage() {
         .single();
 
       if (error) throw error;
+
+      if (selectedSound && insertedPost?.id) {
+        const { error: soundError } = await supabase.from("post_sounds").insert({
+          post_id: insertedPost.id,
+          sound_id: selectedSound.id,
+          user_id: user.id,
+          start_time_seconds: 0,
+          volume: 1,
+        });
+
+        if (soundError) throw soundError;
+      }
 
       if (imageOriginal) {
         await queueMediaProcessingJob(supabase, {
@@ -484,17 +509,27 @@ export default function CreatePage() {
 
               <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3">
                 <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                  Soundtrack
+                  Crimson Sound
                 </p>
-                <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSoundPicker(true)}
+                  className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left transition hover:border-[#b4141e]/50"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-white">
+                      {selectedSound
+                        ? selectedSound.artist
+                          ? `${selectedSound.artist} - ${selectedSound.title}`
+                          : selectedSound.title
+                        : "Choose from Crimson Sounds"}
+                    </span>
+                    <span className="mt-1 block text-[10px] uppercase tracking-[0.22em] text-white/35">
+                      Approved internal library
+                    </span>
+                  </span>
                   <span className="text-[#e87a82]">♪</span>
-                  <input
-                    value={musicLabel}
-                    onChange={(e) => setMusicLabel(e.target.value)}
-                    placeholder="Artist — Track"
-                    className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-                  />
-                </div>
+                </button>
               </div>
             </div>
           </section>
@@ -544,18 +579,46 @@ export default function CreatePage() {
         )}
 
         {type !== "status" && (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.35em] text-white/40">
-              Caption
-            </p>
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Say something about this ride..."
-              rows={3}
-              className="w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-            />
-          </div>
+          <>
+            {type === "photo" && (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSoundPicker(true)}
+                  className="flex min-h-14 w-full items-center justify-between gap-3 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-[10px] uppercase tracking-[0.35em] text-white/40">
+                      Crimson Sound
+                    </span>
+                    <span className="mt-1 block truncate text-sm text-white">
+                      {selectedSound
+                        ? selectedSound.artist
+                          ? `${selectedSound.artist} - ${selectedSound.title}`
+                          : selectedSound.title
+                        : "Add music to this post"}
+                    </span>
+                  </span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 text-[#e87a82]">
+                    ♪
+                  </span>
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+              <p className="mb-2 text-[10px] uppercase tracking-[0.35em] text-white/40">
+                Caption
+              </p>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Say something about this ride..."
+                rows={3}
+                className="w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+          </>
         )}
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
@@ -683,10 +746,9 @@ export default function CreatePage() {
                     autoPlay
                     loop
                   />
-                  {musicLabel && (
+                  {selectedSound && (
                     <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] text-white backdrop-blur">
-                      <span className="text-[#e87a82]">♪</span>
-                      {musicLabel}
+                      <CrimsonSoundAttribution sound={selectedSound} compact />
                     </div>
                   )}
                 </div>
@@ -704,6 +766,12 @@ export default function CreatePage() {
 
               {type !== "status" && caption && (
                 <p className="px-4 pb-4 pt-3 text-sm text-white/80">{caption}</p>
+              )}
+
+              {type === "photo" && selectedSound && (
+                <div className="px-4 pb-4 pt-3">
+                  <CrimsonSoundAttribution sound={selectedSound} />
+                </div>
               )}
 
               {taggedRiders.length > 0 && (
@@ -782,6 +850,15 @@ export default function CreatePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showSoundPicker && (
+        <CrimsonSoundPicker
+          userId={userId}
+          selectedSound={selectedSound}
+          onSelect={setSelectedSound}
+          onClose={() => setShowSoundPicker(false)}
+        />
       )}
 
       {toast && (
