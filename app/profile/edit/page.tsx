@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
-import { cleanUsername } from "@/lib/profile";
 
 type Motorcycle = {
   id: string;
@@ -179,11 +179,11 @@ export default function ProfileEditPage() {
   const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<ProfileForm>({
-    display_name: "",
-    username: "",
-    bio: "",
-    location: "",
-    quote: "",
+    display_name: "Hector Buentello",
+    username: "hbuentello",
+    bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
+    location: "Houston, TX",
+    quote: "Bound by the road. Kept by the code.",
     instagram_url: "",
     tiktok_url: "",
     youtube_url: "",
@@ -209,20 +209,28 @@ export default function ProfileEditPage() {
 
   useEffect(() => {
     if (profile) {
-      setForm({
-        display_name: profile.display_name ?? "",
-        username: profile.username ?? "",
-        bio: profile.bio ?? "",
-        location: profile.location ?? "",
-        quote: profile.quote ?? "",
-        instagram_url: profile.instagram_url ?? "",
-        tiktok_url: profile.tiktok_url ?? "",
-        youtube_url: profile.youtube_url ?? "",
-        website_url: profile.website_url ?? "",
-      });
-      setProfileImageUrl(
-        profile.profile_image_url ? withCacheBust(profile.profile_image_url) : ""
-      );
+      const timer = window.setTimeout(() => {
+        setForm((prev) => ({
+          ...prev,
+          display_name: profile.display_name ?? prev.display_name,
+          username: profile.username ?? prev.username,
+          bio: profile.bio ?? prev.bio,
+          location: profile.location ?? prev.location,
+          quote: profile.quote ?? prev.quote,
+          instagram_url: profile.instagram_url ?? "",
+          tiktok_url: profile.tiktok_url ?? "",
+          youtube_url: profile.youtube_url ?? "",
+          website_url: profile.website_url ?? "",
+        }));
+
+        if (profile.profile_image_url) {
+          setProfileImageUrl(withCacheBust(profile.profile_image_url));
+        } else {
+          setProfileImageUrl("");
+        }
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
   }, [profile]);
 
@@ -276,9 +284,9 @@ export default function ProfileEditPage() {
           {
             id: crypto.randomUUID(),
             label: "Garage One",
-            name: "",
-            year: "",
-            finish: "",
+            name: "Ducati Panigale V4",
+            year: "2023",
+            finish: "Crimson over Carbon",
             isNew: true,
           },
         ]);
@@ -374,14 +382,14 @@ export default function ProfileEditPage() {
 
     const payload = {
       display_name: form.display_name.trim(),
-      username: cleanUsername(form.username),
+      username: form.username.trim().replace(/^@+/, ""),
       bio: form.bio.trim(),
       location: form.location.trim(),
       quote: form.quote.trim(),
-      instagram_url: normalizeUrl(form.instagram_url),
-      tiktok_url: normalizeUrl(form.tiktok_url),
-      youtube_url: normalizeUrl(form.youtube_url),
-      website_url: normalizeUrl(form.website_url),
+      instagram_url: form.instagram_url.trim(),
+      tiktok_url: form.tiktok_url.trim(),
+      youtube_url: form.youtube_url.trim(),
+      website_url: form.website_url.trim(),
     };
 
     const response = await supabase
@@ -487,7 +495,6 @@ export default function ProfileEditPage() {
       }
 
       setProfileImageUrl(withCacheBust(rawImageUrl));
-      await refreshProfile();
       setProfileMsg("Profile photo updated.");
     } catch (error) {
       const message =
@@ -582,11 +589,13 @@ export default function ProfileEditPage() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center">
               <div className="relative h-28 w-28 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_40px_-6px_rgba(180,20,30,0.7)] md:h-32 md:w-32">
                 {profileImageUrl ? (
-                  <img
+                  <Image
                     key={profileImageUrl}
                     src={profileImageUrl}
                     alt={`${displayName} profile picture`}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="128px"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-white/10 text-[11px] uppercase tracking-[0.22em] text-zinc-400">

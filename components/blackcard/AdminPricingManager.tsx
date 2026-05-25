@@ -38,10 +38,14 @@ export default function AdminPricingManager({ plans, onRefresh }: Props) {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setFormPlans({
-      monthly: plans.find((plan) => plan.plan_type === "monthly") ?? emptyPlan("monthly"),
-      yearly: plans.find((plan) => plan.plan_type === "yearly") ?? emptyPlan("yearly"),
-    });
+    const timer = window.setTimeout(() => {
+      setFormPlans({
+        monthly: plans.find((plan) => plan.plan_type === "monthly") ?? emptyPlan("monthly"),
+        yearly: plans.find((plan) => plan.plan_type === "yearly") ?? emptyPlan("yearly"),
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [plans]);
 
   function updatePlan(

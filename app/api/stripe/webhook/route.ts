@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { normalizeMembershipPlanType } from "@/lib/membership";
 
 function getSupabaseAdmin() {
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (error) {
     console.error("Webhook signature verification failed:", error);
     return new NextResponse("Invalid signature", { status: 400 });
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
         }
 
         if (session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
+          const subscription = await getStripe().subscriptions.retrieve(
             typeof session.subscription === "string"
               ? session.subscription
               : session.subscription.id

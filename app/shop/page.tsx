@@ -44,8 +44,8 @@ export default function ShopPage() {
       try {
         const data = await fetchProducts();
         setProductList(data);
-      } catch (error: any) {
-        setErrorMsg(error.message || "Failed to load products.");
+      } catch (error: unknown) {
+        setErrorMsg(error instanceof Error ? error.message : "Failed to load products.");
       } finally {
         setLoading(false);
       }
@@ -55,11 +55,15 @@ export default function ShopPage() {
   }, []);
 
   useEffect(() => {
-    if (drawerOpen) {
+    if (!drawerOpen) return;
+
+    const timer = window.setTimeout(() => {
       setActive(null);
       setShowWaitlist(false);
       setSizeError(false);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [drawerOpen]);
 
   const filtered = useMemo(() => {

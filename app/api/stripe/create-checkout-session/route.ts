@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { normalizeMembershipPlanType } from "@/lib/membership";
 
@@ -12,6 +12,7 @@ const PLAN_TYPE_TO_FALLBACK_PRICE_ID: Record<string, string | undefined> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const stripe = getStripe();
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -143,11 +144,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("create-checkout-session error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to create checkout session" },
+      { error: error instanceof Error ? error.message : "Failed to create checkout session" },
       { status: 500 }
     );
   }

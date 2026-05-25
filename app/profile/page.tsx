@@ -344,7 +344,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!userId) return;
-    setAvatarFailed(false);
+    const timer = window.setTimeout(() => setAvatarFailed(false), 0);
+    return () => window.clearTimeout(timer);
   }, [userId, activeProfile.profile_image_url]);
 
   useEffect(() => {
@@ -413,9 +414,9 @@ export default function ProfilePage() {
   }, [authLoading, profile, status, userId]);
 
   useEffect(() => {
-    if (!membershipActive && tab === "blackcard") {
-      setTab("posts");
-    }
+    if (membershipActive || tab !== "blackcard") return;
+    const timer = window.setTimeout(() => setTab("posts"), 0);
+    return () => window.clearTimeout(timer);
   }, [membershipActive, tab]);
 
   const loadPosts = useCallback(async () => {
@@ -459,8 +460,12 @@ export default function ProfilePage() {
   }, [garageState, userId]);
 
   useEffect(() => {
-    if (tab === "posts") void loadPosts();
-    if (tab === "garage") void loadGarage();
+    const timer = window.setTimeout(() => {
+      if (tab === "posts") void loadPosts();
+      if (tab === "garage") void loadGarage();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadGarage, loadPosts, tab]);
 
   async function handleShareProfile() {

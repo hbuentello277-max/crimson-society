@@ -626,10 +626,10 @@ export default function RidesPage() {
     setOpenId(id);
   };
 
-  const dismissDetails = () => {
+  function dismissDetails() {
     setOpenId(null);
     previousFocus.current?.focus?.();
-  };
+  }
 
   const closeDetails = () => {
     if (detailHistoryPushed.current) {

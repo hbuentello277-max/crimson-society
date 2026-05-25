@@ -140,9 +140,9 @@ export default function BlackcardPage() {
 
         setMembership((data as MembershipRow | null) ?? null);
         setLoading(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(error);
-        setErrorMsg(error?.message || "Unable to load Blackcard.");
+        setErrorMsg(error instanceof Error ? error.message : "Unable to load Blackcard.");
         setLoading(false);
       }
     }
