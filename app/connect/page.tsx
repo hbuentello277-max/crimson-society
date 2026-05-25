@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
-type Status = "none" | "pending" | "connected";
+type Status = "none" | "pending" | "requested" | "connected";
 
 type Member = {
   id: string;
@@ -14,116 +16,293 @@ type Member = {
   bike: string;
   style: string[];
   rides: number;
-  photo: string;
+  photo: string | null;
   bio: string;
+  mutualCount: number;
+  suggestionReason: string;
 };
 
-const MEMBERS: Member[] = [
-  {
-    id: "m1",
-    handle: "@nightrider",
-    name: "Marco Vélez",
-    city: "Austin, TX",
-    bike: "Ducati Panigale V4",
-    style: ["Track"],
-    rides: 47,
-    photo:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces",
-    bio: "Canyon runs after midnight. Apex hunter.",
-  },
-  {
-    id: "m2",
-    handle: "@ironsaint",
-    name: "Elena Ruiz",
-    city: "Los Angeles, CA",
-    bike: "Triumph Speed Triple",
-    style: ["Street", "Touring"],
-    rides: 63,
-    photo:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=faces",
-    bio: "PCH regular. Coffee before sunrise.",
-  },
-  {
-    id: "m3",
-    handle: "@blackmass",
-    name: "Devin Cole",
-    city: "Brooklyn, NY",
-    bike: "BMW S1000RR",
-    style: ["Track", "Street"],
-    rides: 29,
-    photo:
-      "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&h=400&fit=crop&crop=faces",
-    bio: "Two wheels. One law: throttle.",
-  },
-  {
-    id: "m4",
-    handle: "@savagegrace",
-    name: "Aiyana Cross",
-    city: "Denver, CO",
-    bike: "KTM 890 Duke R",
-    style: ["Stunt", "Street"],
-    rides: 38,
-    photo:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=faces",
-    bio: "Stoppies in empty lots. Smoke and silence.",
-  },
-  {
-    id: "m5",
-    handle: "@longshadow",
-    name: "Roman Petrov",
-    city: "Chicago, IL",
-    bike: "Harley Fat Bob",
-    style: ["Cruiser", "Touring"],
-    rides: 81,
-    photo:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=faces",
-    bio: "Cross-country. One bag. No plan.",
-  },
-  {
-    id: "m6",
-    handle: "@redveil",
-    name: "Sofia Marín",
-    city: "Miami, FL",
-    bike: "Aprilia RSV4",
-    style: ["Track"],
-    rides: 52,
-    photo:
-      "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=400&h=400&fit=crop&crop=faces",
-    bio: "Italian iron. Last lap energy.",
-  },
-];
+type ProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  profile_image_url: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  riding_area: string | null;
+  bike_type: string | null;
+  riding_style: string | null;
+  profile_tags: string[] | null;
+  hide_location_from_suggestions: boolean | null;
+};
+
+type MotorcycleRow = {
+  user_id: string;
+  name: string | null;
+  label: string | null;
+  year: string | null;
+  finish: string | null;
+};
+
+type ConnectionRow = {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: "pending" | "accepted" | "declined";
+};
+
+type BlockRow = {
+  blocker_id: string;
+  blocked_id: string;
+};
 
 const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
 
+function displayName(profile: ProfileRow) {
+  return profile.display_name || profile.full_name || profile.username || "Crimson Rider";
+}
+
+function handleFor(profile: ProfileRow) {
+  return profile.username ? `@${profile.username}` : "@member";
+}
+
+function avatarFor(profile: ProfileRow) {
+  return profile.profile_image_url || profile.avatar_url || null;
+}
+
+function cityFor(profile: ProfileRow) {
+  if (profile.hide_location_from_suggestions) return "Region private";
+  if (profile.city && profile.state) return `${profile.city}, ${profile.state}`;
+  if (profile.city) return profile.city;
+  if (profile.riding_area) return profile.riding_area;
+  return profile.location || "Riding area pending";
+}
+
+function styleFor(profile: ProfileRow) {
+  const styles = [profile.riding_style, ...(profile.profile_tags || [])]
+    .filter(Boolean)
+    .map((item) => item as string);
+
+  return styles.length > 0 ? styles.slice(0, 3) : ["Street"];
+}
+
+function connectionKeyFor(a: string, b: string) {
+  return [a, b].sort().join(":");
+}
+
+function connectionStatus(row: ConnectionRow | undefined, userId: string): Status {
+  if (!row) return "none";
+  if (row.status === "accepted") return "connected";
+  if (row.status === "pending") {
+    return row.requester_id === userId ? "pending" : "requested";
+  }
+  return "none";
+}
+
+function mutualCountFor(targetId: string, accepted: ConnectionRow[], myConnectionIds: Set<string>) {
+  const targetConnections = accepted
+    .filter((connection) => connection.requester_id === targetId || connection.addressee_id === targetId)
+    .map((connection) =>
+      connection.requester_id === targetId ? connection.addressee_id : connection.requester_id,
+    );
+
+  return targetConnections.filter((id) => myConnectionIds.has(id)).length;
+}
+
+function suggestionReasonFor(profile: ProfileRow, me: ProfileRow | null, mutualCount: number) {
+  if (mutualCount > 0) return `${mutualCount} mutual connection${mutualCount === 1 ? "" : "s"}`;
+  if (me?.city && profile.city && me.city.toLowerCase() === profile.city.toLowerCase()) {
+    return "Same city scene";
+  }
+  if (me?.state && profile.state && me.state.toLowerCase() === profile.state.toLowerCase()) {
+    return "Same state scene";
+  }
+  if (me?.riding_style && profile.riding_style && me.riding_style === profile.riding_style) {
+    return "Similar riding style";
+  }
+  if (me?.bike_type && profile.bike_type && me.bike_type === profile.bike_type) {
+    return "Similar machine";
+  }
+  return profile.riding_area ? "Shared riding scene" : "Crimson Society rider";
+}
+
 export default function ConnectPage() {
+  const { session, loading: authLoading } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const [members, setMembers] = useState<Member[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleConnect = (id: string) => {
-    setStatuses((s) => ({
-      ...s,
-      [id]: s[id] === "pending" ? "connected" : "pending",
-    }));
-  };
+  const loadConnections = useCallback(async () => {
+    if (!userId) return;
 
-  const filtered = MEMBERS.filter((m) => {
-    const matchesFilter = filter === "All" || m.style.includes(filter);
-    const q = query.trim().toLowerCase();
-    const matchesQuery =
-      !q ||
-      m.name.toLowerCase().includes(q) ||
-      m.handle.toLowerCase().includes(q) ||
-      m.city.toLowerCase().includes(q) ||
-      m.bike.toLowerCase().includes(q);
+    setLoading(true);
+    setErrorMsg("");
 
-    return matchesFilter && matchesQuery;
-  });
+    const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, status"
+          )
+          .eq("status", "active")
+          .neq("id", userId)
+          .eq("hide_from_suggestions", false)
+          .limit(80),
+        supabase.from("motorcycles").select("user_id, name, label, year, finish"),
+        supabase
+          .from("user_connections")
+          .select("id, requester_id, addressee_id, status")
+          .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+        supabase
+          .from("user_blocks")
+          .select("blocker_id, blocked_id")
+          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+      ]);
 
-  const openMember = openId
-    ? MEMBERS.find((m) => m.id === openId) ?? null
-    : null;
+    if (profilesResponse.error || connectionsResponse.error || blocksResponse.error) {
+      setMembers([]);
+      setErrorMsg(
+        profilesResponse.error?.message ||
+          connectionsResponse.error?.message ||
+          blocksResponse.error?.message ||
+          "Could not load riders.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    const profiles = (profilesResponse.data || []) as unknown as ProfileRow[];
+    const motorcycles = ((motorcyclesResponse.data || []) as MotorcycleRow[]) || [];
+    const connections = ((connectionsResponse.data || []) as ConnectionRow[]) || [];
+    const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
+    const blockedIds = new Set(
+      blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
+    );
+    const myProfileResponse = await supabase
+      .from("profiles")
+      .select("id, city, state, riding_area, bike_type, riding_style, profile_tags")
+      .eq("id", userId)
+      .maybeSingle();
+    const myProfile = (myProfileResponse.data as ProfileRow | null) ?? null;
+    const acceptedConnections = connections.filter((connection) => connection.status === "accepted");
+    const myConnectionIds = new Set(
+      acceptedConnections.map((connection) =>
+        connection.requester_id === userId ? connection.addressee_id : connection.requester_id,
+      ),
+    );
+    const statusMap: Record<string, Status> = {};
+
+    connections.forEach((connection) => {
+      const otherId =
+        connection.requester_id === userId ? connection.addressee_id : connection.requester_id;
+      statusMap[otherId] = connectionStatus(connection, userId);
+    });
+
+    const nextMembers = profiles
+      .filter((profile) => !blockedIds.has(profile.id))
+      .map((profile) => {
+        const bike = motorcycles.find((item) => item.user_id === profile.id);
+        const mutualCount = mutualCountFor(profile.id, acceptedConnections, myConnectionIds);
+
+        return {
+          id: profile.id,
+          handle: handleFor(profile),
+          name: displayName(profile),
+          city: cityFor(profile),
+          bike: profile.bike_type || bike?.name || bike?.label || "Motorcycle pending",
+          style: styleFor(profile),
+          rides: 0,
+          photo: avatarFor(profile),
+          bio: profile.bio || "Crimson Society rider.",
+          mutualCount,
+          suggestionReason: suggestionReasonFor(profile, myProfile, mutualCount),
+        };
+      })
+      .sort((a, b) => b.mutualCount - a.mutualCount || a.name.localeCompare(b.name));
+
+    setMembers(nextMembers);
+    setStatuses(statusMap);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    if (authLoading || !userId) return;
+    const timer = window.setTimeout(() => {
+      void loadConnections();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [authLoading, loadConnections, userId]);
+
+  async function handleConnect(id: string) {
+    if (!userId || id === userId) return;
+
+    const status = statuses[id] ?? "none";
+
+    if (status === "none") {
+      setStatuses((prev) => ({ ...prev, [id]: "pending" }));
+      const { error } = await supabase.from("user_connections").insert({
+        requester_id: userId,
+        addressee_id: id,
+        connection_key: connectionKeyFor(userId, id),
+        status: "pending",
+      });
+
+      if (error) {
+        setStatuses((prev) => ({ ...prev, [id]: "none" }));
+        setErrorMsg(error.message);
+      }
+      return;
+    }
+
+    if (status === "requested") {
+      setStatuses((prev) => ({ ...prev, [id]: "connected" }));
+      const { error } = await supabase
+        .from("user_connections")
+        .update({ status: "accepted", accepted_at: new Date().toISOString() })
+        .eq("requester_id", id)
+        .eq("addressee_id", userId)
+        .eq("status", "pending");
+
+      if (error) {
+        setStatuses((prev) => ({ ...prev, [id]: "requested" }));
+        setErrorMsg(error.message);
+      }
+    }
+  }
+
+  const filtered = useMemo(
+    () =>
+      members.filter((m) => {
+        const matchesFilter = filter === "All" || m.style.includes(filter);
+        const q = query.trim().toLowerCase();
+        const matchesQuery =
+          !q ||
+          m.name.toLowerCase().includes(q) ||
+          m.handle.toLowerCase().includes(q) ||
+          m.city.toLowerCase().includes(q) ||
+          m.bike.toLowerCase().includes(q);
+
+        return matchesFilter && matchesQuery;
+      }),
+    [filter, members, query],
+  );
+
+  const suggested = useMemo(
+    () => filtered.filter((member) => statuses[member.id] !== "connected").slice(0, 5),
+    [filtered, statuses],
+  );
+
+  const openMember = openId ? members.find((m) => m.id === openId) ?? null : null;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
@@ -140,7 +319,6 @@ export default function ConnectPage() {
       />
 
       <div className="relative mx-auto max-w-3xl px-6 pb-20 pt-12">
-        {/* Top bar */}
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
@@ -154,7 +332,6 @@ export default function ConnectPage() {
           </span>
         </div>
 
-        {/* Header */}
         <header className="mt-10 text-center">
           <div className="mx-auto flex items-center justify-center gap-4">
             <span className="h-px w-12 bg-white/20" />
@@ -173,10 +350,8 @@ export default function ConnectPage() {
           </p>
         </header>
 
-        {/* Search + Filters */}
         <section className="mt-10">
           <div className="rounded-[24px] border border-white/10 bg-white/[0.02] px-4 py-4 backdrop-blur-sm sm:px-5">
-            {/* Search */}
             <div>
               <input
                 value={query}
@@ -186,7 +361,6 @@ export default function ConnectPage() {
               />
             </div>
 
-            {/* Filters */}
             <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
               {FILTERS.map((f) => {
                 const active = filter === f;
@@ -207,94 +381,156 @@ export default function ConnectPage() {
               })}
             </div>
 
-            {/* Count */}
             <p className="mt-4 text-[11px] uppercase tracking-[0.34em] text-zinc-500">
               {filtered.length} {filtered.length === 1 ? "Rider" : "Riders"}
             </p>
           </div>
         </section>
 
-        {/* Members */}
-        <ul className="mt-5 space-y-4">
-          {filtered.map((m) => {
-            const status = statuses[m.id] ?? "none";
+        {errorMsg && (
+          <div className="mt-5 rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/10 p-4 text-sm text-[#f1c3c7]">
+            {errorMsg}
+          </div>
+        )}
 
-            return (
-              <li
-                key={m.id}
-                className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6 transition hover:border-white/20"
-              >
-                <div className="flex items-center gap-5">
-                  {/* Avatar photo */}
-                  <button
-                    onClick={() => setOpenId(m.id)}
-                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
-                  >
-                    <Image
-                      src={m.photo}
-                      alt={m.name}
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
-                  </button>
-
-                  {/* Info */}
-                  <button
-                    onClick={() => setOpenId(m.id)}
-                    className="flex-1 text-left"
-                  >
-                    <h3 className="font-serif text-3xl leading-tight">
-                      {m.name}
-                    </h3>
-
-                    <p className="mt-1 text-sm uppercase tracking-[0.25em] text-zinc-500">
-                      {m.handle} · {m.city}
+        {suggested.length > 0 && (
+          <section className="mt-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
+            <p className="text-[11px] uppercase tracking-[0.34em] text-[#e87a82]">
+              People You May Know
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {suggested.slice(0, 4).map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  onClick={() => setOpenId(member.id)}
+                  className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
+                >
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/35 bg-[#b4141e]">
+                    {member.photo ? (
+                      <Image
+                        src={member.photo}
+                        alt={member.name}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        unoptimized={member.photo.includes("supabase")}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
+                        {member.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-white">{member.name}</p>
+                    <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      {member.suggestionReason}
                     </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
-                    <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
-                  </button>
+        <ul className="mt-5 space-y-4">
+          {loading && (
+            <li className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+              <div className="h-20 animate-pulse rounded-2xl bg-white/10" />
+            </li>
+          )}
 
-                  {/* Connect button */}
-                  <button
-                    onClick={() => handleConnect(m.id)}
-                    disabled={status === "connected"}
-                    className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
-                      status === "connected"
-                        ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
-                        : status === "pending"
-                        ? "border-white/20 text-zinc-300 hover:border-white/40"
-                        : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
-                    }`}
-                  >
-                    {status === "connected"
-                      ? "✓ Connected"
-                      : status === "pending"
-                      ? "Pending"
-                      : "Connect"}
-                  </button>
-                </div>
+          {!loading &&
+            filtered.map((m) => {
+              const status = statuses[m.id] ?? "none";
 
-                {/* Style tags */}
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  {m.style.map((s) => (
-                    <span
-                      key={s}
-                      className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-zinc-500"
+              return (
+                <li
+                  key={m.id}
+                  className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6 transition hover:border-white/20"
+                >
+                  <div className="flex items-center gap-5">
+                    <button
+                      onClick={() => setOpenId(m.id)}
+                      className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
                     >
-                      {s}
+                      {m.photo ? (
+                        <Image
+                          src={m.photo}
+                          alt={m.name}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                          unoptimized={m.photo.includes("supabase")}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-serif text-2xl italic text-white">
+                          {m.name.charAt(0)}
+                        </div>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => setOpenId(m.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
+
+                      <p className="mt-1 break-words text-sm uppercase tracking-[0.25em] text-zinc-500">
+                        {m.handle} · {m.city}
+                      </p>
+
+                      <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
+                      {m.mutualCount > 0 && (
+                        <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#e87a82]">
+                          {m.mutualCount} mutual
+                        </p>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => handleConnect(m.id)}
+                      disabled={status === "connected" || status === "pending"}
+                      className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
+                        status === "connected"
+                          ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
+                          : status === "pending"
+                            ? "cursor-default border-white/20 text-zinc-300"
+                            : status === "requested"
+                              ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
+                              : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
+                      }`}
+                    >
+                      {status === "connected"
+                        ? "✓ Connected"
+                        : status === "pending"
+                          ? "Pending"
+                          : status === "requested"
+                            ? "Accept"
+                            : "Connect"}
+                    </button>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    {m.style.map((s) => (
+                      <span
+                        key={s}
+                        className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-zinc-500"
+                      >
+                        {s}
+                      </span>
+                    ))}
+
+                    <span className="ml-auto text-xs uppercase tracking-[0.3em] text-zinc-600">
+                      {m.suggestionReason}
                     </span>
-                  ))}
+                  </div>
+                </li>
+              );
+            })}
 
-                  <span className="ml-auto text-xs uppercase tracking-[0.3em] text-zinc-600">
-                    {m.rides} Rides
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <li className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
               <p className="text-base text-zinc-500">
                 No riders match. Try a different filter.
@@ -303,7 +539,6 @@ export default function ConnectPage() {
           )}
         </ul>
 
-        {/* Footer */}
         <footer className="mt-16 text-center">
           <div className="mx-auto h-px w-12 bg-white/10" />
           <p className="mt-5 text-xs uppercase tracking-[0.5em] text-zinc-600">
@@ -312,7 +547,6 @@ export default function ConnectPage() {
         </footer>
       </div>
 
-      {/* Member modal */}
       {openMember && (
         <div
           onClick={() => setOpenId(null)}
@@ -330,14 +564,21 @@ export default function ConnectPage() {
             </button>
 
             <div className="flex flex-col items-center text-center">
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border border-[#b4141e]/60 shadow-[0_0_32px_-4px_rgba(180,20,30,0.7)]">
-                <Image
-                  src={openMember.photo}
-                  alt={openMember.name}
-                  fill
-                  sizes="112px"
-                  className="object-cover"
-                />
+              <div className="relative h-28 w-28 overflow-hidden rounded-full border border-[#b4141e]/60 bg-[#b4141e] shadow-[0_0_32px_-4px_rgba(180,20,30,0.7)]">
+                {openMember.photo ? (
+                  <Image
+                    src={openMember.photo}
+                    alt={openMember.name}
+                    fill
+                    sizes="112px"
+                    className="object-cover"
+                    unoptimized={openMember.photo.includes("supabase")}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center font-serif text-3xl italic text-white">
+                    {openMember.name.charAt(0)}
+                  </div>
+                )}
               </div>
 
               <h2 className="mt-6 font-serif text-5xl">{openMember.name}</h2>
@@ -353,7 +594,11 @@ export default function ConnectPage() {
               </div>
 
               <p className="mt-5 font-serif text-xl italic text-zinc-300">
-                "{openMember.bio}"
+                &quot;{openMember.bio}&quot;
+              </p>
+
+              <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-[#e87a82]">
+                {openMember.suggestionReason}
               </p>
 
               <div className="mt-7 grid w-full grid-cols-2 gap-3 text-left">
@@ -361,17 +606,15 @@ export default function ConnectPage() {
                   <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
                     Machine
                   </p>
-                  <p className="mt-1.5 text-base text-zinc-200">
-                    {openMember.bike}
-                  </p>
+                  <p className="mt-1.5 text-base text-zinc-200">{openMember.bike}</p>
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
                   <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
-                    Rides
+                    Mutuals
                   </p>
                   <p className="mt-1.5 text-base text-zinc-200">
-                    {openMember.rides}
+                    {openMember.mutualCount}
                   </p>
                 </div>
               </div>
@@ -387,12 +630,33 @@ export default function ConnectPage() {
                 ))}
               </div>
 
-              <Link
-                href={`/messages/${openMember.id}`}
-                className="mt-8 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
-              >
-                Message
-              </Link>
+              <div className="mt-8 grid w-full gap-3">
+                <button
+                  onClick={() => handleConnect(openMember.id)}
+                  disabled={
+                    statuses[openMember.id] === "connected" ||
+                    statuses[openMember.id] === "pending"
+                  }
+                  className="w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-default disabled:opacity-70"
+                >
+                  {statuses[openMember.id] === "connected"
+                    ? "Connected"
+                    : statuses[openMember.id] === "pending"
+                      ? "Pending"
+                      : statuses[openMember.id] === "requested"
+                        ? "Accept"
+                        : "Connect"}
+                </button>
+
+                {statuses[openMember.id] === "connected" && (
+                  <Link
+                    href={`/messages/${openMember.id}`}
+                    className="w-full rounded-full border border-white/10 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                  >
+                    Message
+                  </Link>
+                )}
+              </div>
 
               <button
                 onClick={() => setOpenId(null)}

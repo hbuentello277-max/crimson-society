@@ -37,6 +37,13 @@ type ProfileRow = {
   full_name: string | null;
   profile_image_url: string | null;
   avatar_url: string | null;
+  city?: string | null;
+  state?: string | null;
+  riding_area?: string | null;
+  riding_style?: string | null;
+  bike_type?: string | null;
+  profile_tags?: string[] | null;
+  hide_location_from_suggestions?: boolean | null;
 };
 
 type ConversationRow = {
@@ -62,6 +69,25 @@ type MessageRow = {
   body: string | null;
   created_at: string;
   profiles: ProfileRow | ProfileRow[] | null;
+};
+
+type Suggestion = {
+  id: string;
+  name: string;
+  handle: string;
+  photo: string | null;
+  reason: string;
+};
+
+type ConnectionRow = {
+  requester_id: string;
+  addressee_id: string;
+  status: "pending" | "accepted" | "declined";
+};
+
+type BlockRow = {
+  blocker_id: string;
+  blocked_id: string;
 };
 
 const seedConversations: Conversation[] = [
@@ -165,6 +191,22 @@ function profileHandle(profile: ProfileRow | null | undefined) {
 
 function profilePhoto(profile: ProfileRow | null | undefined) {
   return profile?.profile_image_url || profile?.avatar_url || null;
+}
+
+function suggestionReason(profile: ProfileRow, me: ProfileRow | null) {
+  if (me?.city && profile.city && me.city.toLowerCase() === profile.city.toLowerCase()) {
+    return "Same city scene";
+  }
+  if (me?.state && profile.state && me.state.toLowerCase() === profile.state.toLowerCase()) {
+    return "Same state scene";
+  }
+  if (me?.riding_style && profile.riding_style && me.riding_style === profile.riding_style) {
+    return "Similar riding style";
+  }
+  if (me?.bike_type && profile.bike_type && me.bike_type === profile.bike_type) {
+    return "Similar machine";
+  }
+  return profile.riding_area ? "Shared riding scene" : "Crimson Society rider";
 }
 
 function timeLabel(value?: string | null) {
@@ -319,6 +361,7 @@ export default function MessagesPage() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const active = conversations.find((c) => c.id === activeId) || null;
@@ -436,6 +479,67 @@ export default function MessagesPage() {
     setLoadingMessages(false);
   }, [userId]);
 
+  const loadSuggestions = useCallback(async () => {
+    if (!userId) return;
+
+    const [profilesResponse, connectionsResponse, blocksResponse, meResponse] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id, username, display_name, full_name, profile_image_url, avatar_url, city, state, riding_area, riding_style, bike_type, profile_tags, hide_location_from_suggestions, hide_from_suggestions, status"
+          )
+          .eq("status", "active")
+          .eq("hide_from_suggestions", false)
+          .neq("id", userId)
+          .limit(24),
+        supabase
+          .from("user_connections")
+          .select("requester_id, addressee_id, status")
+          .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+        supabase
+          .from("user_blocks")
+          .select("blocker_id, blocked_id")
+          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+        supabase
+          .from("profiles")
+          .select("id, city, state, riding_area, riding_style, bike_type, profile_tags")
+          .eq("id", userId)
+          .maybeSingle(),
+      ]);
+
+    if (profilesResponse.error || connectionsResponse.error || blocksResponse.error) {
+      setSuggestions([]);
+      return;
+    }
+
+    const connections = ((connectionsResponse.data || []) as ConnectionRow[]) || [];
+    const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
+    const blockedIds = new Set(
+      blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
+    );
+    const connectedOrPendingIds = new Set(
+      connections.map((connection) =>
+        connection.requester_id === userId ? connection.addressee_id : connection.requester_id,
+      ),
+    );
+    const me = (meResponse.data as ProfileRow | null) ?? null;
+
+    const next = ((profilesResponse.data || []) as unknown as ProfileRow[])
+      .filter((profile) => !blockedIds.has(profile.id))
+      .filter((profile) => !connectedOrPendingIds.has(profile.id))
+      .map((profile) => ({
+        id: profile.id,
+        name: profileName(profile),
+        handle: profileHandle(profile),
+        photo: profilePhoto(profile),
+        reason: suggestionReason(profile, me),
+      }))
+      .slice(0, 4);
+
+    setSuggestions(next);
+  }, [userId]);
+
   const openDirectConversation = useCallback(
     async (peerId: string) => {
       if (!userId || !isUuid(peerId) || peerId === userId || usingFallback) return;
@@ -493,9 +597,10 @@ export default function MessagesPage() {
     if (!userId) return;
     const timer = window.setTimeout(() => {
       void loadConversations();
+      void loadSuggestions();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadConversations, userId]);
+  }, [loadConversations, loadSuggestions, userId]);
 
   useEffect(() => {
     if (!params?.id || !userId) return;
@@ -884,6 +989,43 @@ export default function MessagesPage() {
           <div className="mb-4 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 p-4 text-sm text-[#f1c3c7]">
             {errorMsg}
           </div>
+        )}
+
+        {suggestions.length > 0 && (
+          <section className="mb-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">
+                People You May Know
+              </p>
+              <Link
+                href="/connect"
+                className="text-[10px] uppercase tracking-[0.22em] text-zinc-500 transition hover:text-zinc-300"
+              >
+                Connect
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {suggestions.map((suggestion) => (
+                <Link
+                  key={suggestion.id}
+                  href={`/connect`}
+                  className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 transition hover:border-[#b4141e]/40"
+                >
+                  <MessagesAvatar
+                    photo={suggestion.photo}
+                    name={suggestion.name}
+                    size={42}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white">{suggestion.name}</p>
+                    <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      {suggestion.handle} · {suggestion.reason}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
 
         {loadingMessages && !usingFallback ? (
