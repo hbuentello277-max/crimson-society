@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { cleanUsername, PROFILE_SELECT } from "@/lib/profile";
 
 type Motorcycle = {
   id: string;
@@ -63,6 +64,15 @@ function normalizeUrl(value: string) {
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
+}
+
+function locationParts(value: string) {
+  const [cityPart, statePart] = value.split(",").map((item) => item.trim());
+
+  return {
+    city: cityPart || null,
+    state: statePart || null,
+  };
 }
 
 function ProfileEditSkeleton() {
@@ -179,11 +189,11 @@ export default function ProfileEditPage() {
   const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<ProfileForm>({
-    display_name: "Hector Buentello",
-    username: "hbuentello",
-    bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
-    location: "Houston, TX",
-    quote: "Bound by the road. Kept by the code.",
+    display_name: "",
+    username: "",
+    bio: "",
+    location: "",
+    quote: "",
     instagram_url: "",
     tiktok_url: "",
     youtube_url: "",
@@ -210,18 +220,17 @@ export default function ProfileEditPage() {
   useEffect(() => {
     if (profile) {
       const timer = window.setTimeout(() => {
-        setForm((prev) => ({
-          ...prev,
-          display_name: profile.display_name ?? prev.display_name,
-          username: profile.username ?? prev.username,
-          bio: profile.bio ?? prev.bio,
-          location: profile.location ?? prev.location,
-          quote: profile.quote ?? prev.quote,
+        setForm({
+          display_name: profile.display_name ?? profile.full_name ?? "",
+          username: profile.username ?? "",
+          bio: profile.bio ?? "",
+          location: profile.location ?? [profile.city, profile.state].filter(Boolean).join(", "),
+          quote: profile.quote ?? "",
           instagram_url: profile.instagram_url ?? "",
           tiktok_url: profile.tiktok_url ?? "",
           youtube_url: profile.youtube_url ?? "",
           website_url: profile.website_url ?? "",
-        }));
+        });
 
         if (profile.profile_image_url) {
           setProfileImageUrl(withCacheBust(profile.profile_image_url));
@@ -284,9 +293,9 @@ export default function ProfileEditPage() {
           {
             id: crypto.randomUUID(),
             label: "Garage One",
-            name: "Ducati Panigale V4",
-            year: "2023",
-            finish: "Crimson over Carbon",
+            name: "",
+            year: "",
+            finish: "",
             isNew: true,
           },
         ]);
@@ -380,25 +389,31 @@ export default function ProfileEditPage() {
       return;
     }
 
+    const trimmedLocation = form.location.trim();
+    const { city, state } = locationParts(trimmedLocation);
+    const displayName = form.display_name.trim();
+
     const payload = {
-      display_name: form.display_name.trim(),
-      username: form.username.trim().replace(/^@+/, ""),
+      display_name: displayName,
+      full_name: displayName,
+      username: cleanUsername(form.username),
       bio: form.bio.trim(),
-      location: form.location.trim(),
+      location: trimmedLocation,
+      city,
+      state,
+      riding_area: trimmedLocation || null,
       quote: form.quote.trim(),
-      instagram_url: form.instagram_url.trim(),
-      tiktok_url: form.tiktok_url.trim(),
-      youtube_url: form.youtube_url.trim(),
-      website_url: form.website_url.trim(),
+      instagram_url: normalizeUrl(form.instagram_url),
+      tiktok_url: normalizeUrl(form.tiktok_url),
+      youtube_url: normalizeUrl(form.youtube_url),
+      website_url: normalizeUrl(form.website_url),
     };
 
     const response = await supabase
       .from("profiles")
       .update(payload)
       .eq("id", userId)
-      .select(
-        "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url, profile_image_url"
-      )
+      .select(PROFILE_SELECT)
       .maybeSingle();
 
     if (response.error) {
@@ -414,10 +429,10 @@ export default function ProfileEditPage() {
     }
 
     setForm({
-      display_name: response.data.display_name ?? "",
+      display_name: response.data.display_name ?? response.data.full_name ?? "",
       username: response.data.username ?? "",
       bio: response.data.bio ?? "",
-      location: response.data.location ?? "",
+      location: response.data.location ?? [response.data.city, response.data.state].filter(Boolean).join(", "),
       quote: response.data.quote ?? "",
       instagram_url: response.data.instagram_url ?? "",
       tiktok_url: response.data.tiktok_url ?? "",
@@ -427,7 +442,12 @@ export default function ProfileEditPage() {
     setProfileImageUrl(
       response.data.profile_image_url ? withCacheBust(response.data.profile_image_url) : ""
     );
-    await refreshProfile();
+    const refreshedProfile = await refreshProfile();
+    window.dispatchEvent(
+      new CustomEvent("crimson-profile-updated", {
+        detail: refreshedProfile ?? response.data,
+      })
+    );
     setProfileMsg("Profile details saved.");
     setSavingProfile(false);
   }

@@ -62,6 +62,15 @@ type BlockRow = {
 
 const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
 
+const PROFILE_BASE_SELECT =
+  "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, status";
+const PROFILE_DISCOVERY_SELECT =
+  `${PROFILE_BASE_SELECT}, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions`;
+
+function isMissingProfileColumn(error?: { message?: string; code?: string } | null) {
+  return error?.code === "42703" || /column profiles\..+ does not exist/i.test(error?.message ?? "");
+}
+
 function displayName(profile: ProfileRow) {
   return profile.display_name || profile.full_name || profile.username || "Crimson Rider";
 }
@@ -149,15 +158,26 @@ export default function ConnectPage() {
 
     const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse] =
       await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, status"
-          )
-          .eq("status", "active")
-          .neq("id", userId)
-          .eq("hide_from_suggestions", false)
-          .limit(80),
+        (async () => {
+          const discoveryResponse = await supabase
+            .from("profiles")
+            .select(PROFILE_DISCOVERY_SELECT)
+            .eq("status", "active")
+            .neq("id", userId)
+            .eq("hide_from_suggestions", false)
+            .limit(80);
+
+          if (!isMissingProfileColumn(discoveryResponse.error)) {
+            return discoveryResponse;
+          }
+
+          return supabase
+            .from("profiles")
+            .select(PROFILE_BASE_SELECT)
+            .eq("status", "active")
+            .neq("id", userId)
+            .limit(80);
+        })(),
         supabase.from("motorcycles").select("user_id, name, label, year, finish"),
         supabase
           .from("user_connections")
@@ -188,11 +208,23 @@ export default function ConnectPage() {
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
     );
-    const myProfileResponse = await supabase
-      .from("profiles")
-      .select("id, city, state, riding_area, bike_type, riding_style, profile_tags")
-      .eq("id", userId)
-      .maybeSingle();
+    const myProfileResponse = await (async () => {
+      const discoveryResponse = await supabase
+        .from("profiles")
+        .select("id, city, state, riding_area, bike_type, riding_style, profile_tags")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!isMissingProfileColumn(discoveryResponse.error)) {
+        return discoveryResponse;
+      }
+
+      return supabase
+        .from("profiles")
+        .select("id, location")
+        .eq("id", userId)
+        .maybeSingle();
+    })();
     const myProfile = (myProfileResponse.data as ProfileRow | null) ?? null;
     const acceptedConnections = connections.filter((connection) => connection.status === "accepted");
     const myConnectionIds = new Set(

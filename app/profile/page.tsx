@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { getBestImageUrl } from "@/lib/media";
+import { PROFILE_SELECT, type AppProfile } from "@/lib/profile";
 
 type ProfilePost = {
   id: string;
@@ -33,24 +34,7 @@ type MotorcycleRow = {
   finish: string | null;
 };
 
-type ProfileDetails = {
-  display_name: string | null;
-  username: string | null;
-  bio: string | null;
-  location: string | null;
-  quote: string | null;
-  instagram_url: string | null;
-  tiktok_url: string | null;
-  youtube_url: string | null;
-  website_url: string | null;
-  profile_image_url: string | null;
-};
-
-type ProfileSummary = {
-  display_name?: string | null;
-  username?: string | null;
-  profile_image_url?: string | null;
-};
+type ProfileDetails = AppProfile;
 
 type SubscriptionStatus =
   | "trialing"
@@ -86,16 +70,29 @@ const baseTabs = [
 ] as const;
 
 const fallbackProfile: ProfileDetails = {
-  display_name: "Crimson Member",
+  id: "",
+  role: "user",
+  status: "active",
   username: "member",
+  display_name: "Crimson Member",
+  full_name: "Crimson Member",
+  avatar_url: null,
+  profile_image_url: null,
   bio: "Motorcycles, midnight city runs, and the discipline that keeps the machine sharp.",
   location: "Location pending",
+  city: null,
+  state: null,
+  riding_area: null,
+  bike_type: null,
+  riding_style: null,
+  profile_tags: [],
+  hide_location_from_suggestions: false,
+  hide_from_suggestions: false,
   quote: "Bound by the road. Kept by the code.",
   instagram_url: null,
   tiktok_url: null,
   youtube_url: null,
   website_url: null,
-  profile_image_url: null,
 };
 
 function normalizeUrl(value?: string | null) {
@@ -274,6 +271,7 @@ export default function ProfilePage() {
     profile,
     status,
     isAdmin,
+    refreshProfile,
     signOut,
   } = useAuth();
   const [tab, setTab] = useState<TabKey>("posts");
@@ -290,26 +288,23 @@ export default function ProfilePage() {
   const [credits, setCredits] = useState<CrimsonCreditsRow | null>(null);
 
   const userId = session?.user?.id ?? null;
-  const authProfile = profile as ProfileSummary | null;
+  const authProfile = profile as ProfileDetails | null;
 
   const activeProfile = useMemo<ProfileDetails>(() => {
     return {
       ...fallbackProfile,
-      ...details,
-      display_name:
-        details?.display_name ?? authProfile?.display_name ?? fallbackProfile.display_name,
-      username: details?.username ?? authProfile?.username ?? fallbackProfile.username,
-      profile_image_url:
-        details?.profile_image_url ??
-        authProfile?.profile_image_url ??
-        fallbackProfile.profile_image_url,
+      ...(details ?? {}),
+      ...(authProfile ?? {}),
     };
   }, [authProfile, details]);
 
   const displayName = activeProfile.display_name?.trim() || "Crimson Member";
   const username = activeProfile.username?.trim().replace(/^@+/, "") || "member";
   const displayUsername = `@${username}`;
-  const displayLocation = activeProfile.location?.trim() || "Location pending";
+  const displayLocation =
+    activeProfile.location?.trim() ||
+    [activeProfile.city, activeProfile.state].filter(Boolean).join(", ") ||
+    "Location pending";
   const displayQuote =
     activeProfile.quote?.trim() || "Bound by the road. Kept by the code.";
   const displayBio =
@@ -342,6 +337,40 @@ export default function ProfilePage() {
     [postCount]
   );
 
+
+  useEffect(() => {
+    if (!profile) return;
+
+    const timer = window.setTimeout(() => {
+      setDetails(profile as ProfileDetails);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!userId || authLoading) return;
+
+    const timer = window.setTimeout(() => {
+      void refreshProfile();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [authLoading, refreshProfile, userId]);
+
+  useEffect(() => {
+    const onProfileUpdated = (event: Event) => {
+      const nextProfile = (event as CustomEvent<ProfileDetails>).detail;
+      if (nextProfile?.id === userId) {
+        setDetails(nextProfile);
+      }
+    };
+
+    window.addEventListener("crimson-profile-updated", onProfileUpdated);
+    return () =>
+      window.removeEventListener("crimson-profile-updated", onProfileUpdated);
+  }, [userId]);
+
   useEffect(() => {
     if (!userId) return;
     const timer = window.setTimeout(() => setAvatarFailed(false), 0);
@@ -366,9 +395,7 @@ export default function ProfilePage() {
         await Promise.all([
         supabase
           .from("profiles")
-          .select(
-            "display_name, username, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url, profile_image_url"
-          )
+          .select(PROFILE_SELECT)
           .eq("id", userId)
           .maybeSingle(),
         supabase

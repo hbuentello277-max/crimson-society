@@ -5,20 +5,30 @@ export type AppProfile = {
   id: string;
   role: string | null;
   status: string | null;
-  display_name?: string | null;
-  username?: string | null;
-  profile_image_url?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  quote?: string | null;
-  instagram_url?: string | null;
-  tiktok_url?: string | null;
-  youtube_url?: string | null;
-  website_url?: string | null;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  profile_image_url: string | null;
+  bio: string | null;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  riding_area: string | null;
+  bike_type: string | null;
+  riding_style: string | null;
+  profile_tags: string[] | null;
+  hide_location_from_suggestions: boolean | null;
+  hide_from_suggestions: boolean | null;
+  quote: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  website_url: string | null;
 };
 
-const PROFILE_SELECT =
-  "id, role, status, display_name, username, profile_image_url, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url";
+export const PROFILE_SELECT =
+  "id, role, status, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url";
 
 export function cleanUsername(value: string) {
   const cleaned = value
