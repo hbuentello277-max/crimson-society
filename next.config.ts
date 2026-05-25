@@ -13,9 +13,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "clelrausyoejbpqlxplf.supabase.co",
         port: "",
-        pathname: "/storage/v1/object/public/**",
+        pathname: "/storage/v1/**",
       },
     ],
+    formats: ["image/webp"],
+    minimumCacheTTL: 31536000,
   },
 };
 

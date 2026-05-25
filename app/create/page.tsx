@@ -5,6 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import {
+  queueMediaProcessingJob,
+  uploadImageDisplaySource,
+  uploadOriginalMedia,
+  type UploadedOriginalMedia,
+} from "@/lib/media";
 
 type PostType = "photo" | "reel" | "status";
 type Audience = "public" | "close" | "group";
@@ -36,43 +42,6 @@ const statusBackgrounds = [
     className: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
   },
 ];
-
-function getFileExt(file: File) {
-  const parts = file.name.split(".");
-  return parts.length > 1 ? parts.pop()?.toLowerCase() || "bin" : "bin";
-}
-
-function buildStoragePath(userId: string, file: File) {
-  const ext = getFileExt(file);
-  const safeBase = file.name
-    .replace(/\.[^/.]+$/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, "-")
-    .slice(0, 40);
-
-  return `${userId}/${Date.now()}-${safeBase || "media"}.${ext}`;
-}
-
-async function uploadToMediaBucket(userId: string, file: File) {
-  const path = buildStoragePath(userId, file);
-
-  const { error: uploadError } = await supabase.storage
-    .from("media")
-    .upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw uploadError;
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("media").getPublicUrl(path);
-
-  return publicUrl;
-}
 
 export default function CreatePage() {
   const router = useRouter();
@@ -240,13 +209,46 @@ export default function CreatePage() {
 
       let imageUrl: string | null = null;
       let videoUrl: string | null = null;
+      let imageOriginal: UploadedOriginalMedia | null = null;
+      let videoOriginal: UploadedOriginalMedia | null = null;
+      let mediaStatus = "ready";
+      let mediaMetadata: Record<string, unknown> = {};
 
       if (type === "photo" && photos[0]) {
-        imageUrl = await uploadToMediaBucket(user.id, photos[0].file);
+        imageOriginal = await uploadOriginalMedia(
+          supabase,
+          user.id,
+          "image",
+          photos[0].file,
+        );
+        const display = await uploadImageDisplaySource(
+          supabase,
+          imageOriginal.path,
+          photos[0].file,
+        );
+        imageUrl = display.publicUrl;
+        mediaStatus = "queued";
+        mediaMetadata = {
+          pipeline: "original-plus-display-source",
+          originals_preserved: true,
+          display_source_path: display.path,
+        };
       }
 
       if (type === "reel" && videoFile) {
-        videoUrl = await uploadToMediaBucket(user.id, videoFile);
+        videoOriginal = await uploadOriginalMedia(
+          supabase,
+          user.id,
+          "video",
+          videoFile,
+        );
+        videoUrl = null;
+        mediaStatus = "queued";
+        mediaMetadata = {
+          pipeline: "adaptive-video-pending",
+          originals_preserved: true,
+          playback_note: "Raw video is stored privately and awaits ABR processing.",
+        };
       }
 
       const isStatus = type === "status";
@@ -260,11 +262,49 @@ export default function CreatePage() {
         status_text: isStatus ? statusText : null,
         status_bg: isStatus ? statusBg.id : null,
         location: location || null,
+        media_pipeline_version: type === "status" ? 1 : 2,
+        media_status: isStatus ? "ready" : mediaStatus,
+        media_metadata: mediaMetadata,
+        image_original_bucket: imageOriginal?.bucket ?? null,
+        image_original_path: imageOriginal?.path ?? null,
+        image_display_url: imageUrl,
+        image_thumbnail_url: null,
+        video_original_bucket: videoOriginal?.bucket ?? null,
+        video_original_path: videoOriginal?.path ?? null,
+        video_playback_url: null,
+        video_hls_url: null,
+        video_thumbnail_url: null,
       };
 
-      const { error } = await supabase.from('"Posts"').insert(payload);
+      const { data: insertedPost, error } = await supabase
+        .from('"Posts"')
+        .insert(payload)
+        .select("id")
+        .single();
 
       if (error) throw error;
+
+      if (imageOriginal) {
+        await queueMediaProcessingJob(supabase, {
+          userId: user.id,
+          postId: insertedPost?.id ?? null,
+          mediaKind: "image",
+          sourceBucket: imageOriginal.bucket,
+          sourcePath: imageOriginal.path,
+          metadata: mediaMetadata,
+        });
+      }
+
+      if (videoOriginal) {
+        await queueMediaProcessingJob(supabase, {
+          userId: user.id,
+          postId: insertedPost?.id ?? null,
+          mediaKind: "video",
+          sourceBucket: videoOriginal.bucket,
+          sourcePath: videoOriginal.path,
+          metadata: mediaMetadata,
+        });
+      }
 
       setToast("Post created.");
       setTimeout(() => {

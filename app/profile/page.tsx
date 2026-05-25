@@ -5,11 +5,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { getBestImageUrl } from "@/lib/media";
 
 type ProfilePost = {
   id: string;
   user_id: string;
   image_url: string | null;
+  image_display_url?: string | null;
+  image_thumbnail_url?: string | null;
   caption: string | null;
   created_at: string | null;
 };
@@ -412,7 +415,7 @@ export default function ProfilePage() {
     setPostsState("loading");
     const response = await supabase
       .from("Posts")
-      .select("id, user_id, image_url, caption, created_at")
+      .select("id, user_id, image_url, image_display_url, image_thumbnail_url, caption, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -713,14 +716,24 @@ export default function ProfilePage() {
                     key={post.id}
                     className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]"
                   >
-                    {post.image_url ? (
+                    {getBestImageUrl(
+                      post.image_thumbnail_url || post.image_display_url,
+                      post.image_url,
+                      "profileGrid",
+                    ) ? (
                       <Image
-                        src={post.image_url}
+                        src={
+                          getBestImageUrl(
+                            post.image_thumbnail_url || post.image_display_url,
+                            post.image_url,
+                            "profileGrid",
+                          ) as string
+                        }
                         alt={post.caption || "Crimson Society post"}
                         fill
                         sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 320px"
+                        quality={90}
                         className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                        unoptimized
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.2em] text-zinc-400">

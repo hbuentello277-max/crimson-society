@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 
 type PostType = "photo" | "reel" | "status";
 
@@ -20,6 +21,7 @@ type FeedPost = {
   musicLabel?: string;
   statusText?: string;
   statusBg?: string;
+  mediaStatus?: string;
   taggedRiders?: string[];
   timeLabel: string;
   likes: number;
@@ -41,7 +43,13 @@ type RawPost = {
   post_type?: string | null;
   caption?: string | null;
   image_url?: string | null;
+  image_display_url?: string | null;
+  image_thumbnail_url?: string | null;
   video_url?: string | null;
+  video_playback_url?: string | null;
+  video_hls_url?: string | null;
+  video_thumbnail_url?: string | null;
+  media_status?: string | null;
   status_text?: string | null;
   status_bg?: string | null;
   location?: string | null;
@@ -155,11 +163,27 @@ function mapPostToFeed(post: RawPost): FeedPost {
     },
     location: post.location || "",
     caption: post.caption || "",
-    photos: post.image_url ? [post.image_url] : [],
-    video: post.video_url || null,
+    photos: getBestImageUrl(
+      post.image_display_url || post.video_thumbnail_url,
+      post.image_url,
+      "feed",
+    )
+      ? [
+          getBestImageUrl(
+            post.image_display_url || post.video_thumbnail_url,
+            post.image_url,
+            "feed",
+          ) as string,
+        ]
+      : [],
+    video: getVideoPlaybackUrl(
+      post.video_playback_url || post.video_url,
+      post.video_hls_url,
+    ),
     musicLabel: "",
     statusText: post.status_text || "",
     statusBg: post.status_bg || "noir",
+    mediaStatus: post.media_status || "ready",
     taggedRiders: [],
     timeLabel: timeAgo(post.created_at),
     likes: post.post_likes?.[0]?.count || 0,
@@ -212,7 +236,13 @@ export default function DashboardPage() {
         post_type,
         caption,
         image_url,
+        image_display_url,
+        image_thumbnail_url,
         video_url,
+        video_playback_url,
+        video_hls_url,
+        video_thumbnail_url,
+        media_status,
         status_text,
         status_bg,
         location,
@@ -534,6 +564,7 @@ export default function DashboardPage() {
                             alt={`${p.author.name} post image ${idx + 1}`}
                             fill
                             sizes="(max-width: 768px) 100vw, 768px"
+                            quality={92}
                             className="object-cover"
                           />
                           {photos.length > 1 && (
@@ -556,6 +587,7 @@ export default function DashboardPage() {
                           autoPlay
                           loop
                           playsInline
+                          preload="metadata"
                         />
                       ) : photos[0] ? (
                         <Image
@@ -563,8 +595,15 @@ export default function DashboardPage() {
                           alt={`${p.author.name} reel cover`}
                           fill
                           sizes="(max-width: 768px) 100vw, 768px"
+                          quality={90}
                           className="object-cover"
                         />
+                      ) : p.mediaStatus === "queued" || p.mediaStatus === "processing" ? (
+                        <div className="flex h-full w-full items-center justify-center px-6 text-center">
+                          <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+                            Reel processing for cinematic playback
+                          </p>
+                        </div>
                       ) : null}
 
                       {p.musicLabel && (
