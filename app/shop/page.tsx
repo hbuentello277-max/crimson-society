@@ -256,11 +256,11 @@ export default function ShopPage() {
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
           <div className="relative aspect-[16/10] w-full">
             <Image
-              src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1400"
-              alt="Spring drop"
+              src="/silent-movement-san-antonio.png"
+              alt="Silent Movement First Drop artwork"
               fill
               sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover object-[center_68%] opacity-60"
+              className="object-contain object-center opacity-60"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/35 to-transparent" />
           </div>
