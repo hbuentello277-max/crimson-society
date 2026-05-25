@@ -314,14 +314,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!session) return;
 
-    void loadFeed();
+    const timer = window.setTimeout(() => {
+      void loadFeed();
+    }, 0);
 
     const onFocus = () => {
       void loadFeed();
     };
 
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadFeed, session]);
 
   const doRefresh = () => {

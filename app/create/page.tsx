@@ -122,23 +122,27 @@ export default function CreatePage() {
   }, []);
 
   useEffect(() => {
-    if (type !== "photo") {
-      photos.forEach((p) => URL.revokeObjectURL(p.preview));
-      setPhotos([]);
-    }
+    const timer = window.setTimeout(() => {
+      if (type !== "photo") {
+        photos.forEach((p) => URL.revokeObjectURL(p.preview));
+        setPhotos([]);
+      }
 
-    if (type !== "reel") {
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
-      setVideoFile(null);
-      setVideoPreview(null);
-    }
+      if (type !== "reel") {
+        if (videoPreview) URL.revokeObjectURL(videoPreview);
+        setVideoFile(null);
+        setVideoPreview(null);
+      }
 
-    if (type !== "status") {
-      setStatusText("");
-      setStatusBg(statusBackgrounds[0]);
-    } else {
-      setSelectedSound(null);
-    }
+      if (type !== "status") {
+        setStatusText("");
+        setStatusBg(statusBackgrounds[0]);
+      } else {
+        setSelectedSound(null);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
@@ -335,9 +339,13 @@ export default function CreatePage() {
       setTimeout(() => {
         router.push("/dashboard");
       }, 900);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Create post error:", err);
-      alert(err?.message || "Something went wrong while creating the post.");
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while creating the post."
+      );
     } finally {
       setSubmitting(false);
     }
