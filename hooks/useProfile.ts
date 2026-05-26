@@ -27,7 +27,8 @@ export function useProfile(): UseProfileResult {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setProfile(authProfile);
+    const timer = window.setTimeout(() => setProfile(authProfile), 0);
+    return () => window.clearTimeout(timer);
   }, [authProfile]);
 
   const refresh = useCallback(async () => {
