@@ -174,7 +174,7 @@ export default function BlackcardPage() {
         <div className="mx-auto max-w-6xl px-6 py-14">
           <div className="rounded-[32px] border border-red-900/30 bg-[radial-gradient(circle_at_top,rgba(120,0,0,0.18),transparent_40%),#090909] p-8 md:p-10 shadow-[0_0_100px_rgba(120,0,0,0.12)]">
             <p className="text-xs uppercase tracking-[0.38em] text-red-500/70">
-              Apex Members
+              Blackcard Members
             </p>
             <h1 className="mt-4 text-4xl font-light tracking-tight md:text-5xl">
               Blackcard access is active.

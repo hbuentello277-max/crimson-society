@@ -28,7 +28,7 @@ export default function BlackcardDashboard({ onBack }: Props) {
         </button>
 
         <p className="mt-8 text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-          Apex Members
+          Blackcard Members
         </p>
 
         <h1 className="mt-4 font-serif text-5xl leading-none text-white md:text-6xl">

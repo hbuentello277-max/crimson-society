@@ -50,7 +50,7 @@ export default function LandingPage() {
 
   return (
     <main
-      className={`relative min-h-[100dvh] bg-[#050505] text-white transition-opacity duration-500 ${
+      className={`relative min-h-[100dvh] overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
         isFading ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -65,16 +65,16 @@ export default function LandingPage() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
-      <section className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center pb-[calc(env(safe-area-inset-bottom)+28px)]">
-        <div className="relative mx-auto flex min-h-0 w-full flex-1 items-center justify-center bg-gradient-to-b from-[#151113] via-[#090909] to-black sm:max-w-[30rem] sm:border-x sm:border-[#b4141e]/20">
+      <section className="relative flex min-h-[100dvh] w-full items-stretch justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#151113] via-[#090909] to-black">
           {!splashFailed && (
             <Image
               src="/splash.png"
               alt=""
               fill
               priority
-              sizes="(max-width: 640px) 100vw, 480px"
-              className="object-contain object-center"
+              sizes="100vw"
+              className="object-cover object-center"
               onError={() => setSplashFailed(true)}
             />
           )}
@@ -92,7 +92,7 @@ export default function LandingPage() {
         </div>
 
         {showGuestButtons && (
-          <div className="relative z-10 mt-3 grid w-full grid-cols-2 gap-3 px-5 sm:max-w-[30rem]">
+          <div className="absolute inset-x-0 bottom-0 z-10 mx-auto grid w-full grid-cols-2 gap-3 px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] sm:max-w-[30rem]">
             <Link
               href="/login"
               className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
