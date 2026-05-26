@@ -8,7 +8,7 @@ import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
-import { hasActiveMembership, type MembershipRow } from "@/lib/membership";
+import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import { supabase } from "@/lib/supabase";
 
 type ProfilePost = {
@@ -192,8 +192,9 @@ export default function ProfilePage() {
   }, [loadGarage, loadPosts, tab]);
 
   const tabs = useMemo(
-    () =>
-      hasActiveMembership(membership)
+    () => {
+      const hasAccess = hasBlackcardAccess(membership, isAdmin);
+      return hasAccess
         ? [
             { k: "posts" as const, label: "Posts" },
             { k: "rides" as const, label: "Rides" },
@@ -206,9 +207,12 @@ export default function ProfilePage() {
             { k: "rides" as const, label: "Rides" },
             { k: "garage" as const, label: "Garage" },
             { k: "saved" as const, label: "Saved" },
-          ],
-    [membership],
+          ];
+    },
+    [isAdmin, membership],
   );
+
+  const blackcardAccessActive = hasBlackcardAccess(membership, isAdmin);
 
   if (authLoading || profileLoading) {
     return (
@@ -288,15 +292,17 @@ export default function ProfilePage() {
 
         <ProfileHeader profile={profile} />
 
-        <div className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
-              <h2 className="mt-1 font-serif text-xl text-white">Blackcard Member</h2>
+        {blackcardAccessActive && (
+          <div className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
+                <h2 className="mt-1 font-serif text-xl text-white">Blackcard Member</h2>
+              </div>
+              <span className="text-xl text-[#b4141e]">✦</span>
             </div>
-            <span className="text-xl text-[#b4141e]">✦</span>
           </div>
-        </div>
+        )}
 
         <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 

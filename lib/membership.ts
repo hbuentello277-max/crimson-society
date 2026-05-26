@@ -42,6 +42,13 @@ export function hasActiveMembership(membership: MembershipRow | null) {
   return new Date(membership.current_period_end).getTime() >= Date.now();
 }
 
+export function hasBlackcardAccess(
+  membership: MembershipRow | null,
+  isAdmin?: boolean,
+) {
+  return isAdmin === true || hasActiveMembership(membership);
+}
+
 export function formatMembershipPlanType(planType?: string | null) {
   const normalized = normalizeMembershipPlanType(planType);
   if (normalized === "yearly") return "Yearly";

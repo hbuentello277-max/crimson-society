@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import {
   checkoutPlanType,
   formatMembershipPlanType,
-  hasActiveMembership,
+  hasBlackcardAccess,
   type MembershipPlanType,
   type MembershipRow,
 } from "@/lib/membership";
@@ -81,12 +82,15 @@ function CheckoutButton({
 }
 
 export default function BlackcardPage() {
+  const { loading: authLoading, isAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
+    if (authLoading) return;
+
     async function loadMembership() {
       try {
         setLoading(true);
@@ -148,11 +152,11 @@ export default function BlackcardPage() {
     }
 
     loadMembership();
-  }, []);
+  }, [authLoading]);
 
-  const isPremium = hasActiveMembership(membership);
+  const isPremium = hasBlackcardAccess(membership, isAdmin);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
@@ -226,8 +230,10 @@ export default function BlackcardPage() {
                   Membership on record
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  {formatMembershipPlanType(membership?.plan_type)} · {membership?.status}
-                  {membership?.current_period_end
+                  {isAdmin
+                    ? "Admin Blackcard Access · active"
+                    : `${formatMembershipPlanType(membership?.plan_type)} · ${membership?.status}`}
+                  {!isAdmin && membership?.current_period_end
                     ? ` · renews ${new Date(membership.current_period_end).toLocaleDateString()}`
                     : ""}
                 </p>

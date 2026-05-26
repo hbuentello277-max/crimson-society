@@ -5,6 +5,7 @@ export type AppProfile = {
   id: string;
   role: string | null;
   status: string | null;
+  is_admin: boolean | null;
   username: string | null;
   display_name: string | null;
   full_name: string | null;
@@ -88,7 +89,7 @@ export function getProfileSaveErrorDetails(error: unknown): ProfileSaveErrorDeta
 }
 
 export const PROFILE_SELECT =
-  "id, role, status, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url";
+  "id, role, status, is_admin, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url";
 
 export function cleanUsername(value: string) {
   const cleaned = value
