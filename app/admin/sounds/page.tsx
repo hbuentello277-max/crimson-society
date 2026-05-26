@@ -4,7 +4,22 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { formatSoundDuration, type CrimsonSound, type SoundCategory } from "@/lib/sounds";
+import {
+  AUDIO_ORIGINAL_BUCKET,
+  AUDIO_RENDER_BUCKET,
+  ALLOWED_AUDIO_MIME_TYPES,
+  CRIMSON_AUDIO_CATEGORIES,
+  MAX_AUDIO_DURATION_SECONDS,
+  MAX_AUDIO_FILE_SIZE_BYTES,
+  formatFileSize,
+  formatSoundDuration,
+  isAllowedAudioFile,
+  isAudioFileTooLarge,
+  loadAudioDuration,
+  playExclusiveSound,
+  type CrimsonSound,
+  type SoundCategory,
+} from "@/lib/sounds";
 
 type SoundForm = {
   title: string;
@@ -18,6 +33,7 @@ type SoundForm = {
   licenseType: string;
   rightsOwner: string;
   sourceUrl: string;
+  approvedSource: boolean;
   featured: boolean;
   approved: boolean;
   licenseNotes: string;
@@ -35,9 +51,18 @@ const emptyForm: SoundForm = {
   licenseType: "royalty_free",
   rightsOwner: "",
   sourceUrl: "",
+  approvedSource: true,
   featured: false,
-  approved: true,
+  approved: false,
   licenseNotes: "",
+};
+
+type UploadedAudioAsset = {
+  originalBucket: string | null;
+  originalPath: string | null;
+  renderBucket: string;
+  renderPath: string;
+  publicUrl: string;
 };
 
 function fileExt(file: File) {
@@ -54,6 +79,7 @@ export default function AdminSoundsPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -78,15 +104,26 @@ export default function AdminSoundsPage() {
           id,
           title,
           artist,
+          description,
           duration_seconds,
           mood,
           bpm,
           cover_image_url,
           audio_url,
           preview_url,
+          provider,
           license_type,
+          license_notes,
           rights_owner,
           source_url,
+          approved_source,
+          copyright_status,
+          moderation_status,
+          file_size_bytes,
+          original_bucket,
+          original_path,
+          render_bucket,
+          render_path,
           approved,
           featured,
           usage_count,
@@ -126,19 +163,69 @@ export default function AdminSoundsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, session?.user?.id, isAdmin]);
 
-  async function uploadRenderFile(file: File, kind: "audio" | "cover") {
+  async function uploadAudioAsset(file: File): Promise<UploadedAudioAsset> {
+    if (!isAllowedAudioFile(file)) {
+      throw new Error("Use MP3, M4A, AAC, or WAV only.");
+    }
+
+    if (isAudioFileTooLarge(file)) {
+      throw new Error(`Audio files must stay under ${formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)}.`);
+    }
+
+    const duration = await loadAudioDuration(file);
+    if (duration > MAX_AUDIO_DURATION_SECONDS) {
+      throw new Error(`Audio must be ${formatSoundDuration(MAX_AUDIO_DURATION_SECONDS)} or shorter.`);
+    }
+
+    const id = crypto.randomUUID();
+    const ext = fileExt(file);
+    const originalPath = `audio/${id}/original.${ext}`;
+    const renderPath = `audio/${id}/stream.${ext}`;
+
+    const { error: originalError } = await supabase.storage
+      .from(AUDIO_ORIGINAL_BUCKET)
+      .upload(originalPath, file, {
+        cacheControl: "31536000",
+        contentType: file.type || undefined,
+        upsert: false,
+      });
+
+    if (originalError) throw originalError;
+
+    const { error: renderError } = await supabase.storage
+      .from(AUDIO_RENDER_BUCKET)
+      .upload(renderPath, file, {
+        cacheControl: "31536000",
+        contentType: file.type || undefined,
+        upsert: false,
+      });
+
+    if (renderError) throw renderError;
+
+    const { data } = supabase.storage.from(AUDIO_RENDER_BUCKET).getPublicUrl(renderPath);
+    return {
+      originalBucket: AUDIO_ORIGINAL_BUCKET,
+      originalPath,
+      renderBucket: AUDIO_RENDER_BUCKET,
+      renderPath,
+      publicUrl: data.publicUrl,
+    };
+  }
+
+  async function uploadRenderFile(file: File, kind: "cover") {
     const id = crypto.randomUUID();
     const path = `${kind}/${id}.${fileExt(file)}`;
     const { error } = await supabase.storage
-      .from("sound-renders")
+      .from(AUDIO_RENDER_BUCKET)
       .upload(path, file, {
         cacheControl: "31536000",
+        contentType: file.type || undefined,
         upsert: false,
       });
 
     if (error) throw error;
 
-    const { data } = supabase.storage.from("sound-renders").getPublicUrl(path);
+    const { data } = supabase.storage.from(AUDIO_RENDER_BUCKET).getPublicUrl(path);
     return data.publicUrl;
   }
 
@@ -152,14 +239,24 @@ export default function AdminSoundsPage() {
     try {
       let audioUrl = form.audioUrl.trim();
       let coverImageUrl = form.coverImageUrl.trim();
+      let uploadedAsset: UploadedAudioAsset | null = null;
+      let detectedDuration = form.duration ? Number(form.duration) : null;
 
-      if (audioFile) audioUrl = await uploadRenderFile(audioFile, "audio");
+      if (audioFile) {
+        detectedDuration = Math.round(await loadAudioDuration(audioFile));
+        uploadedAsset = await uploadAudioAsset(audioFile);
+        audioUrl = uploadedAsset.publicUrl;
+      }
       if (coverFile) coverImageUrl = await uploadRenderFile(coverFile, "cover");
 
-      const { error } = await supabase.from("sounds").insert({
+      if (form.approved && (!form.rightsOwner.trim() || !form.sourceUrl.trim())) {
+        throw new Error("Approved tracks need a rights owner and source or license URL.");
+      }
+
+      const { data: insertedSound, error } = await supabase.from("sounds").insert({
         title: form.title.trim(),
         artist: form.artist.trim() || null,
-        duration_seconds: form.duration ? Number(form.duration) : null,
+        duration_seconds: detectedDuration,
         mood: form.mood.trim() || null,
         bpm: form.bpm ? Number(form.bpm) : null,
         category_id: form.categoryId || null,
@@ -172,11 +269,46 @@ export default function AdminSoundsPage() {
         rights_owner: form.rightsOwner.trim() || null,
         source_url: form.sourceUrl.trim() || null,
         license_notes: form.licenseNotes.trim() || null,
+        approved_source: form.approvedSource,
+        copyright_status: form.approvedSource ? "verified" : "needs_review",
+        moderation_status: form.approved ? "approved" : "pending",
+        file_size_bytes: audioFile?.size ?? null,
+        original_bucket: uploadedAsset?.originalBucket ?? null,
+        original_path: uploadedAsset?.originalPath ?? null,
+        render_bucket: uploadedAsset?.renderBucket ?? null,
+        render_path: uploadedAsset?.renderPath ?? null,
         approved: form.approved,
         featured: form.featured,
-      });
+      }).select("id").single();
 
       if (error) throw error;
+
+      if (insertedSound?.id) {
+        await supabase.from("audio_tracks").upsert({
+          sound_id: insertedSound.id,
+          title: form.title.trim(),
+          artist: form.artist.trim() || null,
+          duration_seconds: detectedDuration,
+          category_id: form.categoryId || null,
+          mood: form.mood.trim() || null,
+          bpm: form.bpm ? Number(form.bpm) : null,
+          original_bucket: uploadedAsset?.originalBucket ?? null,
+          original_path: uploadedAsset?.originalPath ?? null,
+          render_bucket: uploadedAsset?.renderBucket ?? AUDIO_RENDER_BUCKET,
+          render_path: uploadedAsset?.renderPath ?? null,
+          public_stream_url: audioUrl,
+          file_size_bytes: audioFile?.size ?? null,
+          mime_type: audioFile?.type || null,
+          license_type: form.licenseType.trim() || "royalty_free",
+          rights_owner: form.rightsOwner.trim() || null,
+          source_url: form.sourceUrl.trim() || null,
+          license_notes: form.licenseNotes.trim() || null,
+          approved_source: form.approvedSource,
+          approved: form.approved,
+          moderation_status: form.approved ? "approved" : "pending",
+          uploaded_by: userId,
+        }, { onConflict: "sound_id" });
+      }
 
       setForm(emptyForm);
       setAudioFile(null);
@@ -193,13 +325,38 @@ export default function AdminSoundsPage() {
   }
 
   async function updateSound(id: string, patch: Partial<CrimsonSound>) {
+    const nextPatch = {
+      ...patch,
+      moderation_status:
+        patch.approved === true ? "approved" : patch.approved === false ? "pending" : patch.moderation_status,
+      copyright_status:
+        patch.approved === true ? "verified" : patch.copyright_status,
+    };
     setSounds((prev) =>
-      prev.map((sound) => (sound.id === id ? { ...sound, ...patch } : sound)),
+      prev.map((sound) => (sound.id === id ? { ...sound, ...nextPatch } : sound)),
     );
-    const { error } = await supabase.from("sounds").update(patch).eq("id", id);
+    const { error } = await supabase.from("sounds").update(nextPatch).eq("id", id);
+    await supabase
+      .from("audio_tracks")
+      .update({
+        approved: nextPatch.approved,
+        approved_source: nextPatch.approved_source,
+        moderation_status: nextPatch.moderation_status,
+      })
+      .eq("sound_id", id);
     if (error) {
       setErrorMsg(error.message);
       await loadLibrary();
+    }
+  }
+
+  async function togglePreview(sound: CrimsonSound) {
+    try {
+      const didPlay = await playExclusiveSound(sound, () => setPlayingId(null));
+      setPlayingId(didPlay ? sound.id : null);
+    } catch {
+      setPlayingId(null);
+      setErrorMsg("Could not preview this audio file.");
     }
   }
 
@@ -268,6 +425,13 @@ export default function AdminSoundsPage() {
         )}
 
         <section className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
+          <div className="mb-5 rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/10 p-4 text-xs leading-6 text-zinc-300">
+            Upload only royalty-free, app-owned, or commercially licensed audio. Keep
+            tracks under {formatSoundDuration(MAX_AUDIO_DURATION_SECONDS)} and{" "}
+            {formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)}. Originals are stored privately;
+            public playback uses the render bucket until a transcoder is connected.
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
@@ -298,10 +462,29 @@ export default function AdminSoundsPage() {
               <input
                 ref={audioInputRef}
                 type="file"
-                accept="audio/*"
-                onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)}
+                accept=".mp3,.m4a,.aac,.wav,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/x-wav"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setErrorMsg("");
+                  if (file && !ALLOWED_AUDIO_MIME_TYPES.includes(file.type)) {
+                    setAudioFile(null);
+                    setErrorMsg("Use MP3, M4A, AAC, or WAV only.");
+                    return;
+                  }
+                  if (file && file.size > MAX_AUDIO_FILE_SIZE_BYTES) {
+                    setAudioFile(null);
+                    setErrorMsg(`Audio files must stay under ${formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)}.`);
+                    return;
+                  }
+                  setAudioFile(file);
+                }}
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-zinc-300 file:mr-4 file:rounded-full file:border-0 file:bg-[#b4141e] file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.18em] file:text-white"
               />
+              {audioFile && (
+                <span className="mt-2 block text-[11px] text-white/45">
+                  {audioFile.name} · {formatFileSize(audioFile.size)}
+                </span>
+              )}
             </label>
 
             <label className="block">
@@ -344,6 +527,29 @@ export default function AdminSoundsPage() {
                 {categories.map((category) => (
                   <option key={category.id} value={category.id} className="bg-black">
                     {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+                Suggested Categories
+              </span>
+              <select
+                value=""
+                onChange={(event) => {
+                  const match = categories.find((category) => category.slug === event.target.value);
+                  if (match) setForm((prev) => ({ ...prev, categoryId: match.id }));
+                }}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+              >
+                <option value="" className="bg-black">
+                  Pick Crimson category
+                </option>
+                {CRIMSON_AUDIO_CATEGORIES.map((category) => (
+                  <option key={category} value={category.replaceAll(" ", "-")} className="bg-black">
+                    {category}
                   </option>
                 ))}
               </select>
@@ -449,6 +655,14 @@ export default function AdminSoundsPage() {
             <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs text-zinc-300">
               <input
                 type="checkbox"
+                checked={form.approvedSource}
+                onChange={(event) => setForm((prev) => ({ ...prev, approvedSource: event.target.checked }))}
+              />
+              Copyright-safe source verified
+            </label>
+            <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs text-zinc-300">
+              <input
+                type="checkbox"
                 checked={form.approved}
                 onChange={(event) => setForm((prev) => ({ ...prev, approved: event.target.checked }))}
               />
@@ -477,15 +691,48 @@ export default function AdminSoundsPage() {
           {sounds.map((sound) => (
             <div
               key={sound.id}
-              className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:grid-cols-[1fr_auto_auto]"
+              className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:grid-cols-[1fr_auto_auto_auto]"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm text-white">{sound.title}</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => togglePreview(sound)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 text-xs text-white"
+                    aria-label={playingId === sound.id ? "Pause preview" : "Preview sound"}
+                  >
+                    {playingId === sound.id ? "Ⅱ" : "▶"}
+                  </button>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-white">{sound.title}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                      {sound.artist || "Crimson Society"} · {formatSoundDuration(sound.duration_seconds)}
+                      {sound.bpm ? ` · ${sound.bpm} BPM` : ""} · {sound.usage_count} uses
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex h-8 items-end gap-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2">
+                  {Array.from({ length: 32 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className="w-full rounded-full bg-[#b4141e]/60"
+                      style={{ height: `${20 + ((index * 17) % 78)}%` }}
+                    />
+                  ))}
+                </div>
                 <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                  {sound.artist || "Crimson Society"} · {formatSoundDuration(sound.duration_seconds)}
-                  {sound.bpm ? ` · ${sound.bpm} BPM` : ""} · {sound.usage_count} uses
+                  {sound.license_type || "royalty_free"} · {sound.rights_owner || "rights owner needed"} ·{" "}
+                  {sound.file_size_bytes ? formatFileSize(sound.file_size_bytes) : "external/imported"}
                 </p>
               </div>
+              <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={!!sound.approved_source}
+                  onChange={(event) => updateSound(sound.id, { approved_source: event.target.checked })}
+                />
+                Source OK
+              </label>
               <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
                 <input
                   type="checkbox"
