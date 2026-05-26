@@ -269,6 +269,31 @@ const INITIAL_DRAFT: DraftRide = {
   previewImage: "",
 };
 
+function StaticRidePreview({ ride }: { ride: Ride }) {
+  return (
+    <div className="relative flex h-full min-h-[176px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(127,17,27,0.28),transparent_34%),linear-gradient(135deg,#090708,#171011_48%,#050405)]">
+      <svg
+        viewBox="0 0 220 120"
+        className="absolute inset-0 h-full w-full opacity-70"
+        aria-hidden
+      >
+        <path
+          d="M18 92 C 54 46, 83 72, 112 40 S 166 42, 202 24"
+          fill="none"
+          stroke="rgba(180,20,30,0.72)"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <circle cx="18" cy="92" r="5" fill="rgba(232,122,130,0.9)" />
+        <circle cx="202" cy="24" r="5" fill="rgba(232,122,130,0.9)" />
+      </svg>
+      <div className="relative z-10 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-300 backdrop-blur-md">
+        {ride.city}
+      </div>
+    </div>
+  );
+}
+
 export default function RidesPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"upcoming" | "past" | "hosted">("upcoming");
@@ -287,6 +312,7 @@ export default function RidesPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackingWatchRef = useRef<number | null>(null);
   const trackingRideRef = useRef<string | null>(null);
+  const lastLocationWriteRef = useRef<Record<string, { lat: number; lng: number; at: number }>>({});
   const detailHistoryPushed = useRef(false);
 
   const allRides = useMemo(() => [...upcoming, ...past, ...hosted], [upcoming, past, hosted]);
@@ -448,9 +474,28 @@ export default function RidesPage() {
 
     if (error) {
       console.error("Failed writing live location:", error.message);
-    } else {
-      console.log("Live location written:", { rideId, userId, lat, lng });
     }
+  }
+
+  function shouldWriteLiveLocation(rideId: string, lat: number, lng: number) {
+    const previous = lastLocationWriteRef.current[rideId];
+    const now = Date.now();
+
+    if (!previous) {
+      lastLocationWriteRef.current[rideId] = { lat, lng, at: now };
+      return true;
+    }
+
+    const elapsed = now - previous.at;
+    const moved =
+      Math.abs(previous.lat - lat) > 0.0003 || Math.abs(previous.lng - lng) > 0.0003;
+
+    if (elapsed >= 15000 || moved) {
+      lastLocationWriteRef.current[rideId] = { lat, lng, at: now };
+      return true;
+    }
+
+    return false;
   }
 
   async function startRideTracking(rideId: string) {
@@ -491,6 +536,15 @@ export default function RidesPage() {
     trackingWatchRef.current = navigator.geolocation.watchPosition(
       async (position) => {
         if (!trackingRideRef.current) return;
+        if (
+          !shouldWriteLiveLocation(
+            trackingRideRef.current,
+            position.coords.latitude,
+            position.coords.longitude
+          )
+        ) {
+          return;
+        }
 
         await writeLiveLocation(
           trackingRideRef.current,
@@ -534,8 +588,6 @@ export default function RidesPage() {
 
     if (error) {
       console.error("Failed removing live location:", error.message);
-    } else {
-      console.log("Stopped tracking for:", { rideId, userId: user.id });
     }
   }
 
@@ -574,10 +626,10 @@ export default function RidesPage() {
     setOpenId(id);
   };
 
-  const dismissDetails = () => {
+  function dismissDetails() {
     setOpenId(null);
     previousFocus.current?.focus?.();
-  };
+  }
 
   const closeDetails = () => {
     if (detailHistoryPushed.current) {
@@ -701,7 +753,7 @@ export default function RidesPage() {
             <span className="h-px w-12 bg-white/20" />
           </div>
 
-          <h1 className="mt-5 font-serif text-7xl leading-none">Rides</h1>
+          <h1 className="mt-5 font-serif text-5xl leading-none sm:text-7xl">Rides</h1>
 
           <div className="mt-3">
             <p className="font-serif text-[28px] italic leading-[1.08] text-[#e87a82] sm:text-[32px]">
@@ -815,16 +867,7 @@ export default function RidesPage() {
                           className="object-cover"
                         />
                       ) : (
-                        <RideMap
-                          lat={r.lat}
-                          lng={r.lng}
-                          meetPoint={r.meetPoint}
-                          route={r.route ?? []}
-                          editable={false}
-                          compact
-                          hideHint
-                          height={176}
-                        />
+                        <StaticRidePreview ride={r} />
                       )}
 
                       <div className="absolute inset-0 bg-gradient-to-t from-[#05040580] via-transparent to-transparent" />
@@ -957,13 +1000,19 @@ export default function RidesPage() {
             <button
               onClick={closeDetails}
               aria-label="Close ride details"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-zinc-300 transition hover:border-white/20 hover:text-white"
+              className="absolute right-5 top-[calc(env(safe-area-inset-top)+16px)] z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/45 text-zinc-300 transition hover:border-white/20 hover:text-white"
             >
               ×
             </button>
 
             <div className="relative h-64 w-full overflow-hidden sm:h-80">
-              <Image src={openRide.cover} alt={openRide.name} fill className="object-cover" />
+              <Image
+                src={openRide.cover}
+                alt={openRide.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 768px"
+                className="object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-[#090709] via-[#09070915] to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-300">
@@ -1387,7 +1436,7 @@ export default function RidesPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-10 left-1/2 z-[70] -translate-x-1/2">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-1/2 z-[70] -translate-x-1/2">
           <div className="flex items-center gap-3 rounded-full border border-[rgba(127,17,27,0.28)] bg-[linear-gradient(180deg,rgba(127,17,27,0.2),rgba(11,11,12,0.95))] px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-zinc-100 shadow-[0_20px_40px_-20px_rgba(0,0,0,0.95)] backdrop-blur-md">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[rgba(127,17,27,0.95)]" />
             {toast}

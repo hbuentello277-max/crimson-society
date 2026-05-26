@@ -260,21 +260,45 @@ export default function AdminPage() {
             )}
 
             <div className="mt-8 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
-                    Crimson Sounds
-                  </p>
-                  <h2 className="mt-2 font-serif text-2xl text-white">
-                    Internal sound library
-                  </h2>
-                </div>
-                <Link
-                  href="/admin/sounds"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black/30 px-5 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
-                >
-                  Manage Sounds
-                </Link>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  {
+                    eyebrow: "Blackcard",
+                    title: "Membership controls",
+                    href: "/admin/blackcard",
+                    cta: "Members",
+                  },
+                  {
+                    eyebrow: "Shop",
+                    title: "Merch control room",
+                    href: "/admin/shop",
+                    cta: "Products",
+                  },
+                  {
+                    eyebrow: "Crimson Sounds",
+                    title: "Internal sound library",
+                    href: "/admin/sounds",
+                    cta: "Sounds",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.href}
+                    className="rounded-2xl border border-white/10 bg-black/25 p-5"
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
+                      {item.eyebrow}
+                    </p>
+                    <h2 className="mt-2 font-serif text-2xl text-white">
+                      {item.title}
+                    </h2>
+                    <Link
+                      href={item.href}
+                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black/30 px-5 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+                    >
+                      Manage {item.cta}
+                    </Link>
+                  </div>
+                ))}
               </div>
             </div>
 

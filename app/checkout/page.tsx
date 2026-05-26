@@ -20,8 +20,6 @@ export default function CheckoutSuccessPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-
     async function checkStatus() {
       try {
         const {
@@ -60,7 +58,7 @@ export default function CheckoutSuccessPage() {
     }
 
     checkStatus();
-    interval = setInterval(checkStatus, 3000);
+    const interval = setInterval(checkStatus, 3000);
 
     return () => clearInterval(interval);
   }, []);

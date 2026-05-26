@@ -209,8 +209,8 @@ export function getBestImageUrl(
   legacyOriginalUrl?: string | null,
   variant: ImageVariant = "feed",
 ) {
-  void variant;
-  return displayUrl || legacyOriginalUrl || null;
+  const sourceUrl = displayUrl || legacyOriginalUrl || null;
+  return getImageRenderUrl(sourceUrl, variant);
 }
 
 export function getVideoPlaybackUrl(

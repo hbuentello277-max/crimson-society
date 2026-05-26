@@ -157,14 +157,15 @@ export default function CreatePage() {
     if (!files) return;
 
     const next = Array.from(files)
-      .slice(0, 6)
+      .slice(0, 1)
       .map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
 
     setPhotos((prev) => {
-      const merged = [...prev, ...next].slice(0, 6);
+      prev.forEach((p) => URL.revokeObjectURL(p.preview));
+      const merged = next.slice(0, 1);
       return merged;
     });
   };
@@ -421,7 +422,7 @@ export default function CreatePage() {
                   </div>
                   <p className="font-serif text-lg italic text-white">Add Frames</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    Up to 6 · JPG · PNG
+                    Single image · JPG · PNG
                   </p>
                 </button>
               ) : (
@@ -445,7 +446,7 @@ export default function CreatePage() {
                       </button>
                     </div>
                   ))}
-                  {photos.length < 6 && (
+                  {photos.length < 1 && (
                     <button
                       onClick={() => photoInputRef.current?.click()}
                       className="flex aspect-square flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-white/40 hover:border-[#b4141e]/60 hover:text-[#e87a82]"

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { ensureUserProfile, type AppProfile } from "@/lib/profile";
@@ -16,6 +16,7 @@ type AuthContextType = {
   isAdmin: boolean;
   isModerator: boolean;
   refreshProfile: () => Promise<Profile>;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isModerator: false,
   refreshProfile: async () => null,
+  signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -34,62 +36,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(nextSession: Session) {
+  const applySession = useCallback(async (nextSession: Session | null) => {
+    if (!nextSession?.user?.id) {
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+      return null;
+    }
+
+    setSession(nextSession);
+
     const nextProfile = await ensureUserProfile(nextSession.user);
     setProfile(nextProfile);
+    setLoading(false);
     return nextProfile;
-  }
+  }, []);
 
-  async function refreshProfile() {
-    if (!session?.user) {
+  const refreshProfile = useCallback(async () => {
+    if (!session?.user?.id) {
       setProfile(null);
       return null;
     }
 
-    return loadProfile(session);
-  }
+    const nextProfile = await ensureUserProfile(session.user);
+    setProfile(nextProfile);
+    return nextProfile;
+  }, [session]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
+    let requestId = 0;
 
-    async function loadSession() {
-      const { data, error } = await supabase.auth.getSession();
+    async function safeApplySession(nextSession: Session | null) {
+      const currentRequest = ++requestId;
+      const nextProfile = await applySession(nextSession);
 
-      if (!mounted) return;
-
-      if (error || !data.session) {
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      setSession(data.session);
-      await loadProfile(data.session);
-      if (mounted) setLoading(false);
+      if (!mounted || currentRequest !== requestId) return;
+      if (nextProfile) setProfile(nextProfile);
     }
 
-    loadSession();
+    const fallbackTimer = window.setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) void safeApplySession(data.session ?? null);
+    }, 500);
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession ?? null);
-
-      if (nextSession?.user?.id) {
-        await loadProfile(nextSession);
-      } else {
-        setProfile(null);
-      }
-
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      window.clearTimeout(fallbackTimer);
+      void safeApplySession(nextSession ?? null);
     });
 
     return () => {
       mounted = false;
+      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applySession]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void refreshProfile();
+      }
+    };
+
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => document.removeEventListener("visibilitychange", refreshOnFocus);
+  }, [refreshProfile, session?.user?.id]);
 
   const role = profile?.role ?? null;
   const status = profile?.status ?? null;
@@ -108,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isModerator,
         refreshProfile,
+        signOut,
       }}
     >
       {children}

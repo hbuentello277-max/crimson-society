@@ -5,22 +5,44 @@ export type AppProfile = {
   id: string;
   role: string | null;
   status: string | null;
-  display_name?: string | null;
-  username?: string | null;
-  profile_image_url?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  quote?: string | null;
-  instagram_url?: string | null;
-  tiktok_url?: string | null;
-  youtube_url?: string | null;
-  website_url?: string | null;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  profile_image_url: string | null;
+  bio: string | null;
+  location: string | null;
+  city: string | null;
+  state: string | null;
+  riding_area: string | null;
+  bike_type: string | null;
+  riding_style: string | null;
+  profile_tags: string[] | null;
+  hide_location_from_suggestions: boolean | null;
+  hide_from_suggestions: boolean | null;
+  quote: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  website_url: string | null;
 };
 
-const PROFILE_SELECT =
-  "id, role, status, display_name, username, profile_image_url, bio, location, quote, instagram_url, tiktok_url, youtube_url, website_url";
+export type ProfileIdentityInput = {
+  display_name: string;
+  username: string;
+  bio: string;
+  location: string;
+  quote: string;
+  instagram_url: string;
+  tiktok_url: string;
+  youtube_url: string;
+  website_url: string;
+};
 
-function cleanUsername(value: string) {
+export const PROFILE_SELECT =
+  "id, role, status, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url";
+
+export function cleanUsername(value: string) {
   const cleaned = value
     .trim()
     .replace(/^@+/, "")
@@ -28,6 +50,22 @@ function cleanUsername(value: string) {
     .replace(/[^a-z0-9._-]/g, "");
 
   return cleaned || "member";
+}
+
+export function normalizeUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function splitLocation(value: string) {
+  const [cityPart, statePart] = value.split(",").map((item) => item.trim());
+
+  return {
+    city: cityPart || null,
+    state: statePart || null,
+  };
 }
 
 function profileDefaults(user: User) {
@@ -43,17 +81,26 @@ function profileDefaults(user: User) {
     typeof metadata.username === "string" && metadata.username.trim()
       ? metadata.username
       : emailPrefix;
+  const avatarUrl =
+    typeof metadata.avatar_url === "string" ? metadata.avatar_url : null;
 
   return {
     id: user.id,
-    role: "user",
-    status: "active",
     display_name: displayName,
+    full_name: displayName,
     username: cleanUsername(username),
-    profile_image_url:
-      typeof metadata.avatar_url === "string" ? metadata.avatar_url : null,
+    avatar_url: avatarUrl,
+    profile_image_url: avatarUrl,
     bio: null,
     location: null,
+    city: null,
+    state: null,
+    riding_area: null,
+    bike_type: null,
+    riding_style: null,
+    profile_tags: [],
+    hide_location_from_suggestions: false,
+    hide_from_suggestions: false,
     quote: null,
     instagram_url: null,
     tiktok_url: null,
@@ -62,19 +109,24 @@ function profileDefaults(user: User) {
   };
 }
 
-export async function ensureUserProfile(user: User): Promise<AppProfile | null> {
-  const existing = await supabase
+export async function fetchProfile(userId: string): Promise<AppProfile | null> {
+  const { data, error } = await supabase
     .from("profiles")
     .select(PROFILE_SELECT)
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
-  if (existing.data) return existing.data as AppProfile;
+  if (error) throw error;
+  return (data as AppProfile | null) ?? null;
+}
 
-  if (existing.error) {
-    console.warn("Unable to fetch profile", existing.error.message);
+export async function ensureUserProfile(user: User): Promise<AppProfile | null> {
+  const existing = await fetchProfile(user.id).catch((error) => {
+    console.warn("Unable to fetch profile", error.message);
     return null;
-  }
+  });
+
+  if (existing) return existing;
 
   const inserted = await supabase
     .from("profiles")
@@ -85,13 +137,7 @@ export async function ensureUserProfile(user: User): Promise<AppProfile | null> 
   if (inserted.data) return inserted.data as AppProfile;
 
   if (inserted.error?.code === "23505") {
-    const retry = await supabase
-      .from("profiles")
-      .select(PROFILE_SELECT)
-      .eq("id", user.id)
-      .maybeSingle();
-
-    return (retry.data as AppProfile | null) ?? null;
+    return fetchProfile(user.id);
   }
 
   if (inserted.error) {
@@ -99,4 +145,70 @@ export async function ensureUserProfile(user: User): Promise<AppProfile | null> 
   }
 
   return null;
+}
+
+export async function updateProfileIdentity(
+  userId: string,
+  input: ProfileIdentityInput,
+): Promise<AppProfile> {
+  const location = input.location.trim();
+  const { city, state } = splitLocation(location);
+  const displayName = input.display_name.trim();
+
+  const payload = {
+    display_name: displayName,
+    full_name: displayName,
+    username: cleanUsername(input.username),
+    bio: input.bio.trim(),
+    location,
+    city,
+    state,
+    riding_area: location || null,
+    quote: input.quote.trim(),
+    instagram_url: normalizeUrl(input.instagram_url),
+    tiktok_url: normalizeUrl(input.tiktok_url),
+    youtube_url: normalizeUrl(input.youtube_url),
+    website_url: normalizeUrl(input.website_url),
+  };
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(payload)
+    .eq("id", userId)
+    .select(PROFILE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data as AppProfile;
+}
+
+export async function updateProfileAvatar(
+  userId: string,
+  profileImageUrl: string,
+): Promise<AppProfile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ profile_image_url: profileImageUrl, avatar_url: profileImageUrl })
+    .eq("id", userId)
+    .select(PROFILE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data as AppProfile;
+}
+
+export function profileDisplayName(profile: AppProfile | null) {
+  return profile?.display_name?.trim() || profile?.full_name?.trim() || "Crimson Member";
+}
+
+export function profileHandle(profile: AppProfile | null) {
+  return profile?.username?.trim() ? `@${profile.username.trim().replace(/^@+/, "")}` : "@member";
+}
+
+export function profileLocation(profile: AppProfile | null) {
+  return (
+    profile?.location?.trim() ||
+    [profile?.city, profile?.state].filter(Boolean).join(", ") ||
+    "Location pending"
+  );
 }

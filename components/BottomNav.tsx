@@ -81,7 +81,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-      <ul className="mx-auto flex max-w-3xl items-center justify-around px-2 py-3">
+      <ul className="mx-auto flex max-w-3xl items-center justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (

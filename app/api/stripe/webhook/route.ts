@@ -2,7 +2,8 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
+import { normalizeMembershipPlanType } from "@/lib/membership";
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,8 +50,8 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 
   const metadata = subscription.metadata || {};
   let userId = metadata.supabase_user_id || metadata.user_id || null;
-  const planType = metadata.plan_type || null;
-  const membershipPlanId = metadata.membership_plan_id || null;
+  const planType = normalizeMembershipPlanType(metadata.plan_type);
+  let membershipPlanId = metadata.membership_plan_id || null;
 
   if (!userId && customerId) {
     const { data: customerRow, error: customerLookupError } = await supabaseAdmin
@@ -72,6 +73,27 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   }
 
   const item = subscription.items.data[0];
+
+  if (!membershipPlanId && planType) {
+    const stripePriceId = item?.price?.id ?? null;
+    const query = supabaseAdmin
+      .from("membership_plans")
+      .select("id")
+      .eq("plan_type", planType)
+      .limit(1);
+
+    const { data: planRow, error: planLookupError } = stripePriceId
+      ? await query.or(`stripe_price_id.eq.${stripePriceId},stripe_price_id.is.null`)
+      : await query.maybeSingle();
+
+    if (planLookupError) {
+      throw planLookupError;
+    }
+
+    membershipPlanId = Array.isArray(planRow)
+      ? planRow[0]?.id ?? null
+      : planRow?.id ?? null;
+  }
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
@@ -112,7 +134,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (error) {
     console.error("Webhook signature verification failed:", error);
     return new NextResponse("Invalid signature", { status: 400 });
@@ -142,7 +164,7 @@ export async function POST(req: Request) {
         }
 
         if (session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
+          const subscription = await getStripe().subscriptions.retrieve(
             typeof session.subscription === "string"
               ? session.subscription
               : session.subscription.id

@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import AdminPricingManager from "@/components/blackcard/AdminPricingManager";
+import {
+  sanitizePlan,
+  type MembershipPlan,
+  type MembershipPlanRow,
+} from "@/components/blackcard/types";
 
 type BlackcardMember = {
   id: string;
@@ -14,8 +20,24 @@ type BlackcardMember = {
 
 export default function AdminBlackcardPage() {
   const [members, setMembers] = useState<BlackcardMember[]>([]);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadPlans() {
+    const { data, error: planError } = await supabase
+      .from("membership_plans")
+      .select(
+        "id, plan_type, title, description, price, stripe_price_id, active, perks, created_at, updated_at"
+      )
+      .order("price", { ascending: true });
+
+    if (planError) {
+      throw planError;
+    }
+
+    setPlans(((data ?? []) as MembershipPlanRow[]).map(sanitizePlan));
+  }
 
   useEffect(() => {
     async function loadMembers() {
@@ -43,19 +65,22 @@ export default function AdminBlackcardPage() {
           return;
         }
 
-        const { data, error: subError } = await supabase
-          .from("subscriptions")
-          .select("id, user_id, status, plan_type, current_period_end")
-          .in("status", ["active", "trialing"])
-          .order("created_at", { ascending: false });
+        const [membersResponse] = await Promise.all([
+          supabase
+            .from("subscriptions")
+            .select("id, user_id, status, plan_type, current_period_end")
+            .in("status", ["active", "trialing"])
+            .order("created_at", { ascending: false }),
+          loadPlans(),
+        ]);
 
-        if (subError) {
+        if (membersResponse.error) {
           setError("Unable to load Blackcard members.");
           setLoading(false);
           return;
         }
 
-        setMembers(data || []);
+        setMembers(membersResponse.data || []);
         setLoading(false);
       } catch (error) {
         console.error(error);
@@ -89,6 +114,10 @@ export default function AdminBlackcardPage() {
         </div>
 
         <div className="rounded-[28px] border border-white/10 bg-[#090909] p-6">
+          {!loading && !error && (
+            <AdminPricingManager plans={plans} onRefresh={loadPlans} />
+          )}
+
           {loading && <p className="text-sm text-zinc-400">Loading members…</p>}
           {!loading && error && <p className="text-sm text-red-400">{error}</p>}
 

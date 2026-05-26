@@ -20,8 +20,6 @@ export default function CheckoutSuccessPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-
     async function loadStatus() {
       try {
         const {
@@ -57,15 +55,15 @@ export default function CheckoutSuccessPage() {
 
         setStatus((data?.status as SubscriptionStatus) ?? null);
         setLoading(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(error);
-        setErrorMsg(error?.message || "Unable to confirm subscription.");
+        setErrorMsg(error instanceof Error ? error.message : "Unable to confirm subscription.");
         setLoading(false);
       }
     }
 
     loadStatus();
-    interval = setInterval(loadStatus, 3000);
+    const interval = setInterval(loadStatus, 3000);
 
     return () => clearInterval(interval);
   }, []);
