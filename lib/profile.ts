@@ -171,30 +171,69 @@ export async function updateProfileIdentity(
     website_url: normalizeUrl(input.website_url),
   };
 
-  const { data, error } = await supabase
+  const updated = await supabase
     .from("profiles")
     .update(payload)
     .eq("id", userId)
     .select(PROFILE_SELECT)
+    .maybeSingle();
+
+  if (updated.error) throw updated.error;
+  if (updated.data) return updated.data as AppProfile;
+
+  const inserted = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        ...payload,
+        role: "user",
+        status: "active",
+        is_admin: false,
+        membership_status: "inactive",
+      },
+      { onConflict: "id" },
+    )
+    .select(PROFILE_SELECT)
     .single();
 
-  if (error) throw error;
-  return data as AppProfile;
+  if (inserted.error) throw inserted.error;
+  return inserted.data as AppProfile;
 }
 
 export async function updateProfileAvatar(
   userId: string,
   profileImageUrl: string,
 ): Promise<AppProfile> {
-  const { data, error } = await supabase
+  const updated = await supabase
     .from("profiles")
     .update({ profile_image_url: profileImageUrl, avatar_url: profileImageUrl })
     .eq("id", userId)
     .select(PROFILE_SELECT)
+    .maybeSingle();
+
+  if (updated.error) throw updated.error;
+  if (updated.data) return updated.data as AppProfile;
+
+  const inserted = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        profile_image_url: profileImageUrl,
+        avatar_url: profileImageUrl,
+        role: "user",
+        status: "active",
+        is_admin: false,
+        membership_status: "inactive",
+      },
+      { onConflict: "id" },
+    )
+    .select(PROFILE_SELECT)
     .single();
 
-  if (error) throw error;
-  return data as AppProfile;
+  if (inserted.error) throw inserted.error;
+  return inserted.data as AppProfile;
 }
 
 export function profileDisplayName(profile: AppProfile | null) {

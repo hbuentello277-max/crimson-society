@@ -59,7 +59,6 @@ type MemberRow = {
   conversation_id: string;
   user_id: string;
   last_read_at: string | null;
-  profiles: ProfileRow | ProfileRow[] | null;
 };
 
 type MessageRow = {
@@ -68,7 +67,6 @@ type MessageRow = {
   sender_id: string;
   body: string | null;
   created_at: string;
-  profiles: ProfileRow | ProfileRow[] | null;
 };
 
 type Suggestion = {
@@ -90,9 +88,8 @@ type BlockRow = {
   blocked_id: string;
 };
 
-function pickProfile(profileInput: ProfileRow | ProfileRow[] | null | undefined) {
-  if (Array.isArray(profileInput)) return profileInput[0] ?? null;
-  return profileInput ?? null;
+function buildProfileMap(profiles: ProfileRow[]) {
+  return new Map(profiles.map((profile) => [profile.id, profile]));
 }
 
 function profileName(profile: ProfileRow | null | undefined) {
@@ -153,8 +150,8 @@ function isUuid(value: string) {
   );
 }
 
-function mapMessage(row: MessageRow): Message {
-  const sender = pickProfile(row.profiles);
+function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Message {
+  const sender = profilesById.get(row.sender_id) ?? null;
 
   return {
     id: row.id,
@@ -172,6 +169,7 @@ function buildConversations(
   members: MemberRow[],
   messages: MessageRow[],
   userId: string,
+  profilesById: Map<string, ProfileRow>,
 ) {
   return rows.map((conversation) => {
     const conversationMembers = members.filter(
@@ -179,7 +177,7 @@ function buildConversations(
     );
     const myMembership = conversationMembers.find((member) => member.user_id === userId);
     const otherMembers = conversationMembers.filter((member) => member.user_id !== userId);
-    const otherProfile = pickProfile(otherMembers[0]?.profiles);
+    const otherProfile = profilesById.get(otherMembers[0]?.user_id ?? "") ?? null;
     const latest = messages
       .filter((message) => message.conversation_id === conversation.id)
       .sort(
@@ -309,7 +307,7 @@ export default function MessagesPage() {
 
     const membershipsResponse = await supabase
       .from("conversation_members")
-      .select("conversation_id, user_id, last_read_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+      .select("conversation_id, user_id, last_read_at")
       .eq("user_id", userId);
 
     if (membershipsResponse.error) {
@@ -339,11 +337,11 @@ export default function MessagesPage() {
           .order("updated_at", { ascending: false }),
         supabase
           .from("conversation_members")
-          .select("conversation_id, user_id, last_read_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+          .select("conversation_id, user_id, last_read_at")
           .in("conversation_id", conversationIds),
         supabase
           .from("messages")
-          .select("id, conversation_id, sender_id, body, created_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+          .select("id, conversation_id, sender_id, body, created_at")
           .in("conversation_id", conversationIds)
           .order("created_at", { ascending: true })
           .limit(300),
@@ -365,11 +363,34 @@ export default function MessagesPage() {
     const conversationRows = (conversationsResponse.data || []) as ConversationRow[];
     const allMembers = (allMembersResponse.data || []) as unknown as MemberRow[];
     const messageRows = (messagesResponse.data || []) as unknown as MessageRow[];
+    const profileIds = Array.from(
+      new Set([
+        ...allMembers.map((member) => member.user_id),
+        ...messageRows.map((message) => message.sender_id),
+      ]),
+    );
+    const profilesResponse = profileIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+          .in("id", profileIds)
+      : { data: [], error: null };
+
+    if (profilesResponse.error) {
+      setConversations([]);
+      setThreads({});
+      setErrorMsg(profilesResponse.error.message);
+      setLoadingMessages(false);
+      return;
+    }
+
+    const profilesById = buildProfileMap((profilesResponse.data || []) as ProfileRow[]);
     const nextConversations = buildConversations(
       conversationRows,
       allMembers,
       messageRows,
       userId,
+      profilesById,
     ).sort((a, b) => {
       const aMessage = messageRows
         .filter((message) => message.conversation_id === a.id)
@@ -383,7 +404,7 @@ export default function MessagesPage() {
       );
     });
     const nextThreads = messageRows.reduce<Record<string, Message[]>>((acc, row) => {
-      acc[row.conversation_id] = [...(acc[row.conversation_id] || []), mapMessage(row)];
+      acc[row.conversation_id] = [...(acc[row.conversation_id] || []), mapMessage(row, profilesById)];
       return acc;
     }, {});
 
@@ -604,7 +625,7 @@ export default function MessagesPage() {
         sender_id: userId,
         body,
       })
-      .select("id, conversation_id, sender_id, body, created_at, profiles(id, username, display_name, full_name, profile_image_url, avatar_url)")
+      .select("id, conversation_id, sender_id, body, created_at")
       .single();
 
     if (inserted.error || !inserted.data) {
@@ -613,7 +634,16 @@ export default function MessagesPage() {
       return;
     }
 
-    const newMessage = mapMessage(inserted.data as unknown as MessageRow);
+    const insertedRow = inserted.data as unknown as MessageRow;
+    const senderProfileResponse = await supabase
+      .from("profiles")
+      .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+      .eq("id", insertedRow.sender_id)
+      .maybeSingle();
+    const newMessage = mapMessage(
+      insertedRow,
+      buildProfileMap(senderProfileResponse.data ? [senderProfileResponse.data as ProfileRow] : []),
+    );
     setThreads((prev) => ({
       ...prev,
       [activeId]: [...(prev[activeId] || []), newMessage],
