@@ -1,17 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import type { AppProfile } from "@/lib/profile";
 import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 
 type Props = {
   profile: AppProfile;
-  isAdmin?: boolean;
-  onSignOut?: () => void;
 };
 
-export default function ProfileHeader({ profile, isAdmin, onSignOut }: Props) {
+export default function ProfileHeader({ profile }: Props) {
   const displayName = profileDisplayName(profile);
   const avatarUrl = profile.profile_image_url || profile.avatar_url;
   const quote = profile.quote?.trim();
@@ -56,31 +53,6 @@ export default function ProfileHeader({ profile, isAdmin, onSignOut }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-[#e87a82]"
-              >
-                Admin
-              </Link>
-            )}
-            <Link
-              href="/profile/edit"
-              className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:border-[#b4141e]/65 hover:bg-[#b4141e]/18"
-            >
-              Edit Identity
-            </Link>
-            {onSignOut && (
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-200"
-              >
-                Logout
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </section>

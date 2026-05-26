@@ -61,6 +61,52 @@ function ProfileSkeleton() {
   );
 }
 
+function HeaderActionLink({
+  href,
+  children,
+  variant = "default",
+}: {
+  href: string;
+  children: React.ReactNode;
+  variant?: "admin" | "premium" | "default";
+}) {
+  const styles = {
+    admin:
+      "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65 hover:bg-[#b4141e]/18",
+    premium:
+      "border-[#b4141e]/40 bg-[linear-gradient(180deg,rgba(180,20,30,0.18),rgba(255,255,255,0.03))] text-[#f1c3c7] shadow-[0_0_28px_-22px_rgba(180,20,30,0.9)] hover:border-[#b4141e]/70",
+    default:
+      "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/25 hover:text-white",
+  };
+
+  return (
+    <Link
+      href={href}
+      className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function HeaderActionButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-200"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function ProfilePage() {
   const { session, loading: authLoading, isAdmin, signOut } = useAuth();
   const { profile, loading: profileLoading, error, refresh } = useProfile();
@@ -219,21 +265,38 @@ export default function ProfilePage() {
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
       <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
+            <h1 className="mt-2 font-serif text-3xl leading-none text-white sm:text-4xl">
+              Identity
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
+            {isAdmin && (
+              <HeaderActionLink href="/admin" variant="admin">
+                Admin
+              </HeaderActionLink>
+            )}
+            <HeaderActionLink href="/blackcard" variant="premium">
+              Blackcard Access
+            </HeaderActionLink>
+            <HeaderActionLink href="/profile/edit">Edit Identity</HeaderActionLink>
+            <HeaderActionButton onClick={() => void signOut()}>Logout</HeaderActionButton>
+          </div>
         </div>
 
-        <ProfileHeader profile={profile} isAdmin={isAdmin} onSignOut={() => void signOut()} />
+        <ProfileHeader profile={profile} />
 
-        <Link href="/blackcard" className="mt-4 block rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)] transition hover:border-[#b4141e]/50">
+        <div className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
-              <h2 className="mt-1 font-serif text-xl text-white">{hasActiveMembership(membership) ? "Blackcard Member" : "Blackcard Access"}</h2>
+              <h2 className="mt-1 font-serif text-xl text-white">Blackcard Member</h2>
             </div>
             <span className="text-xl text-[#b4141e]">✦</span>
           </div>
-        </Link>
+        </div>
 
         <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 
