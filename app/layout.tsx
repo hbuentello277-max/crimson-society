@@ -19,6 +19,7 @@ const sans = Inter({
 
 export const metadata: Metadata = {
   title: "Crimson Society",
+  applicationName: "Crimson Society",
   description: "A society of riders.",
   manifest: "/manifest.webmanifest",
   icons: {
