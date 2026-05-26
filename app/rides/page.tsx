@@ -446,7 +446,16 @@ export default function RidesPage() {
         </section>
       </div>
 
-      {showHostModal && (
+{selectedRide && (
+            <RideDetailsModal
+                          ride={selectedRide}
+                          isGoing={!!going[selectedRide.id]}
+                          onJoin={() => toggleJoin(selectedRide.id)}
+                          onClose={() => setSelectedRide(null)}
+                        />
+          )}
+      
+              {showHostModal && (
         <HostRideModal
           onClose={() => setShowHostModal(false)}
           onCreate={(newRide) => {
