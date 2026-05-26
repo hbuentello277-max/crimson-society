@@ -36,20 +36,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (nextSession: Session) => {
+  const applySession = useCallback(async (nextSession: Session | null) => {
+    if (!nextSession?.user?.id) {
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+      return null;
+    }
+
+    setSession(nextSession);
+
     const nextProfile = await ensureUserProfile(nextSession.user);
     setProfile(nextProfile);
+    setLoading(false);
     return nextProfile;
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (!session?.user) {
+    if (!session?.user?.id) {
       setProfile(null);
       return null;
     }
 
-    return loadProfile(session);
-  }, [loadProfile, session]);
+    const nextProfile = await ensureUserProfile(session.user);
+    setProfile(nextProfile);
+    return nextProfile;
+  }, [session]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -59,45 +71,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let sawInitialSession = false;
     let requestId = 0;
 
-    async function applySession(nextSession: Session | null) {
+    async function safeApplySession(nextSession: Session | null) {
       const currentRequest = ++requestId;
-
-      if (!mounted) return;
-
-      if (!nextSession?.user?.id) {
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const nextProfile = await ensureUserProfile(nextSession.user);
+      const nextProfile = await applySession(nextSession);
 
       if (!mounted || currentRequest !== requestId) return;
-
-      setSession(nextSession);
-      setProfile(nextProfile);
-      setLoading(false);
+      if (nextProfile) setProfile(nextProfile);
     }
 
     const fallbackTimer = window.setTimeout(async () => {
-      if (!mounted || sawInitialSession) return;
-
       const { data } = await supabase.auth.getSession();
-      await applySession(data.session ?? null);
-    }, 750);
+      if (mounted) void safeApplySession(data.session ?? null);
+    }, 500);
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (event === "INITIAL_SESSION") {
-        sawInitialSession = true;
-      }
-
-      void applySession(nextSession ?? null);
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      window.clearTimeout(fallbackTimer);
+      void safeApplySession(nextSession ?? null);
     });
 
     return () => {
@@ -105,46 +98,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applySession]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
 
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") {
-        void loadProfile(session);
+        void refreshProfile();
       }
     };
 
     document.addEventListener("visibilitychange", refreshOnFocus);
     return () => document.removeEventListener("visibilitychange", refreshOnFocus);
-  }, [loadProfile, session]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function validateSession() {
-      if (!session?.user?.id) return;
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (cancelled) return;
-
-      if (error || !user) {
-        setSession(null);
-        setProfile(null);
-      }
-    }
-
-    void validateSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.user?.id]);
+  }, [refreshProfile, session?.user?.id]);
 
   const role = profile?.role ?? null;
   const status = profile?.status ?? null;

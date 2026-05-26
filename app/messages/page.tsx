@@ -90,92 +90,6 @@ type BlockRow = {
   blocked_id: string;
 };
 
-const seedConversations: Conversation[] = [
-  {
-    id: "marco",
-    name: "Marco Velez",
-    handle: "@nightrider",
-    photo: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-    lastMessage: "Sunrise run tomorrow. You in?",
-    timeLabel: "12m",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: "elena",
-    name: "Elena Ruiz",
-    handle: "@ironsaint",
-    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
-    lastMessage: "That last reel was unreal.",
-    timeLabel: "1h",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: "canyon-crew",
-    name: "Canyon Crew",
-    handle: "8 members",
-    photo: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=200",
-    lastMessage: "Devin: meet at the usual gas stop?",
-    timeLabel: "3h",
-    unread: 5,
-    isGroup: true,
-    members: 8,
-  },
-];
-
-const seedThreads: Record<string, Message[]> = {
-  marco: [
-    {
-      id: "m1",
-      text: "Hill country was insane yesterday. You missed it.",
-      senderId: "marco",
-      senderName: "Marco",
-      senderPhoto: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-      timeLabel: "9:42 PM",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "m2",
-      text: "I saw the post. Looked like a movie.",
-      senderId: "me",
-      timeLabel: "9:48 PM",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "m3",
-      text: "Sunrise run tomorrow. You in?",
-      senderId: "marco",
-      senderName: "Marco",
-      senderPhoto: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-      timeLabel: "10:11 PM",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  elena: [
-    {
-      id: "e1",
-      text: "That last reel was unreal.",
-      senderId: "elena",
-      senderName: "Elena",
-      senderPhoto: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
-      timeLabel: "8:30 PM",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  "canyon-crew": [
-    {
-      id: "c1",
-      text: "Devin: meet at the usual gas stop?",
-      senderId: "devin",
-      senderName: "Devin",
-      senderPhoto: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200",
-      timeLabel: "7:12 PM",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-};
-
 function pickProfile(profileInput: ProfileRow | ProfileRow[] | null | undefined) {
   if (Array.isArray(profileInput)) return profileInput[0] ?? null;
   return profileInput ?? null;
@@ -353,13 +267,12 @@ export default function MessagesPage() {
   const userId = session?.user?.id ?? null;
 
   const [activeId, setActiveId] = useState<string | null>(params?.id ?? null);
-  const [conversations, setConversations] = useState<Conversation[]>(seedConversations);
-  const [threads, setThreads] = useState<Record<string, Message[]>>(seedThreads);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [threads, setThreads] = useState<Record<string, Message[]>>({});
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "unread" | "groups">("all");
   const [loadingMessages, setLoadingMessages] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -369,7 +282,7 @@ export default function MessagesPage() {
 
   const markConversationRead = useCallback(
     async (conversationId: string) => {
-      if (!userId || usingFallback) return;
+      if (!userId) return;
 
       await supabase
         .from("conversation_members")
@@ -385,7 +298,7 @@ export default function MessagesPage() {
         ),
       );
     },
-    [userId, usingFallback],
+    [userId],
   );
 
   const loadConversations = useCallback(async () => {
@@ -400,8 +313,9 @@ export default function MessagesPage() {
       .eq("user_id", userId);
 
     if (membershipsResponse.error) {
-      setUsingFallback(true);
-      setErrorMsg("Messages are running in preview mode until the database migration is applied.");
+      setConversations([]);
+      setThreads({});
+      setErrorMsg(membershipsResponse.error.message);
       setLoadingMessages(false);
       return;
     }
@@ -412,7 +326,6 @@ export default function MessagesPage() {
     if (conversationIds.length === 0) {
       setConversations([]);
       setThreads({});
-      setUsingFallback(false);
       setLoadingMessages(false);
       return;
     }
@@ -437,7 +350,8 @@ export default function MessagesPage() {
       ]);
 
     if (conversationsResponse.error || allMembersResponse.error || messagesResponse.error) {
-      setUsingFallback(true);
+      setConversations([]);
+      setThreads({});
       setErrorMsg(
         conversationsResponse.error?.message ||
           allMembersResponse.error?.message ||
@@ -475,7 +389,6 @@ export default function MessagesPage() {
 
     setConversations(nextConversations);
     setThreads(nextThreads);
-    setUsingFallback(false);
     setLoadingMessages(false);
   }, [userId]);
 
@@ -542,7 +455,7 @@ export default function MessagesPage() {
 
   const openDirectConversation = useCallback(
     async (peerId: string) => {
-      if (!userId || !isUuid(peerId) || peerId === userId || usingFallback) return;
+      if (!userId || !isUuid(peerId) || peerId === userId) return;
 
       const directKey = directKeyFor(userId, peerId);
       const existing = await supabase
@@ -585,7 +498,7 @@ export default function MessagesPage() {
       setActiveId(conversationId);
       window.history.replaceState(null, "", `/messages/${conversationId}`);
     },
-    [loadConversations, userId, usingFallback],
+    [loadConversations, userId],
   );
 
   useEffect(() => {
@@ -623,7 +536,7 @@ export default function MessagesPage() {
   }, [activeId, markConversationRead]);
 
   useEffect(() => {
-    if (!userId || usingFallback) return;
+    if (!userId) return;
 
     const channel = supabase
       .channel(`messages-${userId}`)
@@ -646,7 +559,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadConversations, userId, usingFallback]);
+  }, [loadConversations, userId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -678,19 +591,9 @@ export default function MessagesPage() {
     const body = draft.trim();
     setDraft("");
 
-    if (usingFallback || !userId || !isUuid(activeId)) {
-      const newMsg: Message = {
-        id: `me-${Date.now()}`,
-        text: body,
-        senderId: "me",
-        timeLabel: messageTime(new Date().toISOString()),
-        createdAt: new Date().toISOString(),
-      };
-
-      setThreads((prev) => ({
-        ...prev,
-        [activeId]: [...(prev[activeId] || []), newMsg],
-      }));
+    if (!userId || !isUuid(activeId)) {
+      setErrorMsg("Could not send until a live conversation is selected.");
+      setDraft(body);
       return;
     }
 
@@ -1028,7 +931,7 @@ export default function MessagesPage() {
           </section>
         )}
 
-        {loadingMessages && !usingFallback ? (
+        {loadingMessages ? (
           <div className="space-y-2">
             {[0, 1, 2].map((item) => (
               <div
