@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Crimson Society",
-    short_name: "Crimson",
+    short_name: "Crimson Society",
     description: "A society of riders.",
     start_url: "/",
     scope: "/",
