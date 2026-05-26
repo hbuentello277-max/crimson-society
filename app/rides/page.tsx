@@ -3,21 +3,24 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
+import { HostRideModal } from "@/components/rides/HostRideModal";
 
-type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
-type RidePrivacy = "Open" | "Invite";
+export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
+export type RidePrivacy = "Open" | "Invite";
 
-type Rider = {
+export type Rider = {
   name: string;
   photo: string;
 };
 
-type Ride = {
+export type Ride = {
   id: string;
   name: string;
   date: string;
   time: string;
   meetPoint: string;
+  destination: string;
   city: string;
   type: RideType;
   distance: string;
@@ -51,6 +54,7 @@ const UPCOMING_RIDES: Ride[] = [
     date: "Sun May 24",
     time: "5:30 AM",
     meetPoint: "Buc-ee's, Katy",
+    destination: "Pedernales Falls State Park",
     city: "Houston, TX",
     type: "Canyon Run",
     distance: "180 mi",
@@ -74,6 +78,7 @@ const UPCOMING_RIDES: Ride[] = [
     date: "Fri May 29",
     time: "11:00 PM",
     meetPoint: "Memorial Park",
+    destination: "Downtown Houston Loop",
     city: "Houston, TX",
     type: "Night Run",
     distance: "60 mi",
@@ -94,6 +99,7 @@ const UPCOMING_RIDES: Ride[] = [
     date: "Sat Jun 7",
     time: "8:00 AM",
     meetPoint: "COTA Paddock B",
+    destination: "Circuit of the Americas",
     city: "Austin, TX",
     type: "Track Day",
     distance: "Circuit",
@@ -115,6 +121,7 @@ const UPCOMING_RIDES: Ride[] = [
     date: "Sat Jun 14",
     time: "7:00 AM",
     meetPoint: "The Salt Lick BBQ",
+    destination: "Enchanted Rock State Park",
     city: "Driftwood, TX",
     type: "Touring",
     distance: "240 mi",
@@ -137,10 +144,12 @@ const UPCOMING_RIDES: Ride[] = [
 function RideCard({
   isGoing,
   onJoin,
+  onViewDetails,
   ride,
 }: {
   isGoing: boolean;
   onJoin: () => void;
+  onViewDetails: () => void;
   ride: Ride;
 }) {
   return (
@@ -204,17 +213,26 @@ function RideCard({
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={onJoin}
-              className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
-                isGoing
-                  ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
-                  : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
-              }`}
-            >
-              {isGoing ? "Going" : "JOIN RIDE"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onViewDetails}
+                className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+              >
+                View Route
+              </button>
+              <button
+                type="button"
+                onClick={onJoin}
+                className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
+                  isGoing
+                    ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
+                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                }`}
+              >
+                {isGoing ? "Going" : "Join"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -225,6 +243,8 @@ function RideCard({
 export default function RidesPage() {
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [showHostModal, setShowHostModal] = useState(false);
 
   const featuredRide = UPCOMING_RIDES[0];
   const compactRides = UPCOMING_RIDES.slice(1);
@@ -256,12 +276,21 @@ export default function RidesPage() {
       <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">Ride Ledger</p>
-          <Link
-            href="/rides/track"
-            className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/24 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/34"
-          >
-            Start Ride Tracking
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowHostModal(true)}
+              className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
+            >
+              + Host Ride
+            </button>
+            <Link
+              href="/rides/track"
+              className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/24 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/34"
+            >
+              Start Ride Tracking
+            </Link>
+          </div>
         </div>
 
         <header className="mt-8">
@@ -276,6 +305,7 @@ export default function RidesPage() {
           </p>
         </header>
 
+        {/* Featured Ride */}
         <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
           <div className="relative h-[280px] sm:h-[360px]">
             <Image
@@ -310,20 +340,30 @@ export default function RidesPage() {
 
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <p className="max-w-2xl text-sm leading-6 text-zinc-300">{featuredRide.description}</p>
-            <button
-              type="button"
-              onClick={() => toggleJoin(featuredRide.id)}
-              className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
-                going[featuredRide.id]
-                  ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
-                  : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
-              }`}
-            >
-              {going[featuredRide.id] ? "Going" : "JOIN RIDE"}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedRide(featuredRide)}
+                className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+              >
+                View Route / Details
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleJoin(featuredRide.id)}
+                className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+                  going[featuredRide.id]
+                    ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
+                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                }`}
+              >
+                {going[featuredRide.id] ? "Going" : "JOIN RIDE"}
+              </button>
+            </div>
           </div>
         </section>
 
+        {/* Upcoming Rides */}
         <section className="mt-7">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
@@ -341,11 +381,35 @@ export default function RidesPage() {
                 ride={ride}
                 isGoing={!!going[ride.id]}
                 onJoin={() => toggleJoin(ride.id)}
+                onViewDetails={() => setSelectedRide(ride)}
               />
             ))}
           </div>
         </section>
       </div>
+
+      {/* Modals */}
+      {selectedRide && (
+        <RideDetailsModal
+          ride={selectedRide}
+          isGoing={!!going[selectedRide.id]}
+          onJoin={() => toggleJoin(selectedRide.id)}
+          onClose={() => setSelectedRide(null)}
+        />
+      )}
+
+      {showHostModal && (
+        <HostRideModal
+          onClose={() => setShowHostModal(false)}
+          onCreate={(newRide) => {
+            // TODO: persist to Supabase in Phase 2
+            setShowHostModal(false);
+            setToast("Ride created!");
+            window.setTimeout(() => setToast(null), 2500);
+            console.log("New ride draft:", newRide);
+          }}
+        />
+      )}
 
       {toast && (
         <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+86px)] z-50 mx-auto max-w-sm rounded-lg border border-[#7f111b]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">
