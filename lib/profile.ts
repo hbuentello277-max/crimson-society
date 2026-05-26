@@ -187,10 +187,6 @@ export async function updateProfileIdentity(
       {
         id: userId,
         ...payload,
-        role: "user",
-        status: "active",
-        is_admin: false,
-        membership_status: "inactive",
       },
       { onConflict: "id" },
     )
@@ -222,10 +218,6 @@ export async function updateProfileAvatar(
         id: userId,
         profile_image_url: profileImageUrl,
         avatar_url: profileImageUrl,
-        role: "user",
-        status: "active",
-        is_admin: false,
-        membership_status: "inactive",
       },
       { onConflict: "id" },
     )

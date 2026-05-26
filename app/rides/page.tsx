@@ -269,26 +269,65 @@ const INITIAL_DRAFT: DraftRide = {
   previewImage: "",
 };
 
-function StaticRidePreview({ ride }: { ride: Ride }) {
+function RouteCardMapPreview({ ride }: { ride: Ride }) {
+  const route = ride.route?.length ? ride.route : [{ lat: ride.lat, lng: ride.lng }];
+  const lats = route.map((point) => point.lat);
+  const lngs = route.map((point) => point.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latRange = Math.max(maxLat - minLat, 0.001);
+  const lngRange = Math.max(maxLng - minLng, 0.001);
+  const padding = 22;
+  const width = 220;
+  const height = 126;
+  const points = route.map((point) => {
+    const x = padding + ((point.lng - minLng) / lngRange) * (width - padding * 2);
+    const y = height - padding - ((point.lat - minLat) / latRange) * (height - padding * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const start = points[0];
+  const end = points.at(-1) ?? start;
+
   return (
-    <div className="relative flex h-full min-h-[176px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(127,17,27,0.28),transparent_34%),linear-gradient(135deg,#090708,#171011_48%,#050405)]">
-      <svg
-        viewBox="0 0 220 120"
-        className="absolute inset-0 h-full w-full opacity-70"
-        aria-hidden
-      >
-        <path
-          d="M18 92 C 54 46, 83 72, 112 40 S 166 42, 202 24"
+    <div className="relative flex h-full min-h-[176px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_18%,rgba(127,17,27,0.22),transparent_36%),linear-gradient(135deg,#070606,#111014_52%,#050405)]">
+      <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.16)_1px,transparent_1px)] [background-size:28px_28px]" />
+      <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 h-full w-full" aria-hidden>
+        <polyline
+          points={points.join(" ")}
           fill="none"
-          stroke="rgba(180,20,30,0.72)"
-          strokeWidth="3"
+          stroke="rgba(20,20,22,0.82)"
+          strokeWidth="9"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
-        <circle cx="18" cy="92" r="5" fill="rgba(232,122,130,0.9)" />
-        <circle cx="202" cy="24" r="5" fill="rgba(232,122,130,0.9)" />
+        <polyline
+          points={points.join(" ")}
+          fill="none"
+          stroke="rgba(180,20,30,0.92)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={points.join(" ")}
+          fill="none"
+          stroke="rgba(255,210,214,0.42)"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx={start.split(",")[0]} cy={start.split(",")[1]} r="5" fill="rgba(232,122,130,0.95)" />
+        <circle cx={end.split(",")[0]} cy={end.split(",")[1]} r="5" fill="rgba(255,255,255,0.88)" />
       </svg>
-      <div className="relative z-10 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-300 backdrop-blur-md">
-        {ride.city}
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+        <span className="rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.16em] text-zinc-300 backdrop-blur-md">
+          {ride.distance}
+        </span>
+        <span className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/15 px-2.5 py-1 text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md">
+          Route Preview
+        </span>
       </div>
     </div>
   );
@@ -867,7 +906,7 @@ export default function RidesPage() {
                           className="object-cover"
                         />
                       ) : (
-                        <StaticRidePreview ride={r} />
+                        <RouteCardMapPreview ride={r} />
                       )}
 
                       <div className="absolute inset-0 bg-gradient-to-t from-[#05040580] via-transparent to-transparent" />

@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { cleanUsername, updateProfileIdentity } from "@/lib/profile";
 
 export default function SignUpPage() {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
 
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,6 +40,20 @@ export default function SignUpPage() {
     setInfoMsg("");
 
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedDisplayName = displayName.trim();
+    const normalizedUsername = cleanUsername(username || displayName);
+
+    if (!trimmedDisplayName) {
+      setErrorMsg("Choose a display name for your profile.");
+      setLoading(false);
+      return;
+    }
+
+    if (!normalizedUsername || normalizedUsername === "member") {
+      setErrorMsg("Choose a unique username.");
+      setLoading(false);
+      return;
+    }
 
     if (!trimmedEmail) {
       setErrorMsg("Enter your email address.");
@@ -56,11 +73,35 @@ export default function SignUpPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const usernameCheck = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", normalizedUsername)
+      .maybeSingle();
+
+    if (usernameCheck.error) {
+      setErrorMsg(usernameCheck.error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (usernameCheck.data) {
+      setErrorMsg("That username is already taken.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
       options: {
         emailRedirectTo: redirectTo,
+        data: {
+          display_name: trimmedDisplayName,
+          full_name: trimmedDisplayName,
+          name: trimmedDisplayName,
+          username: normalizedUsername,
+        },
       },
     });
 
@@ -68,6 +109,30 @@ export default function SignUpPage() {
       setErrorMsg(error.message);
       setLoading(false);
       return;
+    }
+
+    if (data.session?.user?.id) {
+      try {
+        await updateProfileIdentity(data.session.user.id, {
+          display_name: trimmedDisplayName,
+          username: normalizedUsername,
+          bio: "",
+          location: "",
+          quote: "",
+          instagram_url: "",
+          tiktok_url: "",
+          youtube_url: "",
+          website_url: "",
+        });
+      } catch (profileError) {
+        setErrorMsg(
+          profileError instanceof Error
+            ? profileError.message
+            : "Account created, but profile setup needs to be completed after login.",
+        );
+        setLoading(false);
+        return;
+      }
     }
 
     setEmail(trimmedEmail);
@@ -78,6 +143,20 @@ export default function SignUpPage() {
 
   async function handleResend() {
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedDisplayName = displayName.trim();
+    const normalizedUsername = cleanUsername(username || displayName);
+
+    if (!trimmedDisplayName) {
+      setErrorMsg("Choose a display name for your profile.");
+      setLoading(false);
+      return;
+    }
+
+    if (!normalizedUsername || normalizedUsername === "member") {
+      setErrorMsg("Choose a unique username.");
+      setLoading(false);
+      return;
+    }
 
     if (!trimmedEmail) {
       setErrorMsg("Enter your email first.");
@@ -134,6 +213,26 @@ export default function SignUpPage() {
               </p>
 
               <form onSubmit={handleSignUp} className="mt-8 space-y-4">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Display name"
+                  autoComplete="name"
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  required
+                />
+
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Username"
+                  autoComplete="username"
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                  required
+                />
+
                 <input
                   type="email"
                   value={email}
