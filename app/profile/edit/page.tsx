@@ -133,7 +133,7 @@ export default function ProfileEditPage() {
 
     try {
       await updateIdentity(values);
-      setProfileMsg("Profile details saved to Supabase.");
+      setProfileMsg("Profile saved.");
     } catch (saveError) {
       const details = getProfileSaveErrorDetails(saveError);
       setProfileSaveError(details);

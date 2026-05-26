@@ -11,7 +11,7 @@ import type { LiveRideRider } from "@/components/RideMap";
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[320px] items-center justify-center rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[#0a0909]">
+    <div className="flex h-[320px] w-full items-center justify-center rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[#0a0909]">
       <p className="text-sm uppercase tracking-[0.22em] text-zinc-500">
         Summoning the route
       </p>
@@ -270,57 +270,18 @@ const INITIAL_DRAFT: DraftRide = {
 };
 
 function RouteCardMapPreview({ ride }: { ride: Ride }) {
-  const route = ride.route?.length ? ride.route : [{ lat: ride.lat, lng: ride.lng }];
-  const lats = route.map((point) => point.lat);
-  const lngs = route.map((point) => point.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const latRange = Math.max(maxLat - minLat, 0.001);
-  const lngRange = Math.max(maxLng - minLng, 0.001);
-  const padding = 22;
-  const width = 220;
-  const height = 126;
-  const points = route.map((point) => {
-    const x = padding + ((point.lng - minLng) / lngRange) * (width - padding * 2);
-    const y = height - padding - ((point.lat - minLat) / latRange) * (height - padding * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const start = points[0];
-  const end = points.at(-1) ?? start;
-
   return (
-    <div className="relative flex h-full min-h-[176px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_35%_18%,rgba(127,17,27,0.22),transparent_36%),linear-gradient(135deg,#070606,#111014_52%,#050405)]">
-      <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.16)_1px,transparent_1px)] [background-size:28px_28px]" />
-      <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 h-full w-full" aria-hidden>
-        <polyline
-          points={points.join(" ")}
-          fill="none"
-          stroke="rgba(20,20,22,0.82)"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={points.join(" ")}
-          fill="none"
-          stroke="rgba(180,20,30,0.92)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={points.join(" ")}
-          fill="none"
-          stroke="rgba(255,210,214,0.42)"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx={start.split(",")[0]} cy={start.split(",")[1]} r="5" fill="rgba(232,122,130,0.95)" />
-        <circle cx={end.split(",")[0]} cy={end.split(",")[1]} r="5" fill="rgba(255,255,255,0.88)" />
-      </svg>
+    <div className="relative h-full min-h-[176px] w-full overflow-hidden bg-[#090607]">
+      <RideMap
+        lat={ride.lat}
+        lng={ride.lng}
+        meetPoint={ride.meetPoint}
+        route={ride.route ?? []}
+        editable={false}
+        compact
+        hideHint
+        height={176}
+      />
       <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
         <span className="rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[8px] uppercase tracking-[0.16em] text-zinc-300 backdrop-blur-md">
           {ride.distance}
@@ -897,17 +858,7 @@ export default function RidesPage() {
                 >
                   <div className="grid gap-0 md:grid-cols-[220px_1fr]">
                     <div className="relative h-[176px] w-full overflow-hidden md:h-full">
-                      {r.previewImage ? (
-                        <Image
-                          src={r.previewImage}
-                          alt={`${r.name} preview`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 220px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <RouteCardMapPreview ride={r} />
-                      )}
+                      <RouteCardMapPreview ride={r} />
 
                       <div className="absolute inset-0 bg-gradient-to-t from-[#05040580] via-transparent to-transparent" />
                       <div className="absolute left-4 top-4 rounded-full border border-[rgba(255,255,255,0.16)] bg-black/30 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
