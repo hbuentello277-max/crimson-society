@@ -6,10 +6,11 @@ import { useState } from "react";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 
+type RoutePoint = { lat: number; lng: number };
+type RideWaypoint = RoutePoint & { id: string; label: string };
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
 export type RidePrivacy = "Open" | "Invite";
-
-export type Rider = {
+type Rider = {
   name: string;
   photo: string;
 };
@@ -30,6 +31,10 @@ export type Ride = {
   going: Rider[];
   description: string;
   privacy: RidePrivacy;
+  lat: number;
+  lng: number;
+  route?: RoutePoint[];
+  waypoints?: RideWaypoint[];
 };
 
 const PHOTOS = {
@@ -71,6 +76,19 @@ const UPCOMING_RIDES: Ride[] = [
     description:
       "Dawn meet, full tank, no stops till the gorge. Pace is measured and the line stays clean.",
     privacy: "Open",
+    lat: 29.7858,
+    lng: -95.8244,
+    route: [
+      { lat: 29.7858, lng: -95.8244 },
+      { lat: 29.7604, lng: -95.3698 },
+      { lat: 29.713, lng: -95.234 },
+      { lat: 29.684, lng: -95.102 },
+    ],
+    waypoints: [
+      { id: "r1-w1", label: "Fuel Stop", lat: 29.8552, lng: -96.0781 },
+      { id: "r1-w2", label: "Scenic Turn", lat: 30.1557, lng: -96.4973 },
+      { id: "r1-w3", label: "Checkpoint", lat: 30.2508, lng: -96.6955 },
+    ],
   },
   {
     id: "r2",
@@ -92,6 +110,18 @@ const UPCOMING_RIDES: Ride[] = [
     ],
     description: "Cold air, clean lines, no theater. Finish over coffee.",
     privacy: "Open",
+    lat: 29.7642,
+    lng: -95.431,
+    route: [
+      { lat: 29.7642, lng: -95.431 },
+      { lat: 29.752, lng: -95.41 },
+      { lat: 29.738, lng: -95.387 },
+      { lat: 29.75, lng: -95.358 },
+    ],
+    waypoints: [
+      { id: "r2-w1", label: "Skyline Pass", lat: 29.7567, lng: -95.4092 },
+      { id: "r2-w2", label: "Coffee Finish", lat: 29.7708, lng: -95.3765 },
+    ],
   },
   {
     id: "r3",
@@ -114,6 +144,20 @@ const UPCOMING_RIDES: Ride[] = [
     ],
     description: "Three sessions, intermediate group. Bring leathers and respect for the line.",
     privacy: "Invite",
+    lat: 30.1328,
+    lng: -97.6411,
+    route: [
+      { lat: 30.1328, lng: -97.6411 },
+      { lat: 30.1304, lng: -97.6382 },
+      { lat: 30.1287, lng: -97.6419 },
+      { lat: 30.1318, lng: -97.6445 },
+      { lat: 30.1328, lng: -97.6411 },
+    ],
+    waypoints: [
+      { id: "r3-w1", label: "Turn 1", lat: 30.1336, lng: -97.6372 },
+      { id: "r3-w2", label: "Infield", lat: 30.1299, lng: -97.6355 },
+      { id: "r3-w3", label: "Paddock Return", lat: 30.1303, lng: -97.6406 },
+    ],
   },
   {
     id: "r4",
@@ -138,6 +182,20 @@ const UPCOMING_RIDES: Ride[] = [
     ],
     description: "A long loop through limestone and silence. Scenic stops, sunset finish.",
     privacy: "Open",
+    lat: 30.1219,
+    lng: -98.0353,
+    route: [
+      { lat: 30.1219, lng: -98.0353 },
+      { lat: 30.19, lng: -98.086 },
+      { lat: 30.248, lng: -98.169 },
+      { lat: 30.292, lng: -98.305 },
+      { lat: 30.22, lng: -98.19 },
+    ],
+    waypoints: [
+      { id: "r4-w1", label: "Vista Stop", lat: 30.2189, lng: -98.1594 },
+      { id: "r4-w2", label: "Lunch Stop", lat: 30.4311, lng: -98.3674 },
+      { id: "r4-w3", label: "Summit Gate", lat: 30.5052, lng: -98.8187 },
+    ],
   },
 ];
 
@@ -387,16 +445,6 @@ export default function RidesPage() {
           </div>
         </section>
       </div>
-
-      {/* Modals */}
-      {selectedRide && (
-        <RideDetailsModal
-          ride={selectedRide}
-          isGoing={!!going[selectedRide.id]}
-          onJoin={() => toggleJoin(selectedRide.id)}
-          onClose={() => setSelectedRide(null)}
-        />
-      )}
 
       {showHostModal && (
         <HostRideModal
