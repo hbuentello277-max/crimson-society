@@ -39,6 +39,54 @@ export type ProfileIdentityInput = {
   website_url: string;
 };
 
+export type ProfileSaveOperation = "select" | "update" | "upsert" | "avatar-update" | "avatar-upsert";
+
+export type ProfileSaveErrorDetails = {
+  operation: ProfileSaveOperation;
+  message: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+};
+
+export class ProfileSaveError extends Error {
+  operation: ProfileSaveOperation;
+  code?: string;
+  details?: string;
+  hint?: string;
+
+  constructor(operation: ProfileSaveOperation, error: unknown) {
+    const supabaseError = error as {
+      message?: string;
+      code?: string;
+      details?: string;
+      hint?: string;
+    };
+    super(supabaseError?.message || `Profile ${operation} failed.`);
+    this.name = "ProfileSaveError";
+    this.operation = operation;
+    this.code = supabaseError?.code;
+    this.details = supabaseError?.details;
+    this.hint = supabaseError?.hint;
+  }
+
+  toDetails(): ProfileSaveErrorDetails {
+    return {
+      operation: this.operation,
+      message: this.message,
+      code: this.code,
+      details: this.details,
+      hint: this.hint,
+    };
+  }
+}
+
+export function getProfileSaveErrorDetails(error: unknown): ProfileSaveErrorDetails {
+  if (error instanceof ProfileSaveError) return error.toDetails();
+  if (error instanceof Error) return { operation: "update", message: error.message };
+  return { operation: "update", message: "Unknown profile save error." };
+}
+
 export const PROFILE_SELECT =
   "id, role, status, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url";
 
@@ -178,7 +226,7 @@ export async function updateProfileIdentity(
     .select(PROFILE_SELECT)
     .maybeSingle();
 
-  if (updated.error) throw updated.error;
+  if (updated.error) throw new ProfileSaveError("update", updated.error);
   if (updated.data) return updated.data as AppProfile;
 
   const inserted = await supabase
@@ -193,7 +241,7 @@ export async function updateProfileIdentity(
     .select(PROFILE_SELECT)
     .single();
 
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) throw new ProfileSaveError("upsert", inserted.error);
   return inserted.data as AppProfile;
 }
 
@@ -208,7 +256,7 @@ export async function updateProfileAvatar(
     .select(PROFILE_SELECT)
     .maybeSingle();
 
-  if (updated.error) throw updated.error;
+  if (updated.error) throw new ProfileSaveError("avatar-update", updated.error);
   if (updated.data) return updated.data as AppProfile;
 
   const inserted = await supabase
@@ -224,7 +272,7 @@ export async function updateProfileAvatar(
     .select(PROFILE_SELECT)
     .single();
 
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) throw new ProfileSaveError("avatar-upsert", inserted.error);
   return inserted.data as AppProfile;
 }
 
