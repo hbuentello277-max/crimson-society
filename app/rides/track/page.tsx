@@ -25,6 +25,10 @@ export default function RideTrackingPage() {
   const [elapsedMs, setElapsedMs] = useState<number>(0);
   const [isOffRoute, setIsOffRoute] = useState<boolean>(false);
 
+    // Phase 3B: Planned route tracking
+  const [plannedRoute, setPlannedRoute] = useState<RoutePoint[] | null>(null);
+  const [rideName, setRideName] = useState<string | null>(null);
+
   const watchIdRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,6 +38,46 @@ export default function RideTrackingPage() {
     if (!navigator.geolocation) {
       setState("unavailable");
       return;
+        // Phase 3B: Off-route detection helpers
+  function haversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371000; // Earth radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+  function checkOffRoute(
+    currentPos: Position,
+    plannedRoute: RoutePoint[]
+  ): boolean {
+    if (!plannedRoute || plannedRoute.length === 0) return false;
+    const THRESHOLD_METERS = 150;
+
+    for (const point of plannedRoute) {
+      const distance = haversineDistance(
+        currentPos.lat,
+        currentPos.lng,
+        point.lat,
+        point.lng
+      );
+      if (distance <= THRESHOLD_METERS) return false;
+    }
+    return true;
+  }
+
     }
 
     setState("requesting_permission");
@@ -55,13 +99,11 @@ export default function RideTrackingPage() {
         startTimeRef.current = Date.now();
       }
 
-      // TODO Phase 3B: Check if off planned route
-      // if (plannedRoute && isPointOffRoute(newPos, plannedRoute)) {
-      //   setIsOffRoute(true);
-      // } else {
-      //   setIsOffRoute(false);
-      // }
-    };
+    if (plannedRoute && checkOffRoute(newPos, plannedRoute)) {
+      setIsOffRoute(true);
+    } else {
+      setIsOffRoute(false);
+    }    };
 
     const error = (err: GeolocationPositionError) => {
       if (err.code === err.PERMISSION_DENIED) {
@@ -130,6 +172,37 @@ export default function RideTrackingPage() {
       }
       if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, []);
+
+    // Phase 3B: Load planned route from sessionStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = sessionStorage.getItem("crimson-active-ride");
+    if (!stored) return;
+
+    try {
+      const rideData = JSON.parse(stored);
+      
+      // Validate route structure
+      if (Array.isArray(rideData.route) && rideData.route.length > 0) {
+        const validRoute = rideData.route.every(
+          (p: any) =>
+            typeof p.lat === "number" &&
+            typeof p.lng === "number" &&
+            isFinite(p.lat) &&
+            isFinite(p.lng)
+        );
+        if (validRoute) {
+          setPlannedRoute(rideData.route);
+        }
+      }
+      
+      if (rideData.name) {
+        setRideName(rideData.name);
+      }
+    } catch (e) {
+      console.error("Failed to load planned route:", e);
+    }
   }, []);
 
   const speedMph = (speed * 2.23694).toFixed(1); // m/s to mph
