@@ -342,12 +342,6 @@ export default function RidesPage() {
             >
               + Host Ride
             </button>
-            <Link
-              href="/rides/track"
-              className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/24 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/34"
-            >
-              Start Ride Tracking
-            </Link>
           </div>
         </div>
 
