@@ -1,7 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import type { Ride } from "@/app/rides/page";
+
+const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
 
 interface Props {
   ride: Ride;
@@ -75,18 +78,18 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
         {/* Scrollable body */}
         <div className="max-h-[60vh] overflow-y-auto px-5 pb-6 pt-5 sm:max-h-[50vh]">
-          {/* Map / Route placeholder */}
-          <div className="mb-5 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
-            <div className="flex h-32 items-center justify-center gap-3 sm:h-40">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-600">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
-              </svg>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Route Map</p>
-                <p className="mt-0.5 text-xs text-zinc-600">Interactive map — Phase 2</p>
-              </div>
-            </div>
-          </div>
+{/* Map / Route */}
+                  <div className="mb-5 overflow-hidden rounded-lg border border-white/10">
+                              <RideMap
+                                            lat={ride.lat}
+                                            lng={ride.lng}
+                                            meetPoint={ride.meetPoint}
+                                            route={ride.route ?? []}
+                                            height={260}
+                                            compact
+                                            hideHint
+                                          />
+                            </div>
 
           {/* Route info grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
