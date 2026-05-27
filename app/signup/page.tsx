@@ -1,364 +1,372 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/components/AuthProvider";
-import { cleanUsername, updateProfileIdentity } from "@/lib/profile";
+
+type Language = "en" | "es";
+type LoadingState = "signup" | "resend" | null;
+
+const copy = {
+  en: {
+    eyebrow: "RIDE • CULTURE • LEGACY",
+    title: "Request Access",
+    subtitle:
+      "Create your Crimson Society account and step into a private circle built for riders, status, and legacy.",
+    email: "Email",
+    password: "Password",
+    confirmPassword: "Confirm Password",
+    createAccount: "Create Account",
+    creating: "Creating...",
+    alreadyMember: "Already a member?",
+    goToLogin: "Go to Login",
+    checkEmailTitle: "Check Your Email",
+    checkEmailBody:
+      "We sent you a confirmation link. Open your inbox, verify your email, then return to log in.",
+    didntGetIt: "Didn’t get it?",
+    resend: "Resend Email",
+    resending: "Resending...",
+    backToSignup: "Back to Signup",
+    fillAllFields: "Please fill in all fields.",
+    passwordsNoMatch: "Passwords do not match.",
+    passwordTooShort: "Password must be at least 6 characters.",
+    accountCreated: "Account created. Check your email to confirm your account.",
+    enterEmailToResend: "Enter your email to resend confirmation.",
+    confirmationResent: "Confirmation email resent.",
+    genericError: "Something went wrong.",
+  },
+  es: {
+    eyebrow: "RIDE • CULTURE • LEGACY",
+    title: "Solicitar acceso",
+    subtitle:
+      "Crea tu cuenta de Crimson Society y entra a un círculo privado creado para motociclistas, estatus y legado.",
+    email: "Correo electrónico",
+    password: "Contraseña",
+    confirmPassword: "Confirmar contraseña",
+    createAccount: "Crear cuenta",
+    creating: "Creando...",
+    alreadyMember: "¿Ya eres miembro?",
+    goToLogin: "Ir a Iniciar sesión",
+    checkEmailTitle: "Revisa tu correo",
+    checkEmailBody:
+      "Te enviamos un enlace de confirmación. Abre tu bandeja de entrada, verifica tu correo y luego vuelve para iniciar sesión.",
+    didntGetIt: "¿No te llegó?",
+    resend: "Reenviar correo",
+    resending: "Reenviando...",
+    backToSignup: "Volver al registro",
+    fillAllFields: "Completa todos los campos.",
+    passwordsNoMatch: "Las contraseñas no coinciden.",
+    passwordTooShort: "La contraseña debe tener al menos 6 caracteres.",
+    accountCreated: "Cuenta creada. Revisa tu correo para confirmar tu cuenta.",
+    enterEmailToResend: "Ingresa tu correo para reenviar la confirmación.",
+    confirmationResent: "Correo de confirmación reenviado.",
+    genericError: "Algo salió mal.",
+  },
+} as const;
 
 export default function SignUpPage() {
-  const router = useRouter();
-  const { session, loading: authLoading } = useAuth();
-
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
+  const [language, setLanguage] = useState<Language>("en");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [infoMsg, setInfoMsg] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState<LoadingState>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
-  const redirectTo = useMemo(() => {
-    if (typeof window === "undefined") return "";
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saved = window.localStorage.getItem("signup-language");
+    if (saved === "en" || saved === "es") {
+      setLanguage(saved);
+    }
+  }, []);
+
+  const changeLanguage = (next: Language) => {
+    setLanguage(next);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("signup-language", next);
+    }
+  };
+
+  const t = copy[language];
+
+  const emailRedirectTo = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
     return `${window.location.origin}/auth/callback`;
   }, []);
 
-  useEffect(() => {
-    if (!authLoading && session) {
-      router.replace("/dashboard");
-    }
-  }, [authLoading, session, router]);
-
   async function handleSignUp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-    setInfoMsg("");
+    setError("");
+    setMessage("");
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedDisplayName = displayName.trim();
-    const normalizedUsername = cleanUsername(username || displayName);
+    const trimmedEmail = email.trim();
 
-    if (!trimmedDisplayName) {
-      setErrorMsg("Choose a display name for your profile.");
-      setLoading(false);
-      return;
-    }
-
-    if (!normalizedUsername || normalizedUsername === "member") {
-      setErrorMsg("Choose a unique username.");
-      setLoading(false);
-      return;
-    }
-
-    if (!trimmedEmail) {
-      setErrorMsg("Enter your email address.");
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMsg("Password must be at least 6 characters.");
-      setLoading(false);
+    if (!trimmedEmail || !password || !confirmPassword) {
+      setError(t.fillAllFields);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMsg("Passwords do not match.");
-      setLoading(false);
+      setError(t.passwordsNoMatch);
       return;
     }
 
-    const usernameCheck = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", normalizedUsername)
-      .maybeSingle();
-
-    if (usernameCheck.error) {
-      setErrorMsg(usernameCheck.error.message);
-      setLoading(false);
+    if (password.length < 6) {
+      setError(t.passwordTooShort);
       return;
     }
 
-    if (usernameCheck.data) {
-      setErrorMsg("That username is already taken.");
-      setLoading(false);
-      return;
-    }
+    try {
+      setLoading("signup");
 
-    const { data, error } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password,
-      options: {
-        emailRedirectTo: redirectTo,
-        data: {
-          display_name: trimmedDisplayName,
-          full_name: trimmedDisplayName,
-          name: trimmedDisplayName,
-          username: normalizedUsername,
-        },
-      },
-    });
+      const { error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: emailRedirectTo ? { emailRedirectTo } : undefined,
+      });
 
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.session?.user?.id) {
-      try {
-        await updateProfileIdentity(data.session.user.id, {
-          display_name: trimmedDisplayName,
-          username: normalizedUsername,
-          bio: "",
-          location: "",
-          quote: "",
-          instagram_url: "",
-          tiktok_url: "",
-          youtube_url: "",
-          website_url: "",
-        });
-      } catch (profileError) {
-        setErrorMsg(
-          profileError instanceof Error
-            ? profileError.message
-            : "Account created, but profile setup needs to be completed after login.",
-        );
-        setLoading(false);
+      if (error) {
+        setError(error.message);
         return;
       }
-    }
 
-    setEmail(trimmedEmail);
-    setAwaitingConfirmation(true);
-    setInfoMsg(`We sent a confirmation email to ${trimmedEmail}.`);
-    setLoading(false);
+      setAwaitingConfirmation(true);
+      setMessage(t.accountCreated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.genericError);
+    } finally {
+      setLoading(null);
+    }
   }
 
-  async function handleResend() {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedDisplayName = displayName.trim();
-    const normalizedUsername = cleanUsername(username || displayName);
+  async function handleResendEmail() {
+    setError("");
+    setMessage("");
 
-    if (!trimmedDisplayName) {
-      setErrorMsg("Choose a display name for your profile.");
-      setLoading(false);
-      return;
-    }
-
-    if (!normalizedUsername || normalizedUsername === "member") {
-      setErrorMsg("Choose a unique username.");
-      setLoading(false);
-      return;
-    }
+    const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      setErrorMsg("Enter your email first.");
+      setError(t.enterEmailToResend);
       return;
     }
 
-    setResending(true);
-    setErrorMsg("");
-    setInfoMsg("");
+    try {
+      setLoading("resend");
 
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: trimmedEmail,
-      options: {
-        emailRedirectTo: redirectTo,
-      },
-    });
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: trimmedEmail,
+        options: emailRedirectTo ? { emailRedirectTo } : undefined,
+      });
 
-    if (error) {
-      setErrorMsg(error.message);
-      setResending(false);
-      return;
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setMessage(t.confirmationResent);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.genericError);
+    } finally {
+      setLoading(null);
     }
-
-    setInfoMsg(`Confirmation email sent again to ${trimmedEmail}.`);
-    setResending(false);
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(180,20,30,0.24), transparent 65%)",
-        }}
-      />
+    <main className="relative min-h-screen overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(220,38,38,0.22),transparent_38%),linear-gradient(to_bottom,#050505,#0a0a0a,#000000)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:44px_44px] opacity-20" />
 
-      <div className="relative mx-auto flex min-h-screen max-w-xl items-center px-6 py-16">
-        <div className="w-full rounded-[28px] border border-white/10 bg-[#0b0b0c]/95 p-8 shadow-[0_0_60px_-20px_rgba(180,20,30,0.35)] backdrop-blur">
-          <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-            Crimson Society
-          </p>
-
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-16">
+        <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-white/5 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl">
           {!awaitingConfirmation ? (
             <>
-              <h1 className="mt-4 font-serif text-5xl leading-none text-white">
-                Request Access
+              <p className="mb-4 text-center text-[11px] uppercase tracking-[0.38em] text-zinc-400">
+                {t.eyebrow}
+              </p>
+
+              <h1 className="text-center text-4xl font-semibold tracking-[0.04em] text-white">
+                {t.title}
               </h1>
 
-              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
-                Enter your details, confirm your email, and step into the Society.
+              <p className="mx-auto mt-4 max-w-sm text-center text-sm leading-6 text-zinc-300">
+                {t.subtitle}
               </p>
 
               <form onSubmit={handleSignUp} className="mt-8 space-y-4">
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Display name"
-                  autoComplete="name"
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-zinc-400">
+                    {t.email}
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
+                    placeholder={t.email}
+                  />
+                </div>
 
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
-                  autoComplete="username"
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-zinc-400">
+                    {t.password}
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
+                    placeholder={t.password}
+                  />
+                </div>
 
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  autoComplete="email"
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-zinc-400">
+                    {t.confirmPassword}
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
+                    placeholder={t.confirmPassword}
+                  />
+                </div>
 
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  required
-                />
-
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  required
-                />
-
-                {errorMsg && (
-                  <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
-                    <p className="text-sm text-red-300">{errorMsg}</p>
+                {error ? (
+                  <div className="rounded-2xl border border-red-700/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                    {error}
                   </div>
-                )}
+                ) : null}
 
-                {infoMsg && (
-                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                    <p className="text-sm text-emerald-300">{infoMsg}</p>
+                {message ? (
+                  <div className="rounded-2xl border border-emerald-700/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+                    {message}
                   </div>
-                )}
+                ) : null}
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full rounded-full bg-[#b4141e]/90 px-5 py-3 text-xs uppercase tracking-[0.28em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={loading === "signup"}
+                  className="h-12 w-full rounded-2xl border border-red-700/60 bg-red-700 text-sm font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {loading ? "Creating..." : "Join the Society"}
+                  {loading === "signup" ? t.creating : t.createAccount}
                 </button>
               </form>
 
-              <div className="mt-6">
+              <div className="mt-6 text-center">
+                <p className="text-sm text-zinc-400">{t.alreadyMember}</p>
                 <Link
                   href="/login"
-                  className="text-xs uppercase tracking-[0.25em] text-zinc-500 transition hover:text-zinc-300"
+                  className="mt-3 inline-flex h-11 items-center justify-center rounded-full border border-white/15 px-5 text-xs uppercase tracking-[0.24em] text-zinc-200 transition hover:border-white/30 hover:bg-white/5"
                 >
-                  Back to Login
+                  {t.goToLogin}
                 </Link>
               </div>
             </>
           ) : (
             <>
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 text-[#e87a82]">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 6h16v12H4z" />
-                  <path d="m22 7-10 7L2 7" />
-                </svg>
-              </div>
+              <p className="mb-4 text-center text-[11px] uppercase tracking-[0.38em] text-zinc-400">
+                {t.eyebrow}
+              </p>
 
-              <h1 className="mt-6 font-serif text-5xl leading-none text-white">
-                Check Your Email
+              <h1 className="text-center text-4xl font-semibold tracking-[0.04em] text-white">
+                {t.checkEmailTitle}
               </h1>
 
-              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
-                We sent a confirmation link to{" "}
-                <span className="text-white">{email}</span>. Open the email and
-                click the link to activate your access.
+              <p className="mx-auto mt-4 max-w-sm text-center text-sm leading-6 text-zinc-300">
+                {t.checkEmailBody}
               </p>
 
-              <p className="mt-4 max-w-md text-sm leading-7 text-zinc-500">
-                After confirmation, you should be returned through the auth callback
-                flow so your app can complete authentication more smoothly.
-              </p>
-
-              {errorMsg && (
-                <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
-                  <p className="text-sm text-red-300">{errorMsg}</p>
+              {error ? (
+                <div className="mt-6 rounded-2xl border border-red-700/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                  {error}
                 </div>
-              )}
+              ) : null}
 
-              {infoMsg && (
-                <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                  <p className="text-sm text-emerald-300">{infoMsg}</p>
+              {message ? (
+                <div className="mt-6 rounded-2xl border border-emerald-700/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+                  {message}
                 </div>
-              )}
+              ) : null}
 
-              <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="mt-8 space-y-3">
                 <button
                   type="button"
-                  onClick={handleResend}
-                  disabled={resending}
-                  className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleResendEmail}
+                  disabled={loading === "resend"}
+                  className="h-12 w-full rounded-2xl border border-red-700/60 bg-red-700 text-sm font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {resending
-                    ? "Sending..."
-                    : "Didn’t get it? Resend confirmation email."}
+                  {loading === "resend" ? t.resending : t.resend}
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setAwaitingConfirmation(false)}
+                  className="h-12 w-full rounded-2xl border border-white/12 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
+                >
+                  {t.backToSignup}
+                </button>
+              </div>
+
+              <p className="mt-5 text-center text-sm text-zinc-400">
+                {t.didntGetIt}
+              </p>
+
+              <div className="mt-4 text-center">
                 <Link
                   href="/login"
-                  className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-white/15 px-5 text-xs uppercase tracking-[0.24em] text-zinc-200 transition hover:border-white/30 hover:bg-white/5"
                 >
-                  Go to Login
+                  {t.goToLogin}
                 </Link>
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div
+        className="fixed right-4 z-50"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+        }}
+      >
+        <div className="flex items-center gap-1 rounded-full border border-red-700/60 bg-black/45 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => changeLanguage("en")}
+            aria-pressed={language === "en"}
+            className={`min-h-[36px] rounded-full px-3 text-xs font-medium transition ${
+              language === "en"
+                ? "bg-red-700 text-white"
+                : "text-zinc-300 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            English
+          </button>
+
+          <span className="text-xs text-zinc-500">|</span>
+
+          <button
+            type="button"
+            onClick={() => changeLanguage("es")}
+            aria-pressed={language === "es"}
+            className={`min-h-[36px] rounded-full px-3 text-xs font-medium transition ${
+              language === "es"
+                ? "bg-red-700 text-white"
+                : "text-zinc-300 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            Español
+          </button>
         </div>
       </div>
     </main>
