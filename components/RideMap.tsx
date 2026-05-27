@@ -34,6 +34,7 @@ type RideMapProps = {
   height?: number;
   compact?: boolean;
   hideHint?: boolean;
+    interactive?: boolean;
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
 };
@@ -165,6 +166,7 @@ export default function RideMap({
   height = 320,
   compact = false,
   hideHint = false,
+    interactive = true,
   onMeetPointChange,
   onRouteChange,
 }: RideMapProps) {
@@ -183,10 +185,10 @@ export default function RideMap({
       <MapContainer
         center={[lat, lng]}
         zoom={11}
-        scrollWheelZoom={!compact}
-        dragging={!compact || editable}
-        doubleClickZoom={!compact}
-        touchZoom={!compact || editable}
+                  scrollWheelZoom={interactive}
+                  dragging={interactive || editable}
+                  doubleClickZoom={interactive}
+                  touchZoom={interactive || editable}
         boxZoom={false}
         keyboard={!compact}
         zoomControl={false}
