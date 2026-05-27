@@ -383,7 +383,13 @@ export default function ConnectPage() {
       setErrorMsg("Could not cancel request.");
     }
   }
-      !q ||
+    const filtered = useMemo(
+    () =>
+      members.filter((m) => {
+        const matchesFilter = filter === "All" || m.style.includes(filter);
+        const q = query.trim().toLowerCase();
+        const matchesQuery =
+                !q ||
           m.name.toLowerCase().includes(q) ||
           m.handle.toLowerCase().includes(q) ||
           m.city.toLowerCase().includes(q) ||
