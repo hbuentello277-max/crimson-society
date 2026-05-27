@@ -313,6 +313,7 @@ export default function ConnectPage() {
 
     async function handleCancelRequest(id: string) {
   if (!userId || id === userId) return;
+          console.log("Cancel clicked", id);
 
   setStatuses((prev) => ({ ...prev, [id]: "none" }));
 
@@ -321,6 +322,13 @@ export default function ConnectPage() {
     .delete()
     .eq("requester_id", userId)
     .eq("addressee_id", id)
+    
+    console.log("Delete result:", { error });
+      
+    if (error) {      console.log("Delete failed with error:", error)
+          } else {
+      console.log("Delete succeeded for", id);
+    };
     .eq("status", "pending");
 
   if (error) {
@@ -542,6 +550,7 @@ export default function ConnectPage() {
 
                     <button
                       onClick={() => {
+                                  console.log("Button clicked, status:", status);
                 status === "pending"
                   ? handleCancelRequest(m.id)
                   : handleConnect(m.id);
@@ -687,6 +696,7 @@ export default function ConnectPage() {
               <div className="mt-8 grid w-full gap-3">
                 <button
               onClick={() => {
+                          console.log("Modal button clicked, status:", status);
                 const status = statuses[openMember.id];
                 status === "pending"
                   ? handleCancelRequest(openMember.id)
