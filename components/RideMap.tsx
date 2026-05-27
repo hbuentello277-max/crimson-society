@@ -161,7 +161,7 @@ function MobileTouchFix({ interactive }: { interactive: boolean }) {
     container.style.touchAction = interactive ? "none" : "auto";
     const t = setTimeout(() => {
       map.invalidateSize({ animate: false });
-    }, 120);
+    }, 350);
     return () => clearTimeout(t);
   }, [map, interactive]);
   return null;
