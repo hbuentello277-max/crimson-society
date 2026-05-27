@@ -34,7 +34,7 @@ const NAV = [
   },
   {
     href: "/rides",
-    label: "Rides",
+    label: "Meets",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <circle cx="5.5" cy="17" r="3" />
