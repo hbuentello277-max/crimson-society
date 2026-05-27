@@ -299,7 +299,7 @@ export default function ShopPage() {
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center">
                         <p className="font-serif text-2xl italic text-white">COMING SOON</p>
-            <p className=className="mt-3 max-w-sm text-center text-sm text-zinc-400">
+            <p className="mt-3 max-w-sm text-center text-sm text-zinc-400">
               Exclusive pieces. Limited runs. Stay tuned.
             </p>
           </div>
