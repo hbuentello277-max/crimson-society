@@ -467,7 +467,7 @@ export default function DashboardPage() {
       onMouseLeave={handleMouseUp}
     >
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex max-w-2xl items-end justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
           <div>
             <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">
               The Feed
