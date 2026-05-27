@@ -62,6 +62,7 @@ export default function RideTrackingPage() {
   const router = useRouter();
     const [state, setState] = useState<TrackingState>("idle")
     const [positions, setPositions] = useState<Position[]>([]);
+    const [currentPos, setCurrentPos] = useState<Position | null>(null);
   const [speed, setSpeed] = useState<number>(0)
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number>(0);
