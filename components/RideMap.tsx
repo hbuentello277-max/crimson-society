@@ -43,8 +43,6 @@ type RideMapProps = {
   onRouteChange?: (route: RoutePoint[]) => void;
 };
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
-
 const meetIcon = L.divIcon({
   html: `
     <div style="
@@ -112,7 +110,7 @@ function createWaypointIcon(label: string) {
         width: 20px;
         height: 20px;
         border-radius: 9999px;
-        background: rgba(22, 10, 12, 0.92);
+        background: rgba(22,10,12,0.92);
         border: 1.5px solid rgba(127,17,27,0.6);
         box-shadow: 0 0 0 4px rgba(127,17,27,0.12), 0 4px 12px rgba(0,0,0,0.4);
         color: rgba(244,209,214,0.9);
@@ -156,25 +154,16 @@ function createRiderIcon(name?: string | null) {
   });
 }
 
-// ─── Map helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Fixes leaflet pinch-zoom and drag on mobile Safari / iOS.
- * Sets touch-action on the map container explicitly so native scroll
- * does not steal the pinch gesture from Leaflet.
- */
-function MobileTouchFix() {
+function MobileTouchFix({ interactive }: { interactive: boolean }) {
   const map = useMap();
   useEffect(() => {
     const container = map.getContainer();
-    // Allow Leaflet to handle all pointer/touch gestures
-    container.style.touchAction = "none";
-    // Re-invalidate size after first render (fixes blank map in modals)
+    container.style.touchAction = interactive ? "none" : "auto";
     const t = setTimeout(() => {
       map.invalidateSize({ animate: false });
     }, 120);
     return () => clearTimeout(t);
-  }, [map]);
+  }, [map, interactive]);
   return null;
 }
 
@@ -190,7 +179,6 @@ function FitToRoute({
   compact: boolean;
 }) {
   const map = useMap();
-  // stable ref so we only fit on first meaningful route
   const fitted = useRef(false);
   useEffect(() => {
     if (route.length > 1) {
@@ -235,8 +223,6 @@ function EditableEvents({
   return null;
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────────
-
 export default function RideMap({
   lat,
   lng,
@@ -265,13 +251,9 @@ export default function RideMap({
         position: "relative",
         width: "100%",
         height: compact ? "100%" : height,
-        // Safe-area inset support for iPhone notch/home-bar
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         borderRadius: compact ? 0 : 16,
         overflow: "hidden",
-        // Prevent the parent scroll container from intercepting touch events
-        // that Leaflet needs for pinch-zoom / drag
-        touchAction: interactive ? "none" : "auto",
       }}
     >
       <MapContainer
@@ -284,12 +266,6 @@ export default function RideMap({
         touchZoom={interactive}
         doubleClickZoom={interactive}
         scrollWheelZoom={interactive}
-        boxZoom={interactive}
-        keyboard={interactive}
-        // Prevents the map from capturing scroll when not desired,
-        // but still allows pinch-zoom via touch when interactive
-        tap={interactive}
-        tapTolerance={15}
         attributionControl={!compact}
       >
         <TileLayer
@@ -298,13 +274,8 @@ export default function RideMap({
           maxZoom={19}
         />
 
-        {/* Mobile touch + size invalidation fix */}
-        <MobileTouchFix />
-
-        {/* Fit map to route bounds */}
+        <MobileTouchFix interactive={interactive} />
         <FitToRoute lat={lat} lng={lng} route={displayRoute} compact={compact} />
-
-        {/* Editable click handler */}
         <EditableEvents
           editable={editable}
           route={route}
@@ -312,33 +283,22 @@ export default function RideMap({
           onRouteChange={onRouteChange}
         />
 
-        {/* Meet-point marker */}
         {!compact && (
           <Marker position={[lat, lng]} icon={meetIcon}>
-            <Tooltip
-              direction="top"
-              offset={[0, -14]}
-              opacity={1}
-              permanent={false}
-            >
+            <Tooltip direction="top" offset={[0, -14]} opacity={1} permanent={false}>
               {meetPoint || "Meet point"}
             </Tooltip>
           </Marker>
         )}
 
-        {/* Destination marker */}
         {showDestination && hasMultiplePoints && (
-          <Marker
-            position={[destination.lat, destination.lng]}
-            icon={destIcon}
-          >
+          <Marker position={[destination.lat, destination.lng]} icon={destIcon}>
             <Tooltip direction="top" offset={[0, -16]} opacity={1}>
               Destination
             </Tooltip>
           </Marker>
         )}
 
-        {/* Waypoint markers */}
         {showWaypoints &&
           waypoints.map((wp) => (
             <Marker
@@ -352,7 +312,6 @@ export default function RideMap({
             </Marker>
           ))}
 
-        {/* Live rider markers */}
         {riders.map((rider) => (
           <Marker
             key={rider.user_id}
@@ -365,66 +324,28 @@ export default function RideMap({
           </Marker>
         ))}
 
-        {/* Route polyline — 4-layer stroke for depth */}
         {hasMultiplePoints && (
           <>
-            {/* shadow */}
             <Polyline
-              positions={displayRoute.map(
-                (p) => [p.lat, p.lng] as [number, number]
-              )}
-              pathOptions={{
-                color: "#4f0710",
-                weight: compact ? 8 : 9,
-                opacity: 0.46,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{ color: "#4f0710", weight: compact ? 8 : 9, opacity: 0.46, lineCap: "round", lineJoin: "round" }}
             />
-            {/* base */}
             <Polyline
-              positions={displayRoute.map(
-                (p) => [p.lat, p.lng] as [number, number]
-              )}
-              pathOptions={{
-                color: "#7f111b",
-                weight: compact ? 6 : 7,
-                opacity: 0.96,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{ color: "#7f111b", weight: compact ? 6 : 7, opacity: 0.96, lineCap: "round", lineJoin: "round" }}
             />
-            {/* highlight */}
             <Polyline
-              positions={displayRoute.map(
-                (p) => [p.lat, p.lng] as [number, number]
-              )}
-              pathOptions={{
-                color: "#bf3242",
-                weight: compact ? 3.5 : 4,
-                opacity: 0.92,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{ color: "#bf3242", weight: compact ? 3.5 : 4, opacity: 0.92, lineCap: "round", lineJoin: "round" }}
             />
-            {/* sheen */}
             <Polyline
-              positions={displayRoute.map(
-                (p) => [p.lat, p.lng] as [number, number]
-              )}
-              pathOptions={{
-                color: "#f3d7db",
-                weight: compact ? 1.2 : 1.5,
-                opacity: 0.38,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{ color: "#f3d7db", weight: compact ? 1.2 : 1.5, opacity: 0.38, lineCap: "round", lineJoin: "round" }}
             />
           </>
         )}
       </MapContainer>
 
-      {/* Edit hint */}
       {editable && !hideHint && (
         <div
           style={{
@@ -450,7 +371,6 @@ export default function RideMap({
         </div>
       )}
 
-      {/* Mode badge */}
       {!compact && (
         <div
           style={{
@@ -474,7 +394,6 @@ export default function RideMap({
         </div>
       )}
 
-      {/* Point count badge */}
       {!compact && hasMultiplePoints && (
         <div
           style={{
@@ -498,30 +417,21 @@ export default function RideMap({
         </div>
       )}
 
-      {/* Global map aesthetics */}
       <style>{`
         .leaflet-container {
           background: radial-gradient(circle at top, rgba(127,17,27,0.22), transparent 40%),
             linear-gradient(180deg, #090607 0%, #080506 100%);
           font-family: inherit;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
         }
-        .leaflet-pane,
-        .leaflet-top,
-        .leaflet-bottom {
-          z-index: auto;
-        }
-        .leaflet-tile-pane {
-          opacity: 0.94;
-        }
+        .leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: auto; }
+        .leaflet-tile-pane { opacity: 0.94; }
         .leaflet-tile {
           filter: saturate(0.42) hue-rotate(-10deg) brightness(0.58) contrast(1.08) sepia(0.18);
         }
         .leaflet-control-attribution {
-          background: linear-gradient(
-            180deg,
-            rgba(22,10,12,0.9),
-            rgba(10,6,7,0.88)
-          ) !important;
+          background: linear-gradient(180deg, rgba(22,10,12,0.9), rgba(10,6,7,0.88)) !important;
           color: rgba(244,240,234,0.72) !important;
           border-top-left-radius: 14px;
           border: 1px solid rgba(127,17,27,0.18);
@@ -529,36 +439,20 @@ export default function RideMap({
           box-shadow: 0 12px 24px rgba(0,0,0,0.24);
           padding: 5px 9px !important;
         }
-        .leaflet-control-attribution a {
-          color: rgba(244,209,214,0.94) !important;
-        }
+        .leaflet-control-attribution a { color: rgba(244,209,214,0.94) !important; }
         .leaflet-tooltip {
-          background: linear-gradient(
-            180deg,
-            rgba(24,11,13,0.98),
-            rgba(10,6,7,0.98)
-          );
+          background: linear-gradient(180deg, rgba(24,11,13,0.98), rgba(10,6,7,0.98));
           color: #f4f0ea;
           border: 1px solid rgba(127,17,27,0.3);
           border-radius: 9999px;
-          box-shadow: 0 14px 28px rgba(0,0,0,0.34),
-            inset 0 1px 0 rgba(255,255,255,0.04);
+          box-shadow: 0 14px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.04);
           padding: 7px 11px;
           letter-spacing: 0.03em;
           font-size: 11px;
           text-transform: uppercase;
         }
-        .leaflet-tooltip-top:before {
-          border-top-color: rgba(18,8,10,0.98) !important;
-        }
-        .leaflet-interactive:focus {
-          outline: none;
-        }
-        /* Prevent iOS rubber-band scroll from interfering with map pan */
-        .leaflet-container {
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior: contain;
-        }
+        .leaflet-tooltip-top:before { border-top-color: rgba(18,8,10,0.98) !important; }
+        .leaflet-interactive:focus { outline: none; }
       `}</style>
     </div>
   );
