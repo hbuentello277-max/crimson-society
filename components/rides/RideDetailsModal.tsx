@@ -178,11 +178,21 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
             Close
           </button>
                     <Link
+                      <Link
             href="/rides/track"
+            onClick={() => {
+              sessionStorage.setItem("crimson-active-ride", JSON.stringify({
+                route: ride.route,
+                waypoints: ride.waypoints,
+                name: ride.name,
+                meetPoint: ride.meet_point,
+                destination: ride.destination
+              }));
+            }}
             className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200 text-center"
           >
             Start Ride Tracking
-          </Link>
+          </Link>Link>
           <button
             onClick={() => { onJoin(); }}
             className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
