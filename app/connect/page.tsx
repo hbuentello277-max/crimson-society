@@ -311,22 +311,24 @@ export default function ConnectPage() {
       }
     }
 
-      async function handleCancelRequest(id: string) {
-    if (!userId || id === userId) return;
+    async function handleCancelRequest(id: string) {
+  if (!userId || id === userId) return;
 
-    setStatuses((prev) => ({ ...prev, [id]: "none" }));
-    const { error } = await supabase
-      .from("user_connections")
-      .delete()
-      .eq("requester_id", userId)
-      .eq("addressee_id", id)
-      .eq("status", "pending");
+  setStatuses((prev) => ({ ...prev, [id]: "none" }));
 
-    if (error) {
-      setStatuses((prev) => ({ ...prev, [id]: "pending" }));
-      setErrorMsg(error.message);
-    }
+  const { error } = await supabase
+    .from("user_connections")
+    .delete()
+    .eq("requester_id", userId)
+    .eq("addressee_id", id)
+    .eq("status", "pending");
+
+  if (error) {
+    setStatuses((prev) => ({ ...prev, [id]: "pending" }));
+    setErrorMsg(error.message);
   }
+}
+
   }
 
   const filtered = useMemo(
