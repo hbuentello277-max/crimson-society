@@ -184,12 +184,10 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                 route: ride.route,
                 waypoints: ride.waypoints,
                 name: ride.name,
-                meetPoint: ride.meet_point,
+                meetPoint: ride.meetPoint,
                 destination: ride.destination
               }));
             }}
-            className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200 text-center"
-          >
             Start Ride Tracking
           </Link>
           <button
