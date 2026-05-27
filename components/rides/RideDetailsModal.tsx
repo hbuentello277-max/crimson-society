@@ -177,7 +177,6 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
           >
             Close
           </button>
-                    <Link
                       <Link
             href="/rides/track"
             onClick={() => {
@@ -192,7 +191,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
             className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200 text-center"
           >
             Start Ride Tracking
-          </Link>Link>
+          </Link>
           <button
             onClick={() => { onJoin(); }}
             className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
