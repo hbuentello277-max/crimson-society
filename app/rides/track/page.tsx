@@ -61,7 +61,7 @@ function checkOffRoute(
 export default function RideTrackingPage() {
   const router = useRouter();
     const [state, setState] = useState<TrackingState>("idle")
-    nst [positions, setPositions] = useState<Position[]>([]);
+    const [positions, setPositions] = useState<Position[]>([]);
   const [speed, setSpeed] = useState<number>(0)
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number>(0);
