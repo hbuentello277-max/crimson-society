@@ -370,24 +370,20 @@ export default function ConnectPage() {
     const previousStatus = statuses[id] ?? "pending";
     setStatuses((prev) => ({ ...prev, [id]: "none" }));
 
-    const { data: deleted, error } = await supabase
+    const { error } = await supabase
       .from("user_connections")
       .delete()
       .eq("connection_key", connectionKeyFor(userId, id))
       .eq("requester_id", userId)
-      .eq("status", "pending")
-      .select("id");
+      .eq("status", "pending");
 
-    if (error || !deleted || deleted.length === 0) {
-      console.error("Cancel request failed — row not deleted:", error ?? "0 rows affected");
+    if (error) {
+      console.error("Cancel request failed:", error);
       setStatuses((prev) => ({ ...prev, [id]: previousStatus }));
       setErrorMsg("Could not cancel request.");
     }
   }
-    const matchesFilter = filter === "All" || m.style.includes(filter);
-        const q = query.trim().toLowerCase();
-        const matchesQuery =
-          !q ||
+      !q ||
           m.name.toLowerCase().includes(q) ||
           m.handle.toLowerCase().includes(q) ||
           m.city.toLowerCase().includes(q) ||
