@@ -271,7 +271,7 @@ export default function RideTrackingPage() {
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="text-sm uppercase tracking-[0.18em]">Rides</span>
+            <span className="text-sm uppercase tracking-[0.18em]">Meets</span>
           </Link>
           <h1 className="text-sm uppercase tracking-[0.18em] text-zinc-300">
             Ride Tracking Assist
