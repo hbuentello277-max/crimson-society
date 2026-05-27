@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import type { Ride } from "@/app/rides/page";
+import Link from "next/link";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
 
@@ -176,6 +177,12 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
           >
             Close
           </button>
+                    <Link
+            href="/rides/track"
+            className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200 text-center"
+          >
+            Start Ride Tracking
+          </Link>
           <button
             onClick={() => { onJoin(); }}
             className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
