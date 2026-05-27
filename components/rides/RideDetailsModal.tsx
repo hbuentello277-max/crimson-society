@@ -79,7 +79,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
         {/* Scrollable body */}
         <div className="max-h-[60vh] overflow-y-auto px-5 pb-6 pt-5 sm:max-h-[50vh]">
 {/* Map / Route */}
-                  <div className="mb-5 overflow-hidden rounded-lg border border-white/10">
+                            <div className="mb-5 overflow-hidden rounded-lg border border-white/10" style={{ touchAction: "none" }}>
                               <RideMap
                                             lat={ride.lat}
                                             lng={ride.lng}
@@ -87,6 +87,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                                             route={ride.route ?? []}
                                             height={260}
                                             compact
+                                            interactive
                                             hideHint
                                           />
                             </div>
