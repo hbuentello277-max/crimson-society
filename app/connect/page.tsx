@@ -283,8 +283,36 @@ export default function ConnectPage() {
 
     const status = statuses[id] ?? "none";
 
+        if (status === "pending" || status === "connected") {
+      return;
+    }
+
     if (status === "none") {
       setStatuses((prev) => ({ ...prev, [id]: "pending" }));
+
+      const { data: existing, error: checkError } = await supabase
+        .from("user_connections")
+        .select("id, requester_id, addressee_id, status")
+        .eq("connection_key", connectionKeyFor(userId, id))
+        .maybeSingle();
+
+      if (checkError) {
+        setStatuses((prev) => ({ ...prev, [id]: "none" }));
+        setErrorMsg("Could not check connection status.");
+        return;
+      }
+
+      if (existing) {
+        const existingStatus = connectionStatus(
+          existing as ConnectionRow,
+          userId,
+        );
+        setStatuses((prev) => ({ ...prev, [id]: existingStatus }));
+        if (existingStatus === "pending" || existingStatus === "requested") {
+          setErrorMsg("Connection request already pending.");
+        }
+        return;
+      }
 
       const { error } = await supabase.from("user_connections").insert({
         requester_id: userId,
@@ -294,10 +322,27 @@ export default function ConnectPage() {
       });
 
       if (error) {
+        if (
+          error.code === "23505" ||
+          /user_connections_connection_key_key/i.test(error.message ?? "")
+        ) {
+          const { data: latest } = await supabase
+            .from("user_connections")
+            .select("id, requester_id, addressee_id, status")
+            .eq("connection_key", connectionKeyFor(userId, id))
+            .maybeSingle();
+          setStatuses((prev) => ({
+            ...prev,
+            [id]: latest
+              ? connectionStatus(latest as ConnectionRow, userId)
+              : "pending",
+          }));
+          setErrorMsg("Connection request already pending.");
+          return;
+        }
         setStatuses((prev) => ({ ...prev, [id]: "none" }));
-        setErrorMsg(error.message);
+        setErrorMsg("Could not send connection request.");
       }
-
       return;
     }
 
