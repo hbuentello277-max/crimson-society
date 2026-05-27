@@ -864,7 +864,7 @@ export default function MessagesPage() {
       />
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
-        <div className="mx-auto max-w-2xl px-5 py-4">
+        <div className="mx-auto max-w-2xl px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
             <div className="w-[72px]" />
             <Link
