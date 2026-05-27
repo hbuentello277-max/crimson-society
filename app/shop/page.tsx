@@ -264,7 +264,7 @@ export default function ShopPage() {
               alt="Silent Movement artwork"
               fill
               sizes="(max-width: 768px) 100vw, 768px"
-              className="object-contain object-center opacity-60"
+              className="object-contain object-center opacity-70"
             />
           </div>
 
@@ -276,11 +276,7 @@ export default function ShopPage() {
 
           <div className="absolute inset-x-0 bottom-8 flex justify-center px-5">
             <div className="max-w-md rounded-2xl bg-gradient-to-t from-black/60 via-black/30 to-transparent px-5 pb-4 pt-8 text-center">
-              <h2 className="font-serif text-2xl italic leading-tight text-white sm:text-3xl">
-                SILENT MOVEMENT
-              </h2>
-              <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-white/55">
-                Eight pieces · Hand-finished · Limited run
+            <p className="mt-6 text-[9px] uppercase tracking-[0.22em] text-white/45">                Eight pieces · Hand-finished · Limited run
               </p>
             </div>
           </div>
