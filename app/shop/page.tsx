@@ -270,15 +270,9 @@ export default function ShopPage() {
 
           <div className="absolute left-5 top-5 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-sm">
             <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">
-              First Drop
-            </p>
+                SILENT MOVEMENT            </p>
           </div>
 
-          <div className="absolute inset-x-0 bottom-8 flex justify-center px-5">
-            <div className="max-w-md rounded-2xl bg-gradient-to-t from-black/60 via-black/30 to-transparent px-5 pb-4 pt-8 text-center">
-              <h2 className="font-serif text-2xl italic leading-tight text-white sm:text-3xl">
-                SILENT MOVEMENT
-              </h2>
               <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-white/55">
                 Eight pieces · Hand-finished · Limited run
               </p>
