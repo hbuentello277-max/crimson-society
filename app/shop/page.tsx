@@ -279,11 +279,10 @@ export default function ShopPage() {
               </p>
             </div>
           </div>
-        </div>
       </section>
 
       <section className="relative mx-auto mt-6 max-w-2xl px-5">
-        {loading ? (
+      
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/70">
             Loading shop…
           </div>
