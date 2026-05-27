@@ -18,10 +18,12 @@ type TrackingState =
   | "stopped";
 
 type Position = { lat: number; lng: number; timestamp: number };
+type RoutePoint = { lat: number; lng: number }
 
 export default function RideTrackingPage() {
   const router = useRouter();
   const [accuracy, setAccuracy] = useState<number | null>(null);
+  type RoutePoint = { lat: number; lng: number };
   const [elapsedMs, setElapsedMs] = useState<number>(0);
   const [isOffRoute, setIsOffRoute] = useState<boolean>(false);
 
