@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
@@ -21,16 +21,6 @@ type Position = { lat: number; lng: number; timestamp: number };
 
 export default function RideTrackingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  // TODO Phase 3B: Parse ride route from URL params or state
-  // const plannedRoute = searchParams.get("route") ? JSON.parse(...) : null;
-  const plannedRoute = null; // Placeholder for Phase 3A
-
-  const [state, setState] = useState<TrackingState>("idle");
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [currentPos, setCurrentPos] = useState<Position | null>(null);
-  const [speed, setSpeed] = useState<number>(0); // m/s
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number>(0);
   const [isOffRoute, setIsOffRoute] = useState<boolean>(false);
