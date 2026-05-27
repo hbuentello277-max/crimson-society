@@ -316,6 +316,7 @@ export default function ConnectPage() {
         setErrorMsg(error.message);
       }
     }
+
   }
 
   async function handleCancelRequest(id: string) {

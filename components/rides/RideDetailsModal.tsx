@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import type { Ride } from "@/app/rides/page";
+import Link from "next/link";
+
+const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
 
 interface Props {
   ride: Ride;
@@ -11,6 +15,21 @@ interface Props {
 }
 
 export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
+  // Validate route data — must be array of { lat, lng } with real numbers
+  const safeRoute =
+    Array.isArray(ride.route) &&
+    ride.route.length > 0 &&
+    ride.route.every(
+      (p) =>
+        typeof p.lat === "number" &&
+        typeof p.lng === "number" &&
+        isFinite(p.lat) &&
+        isFinite(p.lng)
+    )
+      ? ride.route
+      : [];
+
+  const hasRoute = safeRoute.length > 0;
   return (
     <div
       role="dialog"
@@ -26,66 +45,79 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
       />
 
       {/* Sheet */}
-      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d080a] shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:rounded-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-[#0d0608] border border-white/10 shadow-2xl flex flex-col max-h-[92dvh] overflow-hidden">
+
         {/* Cover image */}
-        <div className="relative h-52 sm:h-64">
+        <div className="relative h-44 shrink-0 overflow-hidden">
           <Image
             src={ride.cover}
             alt={ride.name}
             fill
-            sizes="(max-width: 768px) 100vw, 672px"
+            sizes="(max-width: 512px) 100vw, 512px"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d080a] via-[#0d080a30] to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0608] via-[#0d0608]/40 to-transparent" />
 
           {/* Close button */}
           <button
-            type="button"
             onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-zinc-300 hover:text-white transition"
             aria-label="Close"
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 text-zinc-300 backdrop-blur-md transition hover:text-white"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M1 1l12 12M13 1L1 13" />
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
 
           {/* Badges */}
-          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-            <span className="rounded-md border border-white/15 bg-black/45 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
+          <div className="absolute top-3 left-3 flex gap-2">
+            <span className="rounded-full border border-white/20 bg-black/50 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-200">
               {ride.type}
             </span>
             {ride.privacy === "Invite" && (
-              <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
+              <span className="rounded-full border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
                 Invite Only
               </span>
             )}
           </div>
 
           {/* Ride title over image */}
-          <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#d85f6c]">
+          <div className="absolute bottom-3 left-4 right-12">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mb-0.5">
               {ride.date} / {ride.time}
             </p>
-            <h2 className="mt-1 font-serif text-[32px] leading-none text-[#f4f0ea] sm:text-[40px]">
-              {ride.name}
-            </h2>
+            <h2 className="text-lg font-semibold text-white leading-tight">{ride.name}</h2>
           </div>
         </div>
 
         {/* Scrollable body */}
         <div className="max-h-[60vh] overflow-y-auto px-5 pb-6 pt-5 sm:max-h-[50vh]">
-          {/* Map / Route placeholder */}
-          <div className="mb-5 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
-            <div className="flex h-32 items-center justify-center gap-3 sm:h-40">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-600">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
-              </svg>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Route Map</p>
-                <p className="mt-0.5 text-xs text-zinc-600">Interactive map — Phase 2</p>
+
+          {/* Map / Route */}
+          <div
+            className="mb-5 overflow-hidden rounded-lg border border-white/10"
+            style={{ height: 260, touchAction: "none" }}
+          >
+            {hasRoute ? (
+              <RideMap
+                lat={ride.lat}
+                lng={ride.lng}
+                meetPoint={ride.meetPoint}
+                route={safeRoute}
+                height={260}
+                interactive
+                hideHint
+                showDestination={safeRoute.length > 1}
+                showWaypoints={Array.isArray(ride.waypoints) && ride.waypoints.length > 0}
+                waypoints={ride.waypoints ?? []}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-600">
+                  Route map unavailable
+                </p>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Route info grid */}
@@ -120,16 +152,17 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
             </p>
             <div className="flex flex-wrap gap-2">
               {ride.going.map((rider) => (
-                <div key={rider.name} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1 pr-3">
-                  <div className="relative h-6 w-6 overflow-hidden rounded-full">
-                    <Image src={rider.photo} alt={rider.name} fill sizes="24px" className="object-cover" />
+                <div key={rider.name} className="flex items-center gap-2">
+                  <div className="relative h-7 w-7 overflow-hidden rounded-full border border-white/10">
+                    <Image src={rider.photo} alt={rider.name} fill sizes="28px" className="object-cover" />
                   </div>
-                  <span className="text-[11px] text-zinc-300">{rider.name}</span>
+                  <span className="text-xs text-zinc-400">{rider.name}</span>
                 </div>
               ))}
               {isGoing && (
-                <div className="flex items-center gap-2 rounded-full border border-[#7f111b]/40 bg-[#7f111b]/15 py-1 pl-2 pr-3">
-                  <span className="text-[11px] text-[#f4dadd]">You</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full bg-[#7f111b]/40 border border-[#7f111b]/60 flex items-center justify-center text-[10px] text-[#f4dadd]">Y</div>
+                  <span className="text-xs text-zinc-400">You</span>
                 </div>
               )}
             </div>
@@ -137,27 +170,37 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
         </div>
 
         {/* Footer CTA */}
-        <div className="border-t border-white/8 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-white/12 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/20 hover:text-zinc-200"
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={() => { onJoin(); }}
-              className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
-                isGoing
-                  ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
-                  : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
-              }`}
-            >
-              {isGoing ? "✓ Going" : "JOIN RIDE"}
-            </button>
-          </div>
+        <div className="shrink-0 flex gap-3 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 border-t border-white/8">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
+          >
+            Close
+          </button>
+                      <Link
+            href="/rides/track"
+            onClick={() => {
+              sessionStorage.setItem("crimson-active-ride", JSON.stringify({
+                route: ride.route,
+                waypoints: ride.waypoints,
+                name: ride.name,
+                meetPoint: ride.meetPoint,
+                destination: ride.destination
+              }));
+            }}
+                                >
+            Start Ride Tracking
+          </Link>
+          <button
+            onClick={() => { onJoin(); }}
+            className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
+              isGoing
+                ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
+                : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
+            }`}
+          >
+            {isGoing ? "\u2713 Going" : "JOIN RIDE"}
+          </button>
         </div>
       </div>
     </div>
@@ -166,9 +209,9 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/8 bg-white/[0.025] px-3 py-3">
-      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-600">{label}</p>
-      <p className="mt-1 text-sm font-medium text-zinc-200">{value}</p>
+    <div className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2.5">
+      <p className="mb-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">{label}</p>
+      <p className="text-xs font-medium text-zinc-300">{value}</p>
     </div>
   );
 }

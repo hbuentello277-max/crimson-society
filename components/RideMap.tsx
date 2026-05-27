@@ -1,6 +1,5 @@
 "use client";
-
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -24,6 +23,8 @@ export type LiveRideRider = {
   lng: number;
 };
 
+type Waypoint = { id: string; label: string; lat: number; lng: number };
+
 type RideMapProps = {
   lat: number;
   lng: number;
@@ -34,6 +35,10 @@ type RideMapProps = {
   height?: number;
   compact?: boolean;
   hideHint?: boolean;
+  interactive?: boolean;
+  showDestination?: boolean;
+  showWaypoints?: boolean;
+  waypoints?: Waypoint[];
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
 };
@@ -46,7 +51,7 @@ const meetIcon = L.divIcon({
       height: 22px;
       border-radius: 9999px;
       background:
-        radial-gradient(circle at 32% 30%, rgba(255,238,241,0.98) 0%, rgba(214,109,123,0.95) 18%, rgba(159,24,39,0.98) 52%, rgba(90,9,18,1) 100%);
+        radial-gradient(circle at 32% 30%, rgba(255,238,241,0.98) 0%, rgba(214,109,123,0.95) 18%, rgba(159,24,39,0.98) 52%);
       border: 2px solid rgba(244,240,234,0.98);
       box-shadow:
         0 0 0 7px rgba(127,17,27,0.18),
@@ -67,32 +72,99 @@ const meetIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-function createRiderIcon(name?: string | null) {
-  const initial = (name?.trim()?.charAt(0) || "R").toUpperCase();
+const destIcon = L.divIcon({
+  html: `
+    <div style="
+      position: relative;
+      width: 26px;
+      height: 26px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 32% 30%, rgba(255,248,220,0.98) 0%, rgba(255,200,80,0.95) 20%, rgba(200,130,0,0.98) 55%);
+      border: 2px solid rgba(255,240,180,0.98);
+      box-shadow:
+        0 0 0 6px rgba(180,120,0,0.18),
+        0 8px 20px rgba(10,6,0,0.5),
+        0 0 22px rgba(180,130,0,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.28);
+    ">
+      <div style="
+        position: absolute;
+        inset: 6px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255,255,255,0.2);
+      "></div>
+    </div>
+  `,
+  className: "",
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
 
+function createWaypointIcon(label: string) {
   return L.divIcon({
     html: `
       <div style="
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        width:20px;
-        height:20px;
-        border-radius:9999px;
-        background:linear-gradient(180deg, rgba(245,241,235,0.98), rgba(214,109,123,0.96));
-        color:#25080c;
-        font-size:10px;
-        font-weight:700;
-        border:1.5px solid rgba(127,17,27,0.72);
-        box-shadow:
-          0 0 0 5px rgba(127,17,27,0.16),
-          0 8px 18px rgba(0,0,0,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 9999px;
+        background: rgba(22,10,12,0.92);
+        border: 1.5px solid rgba(127,17,27,0.6);
+        box-shadow: 0 0 0 4px rgba(127,17,27,0.12), 0 4px 12px rgba(0,0,0,0.4);
+        color: rgba(244,209,214,0.9);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        font-family: inherit;
+        text-transform: uppercase;
+      ">${label.slice(0, 2)}</div>
+    `,
+    className: "",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
+function createRiderIcon(name?: string | null) {
+  const initial = (name?.trim()?.charAt(0) || "R").toUpperCase();
+  return L.divIcon({
+    html: `
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 9999px;
+        background: linear-gradient(135deg, rgba(40,14,17,0.98), rgba(22,8,10,0.98));
+        border: 1.5px solid rgba(159,24,39,0.7);
+        box-shadow: 0 0 0 4px rgba(127,17,27,0.16), 0 4px 12px rgba(0,0,0,0.42);
+        color: rgba(244,209,214,0.94);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        font-family: inherit;
       ">${initial}</div>
     `,
     className: "",
     iconSize: [20, 20],
     iconAnchor: [10, 10],
   });
+}
+
+function MobileTouchFix({ interactive }: { interactive: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    container.style.touchAction = interactive ? "none" : "auto";
+    const t = setTimeout(() => {
+      map.invalidateSize({ animate: false });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [map, interactive]);
+  return null;
 }
 
 function FitToRoute({
@@ -107,18 +179,18 @@ function FitToRoute({
   compact: boolean;
 }) {
   const map = useMap();
-
+  const fitted = useRef(false);
   useEffect(() => {
     if (route.length > 1) {
       const bounds = L.latLngBounds(
         route.map((p) => [p.lat, p.lng] as [number, number])
       );
-      map.fitBounds(bounds.pad(compact ? 0.12 : 0.18), { animate: true });
-    } else {
-      map.setView([lat, lng], compact ? 10 : 11, { animate: true });
+      map.fitBounds(bounds.pad(compact ? 0.12 : 0.18), { animate: false });
+      fitted.current = true;
+    } else if (!fitted.current) {
+      map.setView([lat, lng], compact ? 10 : 11, { animate: false });
     }
   }, [lat, lng, map, route, compact]);
-
   return null;
 }
 
@@ -136,22 +208,18 @@ function EditableEvents({
   useMapEvents({
     click(e: LeafletMouseEvent) {
       if (!editable) return;
-
       const point = {
         lat: Number(e.latlng.lat.toFixed(6)),
         lng: Number(e.latlng.lng.toFixed(6)),
       };
-
       if (route.length === 0) {
         onMeetPointChange?.(point);
         onRouteChange?.([point]);
         return;
       }
-
       onRouteChange?.([...route, point]);
     },
   });
-
   return null;
 }
 
@@ -165,41 +233,49 @@ export default function RideMap({
   height = 320,
   compact = false,
   hideHint = false,
+  interactive = true,
+  showDestination = false,
+  showWaypoints = false,
+  waypoints = [],
   onMeetPointChange,
   onRouteChange,
 }: RideMapProps) {
+  const [mapKey] = useState(() => Math.random().toString(36).slice(2));
   const displayRoute = route.length > 0 ? route : [{ lat, lng }];
+  const destination = displayRoute[displayRoute.length - 1];
+  const hasMultiplePoints = displayRoute.length > 1;
 
   return (
     <div
-      style={{ height }}
-      className="group relative w-full overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[#090607] shadow-[0_24px_80px_-36px_rgba(0,0,0,0.95)]"
+      style={{
+        position: "relative",
+        width: "100%",
+        height: compact ? "100%" : height,
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        borderRadius: compact ? 0 : 16,
+        overflow: "hidden",
+      }}
     >
-      <div className="pointer-events-none absolute inset-0 z-[300] bg-[radial-gradient(ellipse_at_top,rgba(127,17,27,0.24),transparent_58%)]" />
-      <div className="pointer-events-none absolute inset-0 z-[301] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_24%,transparent_72%,rgba(0,0,0,0.18))]" />
-      <div className="pointer-events-none absolute inset-0 z-[302] ring-1 ring-inset ring-[rgba(255,255,255,0.05)]" />
-      <div className="pointer-events-none absolute inset-0 z-[303] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" />
-
       <MapContainer
+        key={mapKey}
         center={[lat, lng]}
-        zoom={11}
-        scrollWheelZoom={!compact}
-        dragging={!compact || editable}
-        doubleClickZoom={!compact}
-        touchZoom={!compact || editable}
-        boxZoom={false}
-        keyboard={!compact}
-        zoomControl={false}
+        zoom={compact ? 10 : 11}
+        style={{ width: "100%", height: "100%" }}
+        zoomControl={!compact}
+        dragging={interactive}
+        touchZoom={interactive}
+        doubleClickZoom={interactive}
+        scrollWheelZoom={interactive}
         attributionControl={!compact}
-        className="h-full w-full"
       >
         <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
+        <MobileTouchFix interactive={interactive} />
         <FitToRoute lat={lat} lng={lng} route={displayRoute} compact={compact} />
-
         <EditableEvents
           editable={editable}
           route={route}
@@ -207,13 +283,34 @@ export default function RideMap({
           onRouteChange={onRouteChange}
         />
 
-        <Marker position={[lat, lng]} icon={meetIcon}>
-          {!compact && (
+        {!compact && (
+          <Marker position={[lat, lng]} icon={meetIcon}>
             <Tooltip direction="top" offset={[0, -14]} opacity={1} permanent={false}>
               {meetPoint || "Meet point"}
             </Tooltip>
-          )}
-        </Marker>
+          </Marker>
+        )}
+
+        {showDestination && hasMultiplePoints && (
+          <Marker position={[destination.lat, destination.lng]} icon={destIcon}>
+            <Tooltip direction="top" offset={[0, -16]} opacity={1}>
+              Destination
+            </Tooltip>
+          </Marker>
+        )}
+
+        {showWaypoints &&
+          waypoints.map((wp) => (
+            <Marker
+              key={wp.id}
+              position={[wp.lat, wp.lng]}
+              icon={createWaypointIcon(wp.label)}
+            >
+              <Tooltip direction="top" offset={[0, -13]} opacity={1}>
+                {wp.label}
+              </Tooltip>
+            </Marker>
+          ))}
 
         {riders.map((rider) => (
           <Marker
@@ -221,146 +318,141 @@ export default function RideMap({
             position={[rider.lat, rider.lng]}
             icon={createRiderIcon(rider.rider_name)}
           >
-            <Tooltip direction="top" offset={[0, -12]} opacity={1} permanent={false}>
+            <Tooltip direction="top" offset={[0, -13]} opacity={1}>
               {rider.rider_name || "Rider"}
             </Tooltip>
           </Marker>
         ))}
 
-        {displayRoute.length > 1 && (
+        {hasMultiplePoints && (
           <>
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
-              pathOptions={{
-                color: "#4f0710",
-                weight: compact ? 8 : 9,
-                opacity: 0.46,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              pathOptions={{ color: "#4f0710", weight: compact ? 8 : 9, opacity: 0.46, lineCap: "round", lineJoin: "round" }}
             />
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
-              pathOptions={{
-                color: "#7f111b",
-                weight: compact ? 6 : 7,
-                opacity: 0.96,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              pathOptions={{ color: "#7f111b", weight: compact ? 6 : 7, opacity: 0.96, lineCap: "round", lineJoin: "round" }}
             />
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
-              pathOptions={{
-                color: "#bf3242",
-                weight: compact ? 3.5 : 4,
-                opacity: 0.92,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              pathOptions={{ color: "#bf3242", weight: compact ? 3.5 : 4, opacity: 0.92, lineCap: "round", lineJoin: "round" }}
             />
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
-              pathOptions={{
-                color: "#f3d7db",
-                weight: compact ? 1.2 : 1.5,
-                opacity: 0.38,
-                lineCap: "round",
-                lineJoin: "round",
-              }}
+              pathOptions={{ color: "#f3d7db", weight: compact ? 1.2 : 1.5, opacity: 0.38, lineCap: "round", lineJoin: "round" }}
             />
           </>
         )}
       </MapContainer>
 
       {editable && !hideHint && (
-        <div className="pointer-events-none absolute left-4 top-4 z-[400] rounded-full border border-[rgba(127,17,27,0.28)] bg-[linear-gradient(180deg,rgba(20,9,11,0.94),rgba(10,6,7,0.9))] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-100 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md">
+        <div
+          style={{
+            position: "absolute",
+            bottom: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 500,
+            pointerEvents: "none",
+            background: "rgba(10,5,6,0.82)",
+            border: "1px solid rgba(127,17,27,0.28)",
+            borderRadius: 9999,
+            padding: "6px 14px",
+            color: "rgba(244,209,214,0.82)",
+            fontSize: 11,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            backdropFilter: "blur(8px)",
+            whiteSpace: "nowrap",
+          }}
+        >
           Click to place the route
         </div>
       )}
 
       {!compact && (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-[400] rounded-full border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(24,11,13,0.92),rgba(10,6,7,0.88))] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 shadow-[0_14px_30px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md">
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 500,
+            pointerEvents: "none",
+            background: "rgba(10,5,6,0.82)",
+            border: "1px solid rgba(127,17,27,0.22)",
+            borderRadius: 9999,
+            padding: "4px 10px",
+            color: "rgba(244,209,214,0.7)",
+            fontSize: 10,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            backdropFilter: "blur(8px)",
+          }}
+        >
           {editable ? "Route authoring" : "Route preview"}
         </div>
       )}
 
-      {!compact && displayRoute.length > 1 && (
-        <div className="pointer-events-none absolute bottom-4 right-4 z-[400] rounded-full border border-[rgba(127,17,27,0.22)] bg-[linear-gradient(180deg,rgba(24,11,13,0.92),rgba(10,6,7,0.88))] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1d8db] shadow-[0_14px_30px_-18px_rgba(0,0,0,0.95)] backdrop-blur-md">
+      {!compact && hasMultiplePoints && (
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 500,
+            pointerEvents: "none",
+            background: "rgba(10,5,6,0.82)",
+            border: "1px solid rgba(127,17,27,0.22)",
+            borderRadius: 9999,
+            padding: "4px 10px",
+            color: "rgba(244,209,214,0.7)",
+            fontSize: 10,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            backdropFilter: "blur(8px)",
+          }}
+        >
           {displayRoute.length} points plotted
         </div>
       )}
 
-      <style jsx global>{`
+      <style>{`
         .leaflet-container {
-          background:
-            radial-gradient(circle at top, rgba(127, 17, 27, 0.22), transparent 40%),
+          background: radial-gradient(circle at top, rgba(127,17,27,0.22), transparent 40%),
             linear-gradient(180deg, #090607 0%, #080506 100%);
           font-family: inherit;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
         }
-
-        .leaflet-pane,
-        .leaflet-top,
-        .leaflet-bottom {
-          z-index: auto;
-        }
-
-        .leaflet-tile-pane {
-          opacity: 0.94;
-        }
-
+        .leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: auto; }
+        .leaflet-tile-pane { opacity: 0.94; }
         .leaflet-tile {
-          filter:
-            saturate(0.42)
-            hue-rotate(-10deg)
-            brightness(0.58)
-            contrast(1.08)
-            sepia(0.18);
+          filter: saturate(0.42) hue-rotate(-10deg) brightness(0.58) contrast(1.08) sepia(0.18);
         }
-
         .leaflet-control-attribution {
-          background: linear-gradient(
-            180deg,
-            rgba(22, 10, 12, 0.9),
-            rgba(10, 6, 7, 0.88)
-          ) !important;
-          color: rgba(244, 240, 234, 0.72) !important;
+          background: linear-gradient(180deg, rgba(22,10,12,0.9), rgba(10,6,7,0.88)) !important;
+          color: rgba(244,240,234,0.72) !important;
           border-top-left-radius: 14px;
-          border: 1px solid rgba(127, 17, 27, 0.18);
+          border: 1px solid rgba(127,17,27,0.18);
           backdrop-filter: blur(10px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.24);
           padding: 5px 9px !important;
         }
-
-        .leaflet-control-attribution a {
-          color: rgba(244, 209, 214, 0.94) !important;
-        }
-
+        .leaflet-control-attribution a { color: rgba(244,209,214,0.94) !important; }
         .leaflet-tooltip {
-          background: linear-gradient(
-            180deg,
-            rgba(24, 11, 13, 0.98),
-            rgba(10, 6, 7, 0.98)
-          );
+          background: linear-gradient(180deg, rgba(24,11,13,0.98), rgba(10,6,7,0.98));
           color: #f4f0ea;
-          border: 1px solid rgba(127, 17, 27, 0.3);
+          border: 1px solid rgba(127,17,27,0.3);
           border-radius: 9999px;
-          box-shadow:
-            0 14px 28px rgba(0, 0, 0, 0.34),
-            inset 0 1px 0 rgba(255, 255, 255, 0.04);
+          box-shadow: 0 14px 28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.04);
           padding: 7px 11px;
           letter-spacing: 0.03em;
           font-size: 11px;
           text-transform: uppercase;
         }
-
-        .leaflet-tooltip-top:before {
-          border-top-color: rgba(18, 8, 10, 0.98) !important;
-        }
-
-        .leaflet-interactive:focus {
-          outline: none;
-        }
+        .leaflet-tooltip-top:before { border-top-color: rgba(18,8,10,0.98) !important; }
+        .leaflet-interactive:focus { outline: none; }
       `}</style>
     </div>
   );
