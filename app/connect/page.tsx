@@ -310,6 +310,23 @@ export default function ConnectPage() {
         setErrorMsg(error.message);
       }
     }
+
+      async function handleCancelRequest(id: string) {
+    if (!userId || id === userId) return;
+
+    setStatuses((prev) => ({ ...prev, [id]: "none" }));
+    const { error } = await supabase
+      .from("user_connections")
+      .delete()
+      .eq("requester_id", userId)
+      .eq("addressee_id", id)
+      .eq("status", "pending");
+
+    if (error) {
+      setStatuses((prev) => ({ ...prev, [id]: "pending" }));
+      setErrorMsg(error.message);
+    }
+  }
   }
 
   const filtered = useMemo(
@@ -522,9 +539,12 @@ export default function ConnectPage() {
                     </button>
 
                     <button
-                      onClick={() => handleConnect(m.id)}
-                      disabled={status === "connected" || status === "pending"}
-                      className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
+                      onClick={() => {
+                status === "pending"
+                  ? handleCancelRequest(m.id)
+                  : handleConnect(m.id);
+              }}
+              disabled={status === "connected"}                      className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
                         status === "connected"
                           ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
                           : status === "pending"
@@ -664,42 +684,11 @@ export default function ConnectPage() {
 
               <div className="mt-8 grid w-full gap-3">
                 <button
-                  onClick={() => handleConnect(openMember.id)}
-                  disabled={
-                    statuses[openMember.id] === "connected" ||
-                    statuses[openMember.id] === "pending"
-                  }
-                  className="w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-default disabled:opacity-70"
-                >
-                  {statuses[openMember.id] === "connected"
-                    ? "Connected"
-                    : statuses[openMember.id] === "pending"
-                      ? "Pending"
-                      : statuses[openMember.id] === "requested"
-                        ? "Accept"
-                        : "Connect"}
-                </button>
-
-                {statuses[openMember.id] === "connected" && (
-                  <Link
-                    href={`/messages/${openMember.id}`}
-                    className="w-full rounded-full border border-white/10 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                  >
-                    Message
-                  </Link>
-                )}
-              </div>
-
-              <button
-                onClick={() => setOpenId(null)}
-                className="mt-3 w-full rounded-full border border-white/10 py-3.5 text-sm uppercase tracking-[0.3em] text-zinc-400 transition hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
-  );
-}
+              onClick={() => {
+                const status = statuses[openMember.id];
+                status === "pending"
+                  ? handleCancelRequest(openMember.id)
+                  : handleConnect(openMember.id);
+              }}                  disabled={
+                statuses[openMember.id] === "connected"
+              }
