@@ -368,20 +368,19 @@ export default function ConnectPage() {
     if (!userId || id === userId) return;
 
     const previousStatus = statuses[id] ?? "pending";
-
     setStatuses((prev) => ({ ...prev, [id]: "none" }));
 
     const { error } = await supabase
       .from("user_connections")
       .delete()
+      .eq("connection_key", connectionKeyFor(userId, id))
       .eq("requester_id", userId)
-      .eq("addressee_id", id)
       .eq("status", "pending");
 
     if (error) {
       console.error("Cancel request failed:", error);
       setStatuses((prev) => ({ ...prev, [id]: previousStatus }));
-      setErrorMsg(error.message);
+      setErrorMsg("Could not cancel connection request.");
     }
   }
 
