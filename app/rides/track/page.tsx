@@ -57,16 +57,13 @@ function checkOffRoute(
   }
   return true;
 }
-type RoutePoint = { lat: number; lng: number }
 
 export default function RideTrackingPage() {
   const router = useRouter();
     const [state, setState] = useState<TrackingState>("idle")
-    const [currentPos, setCurrentPos] = useState<Position | null>(null);
-  const [positions, setPositions] = useState<Position[]>([]);
+    nst [positions, setPositions] = useState<Position[]>([]);
   const [speed, setSpeed] = useState<number>(0)
   const [accuracy, setAccuracy] = useState<number | null>(null);
-  type RoutePoint = { lat: number; lng: number };
   const [elapsedMs, setElapsedMs] = useState<number>(0);
   const [isOffRoute, setIsOffRoute] = useState<boolean>(false);
 
