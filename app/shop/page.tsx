@@ -272,6 +272,7 @@ export default function ShopPage() {
             <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">
                 SILENT MOVEMENT            </p>
           </div>
+                  <div className="p-5">
 
               <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-white/55">
                 Eight pieces · Hand-finished · Limited run
