@@ -64,8 +64,8 @@ const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
 
 const PROFILE_BASE_SELECT =
   "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, status";
-const PROFILE_DISCOVERY_SELECT =
-  `${PROFILE_BASE_SELECT}, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions`;
+
+const PROFILE_DISCOVERY_SELECT = `${PROFILE_BASE_SELECT}, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions`;
 
 function isMissingProfileColumn(error?: { message?: string; code?: string } | null) {
   return error?.code === "42703" || /column profiles\..+ does not exist/i.test(error?.message ?? "");
@@ -205,9 +205,11 @@ export default function ConnectPage() {
     const motorcycles = ((motorcyclesResponse.data || []) as MotorcycleRow[]) || [];
     const connections = ((connectionsResponse.data || []) as ConnectionRow[]) || [];
     const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
+
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
     );
+
     const myProfileResponse = await (async () => {
       const discoveryResponse = await supabase
         .from("profiles")
@@ -219,19 +221,18 @@ export default function ConnectPage() {
         return discoveryResponse;
       }
 
-      return supabase
-        .from("profiles")
-        .select("id, location")
-        .eq("id", userId)
-        .maybeSingle();
+      return supabase.from("profiles").select("id, location").eq("id", userId).maybeSingle();
     })();
+
     const myProfile = (myProfileResponse.data as ProfileRow | null) ?? null;
     const acceptedConnections = connections.filter((connection) => connection.status === "accepted");
+
     const myConnectionIds = new Set(
       acceptedConnections.map((connection) =>
         connection.requester_id === userId ? connection.addressee_id : connection.requester_id,
       ),
     );
+
     const statusMap: Record<string, Status> = {};
 
     connections.forEach((connection) => {
@@ -269,9 +270,11 @@ export default function ConnectPage() {
 
   useEffect(() => {
     if (authLoading || !userId) return;
+
     const timer = window.setTimeout(() => {
       void loadConnections();
     }, 0);
+
     return () => window.clearTimeout(timer);
   }, [authLoading, loadConnections, userId]);
 
@@ -282,6 +285,7 @@ export default function ConnectPage() {
 
     if (status === "none") {
       setStatuses((prev) => ({ ...prev, [id]: "pending" }));
+
       const { error } = await supabase.from("user_connections").insert({
         requester_id: userId,
         addressee_id: id,
@@ -293,11 +297,13 @@ export default function ConnectPage() {
         setStatuses((prev) => ({ ...prev, [id]: "none" }));
         setErrorMsg(error.message);
       }
+
       return;
     }
 
     if (status === "requested") {
       setStatuses((prev) => ({ ...prev, [id]: "connected" }));
+
       const { error } = await supabase
         .from("user_connections")
         .update({ status: "accepted", accepted_at: new Date().toISOString() })
@@ -309,6 +315,27 @@ export default function ConnectPage() {
         setStatuses((prev) => ({ ...prev, [id]: "requested" }));
         setErrorMsg(error.message);
       }
+    }
+  }
+
+  async function handleCancelRequest(id: string) {
+    if (!userId || id === userId) return;
+
+    const previousStatus = statuses[id] ?? "pending";
+
+    setStatuses((prev) => ({ ...prev, [id]: "none" }));
+
+    const { error } = await supabase
+      .from("user_connections")
+      .delete()
+      .eq("requester_id", userId)
+      .eq("addressee_id", id)
+      .eq("status", "pending");
+
+    if (error) {
+      console.error("Cancel request failed:", error);
+      setStatuses((prev) => ({ ...prev, [id]: previousStatus }));
+      setErrorMsg(error.message);
     }
   }
 
@@ -359,9 +386,7 @@ export default function ConnectPage() {
             ← Return
           </Link>
 
-          <span className="text-xs uppercase tracking-[0.4em] text-zinc-600">
-            Pillar I
-          </span>
+          <span className="text-xs uppercase tracking-[0.4em] text-zinc-600">Pillar I</span>
         </div>
 
         <header className="mt-10 text-center">
@@ -373,9 +398,7 @@ export default function ConnectPage() {
 
           <h1 className="mt-6 font-serif text-7xl leading-none">Connect</h1>
 
-          <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">
-            Find riders near you.
-          </p>
+          <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">Find riders near you.</p>
 
           <p className="mx-auto font-serif text-[17px] leading-relaxed text-zinc-400">
             Browse the Order. Request a ride. Build your inner circle.
@@ -430,6 +453,7 @@ export default function ConnectPage() {
             <p className="text-[11px] uppercase tracking-[0.34em] text-[#e87a82]">
               People You May Know
             </p>
+
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {suggested.slice(0, 4).map((member) => (
                 <button
@@ -454,6 +478,7 @@ export default function ConnectPage() {
                       </div>
                     )}
                   </div>
+
                   <div className="min-w-0">
                     <p className="truncate text-sm text-white">{member.name}</p>
                     <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -503,10 +528,7 @@ export default function ConnectPage() {
                       )}
                     </button>
 
-                    <button
-                      onClick={() => setOpenId(m.id)}
-                      className="min-w-0 flex-1 text-left"
-                    >
+                    <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
                       <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
 
                       <p className="mt-1 break-words text-sm uppercase tracking-[0.25em] text-zinc-500">
@@ -514,6 +536,7 @@ export default function ConnectPage() {
                       </p>
 
                       <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
+
                       {m.mutualCount > 0 && (
                         <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#e87a82]">
                           {m.mutualCount} mutual
@@ -522,13 +545,15 @@ export default function ConnectPage() {
                     </button>
 
                     <button
-                      onClick={() => handleConnect(m.id)}
-                      disabled={status === "connected" || status === "pending"}
+                      onClick={() =>
+                        status === "pending" ? handleCancelRequest(m.id) : handleConnect(m.id)
+                      }
+                      disabled={status === "connected"}
                       className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
                         status === "connected"
                           ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
                           : status === "pending"
-                            ? "cursor-default border-white/20 text-zinc-300"
+                            ? "border-white/20 text-zinc-300 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
                             : status === "requested"
                               ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
                               : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
@@ -564,9 +589,7 @@ export default function ConnectPage() {
 
           {!loading && filtered.length === 0 && (
             <li className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
-              <p className="text-base text-zinc-500">
-                No riders match. Try a different filter.
-              </p>
+              <p className="text-base text-zinc-500">No riders match. Try a different filter.</p>
             </li>
           )}
         </ul>
@@ -635,19 +658,13 @@ export default function ConnectPage() {
 
               <div className="mt-7 grid w-full grid-cols-2 gap-3 text-left">
                 <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
-                    Machine
-                  </p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Machine</p>
                   <p className="mt-1.5 text-base text-zinc-200">{openMember.bike}</p>
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
-                    Mutuals
-                  </p>
-                  <p className="mt-1.5 text-base text-zinc-200">
-                    {openMember.mutualCount}
-                  </p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Mutuals</p>
+                  <p className="mt-1.5 text-base text-zinc-200">{openMember.mutualCount}</p>
                 </div>
               </div>
 
@@ -664,11 +681,12 @@ export default function ConnectPage() {
 
               <div className="mt-8 grid w-full gap-3">
                 <button
-                  onClick={() => handleConnect(openMember.id)}
-                  disabled={
-                    statuses[openMember.id] === "connected" ||
+                  onClick={() =>
                     statuses[openMember.id] === "pending"
+                      ? handleCancelRequest(openMember.id)
+                      : handleConnect(openMember.id)
                   }
+                  disabled={statuses[openMember.id] === "connected"}
                   className="w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-default disabled:opacity-70"
                 >
                   {statuses[openMember.id] === "connected"
