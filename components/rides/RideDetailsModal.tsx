@@ -29,15 +29,6 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
       : [];
 
   const hasRoute = safeRoute.length > 0;
-
-  console.log("RideDetailsModal route:", ride.route);
-  console.log("RideMap props:", {
-    lat: ride.lat,
-    lng: ride.lng,
-    route: safeRoute,
-    hasRoute,
-  });
-
   return (
     <div
       role="dialog"
