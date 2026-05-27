@@ -188,6 +188,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                 destination: ride.destination
               }));
             }}
+                                >
             Start Ride Tracking
           </Link>
           <button
