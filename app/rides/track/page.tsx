@@ -18,6 +18,45 @@ type TrackingState =
   | "stopped";
 
 type Position = { lat: number; lng: number; timestamp: number };
+
+type RoutePoint = { lat: number; lng: number };
+
+// Helper functions for off-route detection
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function checkOffRoute(
+  currentPos: Position,
+  plannedRoute: RoutePoint[]
+): boolean {
+  if (!plannedRoute || plannedRoute.length === 0) return false;
+  const THRESHOLD_METERS = 150;
+  for (const point of plannedRoute) {
+    const distance = haversineDistance(
+      currentPos.lat,
+      currentPos.lng,
+      point.lat,
+      point.lng
+    );
+    if (distance <= THRESHOLD_METERS) return false;
+  }
+  return true;
+}
 type RoutePoint = { lat: number; lng: number }
 
 export default function RideTrackingPage() {
