@@ -691,6 +691,5 @@ export default function ConnectPage() {
                 status === "pending"
                   ? handleCancelRequest(openMember.id)
                   : handleConnect(openMember.id);
-              }}                  disabled={
-                statuses[openMember.id] === "connected"
-              }
+                        }}
+                            disabled={statuses[openMember.id] === "connected"}
