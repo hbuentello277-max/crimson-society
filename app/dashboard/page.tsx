@@ -288,17 +288,13 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.log("Feed load error object:", error);
-      console.log("message:", error.message);
-      console.log("details:", error.details);
-      console.log("hint:", error.hint);
-      console.log("code:", error.code);
-     setToast(
-      '${error.code ?? "NO_CODE"} | ${error.message ?? "No message"}');
-      setTimeout(() => setToast(null), 1800);
-      setFeedLoading(false);
-      return;
-    }
+  alert(JSON.stringify(error, null, 2));
+
+  setToast("Feed query failed");
+  setTimeout(() => setToast(null), 3000);
+  setFeedLoading(false);
+  return;
+}
 
     const livePosts = ((data || []) as RawPost[]).map(mapPostToFeed);
     setPosts(livePosts.length > 0 ? [...livePosts, ...seedPosts] : seedPosts);
