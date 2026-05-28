@@ -382,13 +382,24 @@ export default function AdminPage() {
 
               <div className="space-y-2.5">
                 {profiles.map((item) => {
+                  const isOwner = item.id === myUserId;
                   const currentRole = (item.role || "user") as UserRole;
                   const currentStatus = (item.status || "active") as UserStatus;
+
+                  // Step 1: compute effective role/status (owner always treated as admin)
+                  const effectiveRole = isOwner ? "admin" : currentRole;
+                  const effectiveStatus = isOwner ? "active" : currentStatus;
+
+                  // Step 2: compute membership from effective role
+                  const isAdminAccount = effectiveRole === "admin";
+                  const membership: MembershipTier = isAdminAccount ? "blackcard" : getMembershipTier(item);
+
+                  // Dropdown shows the real db value so it can still be changed
+                  const dropdownMembership = getMembershipTier(item);
+
                   const isSaving = savingId === item.id;
-                  const isSelf = item.id === myUserId;
+                  const isSelf = isOwner;
                   const identity = item.username || item.display_name || "unknown-user";
-                  const membership = getMembershipTier(item);
-                  const isAdminAccount = currentRole === "admin";
 
                   return (
                     <div
@@ -438,7 +449,7 @@ export default function AdminPage() {
                       </select>
 
                       <select
-                        value={currentStatus}
+                        value={effectiveStatus}
                         disabled={isSaving}
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
                         className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
@@ -450,7 +461,7 @@ export default function AdminPage() {
                       </select>
 
                       <select
-                        value={membership}
+                        value={dropdownMembership}
                         disabled={isSaving}
                         onChange={(e) => void handleMembershipChange(item.id, e.target.value as MembershipTier)}
                         className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
