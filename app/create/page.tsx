@@ -295,7 +295,7 @@ export default function CreatePage() {
       };
 
       const { data: insertedPost, error } = await supabase
-        .from('"Posts"')
+        .from("Posts")
         .insert(payload)
         .select("id")
         .single();
