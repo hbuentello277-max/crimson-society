@@ -340,13 +340,14 @@ export default function CreatePage() {
       setTimeout(() => {
         router.push("/dashboard");
       }, 900);
-    } catch (err) {
+        } catch (err) {
       console.error("Create post error:", err);
-      alert(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong while creating the post.",
-      );
+
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert(JSON.stringify(err, null, 2));
+      }
     } finally {
       setSubmitting(false);
     }
