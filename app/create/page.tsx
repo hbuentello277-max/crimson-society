@@ -165,8 +165,7 @@ export default function CreatePage() {
 
     setPhotos((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
-      const merged = next.slice(0, 1);
-      return merged;
+      return next.slice(0, 1);
     });
   };
 
@@ -280,6 +279,7 @@ export default function CreatePage() {
         status_text: isStatus ? statusText : null,
         status_bg: isStatus ? statusBg.id : null,
         location: location || null,
+        audience,
         media_pipeline_version: type === "status" ? 1 : 2,
         media_status: isStatus ? "ready" : mediaStatus,
         media_metadata: mediaMetadata,
@@ -345,7 +345,7 @@ export default function CreatePage() {
       alert(
         err instanceof Error
           ? err.message
-          : "Something went wrong while creating the post."
+          : "Something went wrong while creating the post.",
       );
     } finally {
       setSubmitting(false);
@@ -355,19 +355,21 @@ export default function CreatePage() {
   return (
     <main className="min-h-screen bg-[#050505] pb-32 text-white">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
           <Link
             href="/dashboard"
             className="text-xs uppercase tracking-[0.3em] text-white/50 hover:text-white"
           >
             ← Cancel
           </Link>
+
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">
               Compose
             </p>
             <h1 className="font-serif text-xl italic text-white">Create</h1>
           </div>
+
           <button
             onClick={handlePost}
             disabled={!canPost() || submitting}
