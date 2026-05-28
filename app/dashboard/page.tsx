@@ -234,7 +234,7 @@ export default function DashboardPage() {
 
     setFeedLoading(true);
     const { data, error } = await supabase
-      .from('"Posts"')
+      .from("Posts")
       .select(`
         id,
         user_id,
