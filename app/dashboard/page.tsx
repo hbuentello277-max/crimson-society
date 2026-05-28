@@ -293,7 +293,8 @@ export default function DashboardPage() {
       console.log("details:", error.details);
       console.log("hint:", error.hint);
       console.log("code:", error.code);
-      setToast("Could not load posts.");
+     setToast(
+      '${error.code ?? "NO_CODE"} | ${error.message ?? "No message"}');
       setTimeout(() => setToast(null), 1800);
       setFeedLoading(false);
       return;
