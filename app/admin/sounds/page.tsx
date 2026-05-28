@@ -239,11 +239,15 @@ export default function AdminSoundsPage() {
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!session?.user || !isAdmin) return;
-    void loadLibrary();
-  }, [authLoading, session?.user?.id, isAdmin]);
+  if (authLoading) return;
+  if (!session?.user || !isAdmin) return;
 
+  const timer = window.setTimeout(() => {
+    void loadLibrary();
+  }, 0);
+
+  return () => window.clearTimeout(timer);
+}, [authLoading, session?.user, isAdmin]);
   useEffect(() => {
     return () => stopCrimsonSound();
   }, []);

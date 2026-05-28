@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Language = "en" | "es";
@@ -65,7 +65,13 @@ const copy = {
 } as const;
 
 export default function SignUpPage() {
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") return "en";
+
+    const saved = window.localStorage.getItem("signup-language");
+    return saved === "en" || saved === "es" ? saved : "en";
+  });
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -73,15 +79,6 @@ export default function SignUpPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState<LoadingState>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const saved = window.localStorage.getItem("signup-language");
-    if (saved === "en" || saved === "es") {
-      setLanguage(saved);
-    }
-  }, []);
 
   const changeLanguage = (next: Language) => {
     setLanguage(next);
