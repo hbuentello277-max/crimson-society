@@ -3,10 +3,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
-/**
- * Types
- */
-
 export type SoundCategory = {
   id: string;
   name: string;
@@ -42,6 +38,8 @@ export type CrimsonSound = {
   import_source_name?: string | null;
   approved: boolean;
   featured: boolean;
+  trending?: boolean | null;
+  tags?: string | null;
   usage_count: number;
   category_id: string | null;
   disabled_at?: string | null;
@@ -60,15 +58,11 @@ export type CrimsonSound = {
     | null;
 };
 
-/**
- * Buckets / constraints
- */
-
 export const AUDIO_ORIGINAL_BUCKET = "sound-originals";
 export const AUDIO_RENDER_BUCKET = "sound-renders";
 
-export const MAX_AUDIO_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
-export const MAX_AUDIO_DURATION_SECONDS = 180; // 3 minutes
+export const MAX_AUDIO_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+export const MAX_AUDIO_DURATION_SECONDS = 180;
 
 export const ALLOWED_AUDIO_MIME_TYPES = [
   "audio/mpeg",
@@ -80,28 +74,6 @@ export const ALLOWED_AUDIO_MIME_TYPES = [
   "audio/wav",
   "audio/x-wav",
 ];
-
-/**
- * Pixabay category presets
- */
-
-export const PIXABAY_AUDIO_CATEGORIES: {
-  slug: string;
-  name: string;
-  mood: string;
-}[] = [
-  { slug: "phonk", name: "Phonk / Drift", mood: "Night Ride" },
-  { slug: "trap", name: "Trap / Drill", mood: "Aggressive" },
-  { slug: "hip-hop", name: "Hip Hop", mood: "Urban Cruise" },
-  { slug: "edm", name: "EDM / Club", mood: "Hype" },
-  { slug: "cinematic", name: "Cinematic", mood: "Epic Ride" },
-  { slug: "rock", name: "Rock", mood: "Highway" },
-  { slug: "lofi", name: "Lo-fi / Chill", mood: "Chill Cruise" },
-];
-
-/**
- * Formatting helpers
- */
 
 export function formatSoundDuration(seconds?: number | null) {
   if (!seconds || seconds < 1) return "--:--";
@@ -123,10 +95,6 @@ export function formatFileSize(bytes?: number | null) {
 
   return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
-
-/**
- * Label / category helpers
- */
 
 export function getSoundPlaybackUrl(sound: CrimsonSound | null | undefined) {
   if (!sound) return "";
@@ -154,12 +122,19 @@ export function getSoundCategoryName(sound: CrimsonSound | null | undefined) {
   return category?.name ?? "";
 }
 
-/**
- * File validation & metadata helpers
- */
+export function getSoundTags(sound: CrimsonSound | null | undefined) {
+  if (!sound?.tags) return [];
+  return sound.tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
 
 export function isAllowedAudioFile(file: File) {
-  return ALLOWED_AUDIO_MIME_TYPES.includes(file.type);
+  return (
+    ALLOWED_AUDIO_MIME_TYPES.includes(file.type) ||
+    /\.(mp3|wav|m4a|aac)$/i.test(file.name)
+  );
 }
 
 export function isAudioFileTooLarge(file: File) {
@@ -191,12 +166,22 @@ export async function loadAudioDuration(file: File): Promise<number> {
   });
 }
 
-/**
- * Playback control
- */
-
 let activeAudio: HTMLAudioElement | null = null;
 let activeSoundId: string | null = null;
+let hasInteracted = false;
+
+if (typeof window !== "undefined") {
+  const unlock = () => {
+    hasInteracted = true;
+    window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("keydown", unlock);
+    window.removeEventListener("touchstart", unlock);
+  };
+
+  window.addEventListener("pointerdown", unlock, { once: true });
+  window.addEventListener("keydown", unlock, { once: true });
+  window.addEventListener("touchstart", unlock, { once: true });
+}
 
 export async function playExclusiveSound(
   sound: CrimsonSound,
@@ -205,7 +190,6 @@ export async function playExclusiveSound(
   const src = getSoundPlaybackUrl(sound);
   if (!src) return false;
 
-  // Toggle off if the same sound is already playing
   if (activeSoundId === sound.id && activeAudio) {
     activeAudio.pause();
     activeAudio.currentTime = 0;
@@ -214,13 +198,49 @@ export async function playExclusiveSound(
     return false;
   }
 
-  // Stop any currently playing audio
   if (activeAudio) {
     activeAudio.pause();
     activeAudio.currentTime = 0;
   }
 
   const audio = new Audio(src);
+  audio.preload = "metadata";
+  activeAudio = audio;
+  activeSoundId = sound.id;
+
+  audio.addEventListener("ended", () => {
+    if (activeAudio === audio) {
+      activeAudio = null;
+      activeSoundId = null;
+    }
+    onEnded?.();
+  });
+
+  try {
+    await audio.play();
+    return true;
+  } catch {
+    activeAudio = null;
+    activeSoundId = null;
+    return false;
+  }
+}
+
+export async function autoplayMutedPreview(
+  sound: CrimsonSound,
+  onEnded?: () => void,
+): Promise<boolean> {
+  const src = getSoundPlaybackUrl(sound);
+  if (!src || !hasInteracted) return false;
+
+  if (activeAudio) {
+    activeAudio.pause();
+    activeAudio.currentTime = 0;
+  }
+
+  const audio = new Audio(src);
+  audio.preload = "metadata";
+  audio.muted = true;
   activeAudio = audio;
   activeSoundId = sound.id;
 
@@ -250,10 +270,6 @@ export function stopCrimsonSound() {
   activeAudio = null;
   activeSoundId = null;
 }
-
-/**
- * Fetch helpers
- */
 
 export async function fetchApprovedSounds(supabaseClient: SupabaseClient) {
   return supabaseClient
@@ -287,6 +303,8 @@ export async function fetchApprovedSounds(supabaseClient: SupabaseClient) {
       import_source_name,
       approved,
       featured,
+      trending,
+      tags,
       usage_count,
       category_id,
       disabled_at,
@@ -301,6 +319,7 @@ export async function fetchApprovedSounds(supabaseClient: SupabaseClient) {
     .eq("approved", true)
     .is("disabled_at", null)
     .or("preview_url.not.is.null,audio_url.not.is.null,render_path.not.is.null")
+    .order("trending", { ascending: false })
     .order("featured", { ascending: false })
     .order("usage_count", { ascending: false })
     .order("created_at", { ascending: false });

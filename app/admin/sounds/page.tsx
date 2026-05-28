@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import {
@@ -9,7 +9,6 @@ import {
   AUDIO_RENDER_BUCKET,
   MAX_AUDIO_DURATION_SECONDS,
   MAX_AUDIO_FILE_SIZE_BYTES,
-  PIXABAY_AUDIO_CATEGORIES,
   formatFileSize,
   formatSoundDuration,
   isAllowedAudioFile,
@@ -22,10 +21,12 @@ import {
 } from "@/lib/sounds";
 
 type SoundForm = {
+  id: string | null;
   title: string;
   artist: string;
   duration: string;
   mood: string;
+  tags: string;
   bpm: string;
   categoryId: string;
   audioUrl: string;
@@ -36,6 +37,7 @@ type SoundForm = {
   approvedSource: boolean;
   featured: boolean;
   approved: boolean;
+  trending: boolean;
   licenseNotes: string;
 };
 
@@ -47,43 +49,70 @@ type UploadedAudioAsset = {
   publicUrl: string;
 };
 
-type PixabayTrack = {
-  id: number | string;
-  name?: string;
-  tags?: string;
-  user?: string;
-  artist?: string;
-  duration?: number;
-  previewURL?: string;
-  audio?: string;
-  url?: string;
-  pageURL?: string;
-  link?: string;
-  picture?: string;
-  userImageURL?: string;
-};
+type ToggleFieldKey = "approved" | "featured" | "trending" | "approvedSource";
+
+const toggleFields: Array<{ key: ToggleFieldKey; label: string }> = [
+  { key: "approved", label: "Approved" },
+  { key: "featured", label: "Featured" },
+  { key: "trending", label: "Trending" },
+  { key: "approvedSource", label: "Verified source" },
+];
 
 const emptyForm: SoundForm = {
+  id: null,
   title: "",
   artist: "",
   duration: "",
   mood: "",
+  tags: "",
   bpm: "",
   categoryId: "",
   audioUrl: "",
   coverImageUrl: "",
-  licenseType: "pixabay_content_license",
+  licenseType: "crimson_curated_upload",
   rightsOwner: "",
   sourceUrl: "",
   approvedSource: true,
   featured: false,
   approved: false,
-  licenseNotes: "",
+  trending: false,
+  licenseNotes: "Curated by Crimson Society",
 };
 
 function fileExt(file: File) {
   const parts = file.name.split(".");
   return parts.length > 1 ? parts.pop()?.toLowerCase() || "bin" : "bin";
+}
+
+function parseOptionalNumber(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function mapSoundToForm(sound: CrimsonSound): SoundForm {
+  return {
+    id: sound.id,
+    title: sound.title || "",
+    artist: sound.artist || "",
+    duration: sound.duration_seconds ? String(sound.duration_seconds) : "",
+    mood: sound.mood || "",
+    tags: sound.tags || "",
+    bpm: sound.bpm ? String(sound.bpm) : "",
+    categoryId: sound.category_id || "",
+    audioUrl: sound.audio_url || sound.preview_url || "",
+    coverImageUrl: sound.cover_image_url || "",
+    licenseType: sound.license_type || "crimson_curated_upload",
+    rightsOwner: sound.rights_owner || "",
+    sourceUrl: sound.source_url || "",
+    approvedSource: sound.approved_source ?? true,
+    featured: sound.featured,
+    approved: sound.approved,
+    trending: sound.trending ?? false,
+    licenseNotes: sound.license_notes || "Curated by Crimson Society",
+  };
 }
 
 export default function AdminSoundsPage() {
@@ -99,22 +128,46 @@ export default function AdminSoundsPage() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-
-  const [pixabayQuery, setPixabayQuery] = useState("phonk");
-  const [pixabayResults, setPixabayResults] = useState<PixabayTrack[]>([]);
-  const [pixabayLoading, setPixabayLoading] = useState(false);
-  const [importingId, setImportingId] = useState<string | null>(null);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "approved" | "pending" | "featured" | "trending">("all");
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const userId = session?.user?.id ?? null;
-  const canSave = !!form.title.trim() && !!(form.audioUrl.trim() || audioFile);
+  const canSave = !!form.title.trim() && !!(form.audioUrl.trim() || audioFile || form.id);
 
   const approvedCount = useMemo(
     () => sounds.filter((sound) => sound.approved && !sound.disabled_at).length,
     [sounds],
   );
+
+  const filteredSounds = useMemo(() => {
+    const needle = filterQuery.trim().toLowerCase();
+
+    return sounds.filter((sound) => {
+      const matchesQuery =
+        !needle ||
+        `${sound.title} ${sound.artist || ""} ${sound.mood || ""} ${sound.tags || ""}`
+          .toLowerCase()
+          .includes(needle);
+
+      const matchesStatus =
+        filterStatus === "all"
+          ? true
+          : filterStatus === "approved"
+            ? sound.approved
+            : filterStatus === "pending"
+              ? !sound.approved
+              : filterStatus === "featured"
+                ? sound.featured
+                : !!sound.trending;
+
+      return matchesQuery && matchesStatus;
+    });
+  }, [filterQuery, filterStatus, sounds]);
 
   async function loadLibrary() {
     setLoading(true);
@@ -152,6 +205,8 @@ export default function AdminSoundsPage() {
           import_source_name,
           approved,
           featured,
+          trending,
+          tags,
           usage_count,
           category_id,
           disabled_at,
@@ -186,152 +241,87 @@ export default function AdminSoundsPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!session?.user || !isAdmin) return;
-
     void loadLibrary();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, session?.user?.id, isAdmin]);
 
-  async function searchPixabay() {
-    if (!pixabayQuery.trim()) return;
+  useEffect(() => {
+    return () => stopCrimsonSound();
+  }, []);
 
-    setPixabayLoading(true);
-    setErrorMsg("");
-    setMessage("");
+  function resetForm() {
+    setForm(emptyForm);
+    setAudioFile(null);
+    setCoverFile(null);
+    setUploadProgress(0);
+    if (audioInputRef.current) audioInputRef.current.value = "";
+    if (coverInputRef.current) coverInputRef.current.value = "";
+  }
 
-    try {
-      const res = await fetch(
-        `/api/admin/pixabay-search?q=${encodeURIComponent(pixabayQuery.trim())}`,
-        { cache: "no-store" },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) throw new Error(json.error || "Pixabay search failed.");
-
-      setPixabayResults(Array.isArray(json.hits) ? json.hits : []);
-    } catch (error) {
-      setPixabayResults([]);
-      setErrorMsg(error instanceof Error ? error.message : "Pixabay search failed.");
-    } finally {
-      setPixabayLoading(false);
+  function onAudioPicked(file: File | null) {
+    if (!file) return;
+    setAudioFile(file);
+    if (!form.title.trim()) {
+      const derivedTitle = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").trim();
+      setForm((prev) => ({ ...prev, title: derivedTitle }));
     }
   }
 
-  function inferCategoryIdFromTrack(track: PixabayTrack) {
-    const haystack = `${track.tags || ""} ${track.name || ""}`.toLowerCase();
-
-    const preset = PIXABAY_AUDIO_CATEGORIES.find((category) => {
-      const slugWords = category.slug.replace(/-/g, " ");
-
-      return (
-        haystack.includes(category.slug) ||
-        haystack.includes(slugWords) ||
-        haystack.includes(category.name.toLowerCase()) ||
-        haystack.includes(category.mood.toLowerCase())
-      );
-    });
-
-    if (!preset) return null;
-
-    const match = categories.find(
-      (category) =>
-        category.slug === preset.slug ||
-        category.name.toLowerCase() === preset.name.toLowerCase(),
-    );
-
-    return match?.id || null;
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) onAudioPicked(file);
   }
 
-  async function importPixabayTrack(track: PixabayTrack) {
-    setImportingId(String(track.id));
-    setErrorMsg("");
-    setMessage("");
-
-    try {
-      const previewUrl = track.previewURL || track.audio || track.url || null;
-      const pageUrl =
-        track.pageURL || track.link || `https://pixabay.com/music/${track.id}/`;
-
-      if (!previewUrl) {
-        throw new Error("This Pixabay result does not include a playable preview URL.");
-      }
-
-      const res = await fetch("/api/admin/pixabay-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pixabayId: track.id,
-          title: track.name || track.tags || `Pixabay Track ${track.id}`,
-          artist: track.user || track.artist || "Pixabay contributor",
-          durationSeconds: track.duration || null,
-          previewUrl,
-          pageUrl,
-          coverImageUrl: track.picture || track.userImageURL || null,
-          categoryId: inferCategoryIdFromTrack(track),
-          mood: (track.tags || "").split(",")[0]?.trim() || null,
-          bpm: null,
-        }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) throw new Error(json.error || "Import failed.");
-
-      setMessage(
-        json.reused
-          ? "Track already existed and is approved."
-          : "Pixabay track imported and approved.",
-      );
-
-      await loadLibrary();
-    } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : "Import failed.");
-    } finally {
-      setImportingId(null);
-    }
+  function handleAudioInput(event: ChangeEvent<HTMLInputElement>) {
+    onAudioPicked(event.target.files?.[0] || null);
   }
 
   async function uploadAudioAsset(file: File): Promise<UploadedAudioAsset> {
-    if (!isAllowedAudioFile(file)) throw new Error("Use MP3, M4A, AAC, or WAV only.");
+    if (!isAllowedAudioFile(file)) {
+      throw new Error("Use MP3, M4A, AAC, or WAV only.");
+    }
 
     if (isAudioFileTooLarge(file)) {
-      throw new Error(
-        `Audio files must stay under ${formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)}.`,
-      );
+      throw new Error(`Audio files must stay under ${formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)}.`);
     }
 
     const duration = await loadAudioDuration(file);
 
     if (duration > MAX_AUDIO_DURATION_SECONDS) {
-      throw new Error(
-        `Audio must be ${formatSoundDuration(MAX_AUDIO_DURATION_SECONDS)} or shorter.`,
-      );
+      throw new Error(`Audio must be ${formatSoundDuration(MAX_AUDIO_DURATION_SECONDS)} or shorter.`);
     }
 
     const id = crypto.randomUUID();
     const ext = fileExt(file);
-    const originalPath = `pixabay/${id}/original.${ext}`;
-    const renderPath = `pixabay/${id}/stream.${ext}`;
+    const originalPath = `curated/${id}/original.${ext}`;
+    const renderPath = `curated/${id}/stream.${ext}`;
 
-    const { error: originalError } = await supabase.storage
-      .from(AUDIO_ORIGINAL_BUCKET)
-      .upload(originalPath, file, {
-        cacheControl: "31536000",
-        contentType: file.type || undefined,
-        upsert: false,
-      });
+    setUploadProgress(20);
 
-    if (originalError) throw originalError;
+    const { error: originalError } = await supabase.storage.from(AUDIO_ORIGINAL_BUCKET).upload(originalPath, file, {
+      cacheControl: "31536000",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
 
-    const { error: renderError } = await supabase.storage
-      .from(AUDIO_RENDER_BUCKET)
-      .upload(renderPath, file, {
-        cacheControl: "31536000",
-        contentType: file.type || undefined,
-        upsert: false,
-      });
+    if (originalError) {
+      throw originalError;
+    }
 
-    if (renderError) throw renderError;
+    setUploadProgress(60);
+
+    const { error: renderError } = await supabase.storage.from(AUDIO_RENDER_BUCKET).upload(renderPath, file, {
+      cacheControl: "31536000",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+
+    if (renderError) {
+      throw renderError;
+    }
+
+    setUploadProgress(90);
 
     const { data } = supabase.storage.from(AUDIO_RENDER_BUCKET).getPublicUrl(renderPath);
 
@@ -354,10 +344,11 @@ export default function AdminSoundsPage() {
       upsert: false,
     });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     const { data } = supabase.storage.from(AUDIO_RENDER_BUCKET).getPublicUrl(path);
-
     return data.publicUrl;
   }
 
@@ -369,10 +360,12 @@ export default function AdminSoundsPage() {
     setErrorMsg("");
 
     try {
-      let audioUrl = form.audioUrl.trim();
+      const existingSound = form.id ? sounds.find((sound) => sound.id === form.id) ?? null : null;
+
+      let audioUrl = form.audioUrl.trim() || existingSound?.audio_url || existingSound?.preview_url || "";
       let coverImageUrl = form.coverImageUrl.trim();
       let uploadedAsset: UploadedAudioAsset | null = null;
-      let detectedDuration = form.duration ? Number(form.duration) : null;
+      let detectedDuration = form.duration ? parseOptionalNumber(form.duration) : existingSound?.duration_seconds ?? null;
 
       if (audioFile) {
         detectedDuration = Math.round(await loadAudioDuration(audioFile));
@@ -380,80 +373,146 @@ export default function AdminSoundsPage() {
         audioUrl = uploadedAsset.publicUrl;
       }
 
-      if (coverFile) coverImageUrl = await uploadRenderFile(coverFile, "cover");
-
-      if (!audioUrl) throw new Error("Upload the Pixabay audio file before saving.");
-
-      if (!form.sourceUrl.trim().startsWith("https://pixabay.com/music/")) {
-        throw new Error("Use the original Pixabay Music track URL as the source URL.");
+      if (coverFile) {
+        coverImageUrl = await uploadRenderFile(coverFile, "cover");
       }
 
-      if (form.approved && (!form.rightsOwner.trim() || !form.approvedSource)) {
-        throw new Error("Approved tracks need a verified source and rights owner.");
+      if (!audioUrl) {
+        throw new Error("Upload a soundtrack file or provide an audio URL before saving.");
       }
 
-      const payload = {
+      const basePayload = {
         title: form.title.trim(),
         artist: form.artist.trim() || null,
         duration_seconds: detectedDuration,
         mood: form.mood.trim() || null,
-        bpm: form.bpm ? Number(form.bpm) : null,
+        tags: form.tags.trim() || null,
+        bpm: parseOptionalNumber(form.bpm),
         category_id: form.categoryId || null,
         audio_url: audioUrl,
         preview_url: audioUrl,
         cover_image_url: coverImageUrl || null,
         uploaded_by: userId,
-        provider: "pixabay",
-        license_type: form.licenseType.trim() || "pixabay_content_license",
+        provider: "crimson_curated",
+        license_type: form.licenseType.trim() || "crimson_curated_upload",
         rights_owner: form.rightsOwner.trim() || null,
         source_url: form.sourceUrl.trim() || null,
-        license_notes: form.licenseNotes.trim() || null,
+        license_notes: form.licenseNotes.trim() || "Curated by Crimson Society",
         approved_source: form.approvedSource,
         copyright_status: form.approvedSource ? "verified" : "needs_review",
         moderation_status: form.approved ? "approved" : "pending",
-        file_size_bytes: audioFile?.size ?? null,
-        mime_type: audioFile?.type || null,
-        original_bucket: uploadedAsset?.originalBucket ?? null,
-        original_path: uploadedAsset?.originalPath ?? null,
-        render_bucket: uploadedAsset?.renderBucket ?? AUDIO_RENDER_BUCKET,
-        render_path: uploadedAsset?.renderPath ?? null,
-        import_source_name: "Pixabay Music",
+        import_source_name: "Crimson Curated",
         approved: form.approved,
         featured: form.featured,
+        trending: form.trending,
       };
 
-      const { data: insertedSound, error } = await supabase
-        .from("sounds")
-        .insert(payload)
-        .select("id")
-        .single();
+      const storageMetadata = audioFile
+        ? {
+            file_size_bytes: audioFile.size,
+            mime_type: audioFile.type || null,
+            original_bucket: uploadedAsset?.originalBucket ?? null,
+            original_path: uploadedAsset?.originalPath ?? null,
+            render_bucket: uploadedAsset?.renderBucket ?? AUDIO_RENDER_BUCKET,
+            render_path: uploadedAsset?.renderPath ?? null,
+          }
+        : {};
 
-      if (error) throw error;
+      const payload = {
+        ...basePayload,
+        ...storageMetadata,
+      };
 
-      if (insertedSound?.id) {
-        await supabase.from("audio_tracks").upsert(
+      let soundId = form.id;
+
+      if (form.id) {
+        const { error } = await supabase.from("sounds").update(payload).eq("id", form.id);
+        if (error) {
+          throw error;
+        }
+      } else {
+        const insertPayload = {
+          ...payload,
+          file_size_bytes: audioFile?.size ?? null,
+          mime_type: audioFile?.type || null,
+          original_bucket: uploadedAsset?.originalBucket ?? null,
+          original_path: uploadedAsset?.originalPath ?? null,
+          render_bucket: uploadedAsset?.renderBucket ?? AUDIO_RENDER_BUCKET,
+          render_path: uploadedAsset?.renderPath ?? null,
+        };
+
+        const { data: insertedSound, error } = await supabase
+          .from("sounds")
+          .insert(insertPayload)
+          .select("id")
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        soundId = insertedSound?.id || null;
+      }
+
+      if (soundId) {
+        const { error: audioTrackError } = await supabase.from("audio_tracks").upsert(
           {
-            sound_id: insertedSound.id,
-            ...payload,
+            sound_id: soundId,
+            title: basePayload.title,
+            artist: basePayload.artist,
+            duration_seconds: basePayload.duration_seconds,
+            category_id: basePayload.category_id,
+            mood: basePayload.mood,
+            tags: basePayload.tags,
+            bpm: basePayload.bpm,
+            original_bucket: audioFile
+              ? uploadedAsset?.originalBucket ?? null
+              : existingSound?.original_bucket ?? null,
+            original_path: audioFile
+              ? uploadedAsset?.originalPath ?? null
+              : existingSound?.original_path ?? null,
+            render_bucket: audioFile
+              ? uploadedAsset?.renderBucket ?? AUDIO_RENDER_BUCKET
+              : existingSound?.render_bucket ?? null,
+            render_path: audioFile
+              ? uploadedAsset?.renderPath ?? null
+              : existingSound?.render_path ?? null,
             public_stream_url: audioUrl,
+            preview_url: audioUrl,
+            cover_image_url: basePayload.cover_image_url,
+            file_size_bytes: audioFile ? audioFile.size : existingSound?.file_size_bytes ?? null,
+            mime_type: audioFile ? audioFile.type || null : existingSound?.mime_type ?? null,
+            provider: basePayload.provider,
+            import_source_name: basePayload.import_source_name,
+            source_url: basePayload.source_url || audioUrl,
+            license_type: basePayload.license_type,
+            license_notes: basePayload.license_notes,
+            rights_owner: basePayload.rights_owner,
+            approved_source: basePayload.approved_source,
+            copyright_status: basePayload.copyright_status,
+            approved: basePayload.approved,
+            featured: basePayload.featured,
+            moderation_status: basePayload.moderation_status,
+            uploaded_by: basePayload.uploaded_by,
+            trending: basePayload.trending,
           },
           { onConflict: "sound_id" },
         );
+
+        if (audioTrackError) {
+          throw audioTrackError;
+        }
       }
 
-      setForm(emptyForm);
-      setAudioFile(null);
-      setCoverFile(null);
-
-      if (audioInputRef.current) audioInputRef.current.value = "";
-      if (coverInputRef.current) coverInputRef.current.value = "";
-
-      setMessage("Pixabay track added.");
+      setUploadProgress(100);
+      setMessage(form.id ? "Soundtrack updated." : "Soundtrack uploaded and saved.");
+      resetForm();
       await loadLibrary();
     } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : "Could not save sound.");
+      setErrorMsg(error instanceof Error ? error.message : "Could not save soundtrack.");
     } finally {
       setSaving(false);
+      setTimeout(() => setUploadProgress(0), 1200);
     }
   }
 
@@ -469,11 +528,7 @@ export default function AdminSoundsPage() {
       nextPatch.moderation_status = "pending";
     }
 
-    setSounds((prev) =>
-      prev.map((sound) =>
-        sound.id === id ? { ...sound, ...nextPatch } : sound,
-      ),
-    );
+    setSounds((prev) => prev.map((sound) => (sound.id === id ? { ...sound, ...nextPatch } : sound)));
 
     const { error } = await supabase.from("sounds").update(nextPatch).eq("id", id);
 
@@ -486,18 +541,21 @@ export default function AdminSoundsPage() {
     const audioTrackPatch: Record<string, unknown> = {};
 
     if ("approved" in nextPatch) audioTrackPatch.approved = nextPatch.approved;
-    if ("approved_source" in nextPatch) {
-      audioTrackPatch.approved_source = nextPatch.approved_source;
-    }
-    if ("moderation_status" in nextPatch) {
-      audioTrackPatch.moderation_status = nextPatch.moderation_status;
-    }
-    if ("copyright_status" in nextPatch) {
-      audioTrackPatch.copyright_status = nextPatch.copyright_status;
-    }
+    if ("featured" in nextPatch) audioTrackPatch.featured = nextPatch.featured;
+    if ("trending" in nextPatch) audioTrackPatch.trending = nextPatch.trending;
+    if ("approved_source" in nextPatch) audioTrackPatch.approved_source = nextPatch.approved_source;
+    if ("moderation_status" in nextPatch) audioTrackPatch.moderation_status = nextPatch.moderation_status;
+    if ("copyright_status" in nextPatch) audioTrackPatch.copyright_status = nextPatch.copyright_status;
+    if ("tags" in nextPatch) audioTrackPatch.tags = nextPatch.tags;
+    if ("mood" in nextPatch) audioTrackPatch.mood = nextPatch.mood;
 
     if (Object.keys(audioTrackPatch).length > 0) {
-      await supabase.from("audio_tracks").update(audioTrackPatch).eq("sound_id", id);
+      const { error: audioTrackError } = await supabase.from("audio_tracks").update(audioTrackPatch).eq("sound_id", id);
+
+      if (audioTrackError) {
+        setErrorMsg(audioTrackError.message);
+        await loadLibrary();
+      }
     }
   }
 
@@ -511,15 +569,11 @@ export default function AdminSoundsPage() {
     }
   }
 
-  useEffect(() => stopCrimsonSound, []);
-
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
-            Loading Crimson Sounds
-          </p>
+        <div className="mx-auto max-w-6xl">
+          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Loading Crimson Sounds</p>
         </div>
       </main>
     );
@@ -529,9 +583,7 @@ export default function AdminSoundsPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-center text-white">
         <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-[#e87a82]">
-            Admin
-          </p>
+          <p className="text-xs uppercase tracking-[0.35em] text-[#e87a82]">Admin</p>
           <h1 className="mt-4 font-serif text-4xl">Sounds are restricted.</h1>
           <Link
             href="/dashboard"
@@ -546,16 +598,13 @@ export default function AdminSoundsPage() {
 
   return (
     <main className="min-h-screen bg-[#050505] px-5 pb-24 pt-8 text-white">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-              Admin Library
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">Admin Library</p>
             <h1 className="mt-2 font-serif text-4xl italic">Crimson Sounds</h1>
-            <p className="mt-2 text-sm text-zinc-500">
-              {approvedCount} approved sounds available to members.
-            </p>
+            <p className="mt-2 text-sm text-zinc-500">{approvedCount} approved soundtracks available to creators.</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-600">Curated by Crimson Society</p>
           </div>
 
           <Link
@@ -578,306 +627,316 @@ export default function AdminSoundsPage() {
           </div>
         )}
 
-        <section className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
-          <div className="mb-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end">
-              <label className="block flex-1">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                  Import from Pixabay
-                </span>
-                <input
-                  value={pixabayQuery}
-                  onChange={(event) => setPixabayQuery(event.target.value)}
-                  placeholder="phonk, cinematic, night ride, aggressive, trap, dark, motorcycle"
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400/60"
-                />
-              </label>
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">Curated soundtrack upload</p>
+                <h2 className="mt-2 font-serif text-2xl italic">Create Soundtrack</h2>
+                <p className="mt-2 text-sm text-zinc-400">
+                  Upload cinematic audio for posts, rides, reels, and creator content.
+                </p>
+              </div>
 
-              <button
-                type="button"
-                onClick={searchPixabay}
-                disabled={pixabayLoading || !pixabayQuery.trim()}
-                className="rounded-full bg-emerald-500 px-5 py-3 text-xs uppercase tracking-[0.24em] text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {pixabayLoading ? "Searching..." : "Search Pixabay"}
-              </button>
+              {form.id && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/60"
+                >
+                  New soundtrack
+                </button>
+              )}
             </div>
 
-            <p className="mt-3 text-xs text-zinc-300">
-              Search Pixabay Music and import tracks directly into Crimson Sounds.
-            </p>
-
-            {pixabayResults.length > 0 && (
-              <div className="mt-4 grid gap-3">
-                {pixabayResults.map((track) => {
-                  const previewUrl =
-                    track.previewURL || track.audio || track.url || undefined;
-                  const pageUrl =
-                    track.pageURL ||
-                    track.link ||
-                    `https://pixabay.com/music/${track.id}/`;
-
-                  return (
-                    <div
-                      key={track.id}
-                      className="rounded-2xl border border-white/10 bg-black/30 p-4"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-white">
-                            {track.name || track.tags || `Pixabay Track ${track.id}`}
-                          </p>
-                          <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/45">
-                            {track.user || track.artist || "Pixabay contributor"} ·
-                            Pixabay
-                            {track.duration
-                              ? ` · ${formatSoundDuration(track.duration)}`
-                              : ""}
-                          </p>
-                          <a
-                            href={pageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-block text-xs text-emerald-300 underline underline-offset-4"
-                          >
-                            Open source
-                          </a>
-                        </div>
-
-                        {previewUrl ? (
-                          <audio
-                            controls
-                            preload="none"
-                            src={previewUrl}
-                            className="w-full md:w-72"
-                          />
-                        ) : (
-                          <p className="text-xs text-red-300">No preview URL</p>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => importPixabayTrack(track)}
-                          disabled={importingId === String(track.id) || !previewUrl}
-                          className="rounded-full bg-[#b4141e] px-5 py-2.5 text-xs uppercase tracking-[0.24em] text-white transition hover:bg-[#d11827] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {importingId === String(track.id) ? "Importing..." : "Import"}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              value={form.title}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, title: event.target.value }))
-              }
-              placeholder="Track title"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <input
-              value={form.artist}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, artist: event.target.value }))
-              }
-              placeholder="Artist / rights owner"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <input
-              value={form.sourceUrl}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, sourceUrl: event.target.value }))
-              }
-              placeholder="Original Pixabay music URL"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none md:col-span-2"
-            />
-
-            <input
-              value={form.audioUrl}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, audioUrl: event.target.value }))
-              }
-              placeholder="Audio URL, or upload file below"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none md:col-span-2"
-            />
-
-            <input
-              ref={audioInputRef}
-              type="file"
-              accept="audio/*"
-              onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)}
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <input
-              ref={coverInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)}
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <select
-              value={form.categoryId}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, categoryId: event.target.value }))
-              }
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            >
-              <option value="">No category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={form.duration}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, duration: event.target.value }))
-              }
-              placeholder="Duration seconds"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <input
-              value={form.mood}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, mood: event.target.value }))
-              }
-              placeholder="Mood"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-
-            <input
-              value={form.bpm}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, bpm: event.target.value }))
-              }
-              placeholder="BPM"
-              className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none"
-            />
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-4 text-xs text-zinc-300">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.approvedSource}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    approvedSource: event.target.checked,
-                  }))
-                }
-              />{" "}
-              Source verified
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={form.approved}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, approved: event.target.checked }))
-                }
-              />{" "}
-              Approved
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, featured: event.target.checked }))
-                }
-              />{" "}
-              Featured
-            </label>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            className="mt-6 rounded-full bg-[#b4141e] px-6 py-3 text-xs uppercase tracking-[0.24em] text-white transition hover:bg-[#d11827] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Sound"}
-          </button>
-        </section>
-
-        <section className="mt-8 space-y-3">
-          {sounds.map((sound) => (
-            <div
-              key={sound.id}
-              className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:grid-cols-[1fr_auto_auto_auto]"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => togglePreview(sound)}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 text-xs text-white"
-                  >
-                    {playingId === sound.id ? "Ⅱ" : "▶"}
-                  </button>
-
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-white">{sound.title}</p>
-                    <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                      {sound.artist || "Pixabay"} ·{" "}
-                      {formatSoundDuration(sound.duration_seconds)}
-                      {sound.bpm ? ` · ${sound.bpm} BPM` : ""} ·{" "}
-                      {sound.usage_count} uses
-                    </p>
+            <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="space-y-4">
+                <label
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragActive(true);
+                  }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={handleDrop}
+                  className={`flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-[28px] border border-dashed p-6 text-center transition ${
+                    dragActive ? "border-[#b4141e]/60 bg-[#b4141e]/10" : "border-white/12 bg-black/30"
+                  }`}
+                >
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,audio/mp4,audio/aac,audio/x-m4a,audio/m4a,audio/wav,audio/x-wav,.mp3,.wav,.m4a,.aac"
+                    className="hidden"
+                    onChange={handleAudioInput}
+                  />
+                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
+                    Drag & drop soundtrack
                   </div>
+                  <p className="mt-4 font-serif text-2xl italic text-white">Upload MP3, WAV, or M4A</p>
+                  <p className="mt-2 max-w-md text-sm text-zinc-400">
+                    Build a premium underground soundtrack library for Crimson creators. Manual uploads only for beta stability.
+                  </p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.2em] text-zinc-500">
+                    Max {formatFileSize(MAX_AUDIO_FILE_SIZE_BYTES)} · Up to {formatSoundDuration(MAX_AUDIO_DURATION_SECONDS)}
+                  </p>
+                  {audioFile && <p className="mt-4 text-sm text-emerald-300">Selected: {audioFile.name}</p>}
+                </label>
+
+                {uploadProgress > 0 && (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                      <span>Upload progress</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-[#b4141e] transition-all"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Title</span>
+                    <input
+                      value={form.title}
+                      onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Artist</span>
+                    <input
+                      value={form.artist}
+                      onChange={(e) => setForm((prev) => ({ ...prev, artist: e.target.value }))}
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Mood</span>
+                    <input
+                      value={form.mood}
+                      onChange={(e) => setForm((prev) => ({ ...prev, mood: e.target.value }))}
+                      placeholder="Cinematic, dark, midnight run"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Tags</span>
+                    <input
+                      value={form.tags}
+                      onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
+                      placeholder="cinematic, reels, night ride"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Duration (seconds)</span>
+                    <input
+                      value={form.duration}
+                      onChange={(e) => setForm((prev) => ({ ...prev, duration: e.target.value }))}
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Category</span>
+                    <select
+                      value={form.categoryId}
+                      onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                    >
+                      <option value="">No category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
 
-              <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={!!sound.approved_source}
-                  onChange={(event) =>
-                    updateSound(sound.id, { approved_source: event.target.checked })
-                  }
-                />
-                Source OK
-              </label>
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Cover image</span>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+                    className="mt-2 block w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white"
+                  />
+                </label>
 
-              <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={sound.approved}
-                  onChange={(event) =>
-                    updateSound(sound.id, { approved: event.target.checked })
-                  }
-                />
-                Approved
-              </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Rights owner</span>
+                  <input
+                    value={form.rightsOwner}
+                    onChange={(e) => setForm((prev) => ({ ...prev, rightsOwner: e.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                  />
+                </label>
 
-              <label className="inline-flex items-center gap-2 text-xs text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={sound.featured}
-                  onChange={(event) =>
-                    updateSound(sound.id, { featured: event.target.checked })
-                  }
-                />
-                Featured
-              </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">License notes</span>
+                  <textarea
+                    value={form.licenseNotes}
+                    onChange={(e) => setForm((prev) => ({ ...prev, licenseNotes: e.target.value }))}
+                    rows={4}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+                  />
+                </label>
+
+                <div className="grid gap-2">
+                  {toggleFields.map((item) => (
+                    <label
+                      key={item.key}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white"
+                    >
+                      <span>{item.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={form[item.key]}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            [item.key]: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 accent-[#b4141e]"
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!canSave || saving}
+                  className="w-full rounded-full bg-[#b4141e] px-5 py-3 text-xs uppercase tracking-[0.24em] text-white transition hover:bg-[#c91b27] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? (form.id ? "Saving..." : "Uploading...") : form.id ? "Save soundtrack" : "Upload soundtrack"}
+                </button>
+              </div>
             </div>
-          ))}
-        </section>
+          </section>
+
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
+            <div className="mb-5">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">Library controls</p>
+              <h2 className="mt-2 font-serif text-2xl italic">Search & Edit</h2>
+              <p className="mt-2 text-sm text-zinc-400">
+                Manage curated soundtrack metadata, approval, trending, and featured placement.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+              <input
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="Search title, artist, mood, tags"
+                className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+              />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+                className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none focus:border-[#b4141e]/60"
+              >
+                <option value="all">All</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+                <option value="featured">Featured</option>
+                <option value="trending">Trending</option>
+              </select>
+            </div>
+
+            {filteredSounds.length === 0 ? (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-6 text-center">
+                <p className="font-serif text-xl italic text-white">No soundtracks found.</p>
+                <p className="mt-2 text-sm text-white/45">Upload a new soundtrack or adjust your search and filters.</p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {filteredSounds.map((sound) => (
+                  <div key={sound.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm text-white">{sound.title}</p>
+                          {sound.trending && (
+                            <span className="rounded-full border border-[#b4141e]/25 bg-[#b4141e]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[#e87a82]">
+                              Trending
+                            </span>
+                          )}
+                          {sound.featured && (
+                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-white/50">
+                              Featured
+                            </span>
+                          )}
+                          {!sound.approved && (
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-amber-300">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/40">
+                          {sound.artist || "Crimson Society"} · {formatSoundDuration(sound.duration_seconds)} ·{" "}
+                          {sound.mood || "No mood"}
+                        </p>
+                        <p className="mt-2 text-xs text-white/35">{sound.tags || "No tags"}</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void togglePreview(sound)}
+                          className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/65"
+                        >
+                          {playingId === sound.id ? "Stop" : "Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm(mapSoundToForm(sound))}
+                          className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/65"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void updateSound(sound.id, { approved: !sound.approved })}
+                          className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/65"
+                        >
+                          {sound.approved ? "Unapprove" : "Approve"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void updateSound(sound.id, { featured: !sound.featured })}
+                          className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/65"
+                        >
+                          {sound.featured ? "Unfeature" : "Feature"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void updateSound(sound.id, { trending: !sound.trending })}
+                          className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-white/65"
+                        >
+                          {sound.trending ? "Untrend" : "Trend"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );

@@ -10,6 +10,7 @@ import {
   getSoundCategoryName,
   getSoundLabel,
   getSoundPlaybackUrl,
+  getSoundTags,
   playExclusiveSound,
   stopCrimsonSound,
   type CrimsonSound,
@@ -65,9 +66,7 @@ export function CrimsonSoundAttribution({
     <a
       href={`/sounds/${sound.id}`}
       className={`inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-black/55 text-white backdrop-blur transition hover:border-[#b4141e]/50 hover:bg-[#b4141e]/10 ${
-        compact
-          ? "px-2.5 py-1 text-[10px]"
-          : "px-3 py-1.5 text-[11px]"
+        compact ? "px-2.5 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"
       }`}
     >
       <span className="text-[#e87a82]">♪</span>
@@ -124,16 +123,17 @@ export default function CrimsonSoundPicker({
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
+
     if (!needle) return sounds;
+
     return sounds.filter((sound) =>
-      `${sound.title} ${sound.artist || ""} ${sound.mood || ""} ${
-        sound.bpm || ""
-      } ${getSoundCategoryName(sound)}`
+      `${sound.title} ${sound.artist || ""} ${sound.mood || ""} ${sound.bpm || ""} ${getSoundCategoryName(sound)} ${sound.tags || ""}`
         .toLowerCase()
         .includes(needle),
     );
   }, [query, sounds]);
 
+  const trending = filtered.filter((sound) => sound.trending).slice(0, 8);
   const featured = filtered.filter((sound) => sound.featured).slice(0, 8);
   const recent = recentIds
     .map((id) => sounds.find((sound) => sound.id === id))
@@ -162,11 +162,7 @@ export default function CrimsonSoundPicker({
     });
 
     if (isFavorite) {
-      await supabase
-        .from("sound_favorites")
-        .delete()
-        .eq("user_id", userId)
-        .eq("sound_id", sound.id);
+      await supabase.from("sound_favorites").delete().eq("user_id", userId).eq("sound_id", sound.id);
     } else {
       await supabase
         .from("sound_favorites")
@@ -185,14 +181,13 @@ export default function CrimsonSoundPicker({
     const isSelected = selectedSound?.id === sound.id;
     const isPlaying = playingId === sound.id;
     const canPreview = !!getSoundPlaybackUrl(sound);
+    const soundTags = getSoundTags(sound).slice(0, 2);
 
     return (
       <div
         key={sound.id}
         className={`flex items-center gap-3 rounded-2xl border p-3 transition ${
-          isSelected
-            ? "border-[#b4141e]/70 bg-[#b4141e]/12"
-            : "border-white/10 bg-white/[0.025]"
+          isSelected ? "border-[#b4141e]/70 bg-[#b4141e]/12" : "border-white/10 bg-white/[0.025]"
         }`}
       >
         <button
@@ -208,15 +203,40 @@ export default function CrimsonSoundPicker({
           </span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => chooseSound(sound)}
-          className="min-w-0 flex-1 text-left"
-        >
-          <p className="truncate text-sm text-white">{sound.title}</p>
+        <button type="button" onClick={() => chooseSound(sound)} className="min-w-0 flex-1 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm text-white">{sound.title}</p>
+            {sound.trending && (
+              <span className="rounded-full border border-[#b4141e]/25 bg-[#b4141e]/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-[#e87a82]">
+                Trending
+              </span>
+            )}
+            {sound.featured && (
+              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white/55">
+                Featured
+              </span>
+            )}
+          </div>
           <p className="mt-1 truncate text-[11px] uppercase tracking-[0.16em] text-white/40">
             {sound.artist || "Crimson Society"} · {formatSoundDuration(sound.duration_seconds)}
           </p>
+          {(sound.mood || soundTags.length > 0) && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {sound.mood && (
+                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-white/45">
+                  {sound.mood}
+                </span>
+              )}
+              {soundTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-white/45"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </button>
 
         <button
@@ -236,10 +256,7 @@ export default function CrimsonSoundPicker({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
         className="max-h-[86dvh] w-full max-w-2xl overflow-hidden rounded-t-[32px] border-t border-white/10 bg-[#080809]/95 shadow-[0_-30px_80px_-40px_rgba(180,20,30,0.8)]"
         onClick={(e) => e.stopPropagation()}
@@ -248,10 +265,9 @@ export default function CrimsonSoundPicker({
           <div className="mx-auto mb-4 h-1.5 w-11 rounded-full bg-white/20" />
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-                Crimson Sounds
-              </p>
-              <h2 className="font-serif text-2xl italic text-white">Choose Sound</h2>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">Crimson Sounds</p>
+              <h2 className="font-serif text-2xl italic text-white">Choose Soundtrack</h2>
+              <p className="mt-1 text-xs text-white/40">Curated by Crimson Society</p>
             </div>
             <button
               type="button"
@@ -266,7 +282,7 @@ export default function CrimsonSoundPicker({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search sounds"
+              placeholder="Search soundtrack, mood, artist, tags"
               className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
             />
           </div>
@@ -276,52 +292,51 @@ export default function CrimsonSoundPicker({
           {loading && (
             <div className="space-y-3">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-18 animate-pulse rounded-2xl bg-white/[0.04]" />
+                <div key={item} className="h-[72px] animate-pulse rounded-2xl bg-white/[0.04]" />
               ))}
             </div>
           )}
 
           {!loading && sounds.length === 0 && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6 text-center">
-              <p className="font-serif text-xl italic text-white">No approved sounds yet.</p>
+              <p className="font-serif text-xl italic text-white">No curated soundtracks yet.</p>
               <p className="mt-2 text-sm text-white/45">
-                Admin-uploaded Crimson Sounds will appear here.
+                Admin-uploaded Crimson Sounds will appear here for posts, rides, and reels.
               </p>
             </div>
           )}
 
+          {!loading && trending.length > 0 && (
+            <section>
+              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">Trending Sounds</p>
+              <div className="space-y-2">{trending.map(renderSound)}</div>
+            </section>
+          )}
+
+          {!loading && featured.length > 0 && (
+            <section>
+              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">Featured Soundtracks</p>
+              <div className="space-y-2">{featured.map(renderSound)}</div>
+            </section>
+          )}
+
           {!loading && recent.length > 0 && (
             <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                Recent
-              </p>
+              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">Recent</p>
               <div className="space-y-2">{recent.slice(0, 4).map(renderSound)}</div>
             </section>
           )}
 
           {!loading && favoritesList.length > 0 && (
             <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                Favorites
-              </p>
-              <div className="space-y-2">{favoritesList.slice(0, 6).map(renderSound)}</div>
-            </section>
-          )}
-
-          {!loading && featured.length > 0 && (
-            <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                Featured
-              </p>
-              <div className="space-y-2">{featured.map(renderSound)}</div>
+              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">Favorites</p>
+              <div className="space-y-2">{favoritesList.map(renderSound)}</div>
             </section>
           )}
 
           {!loading && filtered.length > 0 && (
             <section>
-              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                Library
-              </p>
+              <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-white/40">Library</p>
               <div className="space-y-2">{filtered.map(renderSound)}</div>
             </section>
           )}
@@ -329,14 +344,16 @@ export default function CrimsonSoundPicker({
 
         <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-white/10 bg-[#080809]/95 px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-3 backdrop-blur-xl">
           <div className="flex items-center gap-3 rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/10 p-3">
-            {miniSound ? <SoundArtwork sound={miniSound} /> : (
+            {miniSound ? (
+              <SoundArtwork sound={miniSound} />
+            ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/40 text-[#e87a82]">
                 ♪
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm text-white">
-                {miniSound ? getSoundLabel(miniSound) : "No sound selected"}
+                {miniSound ? getSoundLabel(miniSound) : "No soundtrack selected"}
               </p>
               <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/40">
                 {playingId ? "Preview playing" : "Tap a track to preview"}
