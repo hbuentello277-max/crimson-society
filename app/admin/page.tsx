@@ -36,7 +36,7 @@ function formatJoinedDate(value?: string | null) {
     })
     .replace(",", "");
 
-  return `Joined ${label}`;
+  return "Joined" + label;
 }
 
 function getMembershipTier(item: AdminProfile): MembershipTier {
@@ -94,7 +94,7 @@ export default function AdminPage() {
 
   const myUserId = session?.user?.id ?? null;
 
-  const profileCountLabel = useMemo(() => `${profiles.length} total`, [profiles.length]);
+  const profileCountLabel = useMemo(() => String(profiles.length) + " total", [profiles.length]);
 
   async function fetchProfiles() {
     setErrorMsg("");
@@ -350,10 +350,7 @@ export default function AdminPage() {
                     cta: "Sounds",
                   },
                 ].map((item) => (
-                  <div
-                    key={item.href}
-                    className="rounded-2xl border border-white/10 bg-black/25 p-5"
-                  >
+                  <div key={item.href} className="rounded-2xl border border-white/10 bg-black/25 p-5">
                     <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">{item.eyebrow}</p>
                     <h2 className="mt-2 font-serif text-2xl text-white">{item.title}</h2>
                     <Link
@@ -386,20 +383,38 @@ export default function AdminPage() {
                   const currentRole = (item.role || "user") as UserRole;
                   const currentStatus = (item.status || "active") as UserStatus;
 
-                  // Step 1: compute effective role/status (owner always treated as admin)
                   const effectiveRole = isOwner ? "admin" : currentRole;
                   const effectiveStatus = isOwner ? "active" : currentStatus;
 
-                  // Step 2: compute membership from effective role
                   const isAdminAccount = effectiveRole === "admin";
+
                   const membership: MembershipTier = isAdminAccount ? "blackcard" : getMembershipTier(item);
 
-                  // Dropdown shows the real db value so it can still be changed
-                  const dropdownMembership = getMembershipTier(item);
+                  const dropdownMembership: MembershipTier = isAdminAccount ? "blackcard" : getMembershipTier(item);
 
                   const isSaving = savingId === item.id;
                   const isSelf = isOwner;
                   const identity = item.username || item.display_name || "unknown-user";
+
+                  const membershipControl = isAdminAccount ? (
+                    <div className="flex min-h-10 items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm uppercase tracking-[0.18em] text-zinc-200">
+                      BLACKCARD
+                    </div>
+                  ) : (
+                    <select
+                      value={dropdownMembership}
+                      disabled={isSaving}
+                      onChange={(e) => void handleMembershipChange(item.id, e.target.value as MembershipTier)}
+                      className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="regular" className="bg-black text-white">
+                        regular
+                      </option>
+                      <option value="blackcard" className="bg-black text-white">
+                        blackcard
+                      </option>
+                    </select>
+                  );
 
                   return (
                     <div
@@ -434,18 +449,26 @@ export default function AdminPage() {
                         </div>
 
                         <p className="mt-1.5 break-all text-sm text-zinc-500">{item.email || "No email on file"}</p>
-                        <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-zinc-600">{formatJoinedDate(item.created_at)}</p>
+                        <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-zinc-600">
+                          {formatJoinedDate(item.created_at)}
+                        </p>
                       </div>
 
                       <select
-                        value={currentRole}
+                        value={effectiveRole}
                         disabled={isSaving}
                         onChange={(e) => handleRoleChange(item.id, e.target.value)}
                         className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <option value="user" className="bg-black text-white">user</option>
-                        <option value="moderator" className="bg-black text-white">moderator</option>
-                        <option value="admin" className="bg-black text-white">admin</option>
+                        <option value="user" className="bg-black text-white">
+                          user
+                        </option>
+                        <option value="moderator" className="bg-black text-white">
+                          moderator
+                        </option>
+                        <option value="admin" className="bg-black text-white">
+                          admin
+                        </option>
                       </select>
 
                       <select
@@ -454,21 +477,21 @@ export default function AdminPage() {
                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
                         className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <option value="active" className="bg-black text-white">active</option>
-                        <option value="limited" className="bg-black text-white">limited</option>
-                        <option value="suspended" className="bg-black text-white">suspended</option>
-                        <option value="blocked" className="bg-black text-white">blocked</option>
+                        <option value="active" className="bg-black text-white">
+                          active
+                        </option>
+                        <option value="limited" className="bg-black text-white">
+                          limited
+                        </option>
+                        <option value="suspended" className="bg-black text-white">
+                          suspended
+                        </option>
+                        <option value="blocked" className="bg-black text-white">
+                          blocked
+                        </option>
                       </select>
 
-                      <select
-                        value={dropdownMembership}
-                        disabled={isSaving}
-                        onChange={(e) => void handleMembershipChange(item.id, e.target.value as MembershipTier)}
-                        className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <option value="regular" className="bg-black text-white">regular</option>
-                        <option value="blackcard" className="bg-black text-white">blackcard</option>
-                      </select>
+                      {membershipControl}
                     </div>
                   );
                 })}
@@ -477,6 +500,6 @@ export default function AdminPage() {
           </>
         )}
       </div>
-    </main>
+        </main>
   );
 }
