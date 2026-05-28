@@ -1,6 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 export type CrimsonSound = {
   id: string;
@@ -36,9 +37,9 @@ export type CrimsonSound = {
   created_at: string | null;
   sound_categories?:
     | {
-    id: string;
-    name: string;
-    slug: string;
+        id: string;
+        name: string;
+        slug: string;
       }
     | {
         id: string;
@@ -63,33 +64,6 @@ export const ALLOWED_AUDIO_MIME_TYPES = [
   "audio/x-wav",
 ];
 
-export const PIXABAY_AUDIO_CATEGORIES = [
-  { name: "Hip Hop", slug: "hip-hop", mood: "street" },
-  { name: "Phonk", slug: "phonk", mood: "drift" },
-  { name: "Dark Trap", slug: "dark-trap", mood: "dark" },
-  { name: "Cinematic", slug: "cinematic", mood: "cinematic" },
-  { name: "Ambient Night Ride", slug: "ambient-night-ride", mood: "night ride" },
-  { name: "Aggressive Street", slug: "aggressive-street", mood: "aggressive" },
-  { name: "Emotional", slug: "emotional", mood: "emotional" },
-  { name: "Vlog", slug: "vlog", mood: "vlog" },
-  { name: "Hype", slug: "hype", mood: "hype" },
-] as const;
-
-export type SoundCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  sort_order: number;
-};
-
-export type PostSoundLink = {
-  id: string;
-  post_id: string;
-  sound_id: string;
-  created_at: string;
-  sounds: CrimsonSound | null;
-};
-
 let activeAudio: HTMLAudioElement | null = null;
 let activeSoundId: string | null = null;
 
@@ -102,7 +76,17 @@ export function formatSoundDuration(seconds?: number | null) {
 
 export function getSoundPlaybackUrl(sound: CrimsonSound | null | undefined) {
   if (!sound) return "";
-  return sound.preview_url || sound.audio_url || "";
+  if (sound.preview_url) return sound.preview_url;
+  if (sound.audio_url) return sound.audio_url;
+
+  if (sound.render_bucket === AUDIO_RENDER_BUCKET && sound.render_path) {
+    const { data } = supabase.storage
+      .from(AUDIO_RENDER_BUCKET)
+      .getPublicUrl(sound.render_path);
+    return data.publicUrl || "";
+  }
+
+  return "";
 }
 
 export function getSoundLabel(sound: CrimsonSound | null | undefined) {
@@ -116,86 +100,8 @@ export function getSoundCategoryName(sound: CrimsonSound | null | undefined) {
   return category?.name ?? "";
 }
 
-export function isAllowedAudioFile(file: File) {
-  return ALLOWED_AUDIO_MIME_TYPES.includes(file.type);
-}
-
-export function isAudioFileTooLarge(file: File) {
-  return file.size > MAX_AUDIO_FILE_SIZE_BYTES;
-}
-
-export function formatFileSize(bytes?: number | null) {
-  if (!bytes || bytes < 1) return "Unknown size";
-  const mb = bytes / (1024 * 1024);
-  if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
-  return `${Math.round(bytes / 1024)} KB`;
-}
-
-export function loadAudioDuration(file: File) {
-  return new Promise<number>((resolve, reject) => {
-    const audio = document.createElement("audio");
-    const url = URL.createObjectURL(file);
-
-    audio.preload = "metadata";
-    audio.onloadedmetadata = () => {
-      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-      URL.revokeObjectURL(url);
-      resolve(duration);
-    };
-    audio.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Could not read audio metadata."));
-    };
-    audio.src = url;
-  });
-}
-
-export async function playExclusiveSound(
-  sound: CrimsonSound,
-  onEnded?: () => void,
-) {
-  const url = getSoundPlaybackUrl(sound);
-  if (!url) return false;
-
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio.currentTime = 0;
-  }
-
-  if (activeSoundId === sound.id && activeAudio) {
-    activeSoundId = null;
-    activeAudio = null;
-    return false;
-  }
-
-  const audio = new Audio(url);
-  audio.preload = "none";
-  activeAudio = audio;
-  activeSoundId = sound.id;
-
-  audio.addEventListener("ended", () => {
-    if (activeSoundId === sound.id) {
-      activeSoundId = null;
-      activeAudio = null;
-      onEnded?.();
-    }
-  });
-
-  await audio.play();
-  return true;
-}
-
-export function stopCrimsonSound() {
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio.currentTime = 0;
-  }
-  activeAudio = null;
-  activeSoundId = null;
-}
-
-export async function fetchApprovedSounds(supabase: SupabaseClient) {
-  return supabase
+export async function fetchApprovedSounds(supabaseClient: SupabaseClient) {
+  return supabaseClient
     .from("sounds")
     .select(
       `
@@ -238,20 +144,8 @@ export async function fetchApprovedSounds(supabase: SupabaseClient) {
     )
     .eq("approved", true)
     .is("disabled_at", null)
+    .or("preview_url.not.is.null,audio_url.not.is.null,render_path.not.is.null")
     .order("featured", { ascending: false })
     .order("usage_count", { ascending: false })
     .order("created_at", { ascending: false });
-}
-
-export async function fetchMyFavoriteSoundIds(
-  supabase: SupabaseClient,
-  userId: string,
-) {
-  const { data, error } = await supabase
-    .from("sound_favorites")
-    .select("sound_id")
-    .eq("user_id", userId);
-
-  if (error) return new Set<string>();
-  return new Set((data || []).map((item) => item.sound_id as string));
 }
