@@ -10,6 +10,9 @@ type UserStatus = "active" | "limited" | "suspended" | "blocked";
 
 type AdminProfile = {
   id: string;
+  username: string | null;
+  email: string | null;
+  display_name: string | null;
   role: string | null;
   status: string | null;
 };
@@ -37,6 +40,7 @@ function AdminSkeleton() {
               <div>
                 <div className="h-4 w-40 rounded-full bg-white/10" />
                 <div className="mt-2 h-3 w-56 rounded-full bg-white/10" />
+                <div className="mt-3 h-3 w-32 rounded-full bg-white/10" />
               </div>
               <div className="h-10 w-full rounded-xl bg-white/10" />
               <div className="h-10 w-full rounded-xl bg-white/10" />
@@ -66,14 +70,17 @@ export default function AdminPage() {
 
   const myUserId = session?.user?.id ?? null;
 
-  const profileCountLabel = useMemo(() => `${profiles.length} total`, [profiles.length]);
+  const profileCountLabel = useMemo(
+    () => `${profiles.length} total`,
+    [profiles.length]
+  );
 
   async function fetchProfiles() {
     setErrorMsg("");
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, role, status")
+      .select("id, username, email, display_name, role, status")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -311,7 +318,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mb-4 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_160px_180px]">
-                <span>User ID</span>
+                <span>Member</span>
                 <span>Role</span>
                 <span>Status</span>
               </div>
@@ -322,6 +329,8 @@ export default function AdminPage() {
                   const currentStatus = (item.status || "active") as UserStatus;
                   const isSaving = savingId === item.id;
                   const isSelf = item.id === myUserId;
+                  const identity =
+                    item.username || item.display_name || "unknown-user";
 
                   return (
                     <div
@@ -329,9 +338,20 @@ export default function AdminPage() {
                       className="grid gap-4 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-4 md:grid-cols-[1fr_160px_180px]"
                     >
                       <div>
-                        <p className="break-all text-sm text-white">{item.id}</p>
+                        <p className="text-base font-semibold text-white">
+                          @{identity}
+                        </p>
+
+                        <p className="mt-1 break-all text-sm text-zinc-400">
+                          {item.email || "No email on file"}
+                        </p>
+
+                        <p className="mt-2 break-all text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                          {item.id}
+                        </p>
+
                         {isSelf && (
-                          <p className="mt-1 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
+                          <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
                             You
                           </p>
                         )}
@@ -340,13 +360,18 @@ export default function AdminPage() {
                       <select
                         value={currentRole}
                         disabled={isSaving}
-                        onChange={(e) => handleRoleChange(item.id, e.target.value)}
+                        onChange={(e) =>
+                          handleRoleChange(item.id, e.target.value)
+                        }
                         className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="user" className="bg-black text-white">
                           user
                         </option>
-                        <option value="moderator" className="bg-black text-white">
+                        <option
+                          value="moderator"
+                          className="bg-black text-white"
+                        >
                           moderator
                         </option>
                         <option value="admin" className="bg-black text-white">
@@ -357,7 +382,9 @@ export default function AdminPage() {
                       <select
                         value={currentStatus}
                         disabled={isSaving}
-                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                        onChange={(e) =>
+                          handleStatusChange(item.id, e.target.value)
+                        }
                         className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="active" className="bg-black text-white">
@@ -366,7 +393,10 @@ export default function AdminPage() {
                         <option value="limited" className="bg-black text-white">
                           limited
                         </option>
-                        <option value="suspended" className="bg-black text-white">
+                        <option
+                          value="suspended"
+                          className="bg-black text-white"
+                        >
                           suspended
                         </option>
                         <option value="blocked" className="bg-black text-white">
