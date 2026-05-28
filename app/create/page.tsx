@@ -279,7 +279,6 @@ export default function CreatePage() {
         status_text: isStatus ? statusText : null,
         status_bg: isStatus ? statusBg.id : null,
         location: location || null,
-        audience,
         media_pipeline_version: type === "status" ? 1 : 2,
         media_status: isStatus ? "ready" : mediaStatus,
         media_metadata: mediaMetadata,
