@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked";
+type MembershipTier = "Blackcard" | "Regular";
 
 type AdminProfile = {
   id: string;
@@ -15,35 +16,63 @@ type AdminProfile = {
   display_name: string | null;
   role: string | null;
   status: string | null;
+  created_at?: string | null;
 };
+
+function formatJoinedDate(value?: string | null) {
+  if (!value) return "Joined recently";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Joined recently";
+
+  // Example: "Joined May 2026"
+  const label = date.toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  }).replace(",", "");
+
+  return `Joined ${label}`;
+}
+
+function getMembershipTier(item: AdminProfile): MembershipTier {
+  const role = (item.role || "").toLowerCase();
+
+  // Map your existing roles into exactly two tiers:
+  // admins / moderators → Blackcard, everyone else → Regular
+  if (role === "admin" || role === "moderator") {
+    return "Blackcard";
+  }
+
+  return "Regular";
+}
 
 function AdminSkeleton() {
   return (
-    <div className="mt-8 animate-pulse space-y-6">
+    <div className="mt-8 animate-pulse space-y-5">
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
         <div className="h-3 w-20 rounded-full bg-white/10" />
         <div className="mt-3 h-5 w-64 rounded-full bg-white/10" />
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="h-8 w-32 rounded-full bg-white/10" />
           <div className="h-3 w-16 rounded-full bg-white/10" />
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {[0, 1, 2].map((item) => (
             <div
               key={item}
-              className="grid gap-4 rounded-xl border border-white/10 px-4 py-4 md:grid-cols-[1fr_160px_180px]"
+              className="grid gap-3 rounded-xl border border-white/10 px-4 py-3.5 md:grid-cols-[1fr_150px_170px]"
             >
               <div>
                 <div className="h-4 w-40 rounded-full bg-white/10" />
                 <div className="mt-2 h-3 w-56 rounded-full bg-white/10" />
-                <div className="mt-3 h-3 w-32 rounded-full bg-white/10" />
+                <div className="mt-2.5 h-3 w-28 rounded-full bg-white/10" />
               </div>
-              <div className="h-10 w-full rounded-xl bg-white/10" />
-              <div className="h-10 w-full rounded-xl bg-white/10" />
+              <div className="h-9 w-full rounded-xl bg-white/10" />
+              <div className="h-9 w-full rounded-xl bg-white/10" />
             </div>
           ))}
         </div>
@@ -72,7 +101,7 @@ export default function AdminPage() {
 
   const profileCountLabel = useMemo(
     () => `${profiles.length} total`,
-    [profiles.length]
+    [profiles.length],
   );
 
   async function fetchProfiles() {
@@ -80,7 +109,7 @@ export default function AdminPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, email, display_name, role, status")
+      .select("id, username, email, display_name, role, status, created_at")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -127,7 +156,7 @@ export default function AdminPage() {
   async function updateProfileAccess(
     id: string,
     nextRole: UserRole,
-    nextStatus: UserStatus
+    nextStatus: UserStatus,
   ) {
     if (!myUserId) return;
 
@@ -172,8 +201,8 @@ export default function AdminPage() {
               role: updated?.role ?? nextRole,
               status: updated?.status ?? nextStatus,
             }
-          : item
-      )
+          : item,
+      ),
     );
 
     setSuccessMsg("Profile access updated.");
@@ -187,7 +216,7 @@ export default function AdminPage() {
     void updateProfileAccess(
       id,
       value as UserRole,
-      (target.status || "active") as UserStatus
+      (target.status || "active") as UserStatus,
     );
   }
 
@@ -198,14 +227,14 @@ export default function AdminPage() {
     void updateProfileAccess(
       id,
       (target.role || "user") as UserRole,
-      value as UserStatus
+      value as UserStatus,
     );
   }
 
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-black text-white">
-        <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
@@ -230,7 +259,7 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
@@ -309,7 +338,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-2xl font-semibold">Profiles</h2>
                 <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">
@@ -317,13 +346,13 @@ export default function AdminPage() {
                 </span>
               </div>
 
-              <div className="mb-4 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_160px_180px]">
+              <div className="mb-3 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_150px_170px]">
                 <span>Member</span>
                 <span>Role</span>
                 <span>Status</span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {profiles.map((item) => {
                   const currentRole = (item.role || "user") as UserRole;
                   const currentStatus = (item.status || "active") as UserStatus;
@@ -331,47 +360,67 @@ export default function AdminPage() {
                   const isSelf = item.id === myUserId;
                   const identity =
                     item.username || item.display_name || "unknown-user";
+                  const membership = getMembershipTier(item);
+                  const isAdminAccount = currentRole === "admin";
 
                   return (
                     <div
                       key={item.id}
-                      className="grid gap-4 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-4 md:grid-cols-[1fr_160px_180px]"
+                      className="grid gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-4 py-3.5 md:grid-cols-[1fr_150px_170px] md:items-center"
                     >
-                      <div>
-                        <p className="text-base font-semibold text-white">
-                          @{identity}
-                        </p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-[15px] font-semibold text-white md:text-base">
+                            @{identity}
+                          </p>
 
-                        <p className="mt-1 break-all text-sm text-zinc-400">
+                          {/* Membership badge: Blackcard vs Regular */}
+                          <span
+                            className={
+                              membership === "Blackcard"
+                                ? "inline-flex items-center rounded-full border border-white/15 bg-gradient-to-b from-white/[0.16] to-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_18px_rgba(0,0,0,0.22)]"
+                                : "inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400"
+                            }
+                          >
+                            {membership}
+                          </span>
+
+                          {/* Admin indicator */}
+                          {isAdminAccount && (
+                            <span className="inline-flex items-center rounded-full border border-[#b4141e]/25 bg-[#b4141e]/10 px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-[#dba7ad]">
+                              Admin
+                            </span>
+                          )}
+
+                          {/* Self indicator */}
+                          {isSelf && (
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400">
+                              You
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Email dimmed slightly */}
+                        <p className="mt-1.5 break-all text-sm text-zinc-500">
                           {item.email || "No email on file"}
                         </p>
 
-                        <p className="mt-2 break-all text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                          {item.id}
+                        {/* Joined date: month + year only */}
+                        <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-zinc-600">
+                          {formatJoinedDate(item.created_at)}
                         </p>
-
-                        {isSelf && (
-                          <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
-                            You
-                          </p>
-                        )}
                       </div>
 
                       <select
                         value={currentRole}
                         disabled={isSaving}
-                        onChange={(e) =>
-                          handleRoleChange(item.id, e.target.value)
-                        }
-                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
+                        onChange={(e) => handleRoleChange(item.id, e.target.value)}
+                        className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="user" className="bg-black text-white">
                           user
                         </option>
-                        <option
-                          value="moderator"
-                          className="bg-black text-white"
-                        >
+                        <option value="moderator" className="bg-black text-white">
                           moderator
                         </option>
                         <option value="admin" className="bg-black text-white">
@@ -382,10 +431,8 @@ export default function AdminPage() {
                       <select
                         value={currentStatus}
                         disabled={isSaving}
-                        onChange={(e) =>
-                          handleStatusChange(item.id, e.target.value)
-                        }
-                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
+                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                        className="min-h-10 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition focus:border-[#b4141e]/60 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="active" className="bg-black text-white">
                           active
@@ -393,10 +440,7 @@ export default function AdminPage() {
                         <option value="limited" className="bg-black text-white">
                           limited
                         </option>
-                        <option
-                          value="suspended"
-                          className="bg-black text-white"
-                        >
+                        <option value="suspended" className="bg-black text-white">
                           suspended
                         </option>
                         <option value="blocked" className="bg-black text-white">
