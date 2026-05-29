@@ -23,6 +23,8 @@ export default function ProfileSetup() {
 
   // Chapter I — Rider
   const [name, setName] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+
   const [bio, setBio] = useState("");
   const [city, setCity] = useState("");
   const [instagram, setInstagram] = useState("");
@@ -68,7 +70,7 @@ if (!displayName) {
   throw new Error("Enter your name before continuing.");
 }
 
-const username = cleanUsername(displayName);
+const username = cleanUsername(usernameInput);
 
 if (!username) {
   throw new Error("Enter a valid username before continuing.");
@@ -96,15 +98,31 @@ for (let attempt = 0; attempt < 5; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 350));
       }
 
-      if (!profileExists) {
-        throw new Error(
-          "Your profile is still being prepared. Please wait a moment and try again."
-        );
-      }
+     if (!profileExists) {
+  throw new Error(
+    "Your profile is still being prepared. Please wait a moment and try again."
+  );
+}
 
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
+const { data: existingUsername, error: usernameCheckError } =
+  await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .neq("id", user.id)
+    .maybeSingle();
+
+if (usernameCheckError) throw usernameCheckError;
+
+if (existingUsername) {
+  throw new Error("That username is already taken.");
+}
+
+const { error: profileError } = await supabase
+  .from("profiles")
+  .update({
+
+
           display_name: displayName,
           username,
           bio: bio.trim(),
@@ -227,6 +245,17 @@ for (let attempt = 0; attempt < 5; attempt++) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your name"
+                    className="mt-2 w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.3em] text-zinc-500">
+                    Username
+                  </label>
+                  <input
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    placeholder="Choose a username"
                     className="mt-2 w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
                   />
                 </div>
