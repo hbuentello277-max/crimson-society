@@ -13,10 +13,20 @@ import { supabase } from "@/lib/supabase";
 
 type ProfilePost = {
   id: string;
+  post_type: "photo" | "reel" | "status" | null;
+  caption: string | null;
+  status_text?: string | null;
+  status_bg?: string | null;
   image_url: string | null;
   image_display_url?: string | null;
   image_thumbnail_url?: string | null;
-  caption: string | null;
+};
+
+const statusBgMap: Record<string, string> = {
+  noir: "bg-gradient-to-br from-[#050505] via-[#0c0c0d] to-[#050505]",
+  crimson: "bg-gradient-to-br from-[#3a0709] via-[#b4141e] to-[#3a0709]",
+  carbon: "bg-gradient-to-br from-[#1a1a1c] via-[#2a2a2e] to-[#0a0a0c]",
+  ember: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
 };
 
 type Motorcycle = {
@@ -139,6 +149,7 @@ export default function ProfilePage() {
         .order("current_period_end", { ascending: false, nullsFirst: true })
         .limit(1)
         .maybeSingle();
+
       setMembership((data as MembershipRow | null) ?? null);
     };
 
@@ -151,7 +162,16 @@ export default function ProfilePage() {
 
     const { data, error: postsError } = await supabase
       .from("Posts")
-      .select("id, image_url, image_display_url, image_thumbnail_url, caption")
+      .select(`
+        id,
+        post_type,
+        caption,
+        status_text,
+        status_bg,
+        image_url,
+        image_display_url,
+        image_thumbnail_url
+      `)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -191,26 +211,23 @@ export default function ProfilePage() {
     return () => window.clearTimeout(timer);
   }, [loadGarage, loadPosts, tab]);
 
-  const tabs = useMemo(
-    () => {
-      const hasAccess = hasBlackcardAccess(membership, isAdmin);
-      return hasAccess
-        ? [
-            { k: "posts" as const, label: "Posts" },
-            { k: "rides" as const, label: "Rides" },
-            { k: "garage" as const, label: "Garage" },
-            { k: "saved" as const, label: "Saved" },
-            { k: "blackcard" as const, label: "Blackcard" },
-          ]
-        : [
-            { k: "posts" as const, label: "Posts" },
-            { k: "rides" as const, label: "Rides" },
-            { k: "garage" as const, label: "Garage" },
-            { k: "saved" as const, label: "Saved" },
-          ];
-    },
-    [isAdmin, membership],
-  );
+  const tabs = useMemo(() => {
+    const hasAccess = hasBlackcardAccess(membership, isAdmin);
+    return hasAccess
+      ? [
+          { k: "posts" as const, label: "Posts" },
+          { k: "rides" as const, label: "Rides" },
+          { k: "garage" as const, label: "Garage" },
+          { k: "saved" as const, label: "Saved" },
+          { k: "blackcard" as const, label: "Blackcard" },
+        ]
+      : [
+          { k: "posts" as const, label: "Posts" },
+          { k: "rides" as const, label: "Rides" },
+          { k: "garage" as const, label: "Garage" },
+          { k: "saved" as const, label: "Saved" },
+        ];
+  }, [isAdmin, membership]);
 
   const blackcardAccessActive = hasBlackcardAccess(membership, isAdmin);
 
@@ -230,7 +247,10 @@ export default function ProfilePage() {
         <div>
           <p className="text-[11px] uppercase tracking-[0.35em] text-[#e87a82]">Crimson Society</p>
           <h1 className="mt-4 font-serif text-4xl">Sign in to view profile</h1>
-          <Link href="/login" className="mt-8 inline-flex rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-[#f1c3c7]">
+          <Link
+            href="/login"
+            className="mt-8 inline-flex rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-[#f1c3c7]"
+          >
             Login
           </Link>
         </div>
@@ -244,8 +264,13 @@ export default function ProfilePage() {
         <div>
           <p className="text-[11px] uppercase tracking-[0.35em] text-[#e87a82]">Profile</p>
           <h1 className="mt-4 font-serif text-4xl">Profile could not be loaded</h1>
-          <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">{error || "Try refreshing after your session is restored."}</p>
-          <button onClick={() => void refresh()} className="mt-8 rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300">
+          <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
+            {error || "Try refreshing after your session is restored."}
+          </p>
+          <button
+            onClick={() => void refresh()}
+            className="mt-8 rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300"
+          >
             Retry
           </button>
         </div>
@@ -259,7 +284,9 @@ export default function ProfilePage() {
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Account Status</p>
           <h2 className="mt-4 font-serif text-5xl text-white">Access Restricted</h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">Your account cannot use app features right now.</p>
+          <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
+            Your account cannot use app features right now.
+          </p>
         </div>
       </main>
     );
@@ -268,6 +295,7 @@ export default function ProfilePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
+
       <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -276,16 +304,20 @@ export default function ProfilePage() {
               Identity
             </h1>
           </div>
+
           <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
             {isAdmin && (
               <HeaderActionLink href="/admin" variant="admin">
                 Admin
               </HeaderActionLink>
             )}
+
             <HeaderActionLink href="/blackcard" variant="premium">
               Blackcard Access
             </HeaderActionLink>
+
             <HeaderActionLink href="/profile/edit">Edit Identity</HeaderActionLink>
+
             <HeaderActionButton onClick={() => void signOut()}>Logout</HeaderActionButton>
           </div>
         </div>
@@ -308,19 +340,57 @@ export default function ProfilePage() {
 
         {tab === "posts" && (
           <section className="mt-5">
-            {postsState === "loading" && <EmptyPanel title="Loading posts." body="Gathering your latest ride archive." />}
-            {postsState === "error" && <EmptyPanel title="Posts could not load." body="The profile stays available while the grid retries later." />}
-            {postsState === "loaded" && posts.length === 0 && <EmptyPanel title="No posts yet." body="The visual archive of ride life will appear here." />}
+            {postsState === "loading" && (
+              <EmptyPanel title="Loading posts." body="Gathering your latest ride archive." />
+            )}
+
+            {postsState === "error" && (
+              <EmptyPanel
+                title="Posts could not load."
+                body="The profile stays available while the grid retries later."
+              />
+            )}
+
+            {postsState === "loaded" && posts.length === 0 && (
+              <EmptyPanel title="No posts yet." body="The visual archive of ride life will appear here." />
+            )}
+
             {postsState === "loaded" && posts.length > 0 && (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
                 {posts.map((post) => {
-                  const imageUrl = getBestImageUrl(post.image_thumbnail_url || post.image_display_url, post.image_url, "profileGrid");
+                  const imageUrl = getBestImageUrl(
+                    post.image_thumbnail_url || post.image_display_url,
+                    post.image_url,
+                    "profileGrid",
+                  );
+
+                  const isStatus = post.post_type === "status";
+                  const statusText = post.status_text || post.caption || "";
+                  const statusClass = statusBgMap[post.status_bg || "noir"] || statusBgMap.noir;
+
                   return (
-                    <div key={post.id} className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]">
-                      {imageUrl ? (
-                        <Image src={imageUrl} alt={post.caption || "Crimson Society post"} fill sizes="(max-width: 768px) 50vw, 320px" className="object-cover" />
+                    <div
+                      key={post.id}
+                      className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]"
+                    >
+                      {isStatus ? (
+                        <div className={`flex h-full w-full items-center justify-center px-4 text-center ${statusClass}`}>
+                          <p className="font-serif text-lg italic leading-snug text-white">
+                            {statusText || "Status"}
+                          </p>
+                        </div>
+                      ) : imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={post.caption || "Crimson Society post"}
+                          fill
+                          sizes="(max-width: 768px) 50vw, 320px"
+                          className="object-cover"
+                        />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.2em] text-zinc-400">{post.caption || "No image"}</div>
+                        <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.2em] text-zinc-400">
+                          {post.caption || "No image"}
+                        </div>
                       )}
                     </div>
                   );
@@ -332,17 +402,38 @@ export default function ProfilePage() {
 
         {tab === "garage" && (
           <section className="mt-5">
-            {garageState === "loading" && <EmptyPanel title="Loading garage." body="Pulling your machines from Supabase." />}
-            {garageState === "error" && <EmptyPanel title="Garage could not load." body="Motorcycle details are kept separate from the public profile shell." />}
-            {garageState === "loaded" && motorcycles.length === 0 && <EmptyPanel title="No motorcycles listed." body="Garage entries can be added from profile editing." />}
+            {garageState === "loading" && (
+              <EmptyPanel title="Loading garage." body="Pulling your machines from Supabase." />
+            )}
+
+            {garageState === "error" && (
+              <EmptyPanel
+                title="Garage could not load."
+                body="Motorcycle details are kept separate from the public profile shell."
+              />
+            )}
+
+            {garageState === "loaded" && motorcycles.length === 0 && (
+              <EmptyPanel title="No motorcycles listed." body="Garage entries can be added from profile editing." />
+            )}
+
             {garageState === "loaded" && motorcycles.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {motorcycles.map((bike) => (
-                  <article key={bike.id} className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]">
+                  <article
+                    key={bike.id}
+                    className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
+                  >
                     <div className="border-b border-white/10 px-5 py-5">
-                      <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">{bike.label || "Garage"}</p>
-                      <h3 className="mt-3 font-serif text-3xl leading-none text-white">{bike.name || "Unnamed Motorcycle"}</h3>
-                      <p className="mt-3 text-sm text-zinc-400">{bike.year || "Year pending"} · {bike.finish || "Finish pending"}</p>
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+                        {bike.label || "Garage"}
+                      </p>
+                      <h3 className="mt-3 font-serif text-3xl leading-none text-white">
+                        {bike.name || "Unnamed Motorcycle"}
+                      </h3>
+                      <p className="mt-3 text-sm text-zinc-400">
+                        {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
+                      </p>
                     </div>
                   </article>
                 ))}
@@ -353,7 +444,10 @@ export default function ProfilePage() {
 
         {tab !== "posts" && tab !== "garage" && (
           <section className="mt-5">
-            <EmptyPanel title="Coming into focus." body="This profile section is wired to shared state and ready for the next data layer." />
+            <EmptyPanel
+              title="Coming into focus."
+              body="This profile section is wired to shared state and ready for the next data layer."
+            />
           </section>
         )}
       </div>
