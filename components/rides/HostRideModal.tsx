@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RideType, RidePrivacy } from "@/app/rides/page";
 
 interface HostRideForm {
@@ -8,13 +8,24 @@ interface HostRideForm {
   date: string;
   time: string;
   meetPoint: string;
+  meetPointLat: number | null;
+  meetPointLng: number | null;
   destination: string;
+  destinationLat: number | null;
+  destinationLng: number | null;
   distance: string;
   duration: string;
   type: RideType;
   privacy: RidePrivacy;
   description: string;
 }
+
+type LocationSuggestion = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+};
 
 const RIDE_TYPES: RideType[] = ["Canyon Run", "Night Run", "Track Day", "Touring", "Group Ride"];
 
@@ -23,7 +34,11 @@ const EMPTY_FORM: HostRideForm = {
   date: "",
   time: "",
   meetPoint: "",
+  meetPointLat: null,
+  meetPointLng: null,
   destination: "",
+  destinationLat: null,
+  destinationLng: null,
   distance: "",
   duration: "",
   type: "Group Ride",
@@ -66,24 +81,22 @@ export function HostRideModal({ onClose, onCreate }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Host a Ride"
+      aria-label="Host a Meet"
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
     >
-      {/* Backdrop */}
       <div
         aria-hidden
         className="absolute inset-0 bg-black/75 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Sheet */}
       <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d080a] shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:rounded-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.2em] text-[#d85f6c]">Host a Ride</p>
+            <p className="text-[9px] uppercase tracking-[0.2em] text-[#d85f6c]">Host a Meet</p>
             <h2 className="mt-0.5 font-serif text-2xl text-[#f4f0ea]">Create Route</h2>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -96,12 +109,10 @@ export function HostRideModal({ onClose, onCreate }: Props) {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="max-h-[65vh] overflow-y-auto px-5 py-5 sm:max-h-[55vh]">
             <div className="grid gap-4">
-              {/* Ride Name */}
-              <Field label="Ride Name" error={errors.name}>
+              <Field label="Meet Name" error={errors.name}>
                 <input
                   type="text"
                   placeholder="e.g. Sunday Canyon Run"
@@ -111,7 +122,6 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                 />
               </Field>
 
-              {/* Date + Time */}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Date" error={errors.date}>
                   <input
@@ -121,6 +131,7 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                     className={inputCls(!!errors.date)}
                   />
                 </Field>
+
                 <Field label="Time" error={errors.time}>
                   <input
                     type="time"
@@ -131,27 +142,60 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                 </Field>
               </div>
 
-              {/* Meetup + Destination */}
-              <Field label="Meetup / Start Location" error={errors.meetPoint}>
-                <input
-                  type="text"
-                  placeholder="e.g. Buc-ee's, Katy TX"
-                  value={form.meetPoint}
-                  onChange={(e) => set("meetPoint", e.target.value)}
-                  className={inputCls(!!errors.meetPoint)}
-                />
-              </Field>
-              <Field label="Destination / End Location" error={errors.destination}>
-                <input
-                  type="text"
-                  placeholder="e.g. Pedernales Falls State Park"
-                  value={form.destination}
-                  onChange={(e) => set("destination", e.target.value)}
-                  className={inputCls(!!errors.destination)}
-                />
-              </Field>
+              <LocationAutocomplete
+                label="Meetup / Start Location"
+                placeholder="Search a real place or address"
+                value={form.meetPoint}
+                error={errors.meetPoint}
+                onManualChange={(value) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    meetPoint: value,
+                    meetPointLat: null,
+                    meetPointLng: null,
+                  }));
+                  if (errors.meetPoint) {
+                    setErrors((prev) => ({ ...prev, meetPoint: undefined }));
+                  }
+                }}
+                onSelect={(suggestion) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    meetPoint: suggestion.display_name,
+                    meetPointLat: Number(suggestion.lat),
+                    meetPointLng: Number(suggestion.lon),
+                  }));
+                  setErrors((prev) => ({ ...prev, meetPoint: undefined }));
+                }}
+              />
 
-              {/* Distance + Duration */}
+              <LocationAutocomplete
+                label="Destination / End Location"
+                placeholder="Search destination"
+                value={form.destination}
+                error={errors.destination}
+                onManualChange={(value) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    destination: value,
+                    destinationLat: null,
+                    destinationLng: null,
+                  }));
+                  if (errors.destination) {
+                    setErrors((prev) => ({ ...prev, destination: undefined }));
+                  }
+                }}
+                onSelect={(suggestion) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    destination: suggestion.display_name,
+                    destinationLat: Number(suggestion.lat),
+                    destinationLng: Number(suggestion.lon),
+                  }));
+                  setErrors((prev) => ({ ...prev, destination: undefined }));
+                }}
+              />
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Distance (optional)">
                   <input
@@ -162,6 +206,7 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                     className={inputCls(false)}
                   />
                 </Field>
+
                 <Field label="Duration (optional)">
                   <input
                     type="text"
@@ -173,9 +218,8 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                 </Field>
               </div>
 
-              {/* Type + Privacy */}
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Ride Type">
+                <Field label="Meet Type">
                   <select
                     value={form.type}
                     onChange={(e) => set("type", e.target.value as RideType)}
@@ -186,6 +230,7 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                     ))}
                   </select>
                 </Field>
+
                 <Field label="Visibility">
                   <select
                     value={form.privacy}
@@ -198,7 +243,6 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                 </Field>
               </div>
 
-              {/* Description */}
               <Field label="Description (optional)">
                 <textarea
                   rows={3}
@@ -211,7 +255,6 @@ export function HostRideModal({ onClose, onCreate }: Props) {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="border-t border-white/8 px-5 py-4">
             <div className="flex items-center gap-3">
               <button
@@ -221,16 +264,138 @@ export function HostRideModal({ onClose, onCreate }: Props) {
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 className="flex-1 rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
               >
-                Create Ride
+                Create Meet
               </button>
             </div>
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function LocationAutocomplete({
+  label,
+  placeholder,
+  value,
+  error,
+  onManualChange,
+  onSelect,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  error?: string;
+  onManualChange: (value: string) => void;
+  onSelect: (suggestion: LocationSuggestion) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const skipNextSearch = useRef(false);
+
+  useEffect(() => {
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false;
+      return;
+    }
+
+    const query = value.trim();
+
+    if (query.length < 3) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoading(true);
+
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("q", query);
+        url.searchParams.set("format", "json");
+        url.searchParams.set("addressdetails", "1");
+        url.searchParams.set("limit", "5");
+        url.searchParams.set("countrycodes", "us");
+
+        const response = await fetch(url.toString(), {
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Location search failed");
+
+        const data = (await response.json()) as LocationSuggestion[];
+        setSuggestions(data);
+        setOpen(data.length > 0);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setSuggestions([]);
+        setOpen(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 450);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [value]);
+
+  return (
+    <div className="relative">
+      <Field label={label} error={error}>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => onManualChange(e.target.value)}
+            onFocus={() => {
+              if (suggestions.length > 0) setOpen(true);
+            }}
+            className={inputCls(!!error)}
+          />
+
+          {loading && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+              Searching
+            </span>
+          )}
+        </div>
+      </Field>
+
+      {open && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-[#120b0d] shadow-[0_18px_50px_rgba(0,0,0,0.75)]">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion.place_id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                skipNextSearch.current = true;
+                onSelect(suggestion);
+                setSuggestions([]);
+                setOpen(false);
+              }}
+              className="block w-full border-b border-white/8 px-3 py-3 text-left text-sm text-zinc-200 transition last:border-b-0 hover:bg-white/[0.05]"
+            >
+              <span className="line-clamp-2">{suggestion.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
