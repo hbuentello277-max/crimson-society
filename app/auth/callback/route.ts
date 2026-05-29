@@ -4,8 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const nextParam = requestUrl.searchParams.get("next") ?? "/dashboard";
-  const next = nextParam.startsWith("/") ? nextParam : "/dashboard";
+  const nextParam = requestUrl.searchParams.get("next") ?? "/profile/setup";
+  const next = nextParam.startsWith("/") ? nextParam : "/profile/setup";
   const supabaseKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

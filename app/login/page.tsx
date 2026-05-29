@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authLoading && session) {
-      router.replace("/dashboard");
+      router.replace("/profile/setup");
     }
   }, [authLoading, session, router]);
 
@@ -65,7 +65,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace("/profile/setup");
   }
 
   async function resendConfirmationEmail() {

@@ -60,20 +60,29 @@ export default function ProfileSetup() {
       } = await supabase.auth.getUser();
 
       if (userError) throw userError;
-      if (!user) throw new Error("Sign in before completing setup.");
+     if (!user) throw new Error("Sign in before completing setup.");
 
-      const displayName =
-        name.trim() || user.email?.split("@")[0] || "Crimson Member";
+const displayName = name.trim();
 
-      let profileExists = false;
+if (!displayName) {
+  throw new Error("Enter your name before continuing.");
+}
 
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const { data: existingProfile, error: profileCheckError } =
-          await supabase
-            .from("profiles")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle();
+const username = cleanUsername(displayName);
+
+if (!username) {
+  throw new Error("Enter a valid username before continuing.");
+}
+
+let profileExists = false;
+
+for (let attempt = 0; attempt < 5; attempt++) {
+  const { data: existingProfile, error: profileCheckError } =
+    await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
 
         if (profileCheckError) {
           throw profileCheckError;
@@ -97,7 +106,7 @@ export default function ProfileSetup() {
         .from("profiles")
         .update({
           display_name: displayName,
-          username: cleanUsername(displayName),
+          username,
           bio: bio.trim(),
           location: city.trim(),
           instagram_url: normalizeUrl(instagram),
