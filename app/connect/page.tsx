@@ -139,6 +139,13 @@ function suggestionReasonFor(profile: ProfileRow, me: ProfileRow | null, mutualC
   return profile.riding_area ? "Shared riding scene" : "Crimson Society rider";
 }
 
+function profileHrefFromHandle(handle: string) {
+  if (!handle || handle === "@member") return null;
+  const username = handle.replace(/^@+/, "").trim();
+  if (!username) return null;
+  return `/profile/${username}`;
+}
+
 export default function ConnectPage() {
   const { session, loading: authLoading } = useAuth();
   const userId = session?.user?.id ?? null;
@@ -283,7 +290,7 @@ export default function ConnectPage() {
 
     const status = statuses[id] ?? "none";
 
-        if (status === "pending" || status === "connected") {
+    if (status === "pending" || status === "connected") {
       return;
     }
 
@@ -361,10 +368,9 @@ export default function ConnectPage() {
         setErrorMsg(error.message);
       }
     }
-
   }
 
-      async function handleCancelRequest(id: string) {
+  async function handleCancelRequest(id: string) {
     if (!userId || id === userId) return;
 
     const previousStatus = statuses[id] ?? "pending";
@@ -383,13 +389,14 @@ export default function ConnectPage() {
       setErrorMsg("Could not cancel request.");
     }
   }
-    const filtered = useMemo(
+
+  const filtered = useMemo(
     () =>
       members.filter((m) => {
         const matchesFilter = filter === "All" || m.style.includes(filter);
         const q = query.trim().toLowerCase();
         const matchesQuery =
-                !q ||
+          !q ||
           m.name.toLowerCase().includes(q) ||
           m.handle.toLowerCase().includes(q) ||
           m.city.toLowerCase().includes(q) ||
@@ -499,38 +506,60 @@ export default function ConnectPage() {
             </p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {suggested.slice(0, 4).map((member) => (
-                <button
-                  key={member.id}
-                  type="button"
-                  onClick={() => setOpenId(member.id)}
-                  className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
-                >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/35 bg-[#b4141e]">
-                    {member.photo ? (
-                      <Image
-                        src={member.photo}
-                        alt={member.name}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                        unoptimized={member.photo.includes("supabase")}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
-                        {member.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
+              {suggested.slice(0, 4).map((member) => {
+                const profileHref = profileHrefFromHandle(member.handle);
 
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-white">{member.name}</p>
-                    <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                      {member.suggestionReason}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                const cardContent = (
+                  <>
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/35 bg-[#b4141e]">
+                      {member.photo ? (
+                        <Image
+                          src={member.photo}
+                          alt={member.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                          unoptimized={member.photo.includes("supabase")}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
+                          {member.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-white">{member.name}</p>
+                      <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                        {member.suggestionReason}
+                      </p>
+                    </div>
+                  </>
+                );
+
+                if (!profileHref) {
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => setOpenId(member.id)}
+                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
+                    >
+                      {cardContent}
+                    </button>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={member.id}
+                    href={profileHref}
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
+                  >
+                    {cardContent}
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
@@ -545,6 +574,44 @@ export default function ConnectPage() {
           {!loading &&
             filtered.map((m) => {
               const status = statuses[m.id] ?? "none";
+              const profileHref = profileHrefFromHandle(m.handle);
+
+              const avatarContent = (
+                <>
+                  {m.photo ? (
+                    <Image
+                      src={m.photo}
+                      alt={m.name}
+                      fill
+                      sizes="80px"
+                      className="object-cover"
+                      unoptimized={m.photo.includes("supabase")}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center font-serif text-2xl italic text-white">
+                      {m.name.charAt(0)}
+                    </div>
+                  )}
+                </>
+              );
+
+              const textContent = (
+                <>
+                  <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
+
+                  <p className="mt-1 break-words text-sm uppercase tracking-[0.25em] text-zinc-500">
+                    {m.handle} · {m.city}
+                  </p>
+
+                  <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
+
+                  {m.mutualCount > 0 && (
+                    <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#e87a82]">
+                      {m.mutualCount} mutual
+                    </p>
+                  )}
+                </>
+              );
 
               return (
                 <li
@@ -552,41 +619,31 @@ export default function ConnectPage() {
                   className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6 transition hover:border-white/20"
                 >
                   <div className="flex items-center gap-5">
-                    <button
-                      onClick={() => setOpenId(m.id)}
-                      className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
-                    >
-                      {m.photo ? (
-                        <Image
-                          src={m.photo}
-                          alt={m.name}
-                          fill
-                          sizes="80px"
-                          className="object-cover"
-                          unoptimized={m.photo.includes("supabase")}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center font-serif text-2xl italic text-white">
-                          {m.name.charAt(0)}
-                        </div>
-                      )}
-                    </button>
+                    {profileHref ? (
+                      <Link
+                        href={profileHref}
+                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
+                      >
+                        {avatarContent}
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => setOpenId(m.id)}
+                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
+                      >
+                        {avatarContent}
+                      </button>
+                    )}
 
-                    <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
-                      <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
-
-                      <p className="mt-1 break-words text-sm uppercase tracking-[0.25em] text-zinc-500">
-                        {m.handle} · {m.city}
-                      </p>
-
-                      <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
-
-                      {m.mutualCount > 0 && (
-                        <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#e87a82]">
-                          {m.mutualCount} mutual
-                        </p>
-                      )}
-                    </button>
+                    {profileHref ? (
+                      <Link href={profileHref} className="min-w-0 flex-1 text-left">
+                        {textContent}
+                      </Link>
+                    ) : (
+                      <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
+                        {textContent}
+                      </button>
+                    )}
 
                     <button
                       onClick={() =>
@@ -741,6 +798,15 @@ export default function ConnectPage() {
                         ? "Accept"
                         : "Connect"}
                 </button>
+
+                {profileHrefFromHandle(openMember.handle) && (
+                  <Link
+                    href={profileHrefFromHandle(openMember.handle)!}
+                    className="w-full rounded-full border border-white/10 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                  >
+                    View Profile
+                  </Link>
+                )}
 
                 {statuses[openMember.id] === "connected" && (
                   <Link
