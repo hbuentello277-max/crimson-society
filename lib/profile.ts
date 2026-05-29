@@ -140,6 +140,25 @@ export function profileDisplayName(profile: AppProfile | null) {
   return profile?.display_name?.trim() || profile?.full_name?.trim() || "Crimson Member";
 }
 
+export function profileHandle(profile: AppProfile | null) {
+  const username = profile?.username?.trim();
+
+  return username ? `@${username}` : "@crimson-member";
+}
+
+export function profileLocation(profile: AppProfile | null) {
+  const directLocation = profile?.location?.trim();
+
+  if (directLocation) return directLocation;
+
+  const parts = [
+    profile?.city?.trim(),
+    profile?.state?.trim(),
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "Location hidden";
+}
+
 /**
  * Minimal defaults for a brand-new profile row.
  * display_name, full_name, and username are intentionally null so the
