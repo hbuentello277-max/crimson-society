@@ -899,12 +899,20 @@ export default function MessagesPage() {
         <div className="mx-auto max-w-2xl px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
             <div className="w-[72px]" />
-            <Link
-              href="/connect"
-              className="rounded-full bg-[#b4141e] px-4 py-2 text-xs uppercase tracking-[0.25em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] hover:bg-[#d11827]"
+            <button
+              type="button"
+              onClick={() => {
+                const firstSuggestion = suggestions[0];
+                if (firstSuggestion?.id) {
+                  void openDirectConversation(firstSuggestion.id);
+                } else {
+                  setErrorMsg("No riders available to message yet. Connect with riders first.");
+                }
+              }}
+              className="rounded-full bg-[#b4141e] px-4 py-2 text-xs uppercase tracking-[0.25em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] transition hover:bg-[#d11827]"
             >
               + New
-            </Link>
+            </button>
           </div>
 
           <div className="mt-10 text-center">
@@ -971,10 +979,11 @@ export default function MessagesPage() {
             </div>
             <div className="space-y-2">
               {suggestions.map((suggestion) => (
-                <Link
+                <button
                   key={suggestion.id}
-                  href={`/connect`}
-                  className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 transition hover:border-[#b4141e]/40"
+                  type="button"
+                  onClick={() => void openDirectConversation(suggestion.id)}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
                 >
                   <MessagesAvatar
                     photo={suggestion.photo}
@@ -987,7 +996,7 @@ export default function MessagesPage() {
                       {suggestion.handle} · {suggestion.reason}
                     </p>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           </section>
