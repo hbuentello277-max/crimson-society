@@ -117,44 +117,47 @@ export function splitLocation(value: string) {
   };
 }
 
+/**
+ * Returns true only if the profile has both a username and a display_name.
+ * Used to gate access to the main app until profile setup is complete.
+ * Does NOT treat existing users differently — it simply checks the fields.
+ */
+export function isProfileSetupComplete(
+  profile: {
+    username?: string | null;
+    display_name?: string | null;
+  } | null | undefined,
+): boolean {
+  const hasUsername = Boolean(profile?.username?.trim());
+  const hasDisplayName = Boolean(profile?.display_name?.trim());
+  return hasUsername && hasDisplayName;
+}
+
+/**
+ * UI-only display name fallback. Never saved to DB.
+ */
+export function profileDisplayName(profile: AppProfile | null) {
+  return profile?.display_name?.trim() || profile?.full_name?.trim() || "Crimson Member";
+}
+
+/**
+ * Minimal defaults for a brand-new profile row.
+ * display_name, full_name, and username are intentionally null so the
+ * profile setup gate forces the user to choose their own identity.
+ */
 function profileDefaults(user: User) {
-  const metadata = user.user_metadata ?? {};
-  const emailPrefix = user.email?.split("@")[0] ?? "member";
-  const displayName =
-    typeof metadata.full_name === "string" && metadata.full_name.trim()
-      ? metadata.full_name.trim()
-      : typeof metadata.name === "string" && metadata.name.trim()
-        ? metadata.name.trim()
-        : emailPrefix;
-  const username =
-    typeof metadata.username === "string" && metadata.username.trim()
-      ? metadata.username
-      : emailPrefix;
   const avatarUrl =
-    typeof metadata.avatar_url === "string" ? metadata.avatar_url : null;
+    typeof user.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : null;
 
   return {
     id: user.id,
-    display_name: displayName,
-    full_name: displayName,
-    username: cleanUsername(username),
+    display_name: null,
+    full_name: null,
+    username: null,
     avatar_url: avatarUrl,
-    profile_image_url: avatarUrl,
-    bio: null,
-    location: null,
-    city: null,
-    state: null,
-    riding_area: null,
-    bike_type: null,
-    riding_style: null,
-    profile_tags: [],
-    hide_location_from_suggestions: false,
-    hide_from_suggestions: false,
-    quote: null,
-    instagram_url: null,
-    tiktok_url: null,
-    youtube_url: null,
-    website_url: null,
+    status: "active",
   };
 }
 
@@ -165,130 +168,81 @@ export async function fetchProfile(userId: string): Promise<AppProfile | null> {
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) throw new ProfileSaveError("select", error);
   return (data as AppProfile | null) ?? null;
 }
 
 export async function ensureUserProfile(user: User): Promise<AppProfile | null> {
-  const existing = await fetchProfile(user.id).catch((error) => {
-    console.warn("Unable to fetch profile", error.message);
-    return null;
-  });
-
+  const existing = await fetchProfile(user.id).catch(() => null);
   if (existing) return existing;
 
-  const inserted = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .insert(profileDefaults(user))
     .select(PROFILE_SELECT)
     .maybeSingle();
 
-  if (inserted.data) return inserted.data as AppProfile;
-
-  if (inserted.error?.code === "23505") {
-    return fetchProfile(user.id);
+  if (error) {
+    // Row may have been created by a DB trigger between our check and insert
+    if (error.code === "23505") {
+      return fetchProfile(user.id);
+    }
+    throw new ProfileSaveError("upsert", error);
   }
 
-  if (inserted.error) {
-    console.warn("Unable to create profile", inserted.error.message);
-  }
-
-  return null;
+  return (data as AppProfile | null) ?? null;
 }
 
 export async function updateProfileIdentity(
   userId: string,
-  input: ProfileIdentityInput,
+  input: Partial<ProfileIdentityInput>,
 ): Promise<AppProfile> {
-  const location = input.location.trim();
-  const { city, state } = splitLocation(location);
-  const displayName = input.display_name.trim();
-
-  const payload = {
-    display_name: displayName,
-    full_name: displayName,
-    username: cleanUsername(input.username),
-    bio: input.bio.trim(),
-    location,
-    city,
-    state,
-    riding_area: location || null,
-    quote: input.quote.trim(),
-    instagram_url: normalizeUrl(input.instagram_url),
-    tiktok_url: normalizeUrl(input.tiktok_url),
-    youtube_url: normalizeUrl(input.youtube_url),
-    website_url: normalizeUrl(input.website_url),
-  };
-
-  const updated = await supabase
+  const { data, error } = await supabase
     .from("profiles")
-    .update(payload)
+    .update(input)
     .eq("id", userId)
     .select(PROFILE_SELECT)
     .maybeSingle();
 
-  if (updated.error) throw new ProfileSaveError("update", updated.error);
-  if (updated.data) return updated.data as AppProfile;
+  if (error) throw new ProfileSaveError("update", error);
 
-  const inserted = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        id: userId,
-        ...payload,
-      },
-      { onConflict: "id" },
-    )
-    .select(PROFILE_SELECT)
-    .single();
+  if (!data) {
+    const upserted = await supabase
+      .from("profiles")
+      .upsert({ id: userId, ...input })
+      .select(PROFILE_SELECT)
+      .maybeSingle();
 
-  if (inserted.error) throw new ProfileSaveError("upsert", inserted.error);
-  return inserted.data as AppProfile;
+    if (upserted.error) throw new ProfileSaveError("upsert", upserted.error);
+    return upserted.data as AppProfile;
+  }
+
+  return data as AppProfile;
 }
 
 export async function updateProfileAvatar(
   userId: string,
-  profileImageUrl: string,
+  avatarUrl: string,
 ): Promise<AppProfile> {
-  const updated = await supabase
+  const { data, error } = await supabase
     .from("profiles")
-    .update({ profile_image_url: profileImageUrl, avatar_url: profileImageUrl })
+    .update({ profile_image_url: avatarUrl })
     .eq("id", userId)
     .select(PROFILE_SELECT)
     .maybeSingle();
 
-  if (updated.error) throw new ProfileSaveError("avatar-update", updated.error);
-  if (updated.data) return updated.data as AppProfile;
+  if (error) throw new ProfileSaveError("avatar-update", error);
 
-  const inserted = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        id: userId,
-        profile_image_url: profileImageUrl,
-        avatar_url: profileImageUrl,
-      },
-      { onConflict: "id" },
-    )
-    .select(PROFILE_SELECT)
-    .single();
+  if (!data) {
+    const upserted = await supabase
+      .from("profiles")
+      .upsert({ id: userId, profile_image_url: avatarUrl })
+      .select(PROFILE_SELECT)
+      .maybeSingle();
 
-  if (inserted.error) throw new ProfileSaveError("avatar-upsert", inserted.error);
-  return inserted.data as AppProfile;
-}
+    if (upserted.error) throw new ProfileSaveError("avatar-upsert", upserted.error);
+    return upserted.data as AppProfile;
+  }
 
-export function profileDisplayName(profile: AppProfile | null) {
-  return profile?.display_name?.trim() || profile?.full_name?.trim() || "Crimson Member";
-}
-
-export function profileHandle(profile: AppProfile | null) {
-  return profile?.username?.trim() ? `@${profile.username.trim().replace(/^@+/, "")}` : "@member";
-}
-
-export function profileLocation(profile: AppProfile | null) {
-  return (
-    profile?.location?.trim() ||
-    [profile?.city, profile?.state].filter(Boolean).join(", ") ||
-    "Location pending"
-  );
+  return data as AppProfile;
 }
