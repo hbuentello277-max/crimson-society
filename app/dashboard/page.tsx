@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
@@ -233,11 +234,35 @@ export default function DashboardPage() {
   const isMouseDown = useRef(false);
 
   useEffect(() => {
-    if (loading) return;
-    if (!session) {
-      router.replace("/login");
+  if (loading) return;
+
+  if (!session?.user?.id) {
+    router.replace("/login");
+    return;
+  }
+
+  let active = true;
+
+  const checkProfileSetup = async () => {
+    try {
+      const complete = await requireCompleteProfile(session.user.id);
+
+      if (active && !complete) {
+        router.replace("/profile/setup");
+      }
+    } catch {
+      if (active) {
+        router.replace("/profile/setup");
+      }
     }
-  }, [loading, session, router]);
+  };
+
+  void checkProfileSetup();
+
+  return () => {
+    active = false;
+  };
+}, [loading, session, router]);
 
   const loadFeed = useCallback(async () => {
     if (!session) return;
