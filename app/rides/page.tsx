@@ -1,7 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 
@@ -310,6 +313,8 @@ function RideCard({
 }
 
 export default function RidesPage() {
+  const router = useRouter();
+  const { session, loading: authLoading } = useAuth();
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -317,6 +322,37 @@ export default function RidesPage() {
 
   const featuredRide = UPCOMING_MEETS[0];
   const compactRides = UPCOMING_MEETS.slice(1);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!session?.user?.id) {
+      router.replace("/login");
+      return;
+    }
+
+    let active = true;
+
+    const checkProfileSetup = async () => {
+      try {
+        const complete = await requireCompleteProfile(session.user.id);
+
+        if (active && !complete) {
+          router.replace("/profile/setup");
+        }
+      } catch {
+        if (active) {
+          router.replace("/profile/setup");
+        }
+      }
+    };
+
+    void checkProfileSetup();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, session, router]);
 
   function toggleJoin(rideId: string) {
     setGoing((current) => {
