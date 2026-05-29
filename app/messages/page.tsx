@@ -728,7 +728,7 @@ export default function MessagesPage() {
         />
 
         <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pb-3 pt-[calc(1.6rem+env(safe-area-inset-top))]">
             <button
               onClick={closeConversation}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
