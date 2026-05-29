@@ -3,8 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 
 type Status = "none" | "pending" | "requested" | "connected";
 
@@ -147,6 +149,7 @@ function profileHrefFromHandle(handle: string) {
 }
 
 export default function ConnectPage() {
+  const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const userId = session?.user?.id ?? null;
   const [members, setMembers] = useState<Member[]>([]);
@@ -156,6 +159,37 @@ export default function ConnectPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+  if (authLoading) return;
+
+  if (!session?.user?.id) {
+    router.replace("/login");
+    return;
+  }
+
+  let active = true;
+
+  const checkProfileSetup = async () => {
+    try {
+      const complete = await requireCompleteProfile(session.user.id);
+
+      if (active && !complete) {
+        router.replace("/profile/setup");
+      }
+    } catch {
+      if (active) {
+        router.replace("/profile/setup");
+      }
+    }
+  };
+
+  void checkProfileSetup();
+
+  return () => {
+    active = false;
+  };
+}, [authLoading, session, router]);
 
   const loadConnections = useCallback(async () => {
     if (!userId) return;
