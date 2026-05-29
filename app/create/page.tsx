@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import {
   queueMediaProcessingJob,
   uploadImageDisplaySource,
@@ -116,10 +117,44 @@ export default function CreatePage() {
   ];
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null);
-    });
-  }, []);
+  let active = true;
+
+  const checkUser = async () => {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user?.id) {
+      if (active) {
+        router.replace("/login");
+      }
+      return;
+    }
+
+    try {
+      const complete = await requireCompleteProfile(data.user.id);
+
+      if (!complete) {
+        if (active) {
+          router.replace("/profile/setup");
+        }
+        return;
+      }
+
+      if (active) {
+        setUserId(data.user.id);
+      }
+    } catch {
+      if (active) {
+        router.replace("/profile/setup");
+      }
+    }
+  };
+
+  void checkUser();
+
+  return () => {
+    active = false;
+  };
+}, [router]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
