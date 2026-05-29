@@ -388,9 +388,9 @@ export default function AdminPage() {
 
                   const isAdminAccount = effectiveRole === "admin";
 
-                  const membership: MembershipTier = isAdminAccount ? "blackcard" : getMembershipTier(item);
+                  const membership: MembershipTier = getMembershipTier(item);
 
-                  const dropdownMembership: MembershipTier = isAdminAccount ? "blackcard" : getMembershipTier(item);
+                  const dropdownMembership: MembershipTier = getMembershipTier(item);
 
                   const isSaving = savingId === item.id;
                   const isSelf = isOwner;

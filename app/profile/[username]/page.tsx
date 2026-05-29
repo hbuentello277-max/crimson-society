@@ -221,7 +221,7 @@ export default function PublicProfilePage() {
     void loadGarage();
   }, [profile?.id, tab]);
 
-  const blackcardAccessActive = hasBlackcardAccess(membership, isAdmin);
+  const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const ridingTags = useMemo(() => {
     if (!profile) return [] as string[];
     return [profile.riding_style, ...(profile.profile_tags || [])]
