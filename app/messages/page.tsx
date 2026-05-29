@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 
 type Conversation = {
   id: string;
@@ -274,6 +275,37 @@ export default function MessagesPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+  if (authLoading) return;
+
+  if (!session?.user?.id) {
+    router.replace("/login");
+    return;
+  }
+
+  let active = true;
+
+  const checkProfileSetup = async () => {
+    try {
+      const complete = await requireCompleteProfile(session.user.id);
+
+      if (active && !complete) {
+        router.replace("/profile/setup");
+      }
+    } catch {
+      if (active) {
+        router.replace("/profile/setup");
+      }
+    }
+  };
+
+  void checkProfileSetup();
+
+  return () => {
+    active = false;
+  };
+}, [authLoading, session, router]);
 
   const active = conversations.find((c) => c.id === activeId) || null;
   const activeThread = activeId ? threads[activeId] || [] : [];
