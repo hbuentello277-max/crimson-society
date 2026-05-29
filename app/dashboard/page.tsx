@@ -288,10 +288,8 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-  alert(JSON.stringify(error, null, 2));
-
-  setToast("Feed query failed");
-  setTimeout(() => setToast(null), 3000);
+  setToast(error.message || "Could not load posts.");
+  setTimeout(() => setToast(null), 1800);
   setFeedLoading(false);
   return;
 }
