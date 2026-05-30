@@ -479,22 +479,42 @@ export default function DashboardPage() {
     }
   };
 
-  const toggleLike = (id: string) => {
-    const wasLiked = liked[id];
+  const toggleLike = async (id: string) => {
+  const userId = session?.user?.id;
+  if (!userId) return;
 
-    setLiked((prev) => ({ ...prev, [id]: !wasLiked }));
+  const wasLiked = liked[id];
+
+  setLiked((prev) => ({ ...prev, [id]: !wasLiked }));
+  setLikeCounts((prev) => ({
+    ...prev,
+    [id]:
+      (prev[id] ?? posts.find((p) => p.id === id)?.likes ?? 0) +
+      (wasLiked ? -1 : 1),
+  }));
+
+  const { error } = wasLiked
+    ? await supabase.from("post_likes").delete().eq("post_id", id).eq("user_id", userId)
+    : await supabase.from("post_likes").insert({ post_id: id, user_id: userId });
+
+  if (error) {
+    setLiked((prev) => ({ ...prev, [id]: wasLiked }));
     setLikeCounts((prev) => ({
       ...prev,
       [id]:
         (prev[id] ?? posts.find((p) => p.id === id)?.likes ?? 0) +
-        (wasLiked ? -1 : 1),
+        (wasLiked ? 1 : -1),
     }));
+    setToast(error.message || "Could not update like.");
+    setTimeout(() => setToast(null), 1600);
+    return;
+  }
 
-    if (!wasLiked) {
-      setPopId(id);
-      setTimeout(() => setPopId(null), 400);
-    }
-  };
+  if (!wasLiked) {
+    setPopId(id);
+    setTimeout(() => setPopId(null), 400);
+  }
+};
 
   const toggleBookmark = (id: string) => {
     setBookmarked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -502,13 +522,36 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 1400);
   };
 
-  const sendComment = () => {
-    if (!commentDraft.trim()) return;
-    setCommentDraft("");
-    setCommentSheet(null);
-    setToast("Comment posted.");
-    setTimeout(() => setToast(null), 1400);
-  };
+  const sendComment = async () => {
+  const userId = session?.user?.id;
+  const postId = commentSheet;
+  const body = commentDraft.trim();
+
+  if (!userId || !postId || !body) return;
+
+  const { error } = await supabase.from("post_comments").insert({
+    post_id: postId,
+    user_id: userId,
+    body,
+  });
+
+  if (error) {
+    setToast(error.message || "Could not post comment.");
+    setTimeout(() => setToast(null), 1600);
+    return;
+  }
+
+  setPosts((prev) =>
+    prev.map((post) =>
+      post.id === postId ? { ...post, comments: post.comments + 1 } : post
+    )
+  );
+
+  setCommentDraft("");
+  setCommentSheet(null);
+  setToast("Comment posted.");
+  setTimeout(() => setToast(null), 1400);
+};
 
   const handleShare = (action: string) => {
     setShareSheet(null);
