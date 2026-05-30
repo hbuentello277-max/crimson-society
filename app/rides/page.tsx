@@ -66,6 +66,14 @@ type RideRow = {
   cover: string | null;
   route: unknown;
   waypoints: unknown;
+  profiles?: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+    full_name: string | null;
+    profile_image_url: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 const DEFAULT_COVER =
@@ -191,7 +199,7 @@ function parseWaypoints(value: unknown): RideWaypoint[] {
 }
 
 function rideRowToRide(row: RideRow): Ride {
-    const savedRoute = parseRoute(row.route);
+  const savedRoute = parseRoute(row.route);
   const fallbackRoute =
     row.meet_point_lat !== null &&
     row.meet_point_lng !== null &&
@@ -205,6 +213,18 @@ function rideRowToRide(row: RideRow): Ride {
 
   const route = savedRoute.length > 0 ? savedRoute : fallbackRoute;
   const waypoints = parseWaypoints(row.waypoints);
+  const hostProfile = row.profiles;
+
+  const hostName =
+    hostProfile?.display_name?.trim() ||
+    hostProfile?.full_name?.trim() ||
+    hostProfile?.username?.trim() ||
+    "Crimson Member";
+
+  const hostPhoto =
+    hostProfile?.profile_image_url ||
+    hostProfile?.avatar_url ||
+    DEFAULT_HOST_PHOTO;
 
   return {
     id: row.id,
@@ -220,8 +240,8 @@ function rideRowToRide(row: RideRow): Ride {
     duration: row.duration || "TBD",
     cover: row.cover || DEFAULT_COVER,
     host: {
-      name: "Crimson Member",
-      photo: DEFAULT_HOST_PHOTO,
+      name: hostName,
+      photo: hostPhoto,
     },
     going: [],
     description: row.description || "Meet details coming soon.",
@@ -230,8 +250,8 @@ function rideRowToRide(row: RideRow): Ride {
     lng: row.meet_point_lng || -98.4936,
     route,
     waypoints,
-  }
-}
+  };
+}     
 
 function rideToForm(ride: Ride): HostRideForm {
   const destinationPoint = ride.route?.[1];
@@ -422,7 +442,17 @@ export default function RidesPage() {
     async function loadMeets() {
       const { data, error } = await supabase
         .from("rides")
-        .select("*")
+        .select(`
+          *,
+          profiles:host_id (
+          id,
+          username,
+          display_name,
+          full_name,
+          profile_image_url,
+          avatar_url
+        )
+      `)
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
