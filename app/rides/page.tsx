@@ -467,13 +467,11 @@ window.setTimeout(() => setToast(null), 2500);
 return;
 }
 
-const { data, error } = await supabase
+const { error } = await supabase
 .from("rides")
 .update({ status: "canceled" })
 .eq("id", rideId)
 .eq("host_id", session.user.id)
-.select("id")
-.maybeSingle();
 
 if (error) {
 console.error("Failed to cancel meet FULL:", error);
@@ -482,17 +480,6 @@ window.setTimeout(() => setToast(null), 5000);
 return;
 }
 
-if (!data) {
-console.error("Cancel meet updated 0 rows:", {
-rideId,
-userId: session.user.id,
-});
-
-setToast("Could not cancel meet. You may not be the host.");
-window.setTimeout(() => setToast(null), 2500);
-return;
-
-}
 
 setRealMeets((current) =>
 current.filter((ride) => ride.id !== rideId)
