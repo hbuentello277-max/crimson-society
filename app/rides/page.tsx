@@ -541,6 +541,11 @@ if (
 
     route = snapped.geometry;
 
+    console.log("ROUTE PROVIDER:", snapped.provider);
+    console.log("ROUTE POINTS:", snapped.geometry.length);
+    console.log("ROUTE DISTANCE METERS:", snapped.distanceMeters);
+    console.log("ROUTE DURATION SECONDS:", snapped.durationSeconds);
+
     distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
 
     duration = `${Math.round(
