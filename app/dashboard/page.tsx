@@ -330,8 +330,31 @@ export default function DashboardPage() {
     }
 
     const livePosts = ((data || []) as RawPost[]).map(mapPostToFeed);
-    setPosts(livePosts.length > 0 ? [...livePosts, ...seedPosts] : seedPosts);
-    setFeedLoading(false);
+const nextPosts = livePosts.length > 0 ? [...livePosts, ...seedPosts] : seedPosts;
+
+setPosts(nextPosts);
+
+const livePostIds = livePosts.map((post) => post.id);
+
+if (livePostIds.length > 0) {
+  const { data: userLikes, error: likesError } = await supabase
+    .from("post_likes")
+    .select("post_id")
+    .eq("user_id", session.user.id)
+    .in("post_id", livePostIds);
+
+  if (!likesError) {
+    const likedMap: Record<string, boolean> = {};
+
+    for (const like of userLikes || []) {
+      likedMap[String(like.post_id)] = true;
+    }
+
+    setLiked(likedMap);
+  }
+}
+
+setFeedLoading(false);
   }, [session]);
 
   useEffect(() => {
