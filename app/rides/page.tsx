@@ -406,13 +406,27 @@ export default function RidesPage() {
 
   const allMeets = realMeets;
 
+  function getRideDateTime(ride: Ride) {
+  const date = ride.date?.trim();
+  const time = ride.time?.trim();
+
+  if (!date) return null;
+
+  const safeTime = time && time.includes(":") ? time : "23:59";
+  const parsed = new Date(`${date}T${safeTime}`);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
   const upcomingMeets = allMeets.filter((ride) => {
-  const dateTime = new Date(`${ride.date}T${ride.time}`);
+  const dateTime = getRideDateTime(ride);
+  if (!dateTime) return true;
   return dateTime.getTime() >= Date.now();
 });
 
   const completedMeets = allMeets.filter((ride) => {
-  const dateTime = new Date(`${ride.date}T${ride.time}`);
+  const dateTime = getRideDateTime(ride);
+  if (!dateTime) return false;
   return dateTime.getTime() < Date.now();
 });
 
