@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RideType, RidePrivacy } from "@/app/rides/page";
 
-interface HostRideForm {
+export interface HostRideForm {
   name: string;
   date: string;
   time: string;
@@ -47,12 +47,19 @@ const EMPTY_FORM: HostRideForm = {
 };
 
 interface Props {
+  initialForm?: HostRideForm;
+  mode?: "create" | "edit";
   onClose: () => void;
   onCreate: (form: HostRideForm) => void;
 }
 
-export function HostRideModal({ onClose, onCreate }: Props) {
-  const [form, setForm] = useState<HostRideForm>(EMPTY_FORM);
+export function HostRideModal({
+  initialForm,
+  mode = "create",
+  onClose,
+  onCreate,
+}: Props) {
+  const [form, setForm] = useState<HostRideForm>(initialForm ?? EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof HostRideForm, string>>>({});
 
   function set<K extends keyof HostRideForm>(key: K, value: HostRideForm[K]) {
@@ -81,7 +88,7 @@ export function HostRideModal({ onClose, onCreate }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Host a Meet"
+      aria-label={mode === "edit" ? "Edit Meet" : "Host a Meet"}
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
     >
       <div
@@ -93,8 +100,13 @@ export function HostRideModal({ onClose, onCreate }: Props) {
       <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d080a] shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.2em] text-[#d85f6c]">Host a Meet</p>
-            <h2 className="mt-0.5 font-serif text-2xl text-[#f4f0ea]">Create Route</h2>
+             <p className="text-[9px] uppercase tracking-[0.2em] text-[#d85f6c]">
+               {mode === "edit" ? "Edit Meet" : "Host a Meet"}
+            </p>
+
+            <h2 className="mt-0.5 font-serif text-2xl text-[#f4f0ea]">
+             {mode === "edit" ? "Update Meet" : "Create Route"}
+           </h2>
           </div>
 
           <button
@@ -269,7 +281,7 @@ export function HostRideModal({ onClose, onCreate }: Props) {
                 type="submit"
                 className="flex-1 rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
               >
-                Create Meet
+                {mode === "edit" ? "Save Changes" : "Create Meet"}
               </button>
             </div>
           </div>
