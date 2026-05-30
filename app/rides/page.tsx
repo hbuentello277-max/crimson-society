@@ -463,7 +463,7 @@ export default function RidesPage() {
 
     const { error } = await supabase
       .from("rides")
-      .update({ status: "cancelled" })
+      .update({ status: "canceled" })
       .eq("id", rideId)
       .eq("host_id", session?.user?.id);
 
