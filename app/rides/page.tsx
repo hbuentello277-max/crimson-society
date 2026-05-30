@@ -62,6 +62,8 @@ type RideRow = {
   duration: string | null;
   description: string | null;
   cover: string | null;
+  route: unknown;
+  waypoints: unknown;
 };
 
 const DEFAULT_COVER =
@@ -73,16 +75,8 @@ const DEFAULT_HOST_PHOTO =
 const PHOTOS = {
   marco:
     "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces",
-  elena:
-    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces",
-  devin:
-    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop&crop=faces",
   aiyana:
     "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces",
-  roman:
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces",
-  sofia:
-    "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces",
 };
 
 const UPCOMING_MEETS: Ride[] = [
@@ -100,17 +94,16 @@ const UPCOMING_MEETS: Ride[] = [
     cover:
       "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=1200&h=900&fit=crop",
     host: { name: "Marco Velez", photo: PHOTOS.marco },
-    going: [
-      { name: "Elena", photo: PHOTOS.elena },
-      { name: "Devin", photo: PHOTOS.devin },
-      { name: "Sofia", photo: PHOTOS.sofia },
-      { name: "Roman", photo: PHOTOS.roman },
-    ],
+    going: [],
     description:
       "Dawn meet, full tank, no stops till the gorge. Pace is measured and the line stays clean.",
     privacy: "Open",
     lat: 29.7858,
     lng: -95.8244,
+    route: [
+      { lat: 29.7858, lng: -95.8244 },
+      { lat: 30.2667, lng: -98.1711 },
+    ],
   },
   {
     id: "r2",
@@ -125,18 +118,80 @@ const UPCOMING_MEETS: Ride[] = [
     duration: "1.5h",
     cover: DEFAULT_COVER,
     host: { name: "Aiyana Cross", photo: PHOTOS.aiyana },
-    going: [
-      { name: "Marco", photo: PHOTOS.marco },
-      { name: "Roman", photo: PHOTOS.roman },
-    ],
+    going: [],
     description: "Cold air, clean lines, no theater. Finish over coffee.",
     privacy: "Open",
     lat: 29.7642,
     lng: -95.431,
+    route: [
+      { lat: 29.7642, lng: -95.431 },
+      { lat: 29.7604, lng: -95.3698 },
+    ],
   },
 ];
 
+function formatTime(time: string) {
+  if (!time) return "";
+
+  if (
+    time.includes("AM") ||
+    time.includes("PM") ||
+    time.includes("am") ||
+    time.includes("pm")
+  ) {
+    return time;
+  }
+
+  if (!time.includes(":")) return time;
+
+  const [hours, minutes] = time.split(":");
+  const date = new Date();
+  date.setHours(Number(hours));
+  date.setMinutes(Number(minutes));
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function isRoutePoint(value: unknown): value is RoutePoint {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "lat" in value &&
+    "lng" in value &&
+    typeof (value as RoutePoint).lat === "number" &&
+    typeof (value as RoutePoint).lng === "number" &&
+    Number.isFinite((value as RoutePoint).lat) &&
+    Number.isFinite((value as RoutePoint).lng)
+  );
+}
+
+function parseRoute(value: unknown): RoutePoint[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRoutePoint);
+}
+
+function parseWaypoints(value: unknown): RideWaypoint[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter((item): item is RideWaypoint => {
+    return (
+      isRoutePoint(item) &&
+      "id" in item &&
+      "label" in item &&
+      typeof item.id === "string" &&
+      typeof item.label === "string"
+    );
+  });
+}
+
 function rideRowToRide(row: RideRow): Ride {
+  const route = parseRoute(row.route);
+  const waypoints = parseWaypoints(row.waypoints);
+
   return {
     id: row.id,
     hostId: row.host_id,
@@ -159,6 +214,8 @@ function rideRowToRide(row: RideRow): Ride {
     privacy: row.privacy,
     lat: row.meet_point_lat || 29.4241,
     lng: row.meet_point_lng || -98.4936,
+    route,
+    waypoints,
   };
 }
 
@@ -198,7 +255,7 @@ function RideCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#d85f6c]">
-                {ride.date} / {ride.time}
+                {ride.date} / {formatTime(ride.time)}
               </p>
               <h3 className="mt-2 font-serif text-[26px] leading-none text-[#f4f0ea]">
                 {ride.name}
@@ -448,7 +505,7 @@ export default function RidesPage() {
                 </h2>
 
                 <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
-                  {featuredRide.date} / {featuredRide.time}
+                  {featuredRide.date} / {formatTime(featuredRide.time)}
                 </p>
 
                 <p className="mt-2 text-sm text-zinc-400">
@@ -540,6 +597,41 @@ export default function RidesPage() {
           onCreate={async (newRide) => {
             if (!session?.user?.id) return;
 
+            const meetLat =
+              typeof newRide.meetPointLat === "number" &&
+              Number.isFinite(newRide.meetPointLat)
+                ? newRide.meetPointLat
+                : null;
+
+            const meetLng =
+              typeof newRide.meetPointLng === "number" &&
+              Number.isFinite(newRide.meetPointLng)
+                ? newRide.meetPointLng
+                : null;
+
+            const destinationLat =
+              typeof newRide.destinationLat === "number" &&
+              Number.isFinite(newRide.destinationLat)
+                ? newRide.destinationLat
+                : null;
+
+            const destinationLng =
+              typeof newRide.destinationLng === "number" &&
+              Number.isFinite(newRide.destinationLng)
+                ? newRide.destinationLng
+                : null;
+
+            const route =
+              meetLat !== null &&
+              meetLng !== null &&
+              destinationLat !== null &&
+              destinationLng !== null
+                ? [
+                    { lat: meetLat, lng: meetLng },
+                    { lat: destinationLat, lng: destinationLng },
+                  ]
+                : [];
+
             const { data, error } = await supabase
               .from("rides")
               .insert({
@@ -548,11 +640,11 @@ export default function RidesPage() {
                 date: newRide.date,
                 time: newRide.time,
                 meet_point: newRide.meetPoint,
-                meet_point_lat: newRide.meetPointLat,
-                meet_point_lng: newRide.meetPointLng,
+                meet_point_lat: meetLat,
+                meet_point_lng: meetLng,
                 destination: newRide.destination,
-                destination_lat: newRide.destinationLat,
-                destination_lng: newRide.destinationLng,
+                destination_lat: destinationLat,
+                destination_lng: destinationLng,
                 city: newRide.meetPoint,
                 type: newRide.type,
                 privacy: newRide.privacy,
@@ -561,6 +653,8 @@ export default function RidesPage() {
                 description: newRide.description || null,
                 cover: DEFAULT_COVER,
                 status: "active",
+                route,
+                waypoints: [],
               })
               .select("*")
               .single();
