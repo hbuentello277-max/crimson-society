@@ -22,6 +22,7 @@ type Rider = {
 
 export type Ride = {
   id: string;
+  hostId?: string;
   name: string;
   date: string;
   time: string;
@@ -138,6 +139,7 @@ const UPCOMING_MEETS: Ride[] = [
 function rideRowToRide(row: RideRow): Ride {
   return {
     id: row.id,
+    hostId: row.host_id,
     name: row.name,
     date: row.date,
     time: row.time,
@@ -161,12 +163,16 @@ function rideRowToRide(row: RideRow): Ride {
 }
 
 function RideCard({
+  canManage,
   isGoing,
+  onCancel,
   onJoin,
   onViewDetails,
   ride,
 }: {
+  canManage: boolean;
   isGoing: boolean;
+  onCancel: () => void;
   onJoin: () => void;
   onViewDetails: () => void;
   ride: Ride;
@@ -175,7 +181,13 @@ function RideCard({
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
       <div className="grid gap-0 sm:grid-cols-[144px_1fr]">
         <div className="relative h-40 sm:h-full">
-          <Image src={ride.cover} alt={ride.name} fill sizes="(max-width: 640px) 100vw, 144px" className="object-cover" />
+          <Image
+            src={ride.cover}
+            alt={ride.name}
+            fill
+            sizes="(max-width: 640px) 100vw, 144px"
+            className="object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-transparent to-transparent" />
           <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
             {ride.type}
@@ -188,7 +200,9 @@ function RideCard({
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#d85f6c]">
                 {ride.date} / {ride.time}
               </p>
-              <h3 className="mt-2 font-serif text-[26px] leading-none text-[#f4f0ea]">{ride.name}</h3>
+              <h3 className="mt-2 font-serif text-[26px] leading-none text-[#f4f0ea]">
+                {ride.name}
+              </h3>
               <p className="mt-2 text-sm text-zinc-400">{ride.city}</p>
             </div>
 
@@ -207,12 +221,16 @@ function RideCard({
             <span>{ride.duration}</span>
           </div>
 
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">{ride.description}</p>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">
+            {ride.description}
+          </p>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <span className="text-xs text-zinc-500">{ride.going.length + (isGoing ? 1 : 0)} going</span>
+            <span className="text-xs text-zinc-500">
+              {ride.going.length + (isGoing ? 1 : 0)} going
+            </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={onViewDetails}
@@ -220,6 +238,16 @@ function RideCard({
               >
                 View Route
               </button>
+
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                >
+                  Cancel
+                </button>
+              )}
 
               <button
                 type="button"
@@ -256,26 +284,23 @@ export default function RidesPage() {
   useEffect(() => {
     if (authLoading) return;
 
-   const userId = session?.user?.id;
+    const userId = session?.user?.id;
 
-if (!userId) {
-  router.replace("/login");
-  return;
-}
+    if (!userId) {
+      router.replace("/login");
+      return;
+    }
 
-let active = true;
+    let active = true;
 
-async function checkProfileSetup() {
-  try {
-    const complete = await requireCompleteProfile(userId as string);
-
+    async function checkProfileSetup() {
+      try {
+        const complete = await requireCompleteProfile(userId as string);
         if (active && !complete) router.replace("/profile/setup");
-  
       } catch {
         if (active) router.replace("/profile/setup");
       }
     }
-  
 
     void checkProfileSetup();
 
@@ -316,10 +341,41 @@ async function checkProfileSetup() {
   function toggleJoin(rideId: string) {
     setGoing((current) => {
       const nextGoing = !current[rideId];
+
       setToast(nextGoing ? "Meet joined." : "Meet left.");
       window.setTimeout(() => setToast(null), 2000);
-      return { ...current, [rideId]: nextGoing };
+
+      return {
+        ...current,
+        [rideId]: nextGoing,
+      };
     });
+  }
+
+  async function cancelMeet(rideId: string) {
+    const confirmed = window.confirm("Cancel this meet?");
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("rides")
+      .update({ status: "cancelled" })
+      .eq("id", rideId);
+
+    if (error) {
+      console.error("Failed to cancel meet:", error);
+      setToast("Could not cancel meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setRealMeets((current) => current.filter((ride) => ride.id !== rideId));
+
+    if (selectedRide?.id === rideId) {
+      setSelectedRide(null);
+    }
+
+    setToast("Meet cancelled.");
+    window.setTimeout(() => setToast(null), 2500);
   }
 
   return (
@@ -335,7 +391,9 @@ async function checkProfileSetup() {
 
       <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">Meet Ledger</p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+            Meet Ledger
+          </p>
 
           <button
             type="button"
@@ -347,8 +405,14 @@ async function checkProfileSetup() {
         </div>
 
         <header className="mt-8">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Featured Meets</p>
-          <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">Meets</h1>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">
+            Featured Meets
+          </p>
+
+          <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">
+            Meets
+          </h1>
+
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
             Curated routes, disciplined company, and one clean line into live ride tracking.
           </p>
@@ -357,33 +421,49 @@ async function checkProfileSetup() {
         {featuredRide && (
           <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
             <div className="relative h-[280px] sm:h-[360px]">
-              <Image src={featuredRide.cover} alt={featuredRide.name} fill priority sizes="(max-width: 768px) 100vw, 1080px" className="object-cover" />
+              <Image
+                src={featuredRide.cover}
+                alt={featuredRide.name}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 1080px"
+                className="object-cover"
+              />
+
               <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
 
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                 <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
                   {featuredRide.type}
                 </span>
+
                 <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
                   Featured
                 </span>
               </div>
 
               <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">{featuredRide.name}</h2>
+                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">
+                  {featuredRide.name}
+                </h2>
+
                 <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
                   {featuredRide.date} / {featuredRide.time}
                 </p>
+
                 <p className="mt-2 text-sm text-zinc-400">
-                  {featuredRide.distance} / {featuredRide.duration} / {featuredRide.meetPoint}
+                  {featuredRide.distance} / {featuredRide.duration} /{" "}
+                  {featuredRide.meetPoint}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <p className="max-w-2xl text-sm leading-6 text-zinc-300">{featuredRide.description}</p>
+              <p className="max-w-2xl text-sm leading-6 text-zinc-300">
+                {featuredRide.description}
+              </p>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedRide(featuredRide)}
@@ -391,6 +471,16 @@ async function checkProfileSetup() {
                 >
                   View Route / Details
                 </button>
+
+                {featuredRide.hostId === session?.user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => void cancelMeet(featuredRide.id)}
+                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                  >
+                    Cancel
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -410,8 +500,13 @@ async function checkProfileSetup() {
 
         <section className="mt-7">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Upcoming Meets</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">{allMeets.length} listed</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+              Upcoming Meets
+            </p>
+
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
+              {allMeets.length} listed
+            </p>
           </div>
 
           <div className="mt-4 grid gap-3">
@@ -419,7 +514,9 @@ async function checkProfileSetup() {
               <RideCard
                 key={ride.id}
                 ride={ride}
+                canManage={ride.hostId === session?.user?.id}
                 isGoing={!!going[ride.id]}
+                onCancel={() => void cancelMeet(ride.id)}
                 onJoin={() => toggleJoin(ride.id)}
                 onViewDetails={() => setSelectedRide(ride)}
               />
