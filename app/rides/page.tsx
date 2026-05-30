@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
+import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 
 type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
+
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
 export type RidePrivacy = "Open" | "Invite";
 
@@ -39,6 +41,33 @@ export type Ride = {
   route?: RoutePoint[];
   waypoints?: RideWaypoint[];
 };
+
+type RideRow = {
+  id: string;
+  host_id: string;
+  name: string;
+  date: string;
+  time: string;
+  meet_point: string;
+  meet_point_lat: number | null;
+  meet_point_lng: number | null;
+  destination: string;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  city: string | null;
+  type: RideType;
+  privacy: RidePrivacy;
+  distance: string | null;
+  duration: string | null;
+  description: string | null;
+  cover: string | null;
+};
+
+const DEFAULT_COVER =
+  "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&h=900&fit=crop";
+
+const DEFAULT_HOST_PHOTO =
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces";
 
 const PHOTOS = {
   marco:
@@ -81,17 +110,6 @@ const UPCOMING_MEETS: Ride[] = [
     privacy: "Open",
     lat: 29.7858,
     lng: -95.8244,
-    route: [
-      { lat: 29.7858, lng: -95.8244 },
-      { lat: 29.7604, lng: -95.3698 },
-      { lat: 29.713, lng: -95.234 },
-      { lat: 29.684, lng: -95.102 },
-    ],
-    waypoints: [
-      { id: "r1-w1", label: "Fuel Stop", lat: 29.8552, lng: -96.0781 },
-      { id: "r1-w2", label: "Scenic Turn", lat: 30.1557, lng: -96.4973 },
-      { id: "r1-w3", label: "Checkpoint", lat: 30.2508, lng: -96.6955 },
-    ],
   },
   {
     id: "r2",
@@ -104,8 +122,7 @@ const UPCOMING_MEETS: Ride[] = [
     type: "Night Run",
     distance: "60 mi",
     duration: "1.5h",
-    cover:
-      "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&h=900&fit=crop",
+    cover: DEFAULT_COVER,
     host: { name: "Aiyana Cross", photo: PHOTOS.aiyana },
     going: [
       { name: "Marco", photo: PHOTOS.marco },
@@ -115,92 +132,33 @@ const UPCOMING_MEETS: Ride[] = [
     privacy: "Open",
     lat: 29.7642,
     lng: -95.431,
-    route: [
-      { lat: 29.7642, lng: -95.431 },
-      { lat: 29.752, lng: -95.41 },
-      { lat: 29.738, lng: -95.387 },
-      { lat: 29.75, lng: -95.358 },
-    ],
-    waypoints: [
-      { id: "r2-w1", label: "Skyline Pass", lat: 29.7567, lng: -95.4092 },
-      { id: "r2-w2", label: "Coffee Finish", lat: 29.7708, lng: -95.3765 },
-    ],
-  },
-  {
-    id: "r3",
-    name: "Track Day COTA",
-    date: "Sat Jun 7",
-    time: "8:00 AM",
-    meetPoint: "COTA Paddock B",
-    destination: "Circuit of the Americas",
-    city: "Austin, TX",
-    type: "Track Day",
-    distance: "Circuit",
-    duration: "Full day",
-    cover:
-      "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=1200&h=900&fit=crop",
-    host: { name: "Devin Cole", photo: PHOTOS.devin },
-    going: [
-      { name: "Elena", photo: PHOTOS.elena },
-      { name: "Sofia", photo: PHOTOS.sofia },
-      { name: "Marco", photo: PHOTOS.marco },
-    ],
-    description: "Three sessions, intermediate group. Bring leathers and respect for the line.",
-    privacy: "Invite",
-    lat: 30.1328,
-    lng: -97.6411,
-    route: [
-      { lat: 30.1328, lng: -97.6411 },
-      { lat: 30.1304, lng: -97.6382 },
-      { lat: 30.1287, lng: -97.6419 },
-      { lat: 30.1318, lng: -97.6445 },
-      { lat: 30.1328, lng: -97.6411 },
-    ],
-    waypoints: [
-      { id: "r3-w1", label: "Turn 1", lat: 30.1336, lng: -97.6372 },
-      { id: "r3-w2", label: "Infield", lat: 30.1299, lng: -97.6355 },
-      { id: "r3-w3", label: "Paddock Return", lat: 30.1303, lng: -97.6406 },
-    ],
-  },
-  {
-    id: "r4",
-    name: "Hill Country Loop",
-    date: "Sat Jun 14",
-    time: "7:00 AM",
-    meetPoint: "The Salt Lick BBQ",
-    destination: "Enchanted Rock State Park",
-    city: "Driftwood, TX",
-    type: "Touring",
-    distance: "240 mi",
-    duration: "7h",
-    cover:
-      "https://images.unsplash.com/photo-1517846693594-1567da72af75?w=1200&h=900&fit=crop",
-    host: { name: "Elena Ruiz", photo: PHOTOS.elena },
-    going: [
-      { name: "Roman", photo: PHOTOS.roman },
-      { name: "Aiyana", photo: PHOTOS.aiyana },
-      { name: "Sofia", photo: PHOTOS.sofia },
-      { name: "Marco", photo: PHOTOS.marco },
-      { name: "Devin", photo: PHOTOS.devin },
-    ],
-    description: "A long loop through limestone and silence. Scenic stops, sunset finish.",
-    privacy: "Open",
-    lat: 30.1219,
-    lng: -98.0353,
-    route: [
-      { lat: 30.1219, lng: -98.0353 },
-      { lat: 30.19, lng: -98.086 },
-      { lat: 30.248, lng: -98.169 },
-      { lat: 30.292, lng: -98.305 },
-      { lat: 30.22, lng: -98.19 },
-    ],
-    waypoints: [
-      { id: "r4-w1", label: "Vista Stop", lat: 30.2189, lng: -98.1594 },
-      { id: "r4-w2", label: "Lunch Stop", lat: 30.4311, lng: -98.3674 },
-      { id: "r4-w3", label: "Summit Gate", lat: 30.5052, lng: -98.8187 },
-    ],
   },
 ];
+
+function rideRowToRide(row: RideRow): Ride {
+  return {
+    id: row.id,
+    name: row.name,
+    date: row.date,
+    time: row.time,
+    meetPoint: row.meet_point,
+    destination: row.destination,
+    city: row.city || row.meet_point,
+    type: row.type,
+    distance: row.distance || "TBD",
+    duration: row.duration || "TBD",
+    cover: row.cover || DEFAULT_COVER,
+    host: {
+      name: "Crimson Member",
+      photo: DEFAULT_HOST_PHOTO,
+    },
+    going: [],
+    description: row.description || "Meet details coming soon.",
+    privacy: row.privacy,
+    lat: row.meet_point_lat || 29.4241,
+    lng: row.meet_point_lng || -98.4936,
+  };
+}
 
 function RideCard({
   isGoing,
@@ -217,13 +175,7 @@ function RideCard({
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
       <div className="grid gap-0 sm:grid-cols-[144px_1fr]">
         <div className="relative h-40 sm:h-full">
-          <Image
-            src={ride.cover}
-            alt={ride.name}
-            fill
-            sizes="(max-width: 640px) 100vw, 144px"
-            className="object-cover"
-          />
+          <Image src={ride.cover} alt={ride.name} fill sizes="(max-width: 640px) 100vw, 144px" className="object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-transparent to-transparent" />
           <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
             {ride.type}
@@ -236,9 +188,7 @@ function RideCard({
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#d85f6c]">
                 {ride.date} / {ride.time}
               </p>
-              <h3 className="mt-2 font-serif text-[26px] leading-none text-[#f4f0ea]">
-                {ride.name}
-              </h3>
+              <h3 className="mt-2 font-serif text-[26px] leading-none text-[#f4f0ea]">{ride.name}</h3>
               <p className="mt-2 text-sm text-zinc-400">{ride.city}</p>
             </div>
 
@@ -257,32 +207,10 @@ function RideCard({
             <span>{ride.duration}</span>
           </div>
 
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">
-            {ride.description}
-          </p>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">{ride.description}</p>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="flex items-center">
-              {ride.going.slice(0, 4).map((rider, index) => (
-                <div
-                  key={rider.name}
-                  className="relative h-8 w-8 overflow-hidden rounded-full border border-[#120b0d]"
-                  style={{ marginLeft: index === 0 ? 0 : -8 }}
-                >
-                  <Image
-                    src={rider.photo}
-                    alt={rider.name}
-                    fill
-                    sizes="32px"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-
-              <span className="ml-3 text-xs text-zinc-500">
-                {ride.going.length + (isGoing ? 1 : 0)} going
-              </span>
-            </div>
+            <span className="text-xs text-zinc-500">{ride.going.length + (isGoing ? 1 : 0)} going</span>
 
             <div className="flex items-center gap-2">
               <button
@@ -318,34 +246,36 @@ export default function RidesPage() {
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [realMeets, setRealMeets] = useState<Ride[]>([]);
   const [showHostModal, setShowHostModal] = useState(false);
 
-  const featuredRide = UPCOMING_MEETS[0];
-  const compactRides = UPCOMING_MEETS.slice(1);
+  const allMeets = realMeets.length > 0 ? realMeets : UPCOMING_MEETS;
+  const featuredRide = allMeets[0];
+  const compactRides = allMeets.slice(1);
 
   useEffect(() => {
     if (authLoading) return;
 
-    if (!session?.user?.id) {
-      router.replace("/login");
-      return;
-    }
+   const userId = session?.user?.id;
 
-    let active = true;
+if (!userId) {
+  router.replace("/login");
+  return;
+}
 
-    const checkProfileSetup = async () => {
-      try {
-        const complete = await requireCompleteProfile(session.user.id);
+let active = true;
 
-        if (active && !complete) {
-          router.replace("/profile/setup");
-        }
+async function checkProfileSetup() {
+  try {
+    const complete = await requireCompleteProfile(userId as string);
+
+        if (active && !complete) router.replace("/profile/setup");
+  
       } catch {
-        if (active) {
-          router.replace("/profile/setup");
-        }
+        if (active) router.replace("/profile/setup");
       }
-    };
+    }
+  
 
     void checkProfileSetup();
 
@@ -354,17 +284,41 @@ export default function RidesPage() {
     };
   }, [authLoading, session, router]);
 
+  useEffect(() => {
+    if (authLoading || !session?.user?.id) return;
+
+    let active = true;
+
+    async function loadMeets() {
+      const { data, error } = await supabase
+        .from("rides")
+        .select("*")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load meets:", error);
+        return;
+      }
+
+      if (active) {
+        setRealMeets((data || []).map((row) => rideRowToRide(row as RideRow)));
+      }
+    }
+
+    void loadMeets();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, session?.user?.id]);
+
   function toggleJoin(rideId: string) {
     setGoing((current) => {
       const nextGoing = !current[rideId];
-
       setToast(nextGoing ? "Meet joined." : "Meet left.");
       window.setTimeout(() => setToast(null), 2000);
-
-      return {
-        ...current,
-        [rideId]: nextGoing,
-      };
+      return { ...current, [rideId]: nextGoing };
     });
   }
 
@@ -379,119 +333,85 @@ export default function RidesPage() {
         }}
       />
 
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(127,17,27,0.84)] to-transparent"
-      />
-
       <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-            Meet Ledger
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">Meet Ledger</p>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowHostModal(true)}
-              className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
-            >
-              + Host Meet
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowHostModal(true)}
+            className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
+          >
+            + Host Meet
+          </button>
         </div>
 
         <header className="mt-8">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">
-            Featured Meets
-          </p>
-
-          <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">
-            Meets
-          </h1>
-
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Featured Meets</p>
+          <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">Meets</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
             Curated routes, disciplined company, and one clean line into live ride tracking.
           </p>
         </header>
 
-        <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
-          <div className="relative h-[280px] sm:h-[360px]">
-            <Image
-              src={featuredRide.cover}
-              alt={featuredRide.name}
-              fill
-              priority
-              sizes="(max-width: 768px) 100vw, 1080px"
-              className="object-cover"
-            />
+        {featuredRide && (
+          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
+            <div className="relative h-[280px] sm:h-[360px]">
+              <Image src={featuredRide.cover} alt={featuredRide.name} fill priority sizes="(max-width: 768px) 100vw, 1080px" className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
+              <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
+                  {featuredRide.type}
+                </span>
+                <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
+                  Featured
+                </span>
+              </div>
 
-            <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-              <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
-                {featuredRide.type}
-              </span>
-
-              <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
-                Featured
-              </span>
+              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">{featuredRide.name}</h2>
+                <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
+                  {featuredRide.date} / {featuredRide.time}
+                </p>
+                <p className="mt-2 text-sm text-zinc-400">
+                  {featuredRide.distance} / {featuredRide.duration} / {featuredRide.meetPoint}
+                </p>
+              </div>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-              <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">
-                {featuredRide.name}
-              </h2>
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <p className="max-w-2xl text-sm leading-6 text-zinc-300">{featuredRide.description}</p>
 
-              <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
-                {featuredRide.date} / {featuredRide.time}
-              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRide(featuredRide)}
+                  className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                >
+                  View Route / Details
+                </button>
 
-              <p className="mt-2 text-sm text-zinc-400">
-                {featuredRide.distance} / {featuredRide.duration} /{" "}
-                {featuredRide.meetPoint}
-              </p>
+                <button
+                  type="button"
+                  onClick={() => toggleJoin(featuredRide.id)}
+                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+                    going[featuredRide.id]
+                      ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
+                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                  }`}
+                >
+                  {going[featuredRide.id] ? "Going" : "JOIN MEET"}
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <p className="max-w-2xl text-sm leading-6 text-zinc-300">
-              {featuredRide.description}
-            </p>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedRide(featuredRide)}
-                className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-              >
-                View Route / Details
-              </button>
-
-              <button
-                type="button"
-                onClick={() => toggleJoin(featuredRide.id)}
-                className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
-                  going[featuredRide.id]
-                    ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
-                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
-                }`}
-              >
-                {going[featuredRide.id] ? "Going" : "JOIN MEET"}
-              </button>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="mt-7">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Upcoming Meets
-            </p>
-
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
-              {UPCOMING_MEETS.length} listed
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Upcoming Meets</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">{allMeets.length} listed</p>
           </div>
 
           <div className="mt-4 grid gap-3">
@@ -520,11 +440,45 @@ export default function RidesPage() {
       {showHostModal && (
         <HostRideModal
           onClose={() => setShowHostModal(false)}
-          onCreate={(newRide) => {
+          onCreate={async (newRide) => {
+            if (!session?.user?.id) return;
+
+            const { data, error } = await supabase
+              .from("rides")
+              .insert({
+                host_id: session.user.id,
+                name: newRide.name,
+                date: newRide.date,
+                time: newRide.time,
+                meet_point: newRide.meetPoint,
+                meet_point_lat: newRide.meetPointLat,
+                meet_point_lng: newRide.meetPointLng,
+                destination: newRide.destination,
+                destination_lat: newRide.destinationLat,
+                destination_lng: newRide.destinationLng,
+                city: newRide.meetPoint,
+                type: newRide.type,
+                privacy: newRide.privacy,
+                distance: newRide.distance || null,
+                duration: newRide.duration || null,
+                description: newRide.description || null,
+                cover: DEFAULT_COVER,
+                status: "active",
+              })
+              .select("*")
+              .single();
+
+            if (error) {
+              console.error("Failed to create meet:", error);
+              setToast("Could not create meet.");
+              window.setTimeout(() => setToast(null), 2500);
+              return;
+            }
+
+            setRealMeets((current) => [rideRowToRide(data as RideRow), ...current]);
             setShowHostModal(false);
             setToast("Meet created!");
             window.setTimeout(() => setToast(null), 2500);
-            console.log("New meet draft:", newRide);
           }}
         />
       )}
