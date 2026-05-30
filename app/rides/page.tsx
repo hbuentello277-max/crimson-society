@@ -402,9 +402,25 @@ export default function RidesPage() {
   const [showHostModal, setShowHostModal] = useState(false);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
 
+  const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
+
   const allMeets = realMeets.length > 0 ? realMeets : UPCOMING_MEETS;
-  const featuredRide = allMeets[0];
-  const compactRides = allMeets.slice(1);
+
+  const upcomingMeets = allMeets.filter((ride) => {
+  const dateTime = new Date(`${ride.date}T${ride.time}`);
+  return dateTime.getTime() >= Date.now();
+});
+
+  const completedMeets = allMeets.filter((ride) => {
+  const dateTime = new Date(`${ride.date}T${ride.time}`);
+  return dateTime.getTime() < Date.now();
+});
+
+   const visibleMeets =
+  meetTab === "upcoming" ? upcomingMeets : completedMeets;
+
+   const featuredRide = visibleMeets[0];
+   const compactRides = visibleMeets.slice(1); 
 
   useEffect(() => {
     if (authLoading) return;
@@ -691,6 +707,32 @@ if (
             Curated routes, disciplined company, and one clean line into live ride tracking.
           </p>
         </header>
+
+        <div className="mt-7 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+  <button
+    type="button"
+    onClick={() => setMeetTab("upcoming")}
+    className={`rounded-lg px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+      meetTab === "upcoming"
+        ? "bg-[#7f111b]/35 text-[#f4dadd]"
+        : "text-zinc-500 hover:text-zinc-300"
+    }`}
+  >
+    Upcoming ({upcomingMeets.length})
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setMeetTab("completed")}
+    className={`rounded-lg px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+      meetTab === "completed"
+        ? "bg-[#7f111b]/35 text-[#f4dadd]"
+        : "text-zinc-500 hover:text-zinc-300"
+    }`}
+  >
+    Past ({completedMeets.length})
+  </button>
+</div>       
 
         {featuredRide && (
           <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
