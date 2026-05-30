@@ -461,15 +461,33 @@ export default function RidesPage() {
     const confirmed = window.confirm("Cancel this meet?");
     if (!confirmed) return;
 
-    const { error } = await supabase
+    if (!session?.user?.id) {
+      setToast("You must be signed in to cancel a meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("rides")
       .update({ status: "canceled" })
       .eq("id", rideId)
-      .eq("host_id", session?.user?.id);
+      .eq("host_id", session.user.id)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
-      console.error("Failed to cancel meet:", error);
+      console.error("Failed to cancel meet FULL:", JSON.stringify(error, null, 2));
       setToast("Could not cancel meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    if (!data) {
+      console.error("Cancel meet updated 0 rows:", {
+        rideId,
+        userId: session.user.id,
+      });
+      setToast("Could not cancel meet. You may not be the host.");
       window.setTimeout(() => setToast(null), 2500);
       return;
     }
@@ -480,7 +498,7 @@ export default function RidesPage() {
       setSelectedRide(null);
     }
 
-    setToast("Meet cancelled.");
+    setToast("Meet canceled.");
     window.setTimeout(() => setToast(null), 2500);
   }
 
