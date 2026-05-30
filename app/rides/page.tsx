@@ -477,7 +477,7 @@ export default function RidesPage() {
 
     if (error) {
       console.error("Failed to cancel meet FULL:", JSON.stringify(error, null, 2));
-      setToast("Could not cancel meet.");
+      setToast(`Could not cancel meet: ${error.message}`);
       window.setTimeout(() => setToast(null), 2500);
       return;
     }
