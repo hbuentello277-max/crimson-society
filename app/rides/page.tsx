@@ -190,7 +190,19 @@ function parseWaypoints(value: unknown): RideWaypoint[] {
 }
 
 function rideRowToRide(row: RideRow): Ride {
-  const route = parseRoute(row.route);
+    const savedRoute = parseRoute(row.route);
+  const fallbackRoute =
+    row.meet_point_lat !== null &&
+    row.meet_point_lng !== null &&
+    row.destination_lat !== null &&
+    row.destination_lng !== null
+      ? [
+          { lat: row.meet_point_lat, lng: row.meet_point_lng },
+          { lat: row.destination_lat, lng: row.destination_lng },
+        ]
+      : [];
+
+  const route = savedRoute.length > 0 ? savedRoute : fallbackRoute;
   const waypoints = parseWaypoints(row.waypoints);
 
   return {
@@ -217,6 +229,27 @@ function rideRowToRide(row: RideRow): Ride {
     lng: row.meet_point_lng || -98.4936,
     route,
     waypoints,
+  }
+}
+
+function rideToForm(ride: Ride): HostRideForm {
+  const destinationPoint = ride.route?.[1];
+
+  return {
+    name: ride.name,
+    date: ride.date,
+    time: ride.time,
+    meetPoint: ride.meetPoint,
+    meetPointLat: ride.lat,
+    meetPointLng: ride.lng,
+    destination: ride.destination,
+    destinationLat: destinationPoint?.lat ?? null,
+    destinationLng: destinationPoint?.lng ?? null,
+    distance: ride.distance === "TBD" ? "" : ride.distance,
+    duration: ride.duration === "TBD" ? "" : ride.duration,
+    type: ride.type,
+    privacy: ride.privacy,
+    description: ride.description === "Meet details coming soon." ? "" : ride.description,
   };
 }
 
@@ -300,24 +333,24 @@ function RideCard({
               </button>
 
               {canManage && (
-              <>
-              <button
-                type="button"
-                onClick={onEdit}
-                className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-              >
-                Edit
-              </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                  >
+                    Edit
+                  </button>
 
-              <button
-               type="button"
-               onClick={onCancel}
-               className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
-            >
-               Cancel
-             </button>
-           </>
-          )}
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"
@@ -425,32 +458,13 @@ export default function RidesPage() {
 
   async function cancelMeet(rideId: string) {
     const confirmed = window.confirm("Cancel this meet?");
-    function rideToHostRideForm(ride: Ride): HostRideForm {
-  const destinationPoint = ride.route?.[1];
-
-  return {
-    name: ride.name,
-    date: ride.date,
-    time: ride.time,
-    meetPoint: ride.meetPoint,
-    meetPointLat: ride.lat,
-    meetPointLng: ride.lng,
-    destination: ride.destination,
-    destinationLat: destinationPoint?.lat ?? null,
-    destinationLng: destinationPoint?.lng ?? null,
-    distance: ride.distance === "TBD" ? "" : ride.distance,
-    duration: ride.duration === "TBD" ? "" : ride.duration,
-    type: ride.type,
-    privacy: ride.privacy,
-    description: ride.description === "Meet details coming soon." ? "" : ride.description,
-  };
-}
     if (!confirmed) return;
 
     const { error } = await supabase
       .from("rides")
       .update({ status: "cancelled" })
-      .eq("id", rideId);
+      .eq("id", rideId)
+      .eq("host_id", session?.user?.id);
 
     if (error) {
       console.error("Failed to cancel meet:", error);
@@ -466,6 +480,98 @@ export default function RidesPage() {
     }
 
     setToast("Meet cancelled.");
+    window.setTimeout(() => setToast(null), 2500);
+  }
+
+  async function saveMeet(newRide: HostRideForm) {
+    if (!session?.user?.id) return;
+
+    const meetLat =
+      typeof newRide.meetPointLat === "number" && Number.isFinite(newRide.meetPointLat)
+        ? newRide.meetPointLat
+        : null;
+
+    const meetLng =
+      typeof newRide.meetPointLng === "number" && Number.isFinite(newRide.meetPointLng)
+        ? newRide.meetPointLng
+        : null;
+
+    const destinationLat =
+      typeof newRide.destinationLat === "number" && Number.isFinite(newRide.destinationLat)
+        ? newRide.destinationLat
+        : null;
+
+    const destinationLng =
+      typeof newRide.destinationLng === "number" && Number.isFinite(newRide.destinationLng)
+        ? newRide.destinationLng
+        : null;
+
+    const route =
+      meetLat !== null &&
+      meetLng !== null &&
+      destinationLat !== null &&
+      destinationLng !== null
+        ? [
+            { lat: meetLat, lng: meetLng },
+            { lat: destinationLat, lng: destinationLng },
+          ]
+        : [];
+
+    const payload = {
+      host_id: session.user.id,
+      name: newRide.name,
+      date: newRide.date,
+      time: newRide.time,
+      meet_point: newRide.meetPoint,
+      meet_point_lat: meetLat,
+      meet_point_lng: meetLng,
+      destination: newRide.destination,
+      destination_lat: destinationLat,
+      destination_lng: destinationLng,
+      city: newRide.meetPoint,
+      type: newRide.type,
+      privacy: newRide.privacy,
+      distance: newRide.distance || null,
+      duration: newRide.duration || null,
+      description: newRide.description || null,
+      cover: DEFAULT_COVER,
+      status: "active",
+      route,
+      waypoints: [],
+    };
+
+    const { data, error } = editingRide
+      ? await supabase
+          .from("rides")
+          .update(payload)
+          .eq("id", editingRide.id)
+          .eq("host_id", session.user.id)
+          .select("*")
+          .single()
+      : await supabase.from("rides").insert(payload).select("*").single();
+
+    if (error) {
+      console.error("Failed to save meet:", error);
+      setToast(editingRide ? "Could not update meet." : "Could not create meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    const savedRide = rideRowToRide(data as RideRow);
+
+    setRealMeets((current) =>
+      editingRide
+        ? current.map((ride) => (ride.id === editingRide.id ? savedRide : ride))
+        : [savedRide, ...current]
+    );
+
+    if (selectedRide?.id === savedRide.id) {
+      setSelectedRide(savedRide);
+    }
+
+    setShowHostModal(false);
+    setEditingRide(null);
+    setToast(editingRide ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
   }
 
@@ -488,7 +594,10 @@ export default function RidesPage() {
 
           <button
             type="button"
-            onClick={() => setShowHostModal(true)}
+            onClick={() => {
+              setEditingRide(null);
+              setShowHostModal(true);
+            }}
             className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
           >
             + Host Meet
@@ -564,13 +673,23 @@ export default function RidesPage() {
                 </button>
 
                 {featuredRide.hostId === session?.user?.id && (
-                  <button
-                    type="button"
-                    onClick={() => void cancelMeet(featuredRide.id)}
-                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
-                  >
-                    Cancel
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditingRide(featuredRide)}
+                      className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void cancelMeet(featuredRide.id)}
+                      className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                    >
+                      Cancel
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -626,86 +745,15 @@ export default function RidesPage() {
         />
       )}
 
-      {showHostModal && (
+      {(showHostModal || editingRide) && (
         <HostRideModal
-          onClose={() => setShowHostModal(false)}
-          onCreate={async (newRide) => {
-            if (!session?.user?.id) return;
-
-            const meetLat =
-              typeof newRide.meetPointLat === "number" &&
-              Number.isFinite(newRide.meetPointLat)
-                ? newRide.meetPointLat
-                : null;
-
-            const meetLng =
-              typeof newRide.meetPointLng === "number" &&
-              Number.isFinite(newRide.meetPointLng)
-                ? newRide.meetPointLng
-                : null;
-
-            const destinationLat =
-              typeof newRide.destinationLat === "number" &&
-              Number.isFinite(newRide.destinationLat)
-                ? newRide.destinationLat
-                : null;
-
-            const destinationLng =
-              typeof newRide.destinationLng === "number" &&
-              Number.isFinite(newRide.destinationLng)
-                ? newRide.destinationLng
-                : null;
-
-            const route =
-              meetLat !== null &&
-              meetLng !== null &&
-              destinationLat !== null &&
-              destinationLng !== null
-                ? [
-                    { lat: meetLat, lng: meetLng },
-                    { lat: destinationLat, lng: destinationLng },
-                  ]
-                : [];
-
-            const { data, error } = await supabase
-              .from("rides")
-              .insert({
-                host_id: session.user.id,
-                name: newRide.name,
-                date: newRide.date,
-                time: newRide.time,
-                meet_point: newRide.meetPoint,
-                meet_point_lat: meetLat,
-                meet_point_lng: meetLng,
-                destination: newRide.destination,
-                destination_lat: destinationLat,
-                destination_lng: destinationLng,
-                city: newRide.meetPoint,
-                type: newRide.type,
-                privacy: newRide.privacy,
-                distance: newRide.distance || null,
-                duration: newRide.duration || null,
-                description: newRide.description || null,
-                cover: DEFAULT_COVER,
-                status: "active",
-                route,
-                waypoints: [],
-              })
-              .select("*")
-              .single();
-
-            if (error) {
-              console.error("Failed to create meet:", error);
-              setToast("Could not create meet.");
-              window.setTimeout(() => setToast(null), 2500);
-              return;
-            }
-
-            setRealMeets((current) => [rideRowToRide(data as RideRow), ...current]);
+          mode={editingRide ? "edit" : "create"}
+          initialForm={editingRide ? rideToForm(editingRide) : undefined}
+          onClose={() => {
             setShowHostModal(false);
-            setToast("Meet created!");
-            window.setTimeout(() => setToast(null), 2500);
+            setEditingRide(null);
           }}
+          onCreate={(newRide) => void saveMeet(newRide)}
         />
       )}
 
