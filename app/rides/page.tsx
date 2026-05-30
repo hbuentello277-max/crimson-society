@@ -458,49 +458,54 @@ export default function RidesPage() {
   }
 
   async function cancelMeet(rideId: string) {
-    const confirmed = window.confirm("Cancel this meet?");
-    if (!confirmed) return;
+const confirmed = window.confirm("Cancel this meet?");
+if (!confirmed) return;
 
-    if (!session?.user?.id) {
-      setToast("You must be signed in to cancel a meet.");
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
+if (!session?.user?.id) {
+setToast("You must be signed in to cancel a meet.");
+window.setTimeout(() => setToast(null), 2500);
+return;
+}
 
-    const { data, error } = await supabase
-      .from("rides")
-      .update({ status: "canceled" })
-      .eq("id", rideId)
-      .eq("host_id", session.user.id)
-      .select("id")
-      .maybeSingle();
+const { data, error } = await supabase
+.from("rides")
+.update({ status: "canceled" })
+.eq("id", rideId)
+.eq("host_id", session.user.id)
+.select("id")
+.maybeSingle();
 
-    if (error) {
-      console.error("Failed to cancel meet FULL:", JSON.stringify(error, null, 2));
-      setToast(`Could not cancel meet: ${error.message}`);
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
+if (error) {
+console.error("Failed to cancel meet FULL:", error);
+setToast(`Could not cancel meet: ${error.message}`);
+window.setTimeout(() => setToast(null), 5000);
+return;
+}
 
-    if (!data) {
-      console.error("Cancel meet updated 0 rows:", {
-        rideId,
-        userId: session.user.id,
-      });
-      setToast("Could not cancel meet. You may not be the host.");
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
+if (!data) {
+console.error("Cancel meet updated 0 rows:", {
+rideId,
+userId: session.user.id,
+});
 
-    setRealMeets((current) => current.filter((ride) => ride.id !== rideId));
+setToast("Could not cancel meet. You may not be the host.");
+window.setTimeout(() => setToast(null), 2500);
+return;
 
-    if (selectedRide?.id === rideId) {
-      setSelectedRide(null);
-    }
+}
 
-    setToast("Meet canceled.");
-    window.setTimeout(() => setToast(null), 2500);
-  }
+setRealMeets((current) =>
+current.filter((ride) => ride.id !== rideId)
+);
+
+if (selectedRide?.id === rideId) {
+setSelectedRide(null);
+}
+
+setToast("Meet canceled.");
+window.setTimeout(() => setToast(null), 2500);
+}
+
 
   async function saveMeet(newRide: HostRideForm) {
     if (!session?.user?.id) return;
