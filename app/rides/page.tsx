@@ -66,7 +66,7 @@ type RideRow = {
   cover: string | null;
   route: unknown;
   waypoints: unknown;
-  profiles?: {
+  host?: {
     id: string;
     username: string | null;
     display_name: string | null;
@@ -213,7 +213,7 @@ function rideRowToRide(row: RideRow): Ride {
 
   const route = savedRoute.length > 0 ? savedRoute : fallbackRoute;
   const waypoints = parseWaypoints(row.waypoints);
-  const hostProfile = row.profiles;
+  const hostProfile = row.host;
 
   const hostName =
     hostProfile?.display_name?.trim() ||
@@ -460,15 +460,15 @@ export default function RidesPage() {
         .from("rides")
         .select(`
           *,
-          profiles:host_id (
-          id,
-          username,
-          display_name,
-          full_name,
-          profile_image_url,
-          avatar_url
-        )
-      `)
+         host:profiles!rides_host_id_fkey (
+           id,
+           username,
+           display_name,
+           full_name,
+           profile_image_url,
+           avatar_url
+         )
+       `)
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
