@@ -404,7 +404,7 @@ export default function RidesPage() {
 
   const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
 
-  const allMeets = realMeets.length > 0 ? realMeets : UPCOMING_MEETS;
+  const allMeets = realMeets;
 
   const upcomingMeets = allMeets.filter((ride) => {
   const dateTime = new Date(`${ride.date}T${ride.time}`);
