@@ -8,6 +8,7 @@ import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
+import type { HostRideForm } from "@/components/rides/HostRideModal";
 
 type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
@@ -220,19 +221,21 @@ function rideRowToRide(row: RideRow): Ride {
 }
 
 function RideCard({
-  canManage,
+  ride,
   isGoing,
-  onCancel,
+  canManage,
   onJoin,
   onViewDetails,
-  ride,
+  onEdit,
+  onCancel,
 }: {
-  canManage: boolean;
+  ride: Ride;
   isGoing: boolean;
-  onCancel: () => void;
+  canManage: boolean;
   onJoin: () => void;
   onViewDetails: () => void;
-  ride: Ride;
+  onEdit: () => void;
+  onCancel: () => void;
 }) {
   return (
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
@@ -297,14 +300,24 @@ function RideCard({
               </button>
 
               {canManage && (
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
-                >
-                  Cancel
-                </button>
-              )}
+              <>
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+              >
+                Edit
+              </button>
+
+              <button
+               type="button"
+               onClick={onCancel}
+               className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+            >
+               Cancel
+             </button>
+           </>
+          )}
 
               <button
                 type="button"
@@ -333,6 +346,7 @@ export default function RidesPage() {
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [realMeets, setRealMeets] = useState<Ride[]>([]);
   const [showHostModal, setShowHostModal] = useState(false);
+  const [editingRide, setEditingRide] = useState<Ride | null>(null);
 
   const allMeets = realMeets.length > 0 ? realMeets : UPCOMING_MEETS;
   const featuredRide = allMeets[0];
@@ -411,6 +425,26 @@ export default function RidesPage() {
 
   async function cancelMeet(rideId: string) {
     const confirmed = window.confirm("Cancel this meet?");
+    function rideToHostRideForm(ride: Ride): HostRideForm {
+  const destinationPoint = ride.route?.[1];
+
+  return {
+    name: ride.name,
+    date: ride.date,
+    time: ride.time,
+    meetPoint: ride.meetPoint,
+    meetPointLat: ride.lat,
+    meetPointLng: ride.lng,
+    destination: ride.destination,
+    destinationLat: destinationPoint?.lat ?? null,
+    destinationLng: destinationPoint?.lng ?? null,
+    distance: ride.distance === "TBD" ? "" : ride.distance,
+    duration: ride.duration === "TBD" ? "" : ride.duration,
+    type: ride.type,
+    privacy: ride.privacy,
+    description: ride.description === "Meet details coming soon." ? "" : ride.description,
+  };
+}
     if (!confirmed) return;
 
     const { error } = await supabase
@@ -572,6 +606,7 @@ export default function RidesPage() {
                 key={ride.id}
                 ride={ride}
                 canManage={ride.hostId === session?.user?.id}
+                onEdit={() => setEditingRide(ride)}
                 isGoing={!!going[ride.id]}
                 onCancel={() => void cancelMeet(ride.id)}
                 onJoin={() => toggleJoin(ride.id)}
