@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
+import { buildSnappedRoute } from "@/lib/routing";
 
 type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
@@ -506,16 +507,44 @@ export default function RidesPage() {
         ? newRide.destinationLng
         : null;
 
-    const route =
-      meetLat !== null &&
-      meetLng !== null &&
-      destinationLat !== null &&
-      destinationLng !== null
-        ? [
-            { lat: meetLat, lng: meetLng },
-            { lat: destinationLat, lng: destinationLng },
-          ]
-        : [];
+    let route: { lat: number; lng: number }[] = [];
+let distance: string | null = newRide.distance || null;
+let duration: string | null = newRide.duration || null;
+
+if (
+  meetLat !== null &&
+  meetLng !== null &&
+  destinationLat !== null &&
+  destinationLng !== null
+) {
+  try {
+    const snapped = await buildSnappedRoute({
+      origin: {
+        lat: meetLat,
+        lng: meetLng,
+      },
+      destination: {
+        lat: destinationLat,
+        lng: destinationLng,
+      },
+    });
+
+    route = snapped.geometry;
+
+    distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
+
+    duration = `${Math.round(
+      snapped.durationSeconds / 60
+    )} min`;
+  } catch (error) {
+    console.error("Route generation failed", error);
+
+    route = [
+      { lat: meetLat, lng: meetLng },
+      { lat: destinationLat, lng: destinationLng },
+    ];
+  }
+}
 
     const payload = {
       host_id: session.user.id,
@@ -531,8 +560,8 @@ export default function RidesPage() {
       city: newRide.meetPoint,
       type: newRide.type,
       privacy: newRide.privacy,
-      distance: newRide.distance || null,
-      duration: newRide.duration || null,
+      distance,
+      duration,
       description: newRide.description || null,
       cover: DEFAULT_COVER,
       status: "active",

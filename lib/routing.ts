@@ -11,7 +11,7 @@ export type RoutingWaypoint = RoutingCoordinate & {
 export type RoutingProfile = "driving" | "driving-traffic" | "cycling";
 
 export type SnappedRouteResult = {
-  provider: "mapbox" | "mock";
+  provider: "mapbox" | "osrm" | "mock";
   profile: RoutingProfile;
   distanceMeters: number;
   durationSeconds: number;
@@ -35,6 +35,7 @@ export type BuildSnappedRouteInput = {
 
 const DEFAULT_PROFILE: RoutingProfile = "driving";
 const MAPBOX_BASE_URL = "https://api.mapbox.com/directions/v5/mapbox";
+const OSRM_BASE_URL = "https://router.project-osrm.org/route/v1/driving";
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -112,6 +113,10 @@ function buildCoordinateChain(input: {
   return [input.origin, ...input.waypoints, input.destination];
 }
 
+function buildRouteCoordinateString(points: RoutingCoordinate[]) {
+  return points.map((point) => `${point.lng},${point.lat}`).join(";");
+}
+
 function buildMockLegs(points: RoutingCoordinate[]) {
   const legs: SnappedRouteResult["legs"] = [];
 
@@ -144,6 +149,7 @@ function interpolateSegment(
     const lng = start.lng + (end.lng - start.lng) * ratio;
 
     const curveOffset = Math.sin(Math.PI * ratio) * 0.00012;
+
     points.push({
       lat: lat + curveOffset,
       lng: lng - curveOffset * 0.8,
@@ -162,6 +168,7 @@ export function buildMockSnappedRoute(
 
   const geometry = points.flatMap((point, index) => {
     if (index === points.length - 1) return [point];
+
     const segment = interpolateSegment(point, points[index + 1]);
     return index === 0 ? segment : segment.slice(1);
   });
@@ -185,10 +192,6 @@ function getMapboxToken() {
   return token.trim();
 }
 
-function buildMapboxCoordinateString(points: RoutingCoordinate[]) {
-  return points.map((point) => `${point.lng},${point.lat}`).join(";");
-}
-
 type MapboxDirectionsResponse = {
   routes?: Array<{
     distance: number;
@@ -200,10 +203,6 @@ type MapboxDirectionsResponse = {
       distance: number;
       duration: number;
     }>;
-  }>;
-  waypoints?: Array<{
-    location?: [number, number];
-    name?: string;
   }>;
 };
 
@@ -218,8 +217,9 @@ export async function buildMapboxSnappedRoute(
   }
 
   const points = buildCoordinateChain(validated);
-  const coordinates = buildMapboxCoordinateString(points);
+  const coordinates = buildRouteCoordinateString(points);
   const profile = validated.profile;
+
   const url =
     `${MAPBOX_BASE_URL}/${profile}/${coordinates}` +
     `?alternatives=false&continue_straight=true&geometries=geojson&overview=full&steps=false&access_token=${token}`;
@@ -243,7 +243,10 @@ export async function buildMapboxSnappedRoute(
     throw new Error("Mapbox directions response did not include route geometry.");
   }
 
-  const geometry = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+  const geometry = route.geometry.coordinates.map(([lng, lat]) => ({
+    lat,
+    lng,
+  }));
 
   const legs: SnappedRouteResult["legs"] =
     route.legs?.map((leg, index) => ({
@@ -265,18 +268,90 @@ export async function buildMapboxSnappedRoute(
   };
 }
 
+type OsrmDirectionsResponse = {
+  routes?: Array<{
+    distance: number;
+    duration: number;
+    geometry?: {
+      coordinates?: [number, number][];
+    };
+    legs?: Array<{
+      distance: number;
+      duration: number;
+    }>;
+  }>;
+};
+
+export async function buildOsrmSnappedRoute(
+  input: BuildSnappedRouteInput
+): Promise<SnappedRouteResult> {
+  const validated = validateRouteInput(input);
+  const points = buildCoordinateChain(validated);
+  const coordinates = buildRouteCoordinateString(points);
+
+  const url =
+    `${OSRM_BASE_URL}/${coordinates}` +
+    "?overview=full&geometries=geojson&steps=false";
+
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`OSRM directions request failed with ${response.status}.`);
+  }
+
+  const data = (await response.json()) as OsrmDirectionsResponse;
+  const route = data.routes?.[0];
+
+  if (!route?.geometry?.coordinates?.length) {
+    throw new Error("OSRM directions response did not include route geometry.");
+  }
+
+  const geometry = route.geometry.coordinates.map(([lng, lat]) => ({
+    lat,
+    lng,
+  }));
+
+  const legs: SnappedRouteResult["legs"] =
+    route.legs?.map((leg, index) => ({
+      distanceMeters: leg.distance,
+      durationSeconds: leg.duration,
+      start: points[index],
+      end: points[index + 1] ?? points[index],
+    })) ?? buildMockLegs(points);
+
+  return {
+    provider: "osrm",
+    profile: validated.profile,
+    distanceMeters: route.distance,
+    durationSeconds: route.duration,
+    geometry,
+    legs,
+    waypoints: validated.waypoints,
+    raw: data,
+  };
+}
+
 export async function buildSnappedRoute(
   input: BuildSnappedRouteInput
 ): Promise<SnappedRouteResult> {
   const token = getMapboxToken();
 
-  if (!token) {
-    return buildMockSnappedRoute(input);
+  if (token) {
+    try {
+      return await buildMapboxSnappedRoute(input);
+    } catch (error) {
+      console.error("Mapbox routing failed:", error);
+    }
   }
 
   try {
-    return await buildMapboxSnappedRoute(input);
-  } catch {
-    return buildMockSnappedRoute(input);
+    return await buildOsrmSnappedRoute(input);
+  } catch (error) {
+    console.error("OSRM routing failed:", error);
   }
+
+  return buildMockSnappedRoute(input);
 }
