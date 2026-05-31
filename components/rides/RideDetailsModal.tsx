@@ -3,7 +3,9 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { Ride } from "@/app/rides/page";
+import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
 
@@ -13,6 +15,21 @@ interface Props {
   onJoin: () => void;
   onClose: () => void;
 }
+
+type RideMessage = {
+  id: string;
+  ride_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  sender?: {
+    display_name: string | null;
+    full_name: string | null;
+    username: string | null;
+    profile_image_url: string | null;
+    avatar_url: string | null;
+  } | null;
+};
 
 function formatTime(time: string) {
   if (!time) return "";
@@ -40,7 +57,119 @@ function formatTime(time: string) {
   });
 }
 
+function normalizeMessages(data: unknown): RideMessage[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.map((message) => {
+    const raw = message as RideMessage & { sender?: RideMessage["sender"] | RideMessage["sender"][] };
+
+    return {
+      ...raw,
+      sender: Array.isArray(raw.sender) ? raw.sender[0] ?? null : raw.sender ?? null,
+    };
+  });
+}
+
 export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
+  const [messages, setMessages] = useState<RideMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadChat() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+      setCurrentUserId(user?.id ?? null);
+
+      const { data, error } = await supabase
+        .from("ride_messages")
+        .select(`
+          id,
+          ride_id,
+          user_id,
+          body,
+          created_at,
+          sender:profiles!ride_messages_user_id_fkey (
+            display_name,
+            full_name,
+            username,
+            profile_image_url,
+            avatar_url
+          )
+        `)
+        .eq("ride_id", ride.id)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Failed to load ride chat:", error);
+        return;
+      }
+
+      if (active) {
+        setMessages(normalizeMessages(data));
+      }
+    }
+
+    void loadChat();
+
+    return () => {
+      active = false;
+    };
+  }, [ride.id]);
+
+  async function sendMessage() {
+    const body = draft.trim();
+    if (!body || sending || !currentUserId) return;
+
+    setSending(true);
+
+    const { error } = await supabase.from("ride_messages").insert({
+      ride_id: ride.id,
+      user_id: currentUserId,
+      body,
+    });
+
+    if (error) {
+      console.error("Failed to send ride chat message:", error);
+      alert("You must join this meet before messaging.");
+      setSending(false);
+      return;
+    }
+
+    setDraft("");
+
+    const { data, error: reloadError } = await supabase
+      .from("ride_messages")
+      .select(`
+        id,
+        ride_id,
+        user_id,
+        body,
+        created_at,
+        sender:profiles!ride_messages_user_id_fkey (
+          display_name,
+          full_name,
+          username,
+          profile_image_url,
+          avatar_url
+        )
+      `)
+      .eq("ride_id", ride.id)
+      .order("created_at", { ascending: true });
+
+    if (!reloadError) {
+      setMessages(normalizeMessages(data));
+    }
+
+    setSending(false);
+  }
+
   const safeRoute =
     Array.isArray(ride.route) &&
     ride.route.length > 0 &&
@@ -158,9 +287,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
               About this ride
             </p>
-            <p className="text-sm leading-6 text-zinc-300">
-              {ride.description}
-            </p>
+            <p className="text-sm leading-6 text-zinc-300">{ride.description}</p>
           </div>
 
           <div className="mt-5">
@@ -201,8 +328,92 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                   <span className="text-xs text-zinc-400">{rider.name}</span>
                 </div>
               ))}
+            </div>
+          </div>
 
+          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                Meet Chat
+              </p>
 
+              {!isGoing && (
+                <span className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                  Join to message
+                </span>
+              )}
+            </div>
+
+            <div className="grid max-h-56 gap-3 overflow-y-auto pr-1">
+              {messages.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  No messages yet. Start the meet conversation.
+                </p>
+              ) : (
+                messages.map((message) => {
+                  const senderName =
+                    message.sender?.display_name?.trim() ||
+                    message.sender?.full_name?.trim() ||
+                    message.sender?.username?.trim() ||
+                    "Crimson Member";
+
+                  const senderPhoto =
+                    message.sender?.profile_image_url ||
+                    message.sender?.avatar_url ||
+                    "/icon.png";
+
+                  return (
+                    <div key={message.id} className="flex gap-2">
+                      <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10">
+                        <Image
+                          src={senderPhoto}
+                          alt={senderName}
+                          fill
+                          sizes="28px"
+                          className="object-cover"
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-zinc-200">
+                          {senderName}
+                        </p>
+                        <p className="mt-0.5 text-sm leading-5 text-zinc-400">
+                          {message.body}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <input
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+                placeholder={
+                  isGoing ? "Message the meet..." : "Join the meet to message"
+                }
+                disabled={!isGoing || sending}
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/25"
+              />
+
+              <button
+                type="button"
+                onClick={() => void sendMessage()}
+                disabled={!isGoing || sending || !draft.trim()}
+                className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+              >
+                Send
+              </button>
             </div>
           </div>
         </div>
