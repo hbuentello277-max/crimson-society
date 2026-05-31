@@ -479,6 +479,28 @@ export default function RidesPage() {
 
       const rows = (data || []) as RideRow[];
 
+      const rideIds = rows.map((row) => row.id);
+
+const { data: attendanceRows, error: attendanceError } = await supabase
+  .from("ride_attendees")
+  .select("ride_id, user_id")
+  .in("ride_id", rideIds);
+
+if (attendanceError) {
+  console.error("Failed to load ride attendees:", attendanceError);
+}
+
+const nextGoing: Record<string, boolean> = {};
+for (const attendee of attendanceRows || []) {
+  if (attendee.user_id === session.user.id) {
+    nextGoing[attendee.ride_id] = true;
+  }
+}
+
+if (active) {
+  setGoing(nextGoing);
+}
+
       const hostIds = Array.from(new Set(rows.map((row) => row.host_id).filter(Boolean)));
 
       const { data: profiles, error: profilesError } = await supabase
@@ -493,9 +515,6 @@ export default function RidesPage() {
       const profileMap = new Map(
         (profiles || []).map((profile) => [profile.id, profile])
 );
-
-      setToast(`Loaded ${profiles?.length || 0} host profiles`);
-      window.setTimeout(() => setToast(null), 3000);
 
       const rowsWithHosts = rows.map((row) => ({
         ...row,
@@ -516,19 +535,67 @@ export default function RidesPage() {
     };
   }, [authLoading, session?.user?.id]);
 
-  function toggleJoin(rideId: string) {
-    setGoing((current) => {
-      const nextGoing = !current[rideId];
-
-      setToast(nextGoing ? "Meet joined." : "Meet left.");
-      window.setTimeout(() => setToast(null), 2000);
-
-      return {
-        ...current,
-        [rideId]: nextGoing,
-      };
-    });
+  async function toggleJoin(rideId: string) {
+  if (!session?.user?.id) {
+    setToast("You must be signed in to join a meet.");
+    window.setTimeout(() => setToast(null), 2500);
+    return;
   }
+
+  const isCurrentlyGoing = !!going[rideId];
+
+  if (isCurrentlyGoing) {
+    const { error } = await supabase
+      .from("ride_attendees")
+      .delete()
+      .eq("ride_id", rideId)
+      .eq("user_id", session.user.id);
+
+    if (error) {
+      console.error("Failed to leave meet:", error);
+      setToast("Could not leave meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setGoing((current) => ({
+      ...current,
+      [rideId]: false,
+    }));
+
+    setToast("Meet left.");
+    window.setTimeout(() => setToast(null), 2000);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("ride_attendees")
+    .upsert(
+      {
+        ride_id: rideId,
+        user_id: session.user.id,
+        status: "going",
+      },
+      {
+        onConflict: "ride_id,user_id",
+      }
+    );
+
+  if (error) {
+    console.error("Failed to join meet:", error);
+    setToast("Could not join meet.");
+    window.setTimeout(() => setToast(null), 2500);
+    return;
+  }
+
+  setGoing((current) => ({
+    ...current,
+    [rideId]: true,
+  }));
+
+  setToast("Meet joined.");
+  window.setTimeout(() => setToast(null), 2000);
+}
 
   async function cancelMeet(rideId: string) {
 const confirmed = window.confirm("Cancel this meet?");
@@ -613,11 +680,6 @@ if (
     });
 
     route = snapped.geometry;
-
-    console.log("ROUTE PROVIDER:", snapped.provider);
-    console.log("ROUTE POINTS:", snapped.geometry.length);
-    console.log("ROUTE DISTANCE METERS:", snapped.distanceMeters);
-    console.log("ROUTE DURATION SECONDS:", snapped.durationSeconds);
 
     distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
 
