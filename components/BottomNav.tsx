@@ -23,6 +23,17 @@ type RideBadgeRow = {
   time: string | null;
 };
 
+type ConversationMemberBadgeRow = {
+  conversation_id: string;
+  last_read_at: string | null;
+};
+
+type MessageBadgeRow = {
+  conversation_id: string;
+  sender_id: string;
+  created_at: string;
+};
+
 const NAV = [
   {
     href: "/dashboard",
@@ -44,21 +55,12 @@ const NAV = [
     ),
   },
   {
-    href: "/messages",
-    label: "Messages",
+    href: "/shop",
+    label: "Shop",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
-        <path d="M4 6.5C4 5.4 4.9 4.5 6 4.5h12c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H9l-4 3v-3H6c-1.1 0-2-.9-2-2v-9z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/notifications",
-    label: "Alerts",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
-        <path d="M18 9.5a6 6 0 0 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z" />
-        <path d="M9.75 19a2.25 2.25 0 0 0 4.5 0" />
+        <path d="M5 8h14l-1.5 11a2 2 0 0 1-2 1.8H8.5a2 2 0 0 1-2-1.8L5 8z" />
+        <path d="M9 8V6a3 3 0 0 1 6 0v2" />
       </svg>
     ),
   },
@@ -75,12 +77,13 @@ const NAV = [
     ),
   },
   {
-    href: "/shop",
-    label: "Shop",
+    href: "/inbox",
+    label: "Inbox",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
-        <path d="M5 8h14l-1.5 11a2 2 0 0 1-2 1.8H8.5a2 2 0 0 1-2-1.8L5 8z" />
-        <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+        <path d="M4 6.5C4 5.4 4.9 4.5 6 4.5h12c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H9l-4 3v-3H6c-1.1 0-2-.9-2-2v-9z" />
+        <path d="M8 8.5h8" />
+        <path d="M8 12h5" />
       </svg>
     ),
   },
@@ -100,6 +103,7 @@ export default function BottomNav() {
   const pathname = usePathname();
   const { session, loading } = useAuth();
   const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
 
   const meetUnreadTotal = useMemo(
@@ -107,8 +111,8 @@ export default function BottomNav() {
     [meetUnreadCounts]
   );
   const meetBadgeLabel = meetUnreadTotal > 9 ? "9+" : String(meetUnreadTotal);
-  const notificationBadgeLabel =
-    notificationUnreadCount > 9 ? "9+" : String(notificationUnreadCount);
+  const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
+  const inboxBadgeLabel = inboxUnreadTotal > 9 ? "9+" : String(inboxUnreadTotal);
 
   const isUpcomingRide = useCallback((ride: RideBadgeRow) => {
     const date = ride.date?.trim();
@@ -209,11 +213,64 @@ export default function BottomNav() {
     setNotificationUnreadCount(count || 0);
   }, [session?.user?.id]);
 
+  const loadMessageUnreadCount = useCallback(async () => {
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      setMessageUnreadCount(0);
+      return;
+    }
+
+    const { data: memberships, error: membershipsError } = await supabase
+      .from("conversation_members")
+      .select("conversation_id, last_read_at")
+      .eq("user_id", userId);
+
+    if (membershipsError) {
+      console.error("Failed to load inbox nav memberships:", membershipsError);
+      return;
+    }
+
+    const memberRows = (memberships || []) as ConversationMemberBadgeRow[];
+    const conversationIds = memberRows.map((membership) => membership.conversation_id);
+
+    if (conversationIds.length === 0) {
+      setMessageUnreadCount(0);
+      return;
+    }
+
+    const { data: messages, error: messagesError } = await supabase
+      .from("messages")
+      .select("conversation_id, sender_id, created_at")
+      .in("conversation_id", conversationIds);
+
+    if (messagesError) {
+      console.error("Failed to load inbox nav unread messages:", messagesError);
+      return;
+    }
+
+    const readMap = new Map(
+      memberRows.map((membership) => [membership.conversation_id, membership.last_read_at])
+    );
+
+    const nextCount = ((messages || []) as MessageBadgeRow[]).reduce((total, message) => {
+      if (message.sender_id === userId) return total;
+
+      const lastReadAt = readMap.get(message.conversation_id);
+      if (!lastReadAt || message.created_at > lastReadAt) return total + 1;
+
+      return total;
+    }, 0);
+
+    setMessageUnreadCount(nextCount);
+  }, [session?.user?.id]);
+
   useEffect(() => {
     if (loading) return;
     void loadMeetUnreadCounts();
+    void loadMessageUnreadCount();
     void loadNotificationUnreadCount();
-  }, [loadMeetUnreadCounts, loadNotificationUnreadCount, loading]);
+  }, [loadMeetUnreadCounts, loadMessageUnreadCount, loadNotificationUnreadCount, loading]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -271,6 +328,41 @@ export default function BottomNav() {
     if (loading || !userId) return;
 
     const channel = supabase
+      .channel(`bottom-nav-inbox-messages-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          void loadMessageUnreadCount();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversation_members",
+        },
+        () => {
+          void loadMessageUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadMessageUnreadCount, loading, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (loading || !userId) return;
+
+    const channel = supabase
       .channel(`bottom-nav-notifications-${userId}`)
       .on(
         "postgres_changes",
@@ -303,8 +395,9 @@ export default function BottomNav() {
   if (pathname.startsWith("/messages/")) return null;
 
   const isActive = (href: string) => {
-    if (href === "/messages") return pathname === "/messages";
-    if (href === "/notifications") return pathname === "/notifications";
+    if (href === "/inbox") {
+      return pathname === "/inbox" || pathname.startsWith("/messages") || pathname === "/notifications";
+    }
     if (href === "/profile") return pathname === "/profile";
     return pathname === href || pathname.startsWith(href + "/");
   };
@@ -333,9 +426,9 @@ export default function BottomNav() {
                       {meetBadgeLabel}
                     </span>
                   )}
-                  {n.href === "/notifications" && notificationUnreadCount > 0 && (
+                  {n.href === "/inbox" && inboxUnreadTotal > 0 && (
                     <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
-                      {notificationBadgeLabel}
+                      {inboxBadgeLabel}
                     </span>
                   )}
                 </span>
