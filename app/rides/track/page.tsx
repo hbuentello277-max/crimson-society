@@ -49,7 +49,8 @@ function isRoutePoint(value: unknown): value is RoutePoint {
 
 function parseRoute(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRoutePoint);
+  const route = value.filter(isRoutePoint);
+  return route.length > 2 ? route : [];
 }
 
 function parseWaypoints(value: unknown) {

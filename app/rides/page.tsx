@@ -41,6 +41,8 @@ export type Ride = {
   privacy: RidePrivacy;
   lat: number;
   lng: number;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
   route?: RoutePoint[];
   waypoints?: RideWaypoint[];
 };
@@ -201,6 +203,42 @@ function parseRoute(value: unknown): RoutePoint[] {
   return value.filter(isRoutePoint);
 }
 
+function hasRoadGeometry(route: RoutePoint[]) {
+  return route.length > 2;
+}
+
+function endpointRoute(row: RideRow): RoutePoint[] {
+  return row.meet_point_lat !== null &&
+    row.meet_point_lng !== null &&
+    row.destination_lat !== null &&
+    row.destination_lng !== null
+    ? [
+        { lat: row.meet_point_lat, lng: row.meet_point_lng },
+        { lat: row.destination_lat, lng: row.destination_lng },
+      ]
+    : [];
+}
+
+async function resolveRouteGeometry(row: RideRow): Promise<RoutePoint[]> {
+  const savedRoute = parseRoute(row.route);
+  if (hasRoadGeometry(savedRoute)) return savedRoute;
+
+  const endpoints = endpointRoute(row);
+  if (endpoints.length < 2) return [];
+
+  try {
+    const snapped = await buildSnappedRoute({
+      origin: endpoints[0],
+      destination: endpoints[1],
+    });
+
+    return hasRoadGeometry(snapped.geometry) ? snapped.geometry : [];
+  } catch (error) {
+    console.error("Failed to hydrate meet route geometry:", error);
+    return [];
+  }
+}
+
 function parseWaypoints(value: unknown): RideWaypoint[] {
   if (!Array.isArray(value)) return [];
 
@@ -215,20 +253,9 @@ function parseWaypoints(value: unknown): RideWaypoint[] {
   });
 }
 
-function rideRowToRide(row: RideRow): Ride {
+function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
   const savedRoute = parseRoute(row.route);
-  const fallbackRoute =
-    row.meet_point_lat !== null &&
-    row.meet_point_lng !== null &&
-    row.destination_lat !== null &&
-    row.destination_lng !== null
-      ? [
-          { lat: row.meet_point_lat, lng: row.meet_point_lng },
-          { lat: row.destination_lat, lng: row.destination_lng },
-        ]
-      : [];
-
-  const route = savedRoute.length > 0 ? savedRoute : fallbackRoute;
+  const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
   const waypoints = parseWaypoints(row.waypoints);
   const hostProfile = row.host;
 
@@ -265,14 +292,14 @@ function rideRowToRide(row: RideRow): Ride {
     privacy: row.privacy,
     lat: row.meet_point_lat || 29.4241,
     lng: row.meet_point_lng || -98.4936,
+    destinationLat: row.destination_lat,
+    destinationLng: row.destination_lng,
     route,
     waypoints,
   };
 }     
 
 function rideToForm(ride: Ride): HostRideForm {
-  const destinationPoint = ride.route?.[1];
-
   return {
     cover: ride.cover,
     name: ride.name,
@@ -282,8 +309,8 @@ function rideToForm(ride: Ride): HostRideForm {
     meetPointLat: ride.lat,
     meetPointLng: ride.lng,
     destination: ride.destination,
-    destinationLat: destinationPoint?.lat ?? null,
-    destinationLng: destinationPoint?.lng ?? null,
+    destinationLat: ride.destinationLat ?? null,
+    destinationLng: ride.destinationLng ?? null,
     distance: ride.distance === "TBD" ? "" : ride.distance,
     duration: ride.duration === "TBD" ? "" : ride.duration,
     type: ride.type,
@@ -707,8 +734,15 @@ const rowsWithHosts = rows.map((row) => ({
   attendeeRiders: attendeesByRide.get(row.id) || [],
 }));
 
+const ridesWithRoutes = await Promise.all(
+  rowsWithHosts.map(async (row) => {
+    const resolvedRoute = await resolveRouteGeometry(row as RideRow);
+    return rideRowToRide(row as RideRow, resolvedRoute);
+  })
+);
+
       if (active) {
-         setRealMeets(rowsWithHosts.map((row) => rideRowToRide(row as RideRow)));
+         setRealMeets(ridesWithRoutes);
 }
       
       
@@ -915,16 +949,21 @@ window.setTimeout(() => setToast(null), 2500);
         ? newRide.destinationLng
         : null;
 
+    if (
+      meetLat === null ||
+      meetLng === null ||
+      destinationLat === null ||
+      destinationLng === null
+    ) {
+      setToast("Select a meet point and destination from search results.");
+      window.setTimeout(() => setToast(null), 3500);
+      return;
+    }
+
     let route: { lat: number; lng: number }[] = [];
 let distance: string | null = newRide.distance || null;
 let duration: string | null = newRide.duration || null;
 
-if (
-  meetLat !== null &&
-  meetLng !== null &&
-  destinationLat !== null &&
-  destinationLng !== null
-) {
   try {
     const snapped = await buildSnappedRoute({
       origin: {
@@ -946,13 +985,13 @@ if (
     )} min`;
   } catch (error) {
     console.error("Route generation failed", error);
-
-    route = [
-      { lat: meetLat, lng: meetLng },
-      { lat: destinationLat, lng: destinationLng },
-    ];
   }
-}
+
+  if (!hasRoadGeometry(route)) {
+    setToast("Could not generate a road route for those locations.");
+    window.setTimeout(() => setToast(null), 3500);
+    return;
+  }
 
     const payload = {
       host_id: session.user.id,

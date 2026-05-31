@@ -329,7 +329,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
 
   const safeRoute =
     Array.isArray(ride.route) &&
-    ride.route.length > 0 &&
+    ride.route.length > 2 &&
     ride.route.every(
       (p) =>
         typeof p.lat === "number" &&
