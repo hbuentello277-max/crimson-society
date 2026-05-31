@@ -497,6 +497,9 @@ export default function RidesPage() {
         host: profileMap.get(row.host_id) || null,
 }));
 
+       console.log("PROFILES", profiles);
+       console.log("ROWS WITH HOSTS", rowsWithHosts);
+
       if (active) {
          setRealMeets(rowsWithHosts.map((row) => rideRowToRide(row as RideRow)));
 }
