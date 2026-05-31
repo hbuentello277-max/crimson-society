@@ -492,7 +492,7 @@ if (attendanceError) {
 
 const nextGoing: Record<string, boolean> = {};
 for (const attendee of attendanceRows || []) {
-  if (attendee.user_id === session.user.id) {
+  if (attendee.user_id === session?.user.id) {
     nextGoing[attendee.ride_id] = true;
   }
 }
