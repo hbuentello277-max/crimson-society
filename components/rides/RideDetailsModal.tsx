@@ -4,6 +4,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import type { Ride } from "@/app/rides/page";
 import { supabase } from "@/lib/supabase";
 
@@ -23,6 +24,8 @@ type RideMessage = {
   user_id: string;
   body: string;
   kind: "message" | "system";
+  media_url: string | null;
+  media_type: string | null;
   created_at: string;
   sender?: {
     display_name: string | null;
@@ -39,6 +42,8 @@ const RIDE_MESSAGE_SELECT = `
   user_id,
   body,
   kind,
+  media_url,
+  media_type,
   created_at,
   sender:profiles!ride_messages_user_id_fkey (
     display_name,
@@ -103,13 +108,21 @@ function sortMessages(messages: RideMessage[]) {
   );
 }
 
+function safeFileName(name: string) {
+  const cleaned = name.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+|-+$/g, "");
+  return cleaned || "meet-chat-photo";
+}
+
 export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Props) {
   const [messages, setMessages] = useState<RideMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isHost = ride.hostId === currentUserId;
   const canUseChat = isGoing || isHost;
@@ -208,27 +221,80 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
-  async function sendMessage() {
-    const body = draft.trim();
-    if (!body || sending || !currentUserId) return;
-
-    setSending(true);
-
-    const { error } = await supabase.from("ride_messages").insert({
-      ride_id: ride.id,
-      user_id: currentUserId,
-      body,
-    });
-
-    if (error) {
-      console.error("Failed to send ride chat message:", error);
-      alert("You must join this meet before messaging.");
-      setSending(false);
+  useEffect(() => {
+    if (!selectedImage) {
+      setImagePreviewUrl(null);
       return;
     }
 
-    setDraft("");
-    setSending(false);
+    const objectUrl = URL.createObjectURL(selectedImage);
+    setImagePreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedImage]);
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Choose an image file.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Images must be 8 MB or smaller.");
+      return;
+    }
+
+    setSelectedImage(file);
+  }
+
+  async function uploadSelectedImage(file: File, userId: string) {
+    const filePath = `${userId}/${ride.id}/${Date.now()}-${safeFileName(file.name)}`;
+
+    const { error } = await supabase.storage.from("ride-chat-media").upload(filePath, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false,
+    });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("ride-chat-media").getPublicUrl(filePath);
+    return data.publicUrl;
+  }
+
+  async function sendMessage() {
+    const body = draft.trim();
+    const image = selectedImage;
+    if ((!body && !image) || sending || !currentUserId) return;
+
+    setSending(true);
+
+    try {
+      const mediaUrl = image ? await uploadSelectedImage(image, currentUserId) : null;
+
+      const { error } = await supabase.from("ride_messages").insert({
+        ride_id: ride.id,
+        user_id: currentUserId,
+        body,
+        media_url: mediaUrl,
+        media_type: image?.type ?? null,
+      });
+
+      if (error) throw error;
+
+      setDraft("");
+      setSelectedImage(null);
+    } catch (error) {
+      console.error("Failed to send ride chat message:", error);
+      alert("Could not send this meet message.");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function deleteMessage(messageId: string) {
@@ -513,9 +579,26 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
                             </button>
                           )}
                         </div>
-                        <p className="mt-0.5 text-sm leading-5 text-zinc-400">
-                          {message.body}
-                        </p>
+                        {message.media_url && (
+                          <a
+                            href={message.media_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 block overflow-hidden rounded-lg border border-white/10 bg-black/20"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={message.media_url}
+                              alt={message.body || "Meet chat photo"}
+                              className="max-h-64 w-full object-cover"
+                            />
+                          </a>
+                        )}
+                        {message.body && (
+                          <p className="mt-0.5 text-sm leading-5 text-zinc-400">
+                            {message.body}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -524,7 +607,50 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
               <div ref={messagesEndRef} />
             </div>
 
+            {imagePreviewUrl && (
+              <div className="mt-4 flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imagePreviewUrl}
+                  alt="Selected meet chat upload"
+                  className="h-12 w-12 rounded-md object-cover"
+                />
+                <p className="min-w-0 flex-1 truncate text-xs text-zinc-400">
+                  {selectedImage?.name}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(null)}
+                  disabled={sending}
+                  className="rounded-md border border-white/10 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-200 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
             <div className="mt-4 flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+                disabled={!canUseChat || sending}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canUseChat || sending}
+                aria-label="Attach image"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-zinc-400 transition hover:border-white/25 hover:text-zinc-200 disabled:text-zinc-700"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+                  <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9z" />
+                  <path d="m7 15 3-3 2.5 2.5L14 13l3 3" />
+                  <circle cx="15.5" cy="9" r="1.25" />
+                </svg>
+              </button>
               <input
                 type="text"
                 value={draft}
@@ -545,10 +671,10 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
               <button
                 type="button"
                 onClick={() => void sendMessage()}
-                disabled={!canUseChat || sending || !draft.trim()}
+                disabled={!canUseChat || sending || (!draft.trim() && !selectedImage)}
                 className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
               >
-                Send
+                {sending ? "Sending" : "Send"}
               </button>
             </div>
           </div>
