@@ -1,7 +1,27 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
+
+type RideReadRow = {
+  ride_id: string;
+  last_read_at: string;
+};
+
+type RideMessageBadgeRow = {
+  ride_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+type RideBadgeRow = {
+  id: string;
+  date: string | null;
+  time: string | null;
+};
 
 const NAV = [
   {
@@ -68,6 +88,147 @@ const NAV = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { session, loading } = useAuth();
+  const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
+
+  const meetUnreadTotal = useMemo(
+    () => Object.values(meetUnreadCounts).reduce((total, count) => total + count, 0),
+    [meetUnreadCounts]
+  );
+  const meetBadgeLabel = meetUnreadTotal > 9 ? "9+" : String(meetUnreadTotal);
+
+  const isUpcomingRide = useCallback((ride: RideBadgeRow) => {
+    const date = ride.date?.trim();
+    if (!date) return true;
+
+    const time = ride.time?.trim();
+    const safeTime = time && time.includes(":") ? time : "23:59";
+    const parsed = new Date(`${date}T${safeTime}`);
+
+    return Number.isNaN(parsed.getTime()) || parsed.getTime() >= Date.now();
+  }, []);
+
+  const loadMeetUnreadCounts = useCallback(async () => {
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      setMeetUnreadCounts({});
+      return;
+    }
+
+    const { data: rides, error: ridesError } = await supabase
+      .from("rides")
+      .select("id, date, time")
+      .eq("status", "active");
+
+    if (ridesError) {
+      console.error("Failed to load meet nav rides:", ridesError);
+      return;
+    }
+
+    const rideIds = ((rides || []) as RideBadgeRow[]).filter(isUpcomingRide).map((ride) => ride.id);
+
+    if (rideIds.length === 0) {
+      setMeetUnreadCounts({});
+      return;
+    }
+
+    const [
+      { data: readRows, error: readsError },
+      { data: messageRows, error: messagesError },
+    ] = await Promise.all([
+      supabase
+        .from("ride_message_reads")
+        .select("ride_id, last_read_at")
+        .eq("user_id", userId)
+        .in("ride_id", rideIds),
+      supabase
+        .from("ride_messages")
+        .select("ride_id, user_id, created_at")
+        .in("ride_id", rideIds),
+    ]);
+
+    if (readsError) {
+      console.error("Failed to load meet nav read markers:", readsError);
+    }
+
+    if (messagesError) {
+      console.error("Failed to load meet nav unread messages:", messagesError);
+      return;
+    }
+
+    const readMap = new Map(
+      ((readRows || []) as RideReadRow[]).map((row) => [row.ride_id, row.last_read_at])
+    );
+    const nextCounts = Object.fromEntries(rideIds.map((rideId) => [rideId, 0]));
+
+    for (const message of (messageRows || []) as RideMessageBadgeRow[]) {
+      if (message.user_id === userId) continue;
+
+      const lastReadAt = readMap.get(message.ride_id);
+      if (!lastReadAt || message.created_at > lastReadAt) {
+        nextCounts[message.ride_id] = (nextCounts[message.ride_id] || 0) + 1;
+      }
+    }
+
+    setMeetUnreadCounts(nextCounts);
+  }, [isUpcomingRide, session?.user?.id]);
+
+  useEffect(() => {
+    if (loading) return;
+    void loadMeetUnreadCounts();
+  }, [loadMeetUnreadCounts, loading]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (loading || !userId) return;
+
+    const channel = supabase
+      .channel(`bottom-nav-meet-unread-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ride_messages",
+        },
+        (payload) => {
+          const message = payload.new as Partial<RideMessageBadgeRow>;
+          if (!message.ride_id || !message.user_id || message.user_id === userId) return;
+
+          void loadMeetUnreadCounts();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "ride_messages",
+        },
+        () => {
+          void loadMeetUnreadCounts();
+        }
+      )
+      .subscribe();
+
+    const handleMeetRead = (event: Event) => {
+      const rideId = (event as CustomEvent<{ rideId?: string }>).detail?.rideId;
+      if (!rideId) return;
+
+      setMeetUnreadCounts((current) => ({
+        ...current,
+        [rideId]: 0,
+      }));
+    };
+
+    window.addEventListener("crimson-meet-chat-read", handleMeetRead);
+
+    return () => {
+      window.removeEventListener("crimson-meet-chat-read", handleMeetRead);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadMeetUnreadCounts, loading, session?.user?.id]);
 
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;
@@ -92,8 +253,17 @@ export default function BottomNav() {
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                <span className={active ? "drop-shadow-[0_0_8px_rgba(232,122,130,0.7)]" : ""}>
+                <span
+                  className={`relative ${
+                    active ? "drop-shadow-[0_0_8px_rgba(232,122,130,0.7)]" : ""
+                  }`}
+                >
                   {n.icon}
+                  {n.href === "/rides" && meetUnreadTotal > 0 && (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
+                      {meetBadgeLabel}
+                    </span>
+                  )}
                 </span>
                 <span className="text-[9px] uppercase tracking-[0.2em]">
                   {n.label}

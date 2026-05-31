@@ -556,6 +556,12 @@ export default function RidesPage() {
         [rideId]: 0,
       }));
 
+      window.dispatchEvent(
+        new CustomEvent("crimson-meet-chat-read", {
+          detail: { rideId },
+        })
+      );
+
       const { error } = await supabase.from("ride_message_reads").upsert(
         {
           ride_id: rideId,
@@ -779,6 +785,15 @@ const rowsWithHosts = rows.map((row) => ({
   const isCurrentlyGoing = !!going[rideId];
 
   if (isCurrentlyGoing) {
+    const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
+      target_ride_id: rideId,
+      activity: "left",
+    });
+
+    if (activityError) {
+      console.error("Failed to log meet leave activity:", activityError);
+    }
+
     const { error } = await supabase
       .from("ride_attendees")
       .delete()
@@ -820,6 +835,15 @@ const rowsWithHosts = rows.map((row) => ({
     setToast("Could not join meet.");
     window.setTimeout(() => setToast(null), 2500);
     return;
+  }
+
+  const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
+    target_ride_id: rideId,
+    activity: "joined",
+  });
+
+  if (activityError) {
+    console.error("Failed to log meet join activity:", activityError);
   }
 
   setGoing((current) => ({

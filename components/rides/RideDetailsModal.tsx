@@ -22,6 +22,7 @@ type RideMessage = {
   ride_id: string;
   user_id: string;
   body: string;
+  kind: "message" | "system";
   created_at: string;
   sender?: {
     display_name: string | null;
@@ -37,6 +38,7 @@ const RIDE_MESSAGE_SELECT = `
   ride_id,
   user_id,
   body,
+  kind,
   created_at,
   sender:profiles!ride_messages_user_id_fkey (
     display_name,
@@ -89,6 +91,7 @@ function normalizeMessages(data: unknown): RideMessage[] {
 
     return {
       ...raw,
+      kind: raw.kind || "message",
       sender: Array.isArray(raw.sender) ? raw.sender[0] ?? null : raw.sender ?? null,
     };
   });
@@ -451,6 +454,32 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
                     "/icon.png";
                   const canDelete =
                     message.user_id === currentUserId || ride.hostId === currentUserId;
+
+                  if (message.kind === "system") {
+                    return (
+                      <div key={message.id} className="flex justify-center">
+                        <div className="group flex max-w-[90%] items-center gap-2 rounded-full border border-white/8 bg-white/[0.025] px-3 py-1.5 text-center">
+                          <p className="text-[11px] leading-5 text-zinc-500">
+                            {message.body}{" "}
+                            <span className="text-zinc-700">
+                              &middot; {formatMessageTime(message.created_at)}
+                            </span>
+                          </p>
+
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => void deleteMessage(message.id)}
+                              disabled={deletingMessageIds.has(message.id)}
+                              className="rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-[0.14em] text-zinc-700 transition hover:text-[#f4dadd] disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div key={message.id} className="flex gap-2">
