@@ -477,6 +477,7 @@ export default function RidesPage() {
         .order("created_at", { ascending: false });
 
       const rows = (data || []) as RideRow[];
+
       const hostIds = Array.from(new Set(rows.map((row) => row.host_id).filter(Boolean)));
 
       const { data: profiles, error: profilesError } = await supabase
@@ -497,16 +498,12 @@ export default function RidesPage() {
         host: profileMap.get(row.host_id) || null,
 }));
 
-       console.log("PROFILES", profiles);
-       console.log("ROWS WITH HOSTS", rowsWithHosts);
-
       if (active) {
          setRealMeets(rowsWithHosts.map((row) => rideRowToRide(row as RideRow)));
 }
-      if (active) {
-        setRealMeets((data || []).map((row) => rideRowToRide(row as RideRow)));
-      }
-    }
+      
+      
+}
 
     void loadMeets();
 
