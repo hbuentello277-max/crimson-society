@@ -472,17 +472,7 @@ export default function RidesPage() {
     async function loadMeets() {
       const { data, error } = await supabase
         .from("rides")
-        .select(`
-          *,
-         host:profiles!rides_host_id_fkey (
-           id,
-           username,
-           display_name,
-           full_name,
-           profile_image_url,
-           avatar_url
-         )
-       `)
+        .select('*')
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
