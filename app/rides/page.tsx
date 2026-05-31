@@ -257,6 +257,7 @@ function rideToForm(ride: Ride): HostRideForm {
   const destinationPoint = ride.route?.[1];
 
   return {
+    cover: ride.cover,
     name: ride.name,
     date: ride.date,
     time: ride.time,
@@ -650,7 +651,7 @@ if (
       distance,
       duration,
       description: newRide.description || null,
-      cover: DEFAULT_COVER,
+      cover: newRide.cover || DEFAULT_COVER,
       status: "active",
       route,
       waypoints: [],

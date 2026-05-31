@@ -18,6 +18,7 @@ export interface HostRideForm {
   type: RideType;
   privacy: RidePrivacy;
   description: string;
+  cover?: string;
 }
 
 type LocationSuggestion = {
@@ -44,6 +45,7 @@ const EMPTY_FORM: HostRideForm = {
   type: "Group Ride",
   privacy: "Open",
   description: "",
+  cover: "",
 };
 
 interface Props {
@@ -256,6 +258,34 @@ export function HostRideModal({
               </div>
 
               <Field label="Description (optional)">
+                <Field label="Meet Cover Image">
+  <input
+    type="file"
+    accept="image/*"
+    className={inputCls(false)}
+    onChange={async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        set("cover", reader.result as string);
+      };
+
+      reader.readAsDataURL(file);
+    }}
+  />
+
+  {form.cover && (
+    <img
+      src={form.cover}
+      alt="Meet cover preview"
+      className="mt-3 h-40 w-full rounded-lg object-cover"
+    />
+  )}
+</Field>
+
                 <textarea
                   rows={3}
                   placeholder="Tell riders what to expect…"
