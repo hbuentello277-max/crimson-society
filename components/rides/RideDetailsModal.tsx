@@ -183,7 +183,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
           <div className="mt-5">
             <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-              Who&apos;s going &mdash; {ride.going.length + (isGoing ? 1 : 0)} riders
+              Who&apos;s going &mdash; {ride.going.length} riders
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -202,14 +202,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                 </div>
               ))}
 
-              {isGoing && (
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#7f111b]/60 bg-[#7f111b]/40 text-[10px] text-[#f4dadd]">
-                    Y
-                  </div>
-                  <span className="text-xs text-zinc-400">You</span>
-                </div>
-              )}
+
             </div>
           </div>
         </div>

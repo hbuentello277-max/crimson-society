@@ -347,9 +347,28 @@ function RideCard({
           </p>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <span className="text-xs text-zinc-500">
-              {ride.going.length} going
-            </span>
+           <div className="flex items-center gap-2">
+  <div className="flex -space-x-2">
+    {ride.going.slice(0, 4).map((rider) => (
+      <div
+        key={rider.name}
+        className="relative h-7 w-7 overflow-hidden rounded-full border border-[#050405] bg-zinc-900"
+      >
+        <Image
+          src={rider.photo}
+          alt={rider.name}
+          fill
+          sizes="28px"
+          className="object-cover"
+        />
+      </div>
+    ))}
+  </div>
+
+  <span className="text-xs text-zinc-500">
+    {ride.going.length} going
+  </span>
+</div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               <button
