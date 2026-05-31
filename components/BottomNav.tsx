@@ -53,6 +53,16 @@ const NAV = [
     ),
   },
   {
+    href: "/notifications",
+    label: "Alerts",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
+        <path d="M18 9.5a6 6 0 0 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z" />
+        <path d="M9.75 19a2.25 2.25 0 0 0 4.5 0" />
+      </svg>
+    ),
+  },
+  {
     href: "/rides",
     label: "Meets",
     icon: (
@@ -90,12 +100,15 @@ export default function BottomNav() {
   const pathname = usePathname();
   const { session, loading } = useAuth();
   const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
 
   const meetUnreadTotal = useMemo(
     () => Object.values(meetUnreadCounts).reduce((total, count) => total + count, 0),
     [meetUnreadCounts]
   );
   const meetBadgeLabel = meetUnreadTotal > 9 ? "9+" : String(meetUnreadTotal);
+  const notificationBadgeLabel =
+    notificationUnreadCount > 9 ? "9+" : String(notificationUnreadCount);
 
   const isUpcomingRide = useCallback((ride: RideBadgeRow) => {
     const date = ride.date?.trim();
@@ -174,10 +187,33 @@ export default function BottomNav() {
     setMeetUnreadCounts(nextCounts);
   }, [isUpcomingRide, session?.user?.id]);
 
+  const loadNotificationUnreadCount = useCallback(async () => {
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      setNotificationUnreadCount(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("read_at", null);
+
+    if (error) {
+      console.error("Failed to load notification unread count:", error);
+      return;
+    }
+
+    setNotificationUnreadCount(count || 0);
+  }, [session?.user?.id]);
+
   useEffect(() => {
     if (loading) return;
     void loadMeetUnreadCounts();
-  }, [loadMeetUnreadCounts, loading]);
+    void loadNotificationUnreadCount();
+  }, [loadMeetUnreadCounts, loadNotificationUnreadCount, loading]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -230,12 +266,45 @@ export default function BottomNav() {
     };
   }, [loadMeetUnreadCounts, loading, session?.user?.id]);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (loading || !userId) return;
+
+    const channel = supabase
+      .channel(`bottom-nav-notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void loadNotificationUnreadCount();
+        }
+      )
+      .subscribe();
+
+    const handleNotificationsRead = () => {
+      setNotificationUnreadCount(0);
+    };
+
+    window.addEventListener("crimson-notifications-read", handleNotificationsRead);
+
+    return () => {
+      window.removeEventListener("crimson-notifications-read", handleNotificationsRead);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadNotificationUnreadCount, loading, session?.user?.id]);
+
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;
   if (pathname.startsWith("/messages/")) return null;
 
   const isActive = (href: string) => {
     if (href === "/messages") return pathname === "/messages";
+    if (href === "/notifications") return pathname === "/notifications";
     if (href === "/profile") return pathname === "/profile";
     return pathname === href || pathname.startsWith(href + "/");
   };
@@ -262,6 +331,11 @@ export default function BottomNav() {
                   {n.href === "/rides" && meetUnreadTotal > 0 && (
                     <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
                       {meetBadgeLabel}
+                    </span>
+                  )}
+                  {n.href === "/notifications" && notificationUnreadCount > 0 && (
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
+                      {notificationBadgeLabel}
                     </span>
                   )}
                 </span>
