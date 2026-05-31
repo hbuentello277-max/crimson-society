@@ -687,6 +687,8 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
               sessionStorage.setItem(
                 "crimson-active-ride",
                 JSON.stringify({
+                  id: ride.id,
+                  hostId: ride.hostId,
                   route: ride.route,
                   waypoints: ride.waypoints,
                   name: ride.name,

@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
@@ -19,6 +21,8 @@ type RideWaypoint = RoutePoint & {
 };
 
 type StoredRideData = {
+  id?: unknown;
+  hostId?: unknown;
   route?: unknown;
   waypoints?: unknown;
   name?: unknown;
@@ -27,11 +31,49 @@ type StoredRideData = {
 };
 
 type ActiveRide = {
+  id: string | null;
+  hostId: string | null;
   route: RoutePoint[];
   waypoints: RideWaypoint[];
   name: string;
   meetPoint: string;
   destination: string;
+};
+
+type LiveLocationRow = {
+  ride_id: string;
+  user_id: string;
+  lat: number;
+  lng: number;
+  heading: number | null;
+  speed: number | null;
+  sharing_enabled: boolean;
+  updated_at: string;
+};
+
+type ProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  profile_image_url: string | null;
+  avatar_url: string | null;
+};
+
+type LiveRideRider = {
+  user_id: string;
+  rider_name: string | null;
+  rider_photo: string | null;
+  lat: number;
+  lng: number;
+};
+
+type SharingStatus = "idle" | "requesting" | "sharing" | "stopping";
+
+const WATCH_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 1000,
+  timeout: 12000,
 };
 
 function isRoutePoint(value: unknown): value is RoutePoint {
@@ -77,6 +119,9 @@ function parseStoredRide(stored: string | null): ActiveRide | null {
     if (route.length === 0) return null;
 
     return {
+      id: typeof rideData.id === "string" && rideData.id.trim() ? rideData.id : null,
+      hostId:
+        typeof rideData.hostId === "string" && rideData.hostId.trim() ? rideData.hostId : null,
       route,
       waypoints: parseWaypoints(rideData.waypoints),
       name: typeof rideData.name === "string" && rideData.name.trim() ? rideData.name : "Active ride",
@@ -95,10 +140,61 @@ function parseStoredRide(stored: string | null): ActiveRide | null {
   }
 }
 
+function riderName(profile: ProfileRow | null | undefined) {
+  return (
+    profile?.display_name?.trim() ||
+    profile?.full_name?.trim() ||
+    profile?.username?.trim() ||
+    "Rider"
+  );
+}
+
+function riderPhoto(profile: ProfileRow | null | undefined) {
+  return profile?.profile_image_url || profile?.avatar_url || null;
+}
+
+function formatLastUpdated(value: string | null) {
+  if (!value) return "Not sharing";
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (diffSeconds < 10) return "Just now";
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  return new Date(value).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function RideTrackingPage() {
+  const { session, loading: authLoading } = useAuth();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [tracking, setTracking] = useState(false);
+  const [sharingStatus, setSharingStatus] = useState<SharingStatus>("idle");
+  const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const watchIdRef = useRef<number | null>(null);
+  const lastSentAtRef = useRef(0);
+  const sharingRef = useRef(false);
+
+  const userId = session?.user?.id ?? null;
+  const origin = activeRide?.route[0] ?? null;
+  const hasRoute = !!activeRide && !!origin && activeRide.route.length > 0;
+  const canShare = !!activeRide?.id && !!userId && !authLoading;
+  const isSharing = sharingStatus === "sharing";
+  const isStopping = sharingStatus === "stopping";
+  const activeRiderCount = liveRiders.length;
+  const statusLabel = useMemo(() => {
+    if (isSharing) return "Sharing Live";
+    if (sharingStatus === "requesting") return "Requesting GPS";
+    return "Ready";
+  }, [isSharing, sharingStatus]);
 
   useEffect(() => {
     const stored = window.sessionStorage.getItem("crimson-active-ride");
@@ -106,9 +202,221 @@ export default function RideTrackingPage() {
     setLoaded(true);
   }, []);
 
-  const origin = activeRide?.route[0] ?? null;
-  const hasRoute = !!activeRide && !!origin && activeRide.route.length > 0;
-  const statusLabel = useMemo(() => (tracking ? "Tracking" : "Ready"), [tracking]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const clearLocationWatch = useCallback(() => {
+    if (watchIdRef.current !== null && "geolocation" in navigator) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  const stopSharingLocation = useCallback(async () => {
+    sharingRef.current = false;
+    clearLocationWatch();
+    setSharingStatus("stopping");
+
+    if (activeRide?.id && userId) {
+      const { error } = await supabase
+        .from("ride_live_locations")
+        .delete()
+        .eq("ride_id", activeRide.id)
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("Failed to stop live location sharing:", error);
+        setLocationError("Could not stop sharing in Supabase. Try again.");
+      }
+    }
+
+    setLastUpdatedAt(null);
+    setSharingStatus("idle");
+  }, [activeRide?.id, clearLocationWatch, userId]);
+
+  const savePosition = useCallback(
+    async (position: GeolocationPosition, force = false) => {
+      if (!activeRide?.id || !userId || !sharingRef.current) return;
+
+      const nowMs = Date.now();
+      if (!force && nowMs - lastSentAtRef.current < 2500) return;
+
+      lastSentAtRef.current = nowMs;
+      setLocationError(null);
+
+      const updatedAt = new Date().toISOString();
+      const { error } = await supabase.from("ride_live_locations").upsert(
+        {
+          ride_id: activeRide.id,
+          user_id: userId,
+          lat: Number(position.coords.latitude.toFixed(6)),
+          lng: Number(position.coords.longitude.toFixed(6)),
+          heading:
+            typeof position.coords.heading === "number" && Number.isFinite(position.coords.heading)
+              ? position.coords.heading
+              : null,
+          speed:
+            typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+              ? position.coords.speed
+              : null,
+          sharing_enabled: true,
+          updated_at: updatedAt,
+        },
+        { onConflict: "ride_id,user_id" }
+      );
+
+      if (error) {
+        console.error("Failed to save live location:", error);
+        setLocationError("Could not publish your live location.");
+        return;
+      }
+
+      setLastUpdatedAt(updatedAt);
+    },
+    [activeRide?.id, userId]
+  );
+
+  const startSharingLocation = useCallback(() => {
+    if (!canShare) {
+      setPermissionError("Open tracking from a meet while signed in before sharing location.");
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      setPermissionError("Location sharing is not available on this device.");
+      return;
+    }
+
+    setSharingStatus("requesting");
+    setPermissionError(null);
+    setLocationError(null);
+    sharingRef.current = true;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void savePosition(position, true);
+        setSharingStatus("sharing");
+
+        clearLocationWatch();
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (nextPosition) => {
+            void savePosition(nextPosition);
+          },
+          (error) => {
+            setLocationError(error.message || "Unable to read your live location.");
+          },
+          WATCH_OPTIONS
+        );
+      },
+      (error) => {
+        sharingRef.current = false;
+        setSharingStatus("idle");
+        setPermissionError(error.message || "Location permission was denied.");
+      },
+      WATCH_OPTIONS
+    );
+  }, [canShare, clearLocationWatch, savePosition]);
+
+  const loadLiveLocations = useCallback(async () => {
+    if (!activeRide?.id) {
+      setLiveRiders([]);
+      return;
+    }
+
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("ride_live_locations")
+      .select("ride_id, user_id, lat, lng, heading, speed, sharing_enabled, updated_at")
+      .eq("ride_id", activeRide.id)
+      .eq("sharing_enabled", true)
+      .gte("updated_at", cutoff)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to load live rider locations:", error);
+      return;
+    }
+
+    const rows = (data || []) as LiveLocationRow[];
+    const profileIds = Array.from(new Set(rows.map((row) => row.user_id)));
+
+    const { data: profiles, error: profilesError } = profileIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+          .in("id", profileIds)
+      : { data: [], error: null };
+
+    if (profilesError) {
+      console.error("Failed to load live rider profiles:", profilesError);
+    }
+
+    const profileMap = new Map(
+      ((profiles || []) as ProfileRow[]).map((profile) => [profile.id, profile])
+    );
+
+    setLiveRiders(
+      rows.map((row) => {
+        const profile = profileMap.get(row.user_id);
+
+        return {
+          user_id: row.user_id,
+          rider_name: riderName(profile),
+          rider_photo: riderPhoto(profile),
+          lat: row.lat,
+          lng: row.lng,
+        };
+      })
+    );
+  }, [activeRide?.id]);
+
+  useEffect(() => {
+    if (!activeRide?.id) return;
+
+    void loadLiveLocations();
+
+    const channel = supabase
+      .channel(`ride-live-locations-${activeRide.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ride_live_locations",
+          filter: `ride_id=eq.${activeRide.id}`,
+        },
+        () => {
+          void loadLiveLocations();
+        }
+      )
+      .subscribe();
+
+    const refresh = window.setInterval(() => {
+      void loadLiveLocations();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(refresh);
+      void supabase.removeChannel(channel);
+    };
+  }, [activeRide?.id, loadLiveLocations]);
+
+  useEffect(() => {
+    return () => {
+      sharingRef.current = false;
+      clearLocationWatch();
+
+      if (activeRide?.id && userId) {
+        void supabase
+          .from("ride_live_locations")
+          .delete()
+          .eq("ride_id", activeRide.id)
+          .eq("user_id", userId);
+      }
+    };
+  }, [activeRide?.id, clearLocationWatch, userId]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
@@ -172,9 +480,10 @@ export default function RideTrackingPage() {
               <h1 className="mt-3 font-serif text-[42px] leading-none text-[#f4f0ea] sm:text-6xl">
                 {activeRide.name}
               </h1>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 <RouteInfo label="Meet Point" value={activeRide.meetPoint} />
                 <RouteInfo label="Destination" value={activeRide.destination} />
+                <RouteInfo label="Active Riders" value={String(activeRiderCount)} />
               </div>
             </header>
 
@@ -184,6 +493,7 @@ export default function RideTrackingPage() {
                 lng={origin.lng}
                 meetPoint={activeRide.meetPoint}
                 route={activeRide.route}
+                riders={liveRiders}
                 height={420}
                 interactive
                 hideHint
@@ -193,28 +503,55 @@ export default function RideTrackingPage() {
               />
             </section>
 
-            <section className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                  Tracking Controls
-                </p>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">
-                  GPS tracking controls are staged here while live telemetry is finalized.
-                </p>
+            <section className="mt-4 rounded-lg border border-white/10 bg-white/[0.025] p-4">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                    Live Location
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">
+                    Share only when you choose. Active locations expire after 30 minutes and stop
+                    when the meet is no longer active.
+                  </p>
+                  <div className="mt-3 grid gap-2 text-xs text-zinc-500 sm:grid-cols-2">
+                    <span>Last updated: {formatLastUpdated(lastUpdatedAt)}</span>
+                    <span>{canShare ? "Ready for live sharing" : "Sign in from a meet to share"}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:min-w-48">
+                  {isSharing || isStopping ? (
+                    <button
+                      type="button"
+                      onClick={() => void stopSharingLocation()}
+                      disabled={isStopping}
+                      className="rounded-lg border border-white/15 bg-white/[0.03] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 disabled:opacity-60"
+                    >
+                      {isStopping ? "Stopping" : "Stop Sharing Location"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startSharingLocation}
+                      disabled={!canShare || sharingStatus === "requesting"}
+                      className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+                    >
+                      {sharingStatus === "requesting" ? "Requesting GPS" : "Start Sharing Location"}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setTracking((current) => !current)}
-                className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
-                  tracking
-                    ? "border-white/15 bg-white/[0.03] text-zinc-300 hover:border-white/25"
-                    : "border-[#7f111b]/70 bg-[#7f111b]/25 text-[#f4dadd] hover:bg-[#7f111b]/40"
-                }`}
-              >
-                {tracking ? "Stop Tracking" : "Start Tracking"}
-              </button>
+              {(permissionError || locationError) && (
+                <div className="mt-4 rounded-lg border border-[#7f111b]/50 bg-[#7f111b]/12 px-4 py-3 text-sm text-[#f0c9ce]">
+                  {permissionError || locationError}
+                </div>
+              )}
             </section>
+
+            <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+              Live map refreshed {formatLastUpdated(new Date(now).toISOString())}
+            </p>
           </>
         )}
       </div>
