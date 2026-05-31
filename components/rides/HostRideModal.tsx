@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { RideType, RidePrivacy } from "@/app/rides/page";
+import { supabase } from "@/lib/supabase";
 
 export interface HostRideForm {
   name: string;
@@ -63,6 +64,7 @@ export function HostRideModal({
 }: Props) {
   const [form, setForm] = useState<HostRideForm>(initialForm ?? EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof HostRideForm, string>>>({});
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   function set<K extends keyof HostRideForm>(key: K, value: HostRideForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -257,25 +259,75 @@ export function HostRideModal({
                 </Field>
               </div>
 
-              <Field label="Description (optional)">
-                <Field label="Meet Cover Image">
+              <Field label="Meet Cover Image">
   <input
     type="file"
     accept="image/*"
+    disabled={uploadingCover}
     className={inputCls(false)}
     onChange={async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      const reader = new FileReader();
+      try {
+        setUploadingCover(true);
 
-      reader.onloadend = () => {
-        set("cover", reader.result as string);
-      };
+        if (!file.type.startsWith("image/")) {
+          throw new Error("Please select an image file.");
+        }
 
-      reader.readAsDataURL(file);
+        if (file.size > 8 * 1024 * 1024) {
+          throw new Error("Image must be under 8MB.");
+        }
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user?.id) {
+          throw new Error("You must be signed in to upload a cover.");
+        }
+
+        const safeName = file.name
+          .toLowerCase()
+          .replace(/[^a-z0-9.]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+        const filePath = `${user.id}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("ride-covers")
+          .upload(filePath, file, {
+            upsert: false,
+            contentType: file.type || "image/jpeg",
+            cacheControl: "3600",
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("ride-covers")
+          .getPublicUrl(filePath);
+
+        if (!publicUrlData.publicUrl) {
+          throw new Error("Could not generate cover URL.");
+        }
+
+        set("cover", publicUrlData.publicUrl);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Could not upload cover.");
+      } finally {
+        setUploadingCover(false);
+        e.target.value = "";
+      }
     }}
   />
+
+  {uploadingCover && (
+    <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+      Uploading cover...
+    </p>
+  )}
 
   {form.cover && (
     <img
@@ -286,14 +338,15 @@ export function HostRideModal({
   )}
 </Field>
 
-                <textarea
-                  rows={3}
-                  placeholder="Tell riders what to expect…"
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  className={`${inputCls(false)} resize-none`}
-                />
-              </Field>
+<Field label="Description (optional)">
+  <textarea
+    rows={3}
+    placeholder="Tell riders what to expect…"
+    value={form.description}
+    onChange={(e) => set("description", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
             </div>
           </div>
 
