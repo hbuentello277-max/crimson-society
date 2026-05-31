@@ -476,11 +476,30 @@ export default function RidesPage() {
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Failed to load meets:", error);
-        return;
-      }
+      const rows = (data || []) as RideRow[];
+      const hostIds = Array.from(new Set(rows.map((row) => row.host_id).filter(Boolean)));
 
+      const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+      .in("id", hostIds);
+
+      if (profilesError) {
+        console.error("Failed to load ride host profiles:", profilesError);
+}
+
+      const profileMap = new Map(
+        (profiles || []).map((profile) => [profile.id, profile])
+);
+
+      const rowsWithHosts = rows.map((row) => ({
+        ...row,
+        host: profileMap.get(row.host_id) || null,
+}));
+
+      if (active) {
+         setRealMeets(rowsWithHosts.map((row) => rideRowToRide(row as RideRow)));
+}
       if (active) {
         setRealMeets((data || []).map((row) => rideRowToRide(row as RideRow)));
       }
