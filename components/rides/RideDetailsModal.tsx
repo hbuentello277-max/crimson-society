@@ -14,6 +14,32 @@ interface Props {
   onClose: () => void;
 }
 
+function formatTime(time: string) {
+  if (!time) return "";
+
+  if (
+    time.includes("AM") ||
+    time.includes("PM") ||
+    time.includes("am") ||
+    time.includes("pm")
+  ) {
+    return time;
+  }
+
+  if (!time.includes(":")) return time;
+
+  const [hours, minutes] = time.split(":");
+  const date = new Date();
+  date.setHours(Number(hours));
+  date.setMinutes(Number(minutes));
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
   const safeRoute =
     Array.isArray(ride.route) &&
@@ -84,7 +110,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
           <div className="absolute bottom-3 left-4 right-12">
             <p className="mb-0.5 text-[10px] uppercase tracking-[0.2em] text-zinc-400">
-              {ride.date} / {ride.time}
+              {ride.date} / {formatTime(ride.time)}
             </p>
             <h2 className="text-lg font-semibold leading-tight text-white">
               {ride.name}
