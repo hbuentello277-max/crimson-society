@@ -66,6 +66,7 @@ type RideRow = {
   cover: string | null;
   route: unknown;
   waypoints: unknown;
+  attendeeRiders?: Rider[];
   host?: {
     id: string;
     username: string | null;
@@ -74,6 +75,11 @@ type RideRow = {
     profile_image_url: string | null;
     avatar_url: string | null;
   } | null;
+};
+
+type AttendeeRow = {
+  ride_id: string;
+  user_id: string;
 };
 
 const DEFAULT_COVER =
@@ -243,7 +249,7 @@ function rideRowToRide(row: RideRow): Ride {
       name: hostName,
       photo: hostPhoto,
     },
-    going: [],
+    going: row.attendeeRiders || [],
     description: row.description || "Meet details coming soon.",
     privacy: row.privacy,
     lat: row.meet_point_lat || 29.4241,
@@ -342,7 +348,7 @@ function RideCard({
 
           <div className="mt-4 flex items-center justify-between gap-3">
             <span className="text-xs text-zinc-500">
-              {ride.going.length + (isGoing ? 1 : 0)} going
+              {ride.going.length} going
             </span>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -486,13 +492,15 @@ const { data: attendanceRows, error: attendanceError } = await supabase
   .select("ride_id, user_id")
   .in("ride_id", rideIds);
 
+  const typedAttendanceRows = (attendanceRows || []) as AttendeeRow[];
+
 if (attendanceError) {
   console.error("Failed to load ride attendees:", attendanceError);
 }
 
 const nextGoing: Record<string, boolean> = {};
-for (const attendee of attendanceRows || []) {
-  if (attendee.user_id === session?.user.id) {
+for (const attendee of typedAttendanceRows) {
+  if (attendee.user_id === session?.user?.id) {
     nextGoing[attendee.ride_id] = true;
   }
 }
@@ -501,12 +509,17 @@ if (active) {
   setGoing(nextGoing);
 }
 
-      const hostIds = Array.from(new Set(rows.map((row) => row.host_id).filter(Boolean)));
+      const profileIds = Array.from(
+  new Set([
+    ...rows.map((row) => row.host_id),
+    ...typedAttendanceRows.map((row) => row.user_id),
+  ].filter(Boolean))
+);
 
       const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, username, display_name, full_name, profile_image_url, avatar_url")
-      .in("id", hostIds);
+      .in("id", profileIds);
 
       if (profilesError) {
         console.error("Failed to load ride host profiles:", profilesError);
@@ -516,9 +529,30 @@ if (active) {
         (profiles || []).map((profile) => [profile.id, profile])
 );
 
-      const rowsWithHosts = rows.map((row) => ({
-        ...row,
-        host: profileMap.get(row.host_id) || null,
+     const attendeesByRide = new Map<string, Rider[]>();
+
+for (const attendee of typedAttendanceRows) {
+  const profile = profileMap.get(attendee.user_id);
+
+  if (!profile) continue;
+
+  const rider: Rider = {
+    name:
+      profile.display_name?.trim() ||
+      profile.full_name?.trim() ||
+      profile.username?.trim() ||
+      "Crimson Member",
+    photo: profile.profile_image_url || profile.avatar_url || DEFAULT_HOST_PHOTO,
+  };
+
+  const current = attendeesByRide.get(attendee.ride_id) || [];
+  attendeesByRide.set(attendee.ride_id, [...current, rider]);
+}
+
+const rowsWithHosts = rows.map((row) => ({
+  ...row,
+  host: profileMap.get(row.host_id) || null,
+  attendeeRiders: attendeesByRide.get(row.id) || [],
 }));
 
       if (active) {
