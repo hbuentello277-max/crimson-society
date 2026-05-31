@@ -3,7 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Ride } from "@/app/rides/page";
 import { supabase } from "@/lib/supabase";
 
@@ -31,6 +31,21 @@ type RideMessage = {
   } | null;
 };
 
+const RIDE_MESSAGE_SELECT = `
+  id,
+  ride_id,
+  user_id,
+  body,
+  created_at,
+  sender:profiles!ride_messages_user_id_fkey (
+    display_name,
+    full_name,
+    username,
+    profile_image_url,
+    avatar_url
+  )
+`;
+
 function formatTime(time: string) {
   if (!time) return "";
 
@@ -57,6 +72,14 @@ function formatTime(time: string) {
   });
 }
 
+function formatMessageTime(createdAt: string) {
+  return new Date(createdAt).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 function normalizeMessages(data: unknown): RideMessage[] {
   if (!Array.isArray(data)) return [];
 
@@ -70,14 +93,47 @@ function normalizeMessages(data: unknown): RideMessage[] {
   });
 }
 
+function sortMessages(messages: RideMessage[]) {
+  return [...messages].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+}
+
 export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
   const [messages, setMessages] = useState<RideMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const isHost = ride.hostId === currentUserId;
+  const canUseChat = isGoing || isHost;
 
   useEffect(() => {
     let active = true;
+
+    async function fetchMessage(messageId: string) {
+      const { data, error } = await supabase
+        .from("ride_messages")
+        .select(RIDE_MESSAGE_SELECT)
+        .eq("id", messageId)
+        .single();
+
+      if (error) {
+        console.error("Failed to load realtime ride chat message:", error);
+        return;
+      }
+
+      if (!active) return;
+
+      const [message] = normalizeMessages([data]);
+      if (!message) return;
+
+      setMessages((current) =>
+        sortMessages([...current.filter((item) => item.id !== message.id), message])
+      );
+    }
 
     async function loadChat() {
       const {
@@ -89,20 +145,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
       const { data, error } = await supabase
         .from("ride_messages")
-        .select(`
-          id,
-          ride_id,
-          user_id,
-          body,
-          created_at,
-          sender:profiles!ride_messages_user_id_fkey (
-            display_name,
-            full_name,
-            username,
-            profile_image_url,
-            avatar_url
-          )
-        `)
+        .select(RIDE_MESSAGE_SELECT)
         .eq("ride_id", ride.id)
         .order("created_at", { ascending: true });
 
@@ -118,10 +161,46 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
     void loadChat();
 
+    const channel = supabase
+      .channel(`ride-chat-${ride.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ride_messages",
+          filter: `ride_id=eq.${ride.id}`,
+        },
+        (payload) => {
+          const messageId = (payload.new as { id?: string }).id;
+          if (messageId) void fetchMessage(messageId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "ride_messages",
+          filter: `ride_id=eq.${ride.id}`,
+        },
+        (payload) => {
+          const messageId = (payload.old as { id?: string }).id;
+          if (!messageId) return;
+          setMessages((current) => current.filter((message) => message.id !== messageId));
+        }
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      void supabase.removeChannel(channel);
     };
   }, [ride.id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   async function sendMessage() {
     const body = draft.trim();
@@ -143,31 +222,37 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
     }
 
     setDraft("");
+    setSending(false);
+  }
 
-    const { data, error: reloadError } = await supabase
+  async function deleteMessage(messageId: string) {
+    if (!currentUserId) return;
+
+    setDeletingMessageIds((current) => new Set(current).add(messageId));
+
+    const { error } = await supabase
       .from("ride_messages")
-      .select(`
-        id,
-        ride_id,
-        user_id,
-        body,
-        created_at,
-        sender:profiles!ride_messages_user_id_fkey (
-          display_name,
-          full_name,
-          username,
-          profile_image_url,
-          avatar_url
-        )
-      `)
-      .eq("ride_id", ride.id)
-      .order("created_at", { ascending: true });
+      .delete()
+      .eq("id", messageId)
+      .eq("ride_id", ride.id);
 
-    if (!reloadError) {
-      setMessages(normalizeMessages(data));
+    if (error) {
+      console.error("Failed to delete ride chat message:", error);
+      alert("Could not delete this message.");
+      setDeletingMessageIds((current) => {
+        const next = new Set(current);
+        next.delete(messageId);
+        return next;
+      });
+      return;
     }
 
-    setSending(false);
+    setMessages((current) => current.filter((message) => message.id !== messageId));
+    setDeletingMessageIds((current) => {
+      const next = new Set(current);
+      next.delete(messageId);
+      return next;
+    });
   }
 
   const safeRoute =
@@ -337,7 +422,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                 Meet Chat
               </p>
 
-              {!isGoing && (
+              {!canUseChat && (
                 <span className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
                   Join to message
                 </span>
@@ -361,6 +446,8 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                     message.sender?.profile_image_url ||
                     message.sender?.avatar_url ||
                     "/icon.png";
+                  const canDelete =
+                    message.user_id === currentUserId || ride.hostId === currentUserId;
 
                   return (
                     <div key={message.id} className="flex gap-2">
@@ -374,10 +461,26 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                         />
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-zinc-200">
-                          {senderName}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="min-w-0 text-xs font-semibold text-zinc-200">
+                            {senderName}{" "}
+                            <span className="font-normal text-zinc-600">
+                              &middot; {formatMessageTime(message.created_at)}
+                            </span>
+                          </p>
+
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => void deleteMessage(message.id)}
+                              disabled={deletingMessageIds.has(message.id)}
+                              className="shrink-0 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-zinc-500 transition hover:border-[#7f111b]/50 hover:text-[#f4dadd] disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                         <p className="mt-0.5 text-sm leading-5 text-zinc-400">
                           {message.body}
                         </p>
@@ -386,6 +489,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                   );
                 })
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             <div className="mt-4 flex gap-2">
@@ -400,16 +504,16 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
                   }
                 }}
                 placeholder={
-                  isGoing ? "Message the meet..." : "Join the meet to message"
+                  canUseChat ? "Message the meet..." : "Join the meet to message"
                 }
-                disabled={!isGoing || sending}
+                disabled={!canUseChat || sending}
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/25"
               />
 
               <button
                 type="button"
                 onClick={() => void sendMessage()}
-                disabled={!isGoing || sending || !draft.trim()}
+                disabled={!canUseChat || sending || !draft.trim()}
                 className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
               >
                 Send
@@ -450,13 +554,14 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
               onClick={() => {
                 onJoin();
               }}
+              disabled={isHost}
               className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
                 isGoing
                   ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
                   : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
               }`}
             >
-              {isGoing ? "✓ Going" : "JOIN RIDE"}
+              {isHost ? "Hosting" : isGoing ? "✓ Going" : "JOIN RIDE"}
             </button>
           </div>
         </div>

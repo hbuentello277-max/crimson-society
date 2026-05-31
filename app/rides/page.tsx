@@ -402,13 +402,14 @@ function RideCard({
               <button
                 type="button"
                 onClick={onJoin}
+                disabled={canManage}
                 className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
                   isGoing
                     ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
                     : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
                 }`}
               >
-                {isGoing ? "Going" : "Join"}
+                {canManage ? "Hosting" : isGoing ? "Going" : "Join"}
               </button>
             </div>
           </div>
@@ -592,6 +593,13 @@ const rowsWithHosts = rows.map((row) => ({
   if (!session?.user?.id) {
     setToast("You must be signed in to join a meet.");
     window.setTimeout(() => setToast(null), 2500);
+    return;
+  }
+
+  const ride = realMeets.find((meet) => meet.id === rideId);
+  if (ride?.hostId === session.user.id) {
+    setToast("You are hosting this meet.");
+    window.setTimeout(() => setToast(null), 2000);
     return;
   }
 
@@ -789,13 +797,61 @@ if (
       return;
     }
 
-    const savedRide = rideRowToRide(data as RideRow);
+    const savedRow = data as RideRow;
+    const hostAttendee: Rider = {
+      name: "Crimson Member",
+      photo: DEFAULT_HOST_PHOTO,
+    };
+
+    if (!editingRide) {
+      const { error: attendeeError } = await supabase.from("ride_attendees").upsert(
+        {
+          ride_id: savedRow.id,
+          user_id: session.user.id,
+          status: "going",
+        },
+        {
+          onConflict: "ride_id,user_id",
+        }
+      );
+
+      if (attendeeError) {
+        console.error("Failed to add host as meet attendee:", attendeeError);
+        setToast("Meet created, but could not add host as attendee.");
+        window.setTimeout(() => setToast(null), 3500);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      savedRow.host = profile || null;
+      hostAttendee.name =
+        profile?.display_name?.trim() ||
+        profile?.full_name?.trim() ||
+        profile?.username?.trim() ||
+        "Crimson Member";
+      hostAttendee.photo = profile?.profile_image_url || profile?.avatar_url || DEFAULT_HOST_PHOTO;
+      savedRow.attendeeRiders = [hostAttendee];
+    }
+
+    const savedRide = rideRowToRide(savedRow);
 
     setRealMeets((current) =>
       editingRide
         ? current.map((ride) => (ride.id === editingRide.id ? savedRide : ride))
         : [savedRide, ...current]
     );
+
+    if (!editingRide) {
+      setGoing((current) => ({
+        ...current,
+        [savedRide.id]: true,
+      }));
+    }
 
     if (selectedRide?.id === savedRide.id) {
       setSelectedRide(savedRide);
@@ -953,13 +1009,18 @@ if (
                 <button
                   type="button"
                   onClick={() => toggleJoin(featuredRide.id)}
+                  disabled={featuredRide.hostId === session?.user?.id}
                   className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
                     going[featuredRide.id]
                       ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
                       : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
                   }`}
                 >
-                  {going[featuredRide.id] ? "Going" : "JOIN MEET"}
+                  {featuredRide.hostId === session?.user?.id
+                    ? "Hosting"
+                    : going[featuredRide.id]
+                      ? "Going"
+                      : "JOIN MEET"}
                 </button>
               </div>
             </div>
