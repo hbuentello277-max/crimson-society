@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -25,6 +26,20 @@ type NotificationRow = {
   created_at: string;
 };
 
+type NotificationActor = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  profile_image_url: string | null;
+  avatar_url: string | null;
+};
+
+type NotificationGroup = {
+  label: "Today" | "Yesterday" | "Earlier";
+  notifications: NotificationRow[];
+};
+
 function formatNotificationTime(createdAt: string) {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return "";
@@ -35,6 +50,36 @@ function formatNotificationTime(createdAt: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function notificationDateLabel(createdAt: string): NotificationGroup["label"] {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "Earlier";
+
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfToday.getDate() - 1);
+
+  if (date >= startOfToday) return "Today";
+  if (date >= startOfYesterday) return "Yesterday";
+  return "Earlier";
+}
+
+function groupNotifications(notifications: NotificationRow[]): NotificationGroup[] {
+  const groups: NotificationGroup[] = [
+    { label: "Today", notifications: [] },
+    { label: "Yesterday", notifications: [] },
+    { label: "Earlier", notifications: [] },
+  ];
+
+  const groupsByLabel = new Map(groups.map((group) => [group.label, group]));
+
+  for (const notification of notifications) {
+    groupsByLabel.get(notificationDateLabel(notification.created_at))?.notifications.push(notification);
+  }
+
+  return groups.filter((group) => group.notifications.length > 0);
 }
 
 function typeLabel(type: NotificationType) {
@@ -51,16 +96,73 @@ function typeLabel(type: NotificationType) {
   }
 }
 
+function actorName(actor: NotificationActor | null | undefined) {
+  return (
+    actor?.display_name?.trim() ||
+    actor?.full_name?.trim() ||
+    actor?.username?.trim() ||
+    "Crimson"
+  );
+}
+
+function actorPhoto(actor: NotificationActor | null | undefined) {
+  return actor?.profile_image_url || actor?.avatar_url || null;
+}
+
+function actorInitials(actor: NotificationActor | null | undefined, title: string) {
+  const name = actorName(actor) || title || "Crimson";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("");
+
+  return initials || "C";
+}
+
+function notificationHref(notification: NotificationRow) {
+  return notification.ride_id ? "/rides" : "/inbox?tab=notifications";
+}
+
+function NotificationAvatar({
+  actor,
+  title,
+}: {
+  actor: NotificationActor | null | undefined;
+  title: string;
+}) {
+  const photo = actorPhoto(actor);
+  const name = actorName(actor);
+
+  return (
+    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#7f111b]/80">
+      {photo ? (
+        <Image
+          src={photo}
+          alt={name}
+          fill
+          sizes="44px"
+          className="object-cover"
+          unoptimized={photo.includes("supabase")}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#f4dadd]">
+          {actorInitials(actor, title)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function NotificationsPanel() {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [actorsById, setActorsById] = useState<Record<string, NotificationActor>>({});
   const [loading, setLoading] = useState(true);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read_at).length,
     [notifications]
   );
+  const notificationGroups = useMemo(() => groupNotifications(notifications), [notifications]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -112,6 +214,28 @@ export default function NotificationsPanel() {
       }
 
       const rows = (data || []) as NotificationRow[];
+      const actorIds = Array.from(
+        new Set(rows.map((notification) => notification.actor_id).filter(Boolean))
+      ) as string[];
+
+      if (actorIds.length > 0) {
+        const { data: actors, error: actorsError } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+          .in("id", actorIds);
+
+        if (actorsError) {
+          console.error("Failed to load notification actors:", actorsError);
+        } else if (active) {
+          setActorsById(
+            Object.fromEntries(
+              ((actors || []) as NotificationActor[]).map((actor) => [actor.id, actor])
+            )
+          );
+        }
+      } else if (active) {
+        setActorsById({});
+      }
 
       if (active) {
         setNotifications(rows);
@@ -255,32 +379,55 @@ export default function NotificationsPanel() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {notifications.map((notification) => (
-                <Link
-                  key={notification.id}
-                  href="/rides"
-                  className={`block rounded-lg border p-4 transition ${
-                    notification.read_at
-                      ? "border-white/10 bg-white/[0.025] hover:border-white/20"
-                      : "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[9px] uppercase tracking-[0.18em] text-[#d85f6c]">
-                        {typeLabel(notification.type)}
-                      </p>
-                      <h2 className="mt-2 text-sm font-semibold text-zinc-100">
-                        {notification.title}
-                      </h2>
-                    </div>
-                    <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                      {formatNotificationTime(notification.created_at)}
-                    </span>
+            <div className="grid gap-7">
+              {notificationGroups.map((group) => (
+                <div key={group.label}>
+                  <h2 className="mb-3 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                    {group.label}
+                  </h2>
+
+                  <div className="grid gap-3">
+                    {group.notifications.map((notification) => {
+                      const actor = notification.actor_id
+                        ? actorsById[notification.actor_id]
+                        : null;
+
+                      return (
+                        <Link
+                          key={notification.id}
+                          href={notificationHref(notification)}
+                          className={`flex items-center gap-3 rounded-lg border p-3 transition ${
+                            notification.read_at
+                              ? "border-white/10 bg-white/[0.025] hover:border-white/20"
+                              : "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
+                          }`}
+                        >
+                          <NotificationAvatar actor={actor} title={notification.title} />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[9px] uppercase tracking-[0.18em] text-[#d85f6c]">
+                                  {typeLabel(notification.type)}
+                                </p>
+                                <h3 className="mt-1 text-sm font-semibold leading-5 text-zinc-100">
+                                  {notification.title}
+                                </h3>
+                              </div>
+                              <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+                                {formatNotificationTime(notification.created_at)}
+                              </span>
+                            </div>
+
+                            <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
+                              {notification.body}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">{notification.body}</p>
-                </Link>
+                </div>
               ))}
             </div>
           )}
