@@ -493,6 +493,9 @@ export default function RidesPage() {
         (profiles || []).map((profile) => [profile.id, profile])
 );
 
+      setToast(`Loaded ${profiles?.length || 0} host profiles`);
+      window.setTimeout(() => setToast(null), 3000);
+
       const rowsWithHosts = rows.map((row) => ({
         ...row,
         host: profileMap.get(row.host_id) || null,
