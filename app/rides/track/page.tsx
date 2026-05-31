@@ -1,315 +1,231 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
 });
-
-type TrackingState =
-  | "idle"
-  | "requesting_permission"
-  | "denied"
-  | "unavailable"
-  | "searching"
-  | "tracking"
-  | "paused"
-  | "stopped";
-
-type Position = {
-  lat: number;
-  lng: number;
-  timestamp: number;
-};
 
 type RoutePoint = {
   lat: number;
   lng: number;
 };
 
-type StoredRideRoutePoint = {
-  lat: number;
-  lng: number;
+type RideWaypoint = RoutePoint & {
+  id: string;
+  label: string;
 };
 
 type StoredRideData = {
-  route?: StoredRideRoutePoint[];
-  name?: string;
+  route?: unknown;
+  waypoints?: unknown;
+  name?: unknown;
+  meetPoint?: unknown;
+  destination?: unknown;
 };
 
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6371000;
+type ActiveRide = {
+  route: RoutePoint[];
+  waypoints: RideWaypoint[];
+  name: string;
+  meetPoint: string;
+  destination: string;
+};
 
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) *
-      Math.cos(φ2) *
-      Math.sin(Δλ / 2) *
-      Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
+function isRoutePoint(value: unknown): value is RoutePoint {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "lat" in value &&
+    "lng" in value &&
+    typeof (value as RoutePoint).lat === "number" &&
+    typeof (value as RoutePoint).lng === "number" &&
+    Number.isFinite((value as RoutePoint).lat) &&
+    Number.isFinite((value as RoutePoint).lng)
+  );
 }
 
-function checkOffRoute(
-  currentPos: Position,
-  plannedRoute: RoutePoint[],
-): boolean {
-  if (!plannedRoute.length) return false;
+function parseRoute(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRoutePoint);
+}
 
-  const THRESHOLD_METERS = 150;
+function parseWaypoints(value: unknown) {
+  if (!Array.isArray(value)) return [];
 
-  for (const point of plannedRoute) {
-    const distance = haversineDistance(
-      currentPos.lat,
-      currentPos.lng,
-      point.lat,
-      point.lng,
+  return value.filter((item): item is RideWaypoint => {
+    return (
+      isRoutePoint(item) &&
+      "id" in item &&
+      "label" in item &&
+      typeof item.id === "string" &&
+      typeof item.label === "string"
     );
+  });
+}
 
-    if (distance <= THRESHOLD_METERS) {
-      return false;
-    }
+function parseStoredRide(stored: string | null): ActiveRide | null {
+  if (!stored) return null;
+
+  try {
+    const rideData = JSON.parse(stored) as StoredRideData;
+    const route = parseRoute(rideData.route);
+
+    if (route.length === 0) return null;
+
+    return {
+      route,
+      waypoints: parseWaypoints(rideData.waypoints),
+      name: typeof rideData.name === "string" && rideData.name.trim() ? rideData.name : "Active ride",
+      meetPoint:
+        typeof rideData.meetPoint === "string" && rideData.meetPoint.trim()
+          ? rideData.meetPoint
+          : "Meet point",
+      destination:
+        typeof rideData.destination === "string" && rideData.destination.trim()
+          ? rideData.destination
+          : "Destination",
+    };
+  } catch (error) {
+    console.error("Failed to load active ride:", error);
+    return null;
   }
-
-  return true;
 }
 
 export default function RideTrackingPage() {
-  const router = useRouter();
-
-  const [state, setState] = useState<TrackingState>("idle");
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [currentPos, setCurrentPos] = useState<Position | null>(null);
-
-  const [speed, setSpeed] = useState<number>(0);
-  const [accuracy, setAccuracy] = useState<number | null>(null);
-  const [elapsedMs, setElapsedMs] = useState<number>(0);
-
-  const [isOffRoute, setIsOffRoute] = useState<boolean>(false);
-
-  const [plannedRoute, setPlannedRoute] = useState<RoutePoint[] | null>(null);
-
-  const [, setRideName] = useState<string | null>(null);
-
-  const watchIdRef = useRef<number | null>(null);
-
-  const startTimeRef = useRef<number | null>(null);
-
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  function handleStart() {
-    if (!navigator.geolocation) {
-      setState("unavailable");
-      return;
-    }
-
-    setState("requesting_permission");
-
-    const success = (pos: GeolocationPosition) => {
-      const newPos: Position = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        timestamp: Date.now(),
-      };
-
-      setCurrentPos(newPos);
-
-      setPositions((prev) => [...prev, newPos]);
-
-      setSpeed(pos.coords.speed ?? 0);
-
-      setAccuracy(pos.coords.accuracy);
-
-      if (
-        state === "requesting_permission" ||
-        state === "searching"
-      ) {
-        setState("tracking");
-
-        startTimeRef.current = Date.now();
-      }
-
-      if (plannedRoute && checkOffRoute(newPos, plannedRoute)) {
-        setIsOffRoute(true);
-      } else {
-        setIsOffRoute(false);
-      }
-    };
-
-    const error = (err: GeolocationPositionError) => {
-      if (err.code === err.PERMISSION_DENIED) {
-        setState("denied");
-      } else {
-        setState("searching");
-      }
-    };
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      success,
-      error,
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000,
-      },
-    );
-  }
-
-  function handlePause() {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-
-      watchIdRef.current = null;
-    }
-
-    setState("paused");
-  }
-
-  function handleResume() {
-    handleStart();
-  }
-
-  function handleStop() {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-
-      watchIdRef.current = null;
-    }
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-
-      timerRef.current = null;
-    }
-
-    setState("stopped");
-  }
+  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [tracking, setTracking] = useState(false);
 
   useEffect(() => {
-    if (
-      state === "tracking" &&
-      startTimeRef.current !== null
-    ) {
-      timerRef.current = setInterval(() => {
-        setElapsedMs(Date.now() - startTimeRef.current!);
-      }, 100);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-
-        timerRef.current = null;
-      }
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [state]);
-
-  useEffect(() => {
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
+    const stored = window.sessionStorage.getItem("crimson-active-ride");
+    setActiveRide(parseStoredRide(stored));
+    setLoaded(true);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const stored = sessionStorage.getItem(
-      "crimson-active-ride",
-    );
-
-    if (!stored) return;
-
-    let cancelled = false;
-
-    const timer = window.setTimeout(() => {
-      try {
-        const rideData: StoredRideData = JSON.parse(stored);
-
-        let nextRoute: RoutePoint[] | null = null;
-
-        let nextRideName: string | null = null;
-
-        if (
-          Array.isArray(rideData.route) &&
-          rideData.route.length > 0
-        ) {
-          const validRoute = rideData.route.every(
-            (p: StoredRideRoutePoint) =>
-              typeof p.lat === "number" &&
-              typeof p.lng === "number" &&
-              Number.isFinite(p.lat) &&
-              Number.isFinite(p.lng),
-          );
-
-          if (validRoute) {
-            nextRoute = rideData.route;
-          }
-        }
-
-        if (rideData.name) {
-          nextRideName = rideData.name;
-        }
-
-        if (!cancelled) {
-          if (nextRoute) {
-            setPlannedRoute(nextRoute);
-          }
-
-          if (nextRideName) {
-            setRideName(nextRideName);
-          }
-        }
-      } catch (e) {
-        console.error(
-          "Failed to load planned route:",
-          e,
-        );
-      }
-    }, 0);
-
-    return () => {
-      cancelled = true;
-
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  const speedMph = (speed * 2.23694).toFixed(1);
-
-  const elapsedSec = Math.floor(elapsedMs / 1000);
-
-  const mins = Math.floor(elapsedSec / 60);
-
-  const secs = elapsedSec % 60;
+  const origin = activeRide?.route[0] ?? null;
+  const hasRoute = !!activeRide && !!origin && activeRide.route.length > 0;
+  const statusLabel = useMemo(() => (tracking ? "Tracking" : "Ready"), [tracking]);
 
   return (
-    <div className="min-h-screen bg-[#0a0506] flex flex-col">
-      {/* Keep the rest of your JSX exactly as-is below this point */}
+    <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 90% 44% at 50% 0%, rgba(104,0,11,0.42), transparent 58%), linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 34%)",
+        }}
+      />
+
+      <div className="relative mx-auto flex min-h-screen max-w-[1080px] flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
+            Ride Tracking
+          </p>
+
+          <Link
+            href="/rides"
+            className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+          >
+            Meets
+          </Link>
+        </div>
+
+        {!loaded && (
+          <section className="mt-8 flex flex-1 items-center justify-center">
+            <p className="text-sm text-zinc-500">Loading ride...</p>
+          </section>
+        )}
+
+        {loaded && !hasRoute && (
+          <section className="mt-8 flex flex-1 items-center justify-center">
+            <div className="w-full max-w-md rounded-lg border border-white/10 bg-white/[0.025] p-6 text-center shadow-[0_22px_60px_-38px_rgba(0,0,0,0.95)]">
+              <p className="text-[10px] uppercase tracking-[0.26em] text-[#d85f6c]">
+                No Route Loaded
+              </p>
+              <h1 className="mt-3 font-serif text-[34px] leading-none text-[#f4f0ea]">
+                No active ride selected.
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Open a meet and start ride tracking from its route details.
+              </p>
+              <Link
+                href="/rides"
+                className="mt-5 inline-flex rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
+              >
+                Back to Meets
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {loaded && hasRoute && activeRide && origin && (
+          <>
+            <header className="mt-8">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">
+                {statusLabel}
+              </p>
+              <h1 className="mt-3 font-serif text-[42px] leading-none text-[#f4f0ea] sm:text-6xl">
+                {activeRide.name}
+              </h1>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <RouteInfo label="Meet Point" value={activeRide.meetPoint} />
+                <RouteInfo label="Destination" value={activeRide.destination} />
+              </div>
+            </header>
+
+            <section className="mt-6 overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
+              <RideMap
+                lat={origin.lat}
+                lng={origin.lng}
+                meetPoint={activeRide.meetPoint}
+                route={activeRide.route}
+                height={420}
+                interactive
+                hideHint
+                showDestination={activeRide.route.length > 1}
+                showWaypoints={activeRide.waypoints.length > 0}
+                waypoints={activeRide.waypoints}
+              />
+            </section>
+
+            <section className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  Tracking Controls
+                </p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  GPS tracking controls are staged here while live telemetry is finalized.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTracking((current) => !current)}
+                className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+                  tracking
+                    ? "border-white/15 bg-white/[0.03] text-zinc-300 hover:border-white/25"
+                    : "border-[#7f111b]/70 bg-[#7f111b]/25 text-[#f4dadd] hover:bg-[#7f111b]/40"
+                }`}
+              >
+                {tracking ? "Stop Tracking" : "Start Tracking"}
+              </button>
+            </section>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function RouteInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3">
+      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-600">{label}</p>
+      <p className="mt-1 text-sm text-zinc-300">{value}</p>
     </div>
   );
 }
