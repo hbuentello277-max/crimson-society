@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
@@ -80,6 +80,17 @@ type RideRow = {
 type AttendeeRow = {
   ride_id: string;
   user_id: string;
+};
+
+type RideReadRow = {
+  ride_id: string;
+  last_read_at: string;
+};
+
+type RideUnreadMessageRow = {
+  ride_id: string;
+  user_id: string;
+  created_at: string;
 };
 
 const DEFAULT_COVER =
@@ -285,6 +296,7 @@ function RideCard({
   ride,
   isGoing,
   canManage,
+  unreadCount,
   onJoin,
   onViewDetails,
   onEdit,
@@ -293,6 +305,7 @@ function RideCard({
   ride: Ride;
   isGoing: boolean;
   canManage: boolean;
+  unreadCount: number;
   onJoin: () => void;
   onViewDetails: () => void;
   onEdit: () => void;
@@ -327,11 +340,19 @@ function RideCard({
               <p className="mt-2 text-sm text-zinc-400">{ride.city}</p>
             </div>
 
-            {ride.privacy === "Invite" && (
-              <span className="shrink-0 rounded-md border border-[#7f111b]/45 bg-[#7f111b]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
-                Invite
-              </span>
-            )}
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              {unreadCount > 0 && (
+                <span className="rounded-md border border-[#7f111b]/80 bg-[#7f111b]/35 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[#f4dadd] shadow-[0_0_24px_-12px_rgba(216,95,108,0.9)]">
+                  {unreadCount} new
+                </span>
+              )}
+
+              {ride.privacy === "Invite" && (
+                <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
+                  Invite
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-zinc-300">
@@ -428,6 +449,8 @@ export default function RidesPage() {
   const [realMeets, setRealMeets] = useState<Ride[]>([]);
   const [showHostModal, setShowHostModal] = useState(false);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const selectedRideRef = useRef<Ride | null>(null);
 
   const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
 
@@ -462,6 +485,99 @@ export default function RidesPage() {
 
    const featuredRide = visibleMeets[0];
    const compactRides = visibleMeets.slice(1); 
+
+  useEffect(() => {
+    selectedRideRef.current = selectedRide;
+  }, [selectedRide]);
+
+  const loadUnreadCounts = useCallback(
+    async (rideIds: string[]) => {
+      const userId = session?.user?.id;
+      const uniqueRideIds = Array.from(new Set(rideIds.filter(Boolean)));
+
+      if (!userId || uniqueRideIds.length === 0) {
+        setUnreadCounts({});
+        return;
+      }
+
+      const [
+        { data: readRows, error: readsError },
+        { data: messageRows, error: messagesError },
+      ] = await Promise.all([
+        supabase
+          .from("ride_message_reads")
+          .select("ride_id, last_read_at")
+          .eq("user_id", userId)
+          .in("ride_id", uniqueRideIds),
+        supabase
+          .from("ride_messages")
+          .select("ride_id, user_id, created_at")
+          .in("ride_id", uniqueRideIds),
+      ]);
+
+      if (readsError) {
+        console.error("Failed to load meet read markers:", readsError);
+      }
+
+      if (messagesError) {
+        console.error("Failed to load meet unread counts:", messagesError);
+        return;
+      }
+
+      const readMap = new Map(
+        ((readRows || []) as RideReadRow[]).map((row) => [row.ride_id, row.last_read_at])
+      );
+      const nextCounts = Object.fromEntries(uniqueRideIds.map((rideId) => [rideId, 0]));
+
+      for (const message of (messageRows || []) as RideUnreadMessageRow[]) {
+        if (message.user_id === userId) continue;
+
+        const lastReadAt = readMap.get(message.ride_id);
+        if (!lastReadAt || message.created_at > lastReadAt) {
+          nextCounts[message.ride_id] = (nextCounts[message.ride_id] || 0) + 1;
+        }
+      }
+
+      setUnreadCounts((current) => ({
+        ...current,
+        ...nextCounts,
+      }));
+    },
+    [session?.user?.id]
+  );
+
+  const markRideRead = useCallback(
+    async (rideId: string) => {
+      const userId = session?.user?.id;
+      if (!userId) return;
+
+      setUnreadCounts((current) => ({
+        ...current,
+        [rideId]: 0,
+      }));
+
+      const { error } = await supabase.from("ride_message_reads").upsert(
+        {
+          ride_id: rideId,
+          user_id: userId,
+          last_read_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "ride_id,user_id",
+        }
+      );
+
+      if (error) {
+        console.error("Failed to mark meet chat read:", error);
+      }
+    },
+    [session?.user?.id]
+  );
+
+  function openRideDetails(ride: Ride) {
+    setSelectedRide(ride);
+    void markRideRead(ride.id);
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -506,6 +622,16 @@ export default function RidesPage() {
       const rows = (data || []) as RideRow[];
 
       const rideIds = rows.map((row) => row.id);
+
+      void loadUnreadCounts(rideIds);
+
+      if (rideIds.length === 0) {
+        if (active) {
+          setGoing({});
+          setRealMeets([]);
+        }
+        return;
+      }
 
 const { data: attendanceRows, error: attendanceError } = await supabase
   .from("ride_attendees")
@@ -587,7 +713,54 @@ const rowsWithHosts = rows.map((row) => ({
     return () => {
       active = false;
     };
-  }, [authLoading, session?.user?.id]);
+  }, [authLoading, loadUnreadCounts, session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (authLoading || !userId) return;
+
+    const channel = supabase
+      .channel(`ride-message-badges-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ride_messages",
+        },
+        (payload) => {
+          const message = payload.new as Partial<RideUnreadMessageRow>;
+          if (!message.ride_id || !message.user_id || message.user_id === userId) return;
+
+          if (selectedRideRef.current?.id === message.ride_id) {
+            void markRideRead(message.ride_id);
+            return;
+          }
+
+          setUnreadCounts((current) => ({
+            ...current,
+            [message.ride_id as string]: (current[message.ride_id as string] || 0) + 1,
+          }));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "ride_messages",
+        },
+        (payload) => {
+          const message = payload.old as Partial<RideUnreadMessageRow>;
+          if (message.ride_id) void loadUnreadCounts([message.ride_id]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [authLoading, loadUnreadCounts, markRideRead, session?.user?.id]);
 
   async function toggleJoin(rideId: string) {
   if (!session?.user?.id) {
@@ -980,10 +1153,15 @@ if (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedRide(featuredRide)}
-                  className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                  onClick={() => openRideDetails(featuredRide)}
+                  className="relative rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
                 >
                   View Route / Details
+                  {(unreadCounts[featuredRide.id] || 0) > 0 && (
+                    <span className="absolute -right-2 -top-2 rounded-full border border-[#120608] bg-[#7f111b] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#f4dadd]">
+                      {unreadCounts[featuredRide.id]} new
+                    </span>
+                  )}
                 </button>
 
                 {featuredRide.hostId === session?.user?.id && (
@@ -1044,11 +1222,12 @@ if (
                 key={ride.id}
                 ride={ride}
                 canManage={ride.hostId === session?.user?.id}
+                unreadCount={unreadCounts[ride.id] || 0}
                 onEdit={() => setEditingRide(ride)}
                 isGoing={!!going[ride.id]}
                 onCancel={() => void cancelMeet(ride.id)}
                 onJoin={() => toggleJoin(ride.id)}
-                onViewDetails={() => setSelectedRide(ride)}
+                onViewDetails={() => openRideDetails(ride)}
               />
             ))}
           </div>
@@ -1060,6 +1239,7 @@ if (
           ride={selectedRide}
           isGoing={!!going[selectedRide.id]}
           onJoin={() => toggleJoin(selectedRide.id)}
+          onRead={markRideRead}
           onClose={() => setSelectedRide(null)}
         />
       )}

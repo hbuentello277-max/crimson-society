@@ -13,6 +13,7 @@ interface Props {
   ride: Ride;
   isGoing: boolean;
   onJoin: () => void;
+  onRead: (rideId: string) => void;
   onClose: () => void;
 }
 
@@ -99,7 +100,7 @@ function sortMessages(messages: RideMessage[]) {
   );
 }
 
-export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
+export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Props) {
   const [messages, setMessages] = useState<RideMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -133,6 +134,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
       setMessages((current) =>
         sortMessages([...current.filter((item) => item.id !== message.id), message])
       );
+      onRead(ride.id);
     }
 
     async function loadChat() {
@@ -156,6 +158,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
 
       if (active) {
         setMessages(normalizeMessages(data));
+        onRead(ride.id);
       }
     }
 
@@ -196,7 +199,7 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onClose }: Props) {
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [ride.id]);
+  }, [onRead, ride.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
