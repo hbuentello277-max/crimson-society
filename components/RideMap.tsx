@@ -49,6 +49,8 @@ type RideMapProps = {
   showDestination?: boolean;
   showWaypoints?: boolean;
   recenterSignal?: number;
+  initialZoom?: number;
+  fitPoints?: RoutePoint[];
   waypoints?: Waypoint[];
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
@@ -230,27 +232,43 @@ function FitToRoute({
   lat,
   lng,
   route,
+  fitPoints,
   compact,
+  initialZoom,
 }: {
   lat: number;
   lng: number;
   route: RoutePoint[];
+  fitPoints: RoutePoint[];
   compact: boolean;
+  initialZoom: number;
 }) {
   const map = useMap();
   const fitted = useRef(false);
   useEffect(() => {
-    if (route.length > 1) {
+    if (fitPoints.length > 1) {
+      const bounds = L.latLngBounds(
+        fitPoints.map((p) => [p.lat, p.lng] as [number, number])
+      );
+      map.fitBounds(bounds.pad(compact ? 0.35 : 0.18), {
+        animate: false,
+        maxZoom: initialZoom,
+      });
+      fitted.current = true;
+    } else if (fitPoints.length === 1) {
+      map.setView([fitPoints[0].lat, fitPoints[0].lng], initialZoom, { animate: false });
+      fitted.current = true;
+    } else if (route.length > 1) {
       const bounds = L.latLngBounds(
         route.map((p) => [p.lat, p.lng] as [number, number])
       );
       map.fitBounds(bounds.pad(compact ? 0.12 : 0.18), { animate: false });
       fitted.current = true;
     } else if (!fitted.current) {
-      map.setView([lat, lng], compact ? 10 : 11, { animate: false });
+      map.setView([lat, lng], initialZoom, { animate: false });
       fitted.current = true;
     }
-  }, [lat, lng, map, route, compact]);
+  }, [fitPoints, initialZoom, lat, lng, map, route, compact]);
   return null;
 }
 
@@ -333,6 +351,8 @@ export default function RideMap({
   showDestination = false,
   showWaypoints = false,
   recenterSignal = 0,
+  initialZoom,
+  fitPoints = [],
   waypoints = [],
   onMeetPointChange,
   onRouteChange,
@@ -341,6 +361,7 @@ export default function RideMap({
   const displayRoute = route.length > 0 ? route : [{ lat, lng }];
   const destination = displayRoute[displayRoute.length - 1];
   const hasMultiplePoints = displayRoute.length > 1;
+  const mapInitialZoom = initialZoom ?? (compact ? 10 : 11);
   const selfMarker = selfLocation
     ? {
         user_id: selfRider?.user_id || "current-user",
@@ -374,7 +395,7 @@ export default function RideMap({
       <MapContainer
         key={mapKey}
         center={[lat, lng]}
-        zoom={compact ? 10 : 11}
+        zoom={mapInitialZoom}
         style={{ width: "100%", height: "100%" }}
         zoomControl={!compact}
         dragging={interactive}
@@ -390,7 +411,14 @@ export default function RideMap({
         />
 
         <MobileTouchFix interactive={interactive} />
-        <FitToRoute lat={lat} lng={lng} route={displayRoute} compact={compact} />
+        <FitToRoute
+          lat={lat}
+          lng={lng}
+          route={displayRoute}
+          fitPoints={fitPoints}
+          compact={compact}
+          initialZoom={mapInitialZoom}
+        />
         <RecenterSelfLocation
           selfLocation={selfLocation}
           recenterSignal={recenterSignal}

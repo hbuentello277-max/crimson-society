@@ -1165,13 +1165,13 @@ export default function RideTrackingPage() {
                 disabled={sharingStatus === "requesting" || isStopping || authLoading || !session}
                 className={`mx-auto mt-3 flex h-9 w-28 items-center rounded-full border px-1 transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isSharing
-                    ? "justify-end border-[#b4141e]/70 bg-[#b4141e]/70 shadow-[0_0_24px_rgba(180,20,30,0.38)]"
-                    : "justify-start border-white/15 bg-white/[0.05]"
+                    ? "justify-end border-[#b4141e] bg-[#b4141e] shadow-[0_0_24px_rgba(180,20,30,0.38)]"
+                    : "justify-start border-zinc-600/40 bg-zinc-800/85"
                 }`}
               >
                 <span
                   className={`h-7 w-7 rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.45)] transition ${
-                    isSharing ? "bg-white" : "bg-[#f1c3c7]"
+                    isSharing ? "bg-white" : "bg-zinc-500"
                   }`}
                 />
               </button>

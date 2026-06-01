@@ -409,6 +409,7 @@ export default function DashboardPage() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardMeets, setDashboardMeets] = useState<DashboardMeet[]>([]);
   const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>(emptyLiveMapPreview);
+  const [dashboardUserLocation, setDashboardUserLocation] = useState<RoutePoint | null>(null);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pullStartY = useRef<number | null>(null);
@@ -688,6 +689,42 @@ setFeedLoading(false);
     return () => window.clearTimeout(timer);
   }, [loadDashboardSections, session]);
 
+  useEffect(() => {
+    if (!session || !("geolocation" in navigator)) return;
+
+    let active = true;
+
+    const setPosition = (position: GeolocationPosition) => {
+      if (!active) return;
+      setDashboardUserLocation({
+        lat: Number(position.coords.latitude.toFixed(6)),
+        lng: Number(position.coords.longitude.toFixed(6)),
+      });
+    };
+
+    const loadGrantedLocation = async () => {
+      try {
+        if (!("permissions" in navigator)) return;
+        const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (!active || permission.state !== "granted") return;
+
+        navigator.geolocation.getCurrentPosition(setPosition, () => undefined, {
+          enableHighAccuracy: false,
+          maximumAge: 5 * 60 * 1000,
+          timeout: 5000,
+        });
+      } catch {
+        // Dashboard preview uses local location only when the browser already has permission.
+      }
+    };
+
+    void loadGrantedLocation();
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
   const doRefresh = () => {
     if (refreshing) return;
 
@@ -910,10 +947,11 @@ setFeedLoading(false);
       profile_href: cleanUsername ? `/profile/${encodeURIComponent(cleanUsername)}` : null,
     };
   });
-  const previewMapCenter = previewMapRiders[0]
-    ? { lat: previewMapRiders[0].lat, lng: previewMapRiders[0].lng }
-    : liveMapPreview.ride?.route[0] || { lat: 29.4241, lng: -98.4936 };
-  const previewMapRoute = liveMapPreview.ride?.route || [];
+  const previewMapCenter =
+    dashboardUserLocation ||
+    (previewMapRiders[0] ? { lat: previewMapRiders[0].lat, lng: previewMapRiders[0].lng } : null) ||
+    liveMapPreview.ride?.route[0] || { lat: 29.4241, lng: -98.4936 };
+  const previewFitPoints = previewMapRiders.map((rider) => ({ lat: rider.lat, lng: rider.lng }));
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
@@ -1021,8 +1059,11 @@ setFeedLoading(false);
                       lat={previewMapCenter.lat}
                       lng={previewMapCenter.lng}
                       meetPoint="Live riders"
-                      route={previewMapRoute}
+                      route={[]}
                       riders={previewMapRiders}
+                      selfLocation={dashboardUserLocation}
+                      initialZoom={14}
+                      fitPoints={previewFitPoints}
                       compact
                       interactive={false}
                       hideHint
@@ -1030,11 +1071,11 @@ setFeedLoading(false);
                     />
                   </div>
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                  <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7] backdrop-blur">
-                    Who&apos;s riding tonight?
+                  <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur">
+                    Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
                   </div>
 
-                  {liveMapPreview.activeRiderCount > 0 ? (
+                  {liveMapPreview.activeRiderCount > 0 && (
                     <div className="absolute bottom-4 left-4 right-4">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
                         Live now
@@ -1053,18 +1094,6 @@ setFeedLoading(false);
                           {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
                         </span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-                        No live riders
-                      </p>
-                      <h2 className="mt-1 font-serif text-3xl leading-none text-white">
-                        The map is quiet.
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">
-                        Live locations appear here when a ride is active and riders choose to share.
-                      </p>
                     </div>
                   )}
                 </div>
