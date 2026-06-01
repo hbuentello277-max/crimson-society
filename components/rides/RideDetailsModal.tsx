@@ -694,6 +694,9 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
                   name: ride.name,
                   meetPoint: ride.meetPoint,
                   destination: ride.destination,
+                  trackingStatus: ride.trackingStatus,
+                  startedAt: ride.startedAt,
+                  endedAt: ride.endedAt,
                 })
               );
             }}

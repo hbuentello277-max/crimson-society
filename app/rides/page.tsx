@@ -16,6 +16,7 @@ type RideWaypoint = RoutePoint & { id: string; label: string };
 
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
 export type RidePrivacy = "Open" | "Invite";
+export type RideTrackingStatus = "not_started" | "active" | "ended";
 
 type Rider = {
   name: string;
@@ -45,6 +46,9 @@ export type Ride = {
   destinationLng?: number | null;
   route?: RoutePoint[];
   waypoints?: RideWaypoint[];
+  trackingStatus?: RideTrackingStatus;
+  startedAt?: string | null;
+  endedAt?: string | null;
 };
 
 type RideRow = {
@@ -68,6 +72,9 @@ type RideRow = {
   cover: string | null;
   route: unknown;
   waypoints: unknown;
+  tracking_status?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
   attendeeRiders?: Rider[];
   host?: {
     id: string;
@@ -253,6 +260,10 @@ function parseWaypoints(value: unknown): RideWaypoint[] {
   });
 }
 
+function parseTrackingStatus(value: unknown): RideTrackingStatus {
+  return value === "active" || value === "ended" ? value : "not_started";
+}
+
 function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
   const savedRoute = parseRoute(row.route);
   const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
@@ -296,6 +307,9 @@ function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
     destinationLng: row.destination_lng,
     route,
     waypoints,
+    trackingStatus: parseTrackingStatus(row.tracking_status),
+    startedAt: row.started_at ?? null,
+    endedAt: row.ended_at ?? null,
   };
 }     
 
