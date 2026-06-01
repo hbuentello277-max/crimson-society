@@ -47,7 +47,6 @@ type RideMapProps = {
   showDestination?: boolean;
   showWaypoints?: boolean;
   recenterSignal?: number;
-  followSelfLocation?: boolean;
   waypoints?: Waypoint[];
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
@@ -257,35 +256,40 @@ function FitToRoute({
       fitted.current = true;
     } else if (!fitted.current) {
       map.setView([lat, lng], compact ? 10 : 11, { animate: false });
+      fitted.current = true;
     }
   }, [lat, lng, map, route, compact]);
   return null;
 }
 
-function FollowSelfLocation({
+function RecenterSelfLocation({
   selfLocation,
   recenterSignal,
-  followSelfLocation,
 }: {
   selfLocation?: RoutePoint | null;
   recenterSignal?: number;
-  followSelfLocation?: boolean;
 }) {
   const map = useMap();
+  const centeredOnSelf = useRef(false);
+  const lastRecenterSignal = useRef(0);
 
   useEffect(() => {
-    if (!selfLocation || !recenterSignal) return;
+    if (!selfLocation || centeredOnSelf.current) return;
+
     map.setView([selfLocation.lat, selfLocation.lng], Math.max(map.getZoom(), 13), {
       animate: true,
     });
+    centeredOnSelf.current = true;
+  }, [map, selfLocation]);
+
+  useEffect(() => {
+    if (!selfLocation || !recenterSignal || recenterSignal === lastRecenterSignal.current) return;
+
+    map.setView([selfLocation.lat, selfLocation.lng], Math.max(map.getZoom(), 13), {
+      animate: true,
+    });
+    lastRecenterSignal.current = recenterSignal;
   }, [map, recenterSignal, selfLocation]);
-
-  useEffect(() => {
-    if (!selfLocation || !followSelfLocation) return;
-    map.setView([selfLocation.lat, selfLocation.lng], Math.max(map.getZoom(), 13), {
-      animate: true,
-    });
-  }, [followSelfLocation, map, selfLocation]);
 
   return null;
 }
@@ -335,7 +339,6 @@ export default function RideMap({
   showDestination = false,
   showWaypoints = false,
   recenterSignal = 0,
-  followSelfLocation = false,
   waypoints = [],
   onMeetPointChange,
   onRouteChange,
@@ -376,10 +379,9 @@ export default function RideMap({
 
         <MobileTouchFix interactive={interactive} />
         <FitToRoute lat={lat} lng={lng} route={displayRoute} compact={compact} />
-        <FollowSelfLocation
+        <RecenterSelfLocation
           selfLocation={selfLocation}
           recenterSignal={recenterSignal}
-          followSelfLocation={followSelfLocation}
         />
         <EditableEvents
           editable={editable}

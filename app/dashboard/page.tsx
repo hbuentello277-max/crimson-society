@@ -134,6 +134,8 @@ type DashboardLiveRider = {
   name: string;
   username: string | null;
   photo: string | null;
+  lat: number;
+  lng: number;
 };
 
 type LiveMapPreview = {
@@ -153,11 +155,11 @@ const emptyLiveMapPreview: LiveMapPreview = {
 };
 
 const previewMarkerPositions = [
-  "left-[18%] top-[34%]",
-  "right-[22%] top-[28%]",
-  "left-[42%] top-[56%]",
-  "right-[14%] bottom-[24%]",
-  "left-[26%] bottom-[20%]",
+  { left: "18%", top: "34%" },
+  { left: "78%", top: "28%" },
+  { left: "42%", top: "56%" },
+  { left: "86%", top: "76%" },
+  { left: "26%", top: "80%" },
 ];
 
 const statusBgMap: Record<string, string> = {
@@ -317,6 +319,40 @@ function formatLiveUpdated(value: string | null) {
   const diffMinutes = Math.floor(diffSeconds / 60);
   if (diffMinutes < 60) return `Updated ${diffMinutes}m ago`;
   return "Updated over 1h ago";
+}
+
+function getPreviewMarkerStyle(
+  rider: Pick<DashboardLiveRider, "lat" | "lng">,
+  riders: DashboardLiveRider[],
+  index: number,
+) {
+  const fallback = previewMarkerPositions[index % previewMarkerPositions.length];
+  const lats = riders.map((item) => item.lat).filter(Number.isFinite);
+  const lngs = riders.map((item) => item.lng).filter(Number.isFinite);
+
+  if (lats.length < 2 || lngs.length < 2) {
+    return { ...fallback, transform: "translate(-50%, -50%)" };
+  }
+
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latSpan = maxLat - minLat;
+  const lngSpan = maxLng - minLng;
+
+  if (latSpan < 0.0001 || lngSpan < 0.0001) {
+    return { ...fallback, transform: "translate(-50%, -50%)" };
+  }
+
+  const left = 18 + ((rider.lng - minLng) / lngSpan) * 64;
+  const top = 26 + (1 - (rider.lat - minLat) / latSpan) * 48;
+
+  return {
+    left: `${Math.max(12, Math.min(88, left))}%`,
+    top: `${Math.max(22, Math.min(82, top))}%`,
+    transform: "translate(-50%, -50%)",
+  };
 }
 
 function mapRideToDashboardMeet(
@@ -640,6 +676,8 @@ setFeedLoading(false);
           "Rider",
         username: profile?.username || null,
         photo: profile?.profile_image_url || profile?.avatar_url || null,
+        lat: location.lat,
+        lng: location.lng,
       };
     });
 
@@ -999,6 +1037,10 @@ setFeedLoading(false);
                 <div className="relative h-44 bg-[#07080a]">
                   <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:28px_28px]" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(180,20,30,0.32),transparent_22%),radial-gradient(circle_at_78%_58%,rgba(232,122,130,0.18),transparent_18%),linear-gradient(135deg,transparent_12%,rgba(180,20,30,0.22)_13%,transparent_15%,transparent_62%,rgba(255,255,255,0.08)_64%,transparent_66%)]" />
+                  <div className="absolute left-[8%] right-[12%] top-[46%] h-px rotate-[-12deg] bg-[#b4141e]/55 shadow-[0_0_16px_rgba(180,20,30,0.35)]" />
+                  <div className="absolute left-[22%] right-[8%] top-[62%] h-px rotate-[16deg] bg-[#f1c3c7]/18" />
+                  <div className="absolute left-[14%] top-[20%] h-2 w-2 rounded-full bg-[#b4141e]/70 shadow-[0_0_22px_rgba(180,20,30,0.55)]" />
+                  <div className="absolute right-[20%] top-[46%] h-1.5 w-1.5 rounded-full bg-[#f1c3c7]/45" />
                   <div className="absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
                     Who&apos;s riding tonight?
                   </div>
@@ -1008,7 +1050,8 @@ setFeedLoading(false);
                       {liveMapPreview.riders.slice(0, 5).map((rider, index) => (
                         <div
                           key={rider.userId}
-                          className={`absolute ${previewMarkerPositions[index]} h-9 w-9 rounded-full`}
+                          className="absolute h-9 w-9 rounded-full"
+                          style={getPreviewMarkerStyle(rider, liveMapPreview.riders, index)}
                           title={rider.username ? `@${rider.username}` : rider.name}
                         >
                           <span className="absolute inset-0 rounded-full bg-[#b4141e]/45 animate-ping" />

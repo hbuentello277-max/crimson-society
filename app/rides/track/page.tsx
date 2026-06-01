@@ -245,13 +245,12 @@ function isLiveMapRequest() {
 export default function RideTrackingPage() {
   const { session, loading: authLoading } = useAuth();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [loaded, setLoaded] = useState(() => isLiveMapRequest());
-  const [liveMapMode, setLiveMapMode] = useState(() => isLiveMapRequest());
+  const [loaded, setLoaded] = useState(false);
+  const [liveMapMode, setLiveMapMode] = useState(false);
   const [sharingStatus, setSharingStatus] = useState<SharingStatus>("idle");
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
   const [userLocationError, setUserLocationError] = useState<string | null>(null);
-  const [followUserLocation, setFollowUserLocation] = useState(true);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [globalActiveMeetCount, setGlobalActiveMeetCount] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -878,7 +877,6 @@ export default function RideTrackingPage() {
           hideHint
           showMeetMarker={false}
           recenterSignal={recenterSignal}
-          followSelfLocation={followUserLocation}
         />
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] bg-gradient-to-b from-black/75 via-black/35 to-transparent px-4 pb-10 pt-[calc(env(safe-area-inset-top)+14px)]">
@@ -910,26 +908,14 @@ export default function RideTrackingPage() {
         </div>
 
         <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
-          <div className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+          <div className="pointer-events-auto mx-auto flex max-w-xs items-center justify-center rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
             <button
               type="button"
               onClick={() => setRecenterSignal((value) => value + 1)}
               disabled={!userLocation}
-              className="flex-1 rounded-xl border border-white/10 px-3 py-3 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:text-zinc-600"
+              className="w-full rounded-xl border border-white/10 px-3 py-3 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:text-zinc-600"
             >
               Recenter
-            </button>
-            <button
-              type="button"
-              onClick={() => setFollowUserLocation((value) => !value)}
-              disabled={!userLocation}
-              className={`flex-1 rounded-xl border px-3 py-3 text-[10px] uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:text-zinc-600 ${
-                followUserLocation
-                  ? "border-[#b4141e]/60 bg-[#b4141e]/20 text-[#f1c3c7]"
-                  : "border-white/10 text-zinc-200 hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
-              }`}
-            >
-              Follow Me
             </button>
           </div>
 
