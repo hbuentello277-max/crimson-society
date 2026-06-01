@@ -266,6 +266,7 @@ export default function RideTrackingPage() {
   const [liveShareError, setLiveShareError] = useState<string | null>(null);
   const [userLocationError, setUserLocationError] = useState<string | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const [globalActiveMeetCount, setGlobalActiveMeetCount] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -1064,7 +1065,7 @@ export default function RideTrackingPage() {
           riders={visibleMapRiders}
           selfLocation={userLocation}
           selfRider={selfMapRider}
-          showSelfMarker={isSharing}
+          showSelfMarker
           compact
           interactive
           hideHint
@@ -1091,35 +1092,98 @@ export default function RideTrackingPage() {
               </div>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="shrink-0 rounded-full border border-white/15 bg-black/55 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
-            >
-              Close
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                aria-label="Location privacy"
+                onClick={() => setPrivacyMenuOpen((open) => !open)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/55 text-2xl leading-none text-zinc-100 backdrop-blur transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+              >
+                ⋮
+              </button>
+
+              <Link
+                href="/dashboard"
+                className="rounded-full border border-white/15 bg-black/55 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+              >
+                Close
+              </Link>
+            </div>
           </div>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
-          <div className="pointer-events-auto mx-auto grid max-w-xs gap-2 rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+        {privacyMenuOpen && (
+          <div className="pointer-events-auto absolute right-4 top-[calc(env(safe-area-inset-top)+72px)] z-[700] w-[min(280px,calc(100vw-32px))] rounded-2xl border border-white/12 bg-black/85 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.62)] backdrop-blur-xl">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">
+              Location Privacy
+            </p>
+            <div className="mt-4 grid gap-3 text-sm text-zinc-100">
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                <span aria-hidden className="text-[#f1c3c7]">
+                  ☑
+                </span>
+                <span>Share with Friends</span>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                <span aria-hidden className="text-[#f1c3c7]">
+                  ☑
+                </span>
+                <span>Share with Current Meet</span>
+              </div>
+            </div>
+            <Link
+              href="/connect"
+              className="mt-4 flex rounded-xl border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-3 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#7f111b]/35"
+            >
+              Manage Friends
+            </Link>
             <button
               type="button"
-              onClick={() => {
-                if (isSharing) {
-                  void stopSharingLocation();
-                } else {
-                  void startSharingLocation();
-                }
-              }}
-              disabled={sharingStatus === "requesting" || isStopping || authLoading || !session}
-              className={`w-full rounded-xl border px-3 py-3 text-[10px] uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                isSharing
-                  ? "border-[#b4141e]/70 bg-[#b4141e]/85 text-white shadow-[0_0_24px_rgba(180,20,30,0.4)]"
-                  : "border-white/10 bg-white/[0.03] text-zinc-200 hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
-              }`}
+              onClick={() => setPrivacyMenuOpen(false)}
+              className="mt-2 w-full rounded-xl border border-white/10 px-3 py-3 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/20 hover:text-white"
             >
-              {isSharing ? "Sharing On" : "Sharing Off"}
+              Close
             </button>
+          </div>
+        )}
+
+        <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
+          <div className="pointer-events-auto mx-auto grid max-w-xs gap-3 rounded-2xl border border-white/10 bg-black/75 p-4 text-center shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+            <div>
+              <p className="text-[11px] font-semibold text-zinc-100">Location Sharing</p>
+              <button
+                type="button"
+                aria-pressed={isSharing}
+                aria-label={isSharing ? "Turn location sharing off" : "Turn location sharing on"}
+                onClick={() => {
+                  if (isSharing) {
+                    void stopSharingLocation();
+                  } else {
+                    void startSharingLocation();
+                  }
+                }}
+                disabled={sharingStatus === "requesting" || isStopping || authLoading || !session}
+                className={`mx-auto mt-3 flex h-9 w-28 items-center rounded-full border px-1 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isSharing
+                    ? "justify-end border-[#b4141e]/70 bg-[#b4141e]/70 shadow-[0_0_24px_rgba(180,20,30,0.38)]"
+                    : "justify-start border-white/15 bg-white/[0.05]"
+                }`}
+              >
+                <span
+                  className={`h-7 w-7 rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.45)] transition ${
+                    isSharing ? "bg-white" : "bg-[#f1c3c7]"
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Visible to:</p>
+              <p className="mt-1 text-sm font-semibold text-zinc-100">
+                {isSharing ? "Friends • Current Meet" : "Nobody"}
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={() => setRecenterSignal((value) => value + 1)}
