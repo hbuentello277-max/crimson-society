@@ -894,7 +894,7 @@ setFeedLoading(false);
     setTimeout(() => setToast(null), 1400);
   };
 
-  const openMapHref = liveMapPreview.activeRiderCount > 0 ? "/rides/track?live=1" : "/rides";
+  const openMapHref = "/rides/track?live=1";
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);

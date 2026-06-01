@@ -237,11 +237,16 @@ function formatLastUpdated(value: string | null, referenceTime = Date.now()) {
   });
 }
 
+function isLiveMapRequest() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("live") === "1";
+}
+
 export default function RideTrackingPage() {
   const { session, loading: authLoading } = useAuth();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [liveMapMode, setLiveMapMode] = useState(false);
+  const [loaded, setLoaded] = useState(() => isLiveMapRequest());
+  const [liveMapMode, setLiveMapMode] = useState(() => isLiveMapRequest());
   const [sharingStatus, setSharingStatus] = useState<SharingStatus>("idle");
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
@@ -317,7 +322,7 @@ export default function RideTrackingPage() {
     };
 
   useEffect(() => {
-    const isLiveMap = new URLSearchParams(window.location.search).get("live") === "1";
+    const isLiveMap = isLiveMapRequest();
     setLiveMapMode(isLiveMap);
 
     if (isLiveMap) {
