@@ -22,19 +22,18 @@ image_display_url?: string | null;
 image_thumbnail_url?: string | null;
 };
 
+type ProfileStats = {
+posts: number;
+followers: number;
+following: number;
+};
+
 const statusBgMap: Record<string, string> = {
 noir: "bg-gradient-to-br from-[#050505] via-[#0c0c0d] to-[#050505]",
 crimson: "bg-gradient-to-br from-[#3a0709] via-[#b4141e] to-[#3a0709]",
 carbon: "bg-gradient-to-br from-[#1a1a1c] via-[#2a2a2e] to-[#0a0a0c]",
 ember: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
 };
-
-const policyLinks = [
-{ href: "/terms", label: "Terms" },
-{ href: "/privacy", label: "Privacy" },
-{ href: "/community-guidelines", label: "Guidelines" },
-{ href: "/safety", label: "Safety" },
-];
 
 type Motorcycle = {
 id: string;
@@ -55,6 +54,15 @@ return ( <div className="rounded-[26px] border border-white/10 bg-white/[0.025] 
 
 function bikeInitial(bike: Motorcycle) {
 return (bike.name?.trim() || bike.label?.trim() || "G").charAt(0).toUpperCase();
+}
+
+function getProfileUrl(username?: string | null) {
+const cleanUsername = username?.trim().replace(/^@+/, "");
+const path = cleanUsername ? `/profile/${encodeURIComponent(cleanUsername)}` : "/profile";
+
+if (typeof window === "undefined") return path;
+
+return new URL(path, window.location.origin).toString();
 }
 
 function ProfileSkeleton() {
@@ -92,14 +100,23 @@ className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18
 function HeaderActionButton({
 onClick,
 children,
+variant = "default",
 }: {
 onClick: () => void;
 children: React.ReactNode;
+variant?: "premium" | "default";
 }) {
+const styles = {
+premium:
+"border-[#b4141e]/40 bg-[linear-gradient(180deg,rgba(180,20,30,0.18),rgba(255,255,255,0.03))] text-[#f1c3c7] shadow-[0_0_28px_-22px_rgba(180,20,30,0.9)] hover:border-[#b4141e]/70",
+default:
+"border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/25 hover:text-white",
+};
+
 return ( <button
    type="button"
    onClick={onClick}
-   className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-200"
+   className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
  >
 {children} </button>
 );
@@ -116,10 +133,12 @@ const [membership, setMembership] = useState<MembershipRow | null>(null);
 const [postsState, setPostsState] = useState<LoadState>("idle");
 const [garageState, setGarageState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+const [settingsOpen, setSettingsOpen] = useState(false);
 const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
 const [deleteRequesting, setDeleteRequesting] = useState(false);
 const [deleteRequestStatus, setDeleteRequestStatus] = useState<string | null>(null);
+const [stats, setStats] = useState<ProfileStats>({ posts: 0, followers: 0, following: 0 });
 
 useEffect(() => {
 if (!userId || authLoading) return;
@@ -150,6 +169,56 @@ void loadMembership();
 
 }, [userId]);
 
+useEffect(() => {
+if (!userId) {
+  setStats({ posts: 0, followers: 0, following: 0 });
+  return;
+}
+
+let active = true;
+
+const loadStats = async () => {
+  const [
+    { count: postCount, error: postError },
+    { count: followerCount, error: followerError },
+    { count: followingCount, error: followingError },
+  ] = await Promise.all([
+    supabase
+      .from("Posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("user_follows")
+      .select("follower_id", { count: "exact", head: true })
+      .eq("following_id", userId),
+    supabase
+      .from("user_follows")
+      .select("following_id", { count: "exact", head: true })
+      .eq("follower_id", userId),
+  ]);
+
+  if (!active) return;
+
+  if (postError || followerError || followingError) {
+    console.error("Failed to load profile stats:", postError || followerError || followingError);
+    setStats({ posts: 0, followers: 0, following: 0 });
+    return;
+  }
+
+  setStats({
+    posts: postCount || 0,
+    followers: followerCount || 0,
+    following: followingCount || 0,
+  });
+};
+
+void loadStats();
+
+return () => {
+  active = false;
+};
+}, [userId]);
+
 const loadPosts = useCallback(async () => {
 if (!userId || postsState === "loading" || postsState === "loaded") return;
 setPostsState("loading");
@@ -175,6 +244,7 @@ if (postsError) {
 }
 
 setPosts((data as ProfilePost[]) ?? []);
+setStats((current) => ({ ...current, posts: data?.length ?? current.posts }));
 setPostsState("loaded");
 
 }, [postsState, userId]);
@@ -232,6 +302,7 @@ if (deleteError) {
 }
 
 setPosts((current) => current.filter((post) => post.id !== postId));
+setStats((current) => ({ ...current, posts: Math.max(0, current.posts - 1) }));
 setDeletingPostId(null);
 setToast("Post deleted.");
 setTimeout(() => setToast(null), 1400);
@@ -262,6 +333,47 @@ if (error) {
 }
 
 setDeleteRequesting(false);
+};
+
+const shareProfile = async () => {
+const profileUrl = getProfileUrl(profile?.username);
+const title = profile?.display_name || profile?.full_name || profile?.username || "Crimson Society Profile";
+const browserNavigator = typeof window !== "undefined" ? window.navigator : null;
+
+const copyProfileUrl = async () => {
+  if (!browserNavigator?.clipboard) throw new Error("Clipboard is unavailable.");
+  await browserNavigator.clipboard.writeText(profileUrl);
+};
+
+try {
+  if (browserNavigator && "share" in browserNavigator) {
+    await browserNavigator.share({
+      title,
+      text: `View ${title} on Crimson Society`,
+      url: profileUrl,
+    });
+    return;
+  }
+
+  await copyProfileUrl();
+  setToast("Profile link copied.");
+  setTimeout(() => setToast(null), 1400);
+} catch (shareError) {
+  if (shareError instanceof DOMException && shareError.name === "AbortError") return;
+
+  try {
+    await copyProfileUrl();
+    setToast("Profile link copied.");
+  } catch {
+    setToast("Could not share profile.");
+  }
+  setTimeout(() => setToast(null), 1400);
+}
+};
+
+const handleSignOut = async () => {
+setSettingsOpen(false);
+await signOut();
 };
 
 const tabs = useMemo(() => {
@@ -310,14 +422,34 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
   <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
+      <div className="flex items-start justify-between gap-4 sm:block">
+        <div>
         <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
         <h1 className="mt-2 font-serif text-3xl leading-none text-white sm:text-4xl">
           Identity
         </h1>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:hidden"
+          aria-label="Open profile menu"
+        >
+          ⋯
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="hidden h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:flex"
+          aria-label="Open profile menu"
+        >
+          ⋯
+        </button>
+
         {isAdmin && (
           <HeaderActionLink href="/admin" variant="admin">
             Admin
@@ -330,7 +462,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
         <HeaderActionLink href="/profile/edit">Edit Identity</HeaderActionLink>
 
-        <HeaderActionButton onClick={() => void signOut()}>Logout</HeaderActionButton>
+        <HeaderActionButton onClick={() => void shareProfile()}>Share Profile</HeaderActionButton>
       </div>
     </div>
 
@@ -347,6 +479,23 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         </div>
       </div>
     )}
+
+    <section className="mt-4 grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.025] text-center">
+      {[
+        { label: "Posts", value: stats.posts },
+        { label: "Followers", value: stats.followers },
+        { label: "Following", value: stats.following },
+      ].map((item) => (
+        <div key={item.label} className="min-w-0 border-r border-white/10 px-2 py-4 last:border-r-0">
+          <p className="truncate text-xl font-semibold leading-none text-white sm:text-2xl">
+            {item.value}
+          </p>
+          <p className="mt-2 truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500 sm:tracking-[0.22em]">
+            {item.label}
+          </p>
+        </div>
+      ))}
+    </section>
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -507,45 +656,110 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         />
       </section>
     )}
+  </div>
 
-    <section className="mt-6 rounded-[24px] border border-[#b4141e]/25 bg-[#b4141e]/8 p-5">
-      <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">Account Safety</p>
-      <h2 className="mt-2 font-serif text-2xl text-white">Delete Account Request</h2>
-      <p className="mt-3 text-sm leading-6 text-zinc-400">
-        Full account deletion is handled as a request during beta so shared meet, ride, and message
-        history can be reviewed safely before anything destructive happens.
-      </p>
+  {settingsOpen && (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-sm">
       <button
         type="button"
-        onClick={() => void requestAccountDeletion()}
-        disabled={deleteRequesting}
-        className="mt-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-5 py-2.5 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
-      >
-        {deleteRequesting ? "Submitting" : "Request Account Deletion"}
-      </button>
-      {deleteRequestStatus && (
-        <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-400">
-          {deleteRequestStatus}
-        </p>
-      )}
-    </section>
-
-    <section className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
-      <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Policies & Safety</p>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {policyLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            prefetch
-            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+        aria-label="Close profile menu"
+        className="absolute inset-0 cursor-default"
+        onClick={() => setSettingsOpen(false)}
+      />
+      <section className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#080809] shadow-[0_30px_90px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Profile Menu</p>
+            <h2 className="mt-1 font-serif text-2xl text-white">Settings</h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(false)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 transition hover:border-white/25 hover:text-white"
+            aria-label="Close profile menu"
           >
-            {link.label}
-          </Link>
-        ))}
-      </div>
-    </section>
-  </div>
+            ×
+          </button>
+        </div>
+
+        <div className="max-h-[78dvh] overflow-y-auto px-3 py-3">
+          <div className="grid gap-2">
+            {[
+              { href: "/profile/edit", label: "Settings" },
+              { href: "/inbox?tab=notifications", label: "Notifications" },
+              { href: "/privacy", label: "Privacy" },
+              { href: "/rides/track?live=1", label: "Location Sharing" },
+              { href: "/blackcard", label: "Blackcard" },
+              { href: "/safety", label: "Safety" },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                prefetch
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-sm text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+              >
+                {item.label}
+              </Link>
+            ))}
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                prefetch
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+              >
+                Admin Dashboard
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Safety</p>
+            <div className="mt-3 grid gap-2">
+              {[
+                { href: "/community-guidelines", label: "Community Guidelines" },
+                { href: "/terms", label: "Terms" },
+                { href: "/privacy", label: "Privacy Policy" },
+                { href: "/safety", label: "Safety Information" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  prefetch
+                  onClick={() => setSettingsOpen(false)}
+                  className="rounded-xl border border-white/10 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => void requestAccountDeletion()}
+                disabled={deleteRequesting}
+                className="rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
+              >
+                {deleteRequesting ? "Submitting Request" : "Request Account Deletion"}
+              </button>
+              {deleteRequestStatus && (
+                <p className="px-1 text-xs leading-5 text-zinc-500">{deleteRequestStatus}</p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+          >
+            Logout
+          </button>
+        </div>
+      </section>
+    </div>
+  )}
 
   {toast && (
     <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
