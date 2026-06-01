@@ -912,7 +912,8 @@ setFeedLoading(false);
   });
   const previewMapCenter = previewMapRiders[0]
     ? { lat: previewMapRiders[0].lat, lng: previewMapRiders[0].lng }
-    : { lat: 29.4241, lng: -98.4936 };
+    : liveMapPreview.ride?.route[0] || { lat: 29.4241, lng: -98.4936 };
+  const previewMapRoute = liveMapPreview.ride?.route || [];
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
@@ -1015,69 +1016,56 @@ setFeedLoading(false);
             ) : (
               <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
                 <div className="relative h-44 bg-[#07080a]">
-                  {liveMapPreview.activeRiderCount > 0 ? (
-                    <>
-                      <div className="absolute inset-0">
-                        <RideMap
-                          lat={previewMapCenter.lat}
-                          lng={previewMapCenter.lng}
-                          meetPoint="Live riders"
-                          route={[]}
-                          riders={previewMapRiders}
-                          compact
-                          interactive={false}
-                          hideHint
-                          showMeetMarker={false}
-                        />
-                      </div>
-                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                      <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7] backdrop-blur">
-                        Who&apos;s riding tonight?
-                      </div>
+                  <div className="absolute inset-0">
+                    <RideMap
+                      lat={previewMapCenter.lat}
+                      lng={previewMapCenter.lng}
+                      meetPoint="Live riders"
+                      route={previewMapRoute}
+                      riders={previewMapRiders}
+                      compact
+                      interactive={false}
+                      hideHint
+                      showMeetMarker={false}
+                    />
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
+                  <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7] backdrop-blur">
+                    Who&apos;s riding tonight?
+                  </div>
 
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
-                          Live now
-                        </p>
-                        <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
-                          {liveMapPreview.ride?.name || "Active rides"}
-                        </h2>
-                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-300">
-                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                            {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} live
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                            {liveMapPreview.activeMeetCount} active meet{liveMapPreview.activeMeetCount === 1 ? "" : "s"}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                            {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
-                          </span>
-                        </div>
+                  {liveMapPreview.activeRiderCount > 0 ? (
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
+                        Live now
+                      </p>
+                      <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
+                        {liveMapPreview.ride?.name || "Active rides"}
+                      </h2>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-300">
+                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                          {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} live
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                          {liveMapPreview.activeMeetCount} active meet{liveMapPreview.activeMeetCount === 1 ? "" : "s"}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                          {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
+                        </span>
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:28px_28px]" />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(180,20,30,0.32),transparent_22%),radial-gradient(circle_at_78%_58%,rgba(232,122,130,0.18),transparent_18%),linear-gradient(135deg,transparent_12%,rgba(180,20,30,0.22)_13%,transparent_15%,transparent_62%,rgba(255,255,255,0.08)_64%,transparent_66%)]" />
-                      <div className="absolute left-[8%] right-[12%] top-[46%] h-px rotate-[-12deg] bg-[#b4141e]/55 shadow-[0_0_16px_rgba(180,20,30,0.35)]" />
-                      <div className="absolute left-[22%] right-[8%] top-[62%] h-px rotate-[16deg] bg-[#f1c3c7]/18" />
-                      <div className="absolute left-[14%] top-[20%] h-2 w-2 rounded-full bg-[#b4141e]/70 shadow-[0_0_22px_rgba(180,20,30,0.55)]" />
-                      <div className="absolute right-[20%] top-[46%] h-1.5 w-1.5 rounded-full bg-[#f1c3c7]/45" />
-                      <div className="absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
-                        Who&apos;s riding tonight?
-                      </div>
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-                          No live riders
-                        </p>
-                        <h2 className="mt-1 font-serif text-3xl leading-none text-white">
-                          The map is quiet.
-                        </h2>
-                        <p className="mt-2 text-sm leading-6 text-zinc-400">
-                          Live locations appear here when a ride is active and riders choose to share.
-                        </p>
-                      </div>
-                    </>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+                        No live riders
+                      </p>
+                      <h2 className="mt-1 font-serif text-3xl leading-none text-white">
+                        The map is quiet.
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-zinc-400">
+                        Live locations appear here when a ride is active and riders choose to share.
+                      </p>
+                    </div>
                   )}
                 </div>
 

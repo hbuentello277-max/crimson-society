@@ -87,6 +87,17 @@ type RideLiveMapRow = {
   tracking_status: string | null;
 };
 
+type RideShareCandidateRow = {
+  id: string;
+  name: string | null;
+  host_id: string | null;
+  status: string | null;
+  tracking_status: string | null;
+  started_at: string | null;
+  date?: string | null;
+  time?: string | null;
+};
+
 type RideLifecycleRow = {
   host_id: string | null;
   status: string | null;
@@ -251,6 +262,8 @@ export default function RideTrackingPage() {
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
   const [selfProfile, setSelfProfile] = useState<ProfileRow | null>(null);
+  const [liveShareRide, setLiveShareRide] = useState<RideShareCandidateRow | null>(null);
+  const [liveShareError, setLiveShareError] = useState<string | null>(null);
   const [userLocationError, setUserLocationError] = useState<string | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [globalActiveMeetCount, setGlobalActiveMeetCount] = useState(0);
@@ -264,6 +277,7 @@ export default function RideTrackingPage() {
   const mapWatchIdRef = useRef<number | null>(null);
   const lastSentAtRef = useRef(0);
   const sharingRef = useRef(false);
+  const publishedRideIdRef = useRef<string | null>(null);
 
   const userId = session?.user?.id ?? null;
   const origin = activeRide?.route[0] ?? null;
@@ -272,7 +286,9 @@ export default function RideTrackingPage() {
   const isRideLive = trackingStatus === "active";
   const isRideEnded = trackingStatus === "ended";
   const isHost = !!activeRide?.hostId && !!userId && activeRide.hostId === userId;
-  const canShare = !!activeRide?.id && !!userId && !authLoading && isRideLive;
+  const sharingRideId = liveMapMode ? liveShareRide?.id ?? null : activeRide?.id ?? null;
+  const sharingRideActive = liveMapMode ? !!liveShareRide?.id : isRideLive;
+  const canShare = !!sharingRideId && !!userId && !authLoading && sharingRideActive;
   const isSharing = sharingStatus === "sharing";
   const isStopping = sharingStatus === "stopping";
   const activeRiderCount = liveRiders.length;
@@ -315,6 +331,10 @@ export default function RideTrackingPage() {
       })),
     [liveRiders, now, userLocation]
   );
+  const visibleMapRiders = useMemo(() => {
+    if (!liveMapMode || !userId || isSharing) return mappedLiveRiders;
+    return mappedLiveRiders.filter((rider) => rider.user_id !== userId);
+  }, [isSharing, liveMapMode, mappedLiveRiders, userId]);
   const selfMapRider = useMemo(() => {
     if (!userId || !userLocation) return null;
 
@@ -333,10 +353,14 @@ export default function RideTrackingPage() {
     };
   }, [selfProfile, userId, userLocation]);
   const liveMapCenter = userLocation ||
-    (mappedLiveRiders[0] ? { lat: mappedLiveRiders[0].lat, lng: mappedLiveRiders[0].lng } : null) || {
+    (visibleMapRiders[0] ? { lat: visibleMapRiders[0].lat, lng: visibleMapRiders[0].lng } : null) || {
       lat: 29.4241,
       lng: -98.4936,
     };
+  const liveMapDisplayedRiderCount =
+    liveMapMode && userId && isSharing && !mappedLiveRiders.some((rider) => rider.user_id === userId)
+      ? mappedLiveRiders.length + 1
+      : visibleMapRiders.length;
 
   useEffect(() => {
     const isLiveMap = isLiveMapRequest();
@@ -404,6 +428,75 @@ export default function RideTrackingPage() {
     }
   }, []);
 
+  const loadLiveShareRide = useCallback(async () => {
+    if (!userId) {
+      setLiveShareRide(null);
+      return null;
+    }
+
+    const { data: attendeeRows, error: attendeeError } = await supabase
+      .from("ride_attendees")
+      .select("ride_id")
+      .eq("user_id", userId);
+
+    if (attendeeError) {
+      console.error("Failed to load active ride attendance:", attendeeError);
+    }
+
+    const attendingRideIds = Array.from(
+      new Set(((attendeeRows || []) as { ride_id: string }[]).map((row) => row.ride_id))
+    );
+
+    const hostedQuery = supabase
+      .from("rides")
+      .select("id, name, host_id, status, tracking_status, started_at, date, time")
+      .eq("status", "active")
+      .eq("tracking_status", "active")
+      .eq("host_id", userId)
+      .order("started_at", { ascending: false, nullsFirst: false })
+      .limit(5);
+
+    const attendingQuery = attendingRideIds.length
+      ? supabase
+          .from("rides")
+          .select("id, name, host_id, status, tracking_status, started_at, date, time")
+          .eq("status", "active")
+          .eq("tracking_status", "active")
+          .in("id", attendingRideIds)
+          .order("started_at", { ascending: false, nullsFirst: false })
+          .limit(5)
+      : Promise.resolve({ data: [], error: null });
+
+    const [{ data: hostedRows, error: hostedError }, { data: attendingRows, error: attendingError }] =
+      await Promise.all([hostedQuery, attendingQuery]);
+
+    if (hostedError) {
+      console.error("Failed to load hosted active rides:", hostedError);
+    }
+
+    if (attendingError) {
+      console.error("Failed to load attending active rides:", attendingError);
+    }
+
+    const uniqueCandidates = new Map<string, RideShareCandidateRow>();
+    for (const row of [
+      ...((hostedRows || []) as RideShareCandidateRow[]),
+      ...((attendingRows || []) as RideShareCandidateRow[]),
+    ]) {
+      uniqueCandidates.set(row.id, row);
+    }
+
+    const candidates = Array.from(uniqueCandidates.values()).sort((a, b) => {
+      const aTime = new Date(a.started_at || `${a.date || ""}T${a.time || "00:00"}`).getTime();
+      const bTime = new Date(b.started_at || `${b.date || ""}T${b.time || "00:00"}`).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    });
+
+    const nextRide = candidates[0] || null;
+    setLiveShareRide(nextRide);
+    return nextRide;
+  }, [userId]);
+
   useEffect(() => {
     if (!liveMapMode) return;
 
@@ -440,6 +533,18 @@ export default function RideTrackingPage() {
       clearMapLocationWatch();
     };
   }, [clearMapLocationWatch, liveMapMode]);
+
+  useEffect(() => {
+    if (!liveMapMode || authLoading || !session) return;
+
+    void loadLiveShareRide();
+
+    const refresh = window.setInterval(() => {
+      void loadLiveShareRide();
+    }, 30000);
+
+    return () => window.clearInterval(refresh);
+  }, [authLoading, liveMapMode, loadLiveShareRide, session]);
 
   const applyRideLifecycle = useCallback((row: RideLifecycleRow) => {
     setActiveRide((current) => {
@@ -518,16 +623,18 @@ export default function RideTrackingPage() {
     );
   }, [activeRide]);
 
-  const stopSharingLocation = useCallback(async () => {
+  const stopSharingLocation = useCallback(async (rideIdOverride?: string | null) => {
     sharingRef.current = false;
     clearLocationWatch();
     setSharingStatus("stopping");
 
-    if (activeRide?.id && userId) {
+    const targetRideId = rideIdOverride ?? sharingRideId ?? publishedRideIdRef.current;
+
+    if (targetRideId && userId) {
       const { error } = await supabase
         .from("ride_live_locations")
         .delete()
-        .eq("ride_id", activeRide.id)
+        .eq("ride_id", targetRideId)
         .eq("user_id", userId);
 
       if (error) {
@@ -536,19 +643,30 @@ export default function RideTrackingPage() {
       }
     }
 
+    publishedRideIdRef.current = null;
     setLastUpdatedAt(null);
     setSharingStatus("idle");
-  }, [activeRide?.id, clearLocationWatch, userId]);
+  }, [clearLocationWatch, sharingRideId, userId]);
 
   useEffect(() => {
+    if (!liveMapMode || !isSharing || liveShareRide) return;
+
+    setLiveShareError("Your active meet is no longer live. Location sharing was turned off.");
+    void stopSharingLocation();
+  }, [isSharing, liveMapMode, liveShareRide, stopSharingLocation]);
+
+  useEffect(() => {
+    if (liveMapMode) return;
     if (isRideLive || (sharingStatus !== "sharing" && sharingStatus !== "requesting")) return;
 
     void stopSharingLocation();
-  }, [isRideLive, sharingStatus, stopSharingLocation]);
+  }, [isRideLive, liveMapMode, sharingStatus, stopSharingLocation]);
 
   const savePosition = useCallback(
-    async (position: GeolocationPosition, force = false) => {
-      if (!activeRide?.id || !userId || !sharingRef.current || !isRideLive) return;
+    async (position: GeolocationPosition, force = false, rideIdOverride?: string | null) => {
+      const targetRideId = rideIdOverride ?? sharingRideId;
+      const targetRideIsActive = liveMapMode && rideIdOverride ? true : sharingRideActive;
+      if (!targetRideId || !userId || !sharingRef.current || !targetRideIsActive) return;
 
       const nowMs = Date.now();
       if (!force && nowMs - lastSentAtRef.current < 2500) return;
@@ -559,7 +677,7 @@ export default function RideTrackingPage() {
       const updatedAt = new Date().toISOString();
       const { error } = await supabase.from("ride_live_locations").upsert(
         {
-          ride_id: activeRide.id,
+          ride_id: targetRideId,
           user_id: userId,
           lat: Number(position.coords.latitude.toFixed(6)),
           lng: Number(position.coords.longitude.toFixed(6)),
@@ -583,17 +701,25 @@ export default function RideTrackingPage() {
         return;
       }
 
+      publishedRideIdRef.current = targetRideId;
       setLastUpdatedAt(updatedAt);
     },
-    [activeRide?.id, isRideLive, userId]
+    [liveMapMode, sharingRideActive, sharingRideId, userId]
   );
 
-  const startSharingLocation = useCallback(() => {
-    if (!canShare) {
+  const startSharingLocation = useCallback(async () => {
+    const shareRide = liveMapMode && !liveShareRide ? await loadLiveShareRide() : liveShareRide;
+    const targetRideId = liveMapMode ? shareRide?.id ?? null : sharingRideId;
+    const canStartSharing =
+      !!targetRideId && !!userId && !authLoading && (liveMapMode ? !!shareRide?.id : sharingRideActive);
+
+    if (!canStartSharing) {
       setPermissionError(
-        isRideLive
-          ? "Open tracking from a meet while signed in before sharing location."
-          : "The host must start the ride before live location sharing is available."
+        liveMapMode
+          ? "Join or host an active meet before sharing your live location."
+          : isRideLive
+            ? "Open tracking from a meet while signed in before sharing location."
+            : "The host must start the ride before live location sharing is available."
       );
       return;
     }
@@ -606,17 +732,19 @@ export default function RideTrackingPage() {
     setSharingStatus("requesting");
     setPermissionError(null);
     setLocationError(null);
+    setLiveShareError(null);
     sharingRef.current = true;
+    publishedRideIdRef.current = targetRideId;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        void savePosition(position, true);
+        void savePosition(position, true, targetRideId);
         setSharingStatus("sharing");
 
         clearLocationWatch();
         watchIdRef.current = navigator.geolocation.watchPosition(
           (nextPosition) => {
-            void savePosition(nextPosition);
+            void savePosition(nextPosition, false, targetRideId);
           },
           (error) => {
             setLocationError(error.message || "Unable to read your live location.");
@@ -631,7 +759,18 @@ export default function RideTrackingPage() {
       },
       WATCH_OPTIONS
     );
-  }, [canShare, clearLocationWatch, isRideLive, savePosition]);
+  }, [
+    authLoading,
+    clearLocationWatch,
+    isRideLive,
+    liveMapMode,
+    liveShareRide,
+    loadLiveShareRide,
+    savePosition,
+    sharingRideActive,
+    sharingRideId,
+    userId,
+  ]);
 
   const startRide = useCallback(async () => {
     if (!activeRide?.id || !userId || !isHost) return;
@@ -899,19 +1038,20 @@ export default function RideTrackingPage() {
 
   useEffect(() => {
     return () => {
+      const targetRideId = publishedRideIdRef.current || sharingRideId;
       sharingRef.current = false;
       clearLocationWatch();
       clearMapLocationWatch();
 
-      if (activeRide?.id && userId) {
+      if (targetRideId && userId) {
         void supabase
           .from("ride_live_locations")
           .delete()
-          .eq("ride_id", activeRide.id)
+          .eq("ride_id", targetRideId)
           .eq("user_id", userId);
       }
     };
-  }, [activeRide?.id, clearLocationWatch, clearMapLocationWatch, userId]);
+  }, [clearLocationWatch, clearMapLocationWatch, sharingRideId, userId]);
 
   if (loaded && liveMapMode) {
     return (
@@ -921,9 +1061,10 @@ export default function RideTrackingPage() {
           lng={liveMapCenter.lng}
           meetPoint="Live riders"
           route={[]}
-          riders={mappedLiveRiders}
+          riders={visibleMapRiders}
           selfLocation={userLocation}
           selfRider={selfMapRider}
+          showSelfMarker={isSharing}
           compact
           interactive
           hideHint
@@ -942,7 +1083,7 @@ export default function RideTrackingPage() {
               </h1>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-200">
                 <span className="rounded-full border border-white/10 bg-black/55 px-2.5 py-1 backdrop-blur">
-                  {mappedLiveRiders.length} rider{mappedLiveRiders.length === 1 ? "" : "s"} live
+                  {liveMapDisplayedRiderCount} rider{liveMapDisplayedRiderCount === 1 ? "" : "s"} live
                 </span>
                 <span className="rounded-full border border-white/10 bg-black/55 px-2.5 py-1 backdrop-blur">
                   {globalActiveMeetCount} active meet{globalActiveMeetCount === 1 ? "" : "s"}
@@ -960,7 +1101,25 @@ export default function RideTrackingPage() {
         </div>
 
         <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
-          <div className="pointer-events-auto mx-auto flex max-w-xs items-center justify-center rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+          <div className="pointer-events-auto mx-auto grid max-w-xs gap-2 rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+            <button
+              type="button"
+              onClick={() => {
+                if (isSharing) {
+                  void stopSharingLocation();
+                } else {
+                  void startSharingLocation();
+                }
+              }}
+              disabled={sharingStatus === "requesting" || isStopping || authLoading || !session}
+              className={`w-full rounded-xl border px-3 py-3 text-[10px] uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                isSharing
+                  ? "border-[#b4141e]/70 bg-[#b4141e]/85 text-white shadow-[0_0_24px_rgba(180,20,30,0.4)]"
+                  : "border-white/10 bg-white/[0.03] text-zinc-200 hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+              }`}
+            >
+              {isSharing ? "Sharing On" : "Sharing Off"}
+            </button>
             <button
               type="button"
               onClick={() => setRecenterSignal((value) => value + 1)}
@@ -971,9 +1130,9 @@ export default function RideTrackingPage() {
             </button>
           </div>
 
-          {userLocationError && (
+          {(permissionError || locationError || liveShareError || userLocationError) && (
             <div className="pointer-events-auto mx-auto mt-2 max-w-md rounded-xl border border-[#7f111b]/50 bg-[#10080a]/90 px-4 py-3 text-xs leading-5 text-[#f0c9ce] backdrop-blur">
-              {userLocationError}
+              {permissionError || locationError || liveShareError || userLocationError}
             </div>
           )}
         </div>

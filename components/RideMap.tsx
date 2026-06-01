@@ -39,6 +39,7 @@ type RideMapProps = {
   riders?: LiveRideRider[];
   selfLocation?: RoutePoint | null;
   selfRider?: LiveRideRider | null;
+  showSelfMarker?: boolean;
   editable?: boolean;
   height?: number;
   compact?: boolean;
@@ -322,6 +323,7 @@ export default function RideMap({
   riders = [],
   selfLocation = null,
   selfRider = null,
+  showSelfMarker = true,
   editable = false,
   height = 320,
   compact = false,
@@ -408,7 +410,7 @@ export default function RideMap({
           </Marker>
         )}
 
-        {selfMarker && (
+        {showSelfMarker && selfMarker && (
           <Marker
             position={[selfMarker.lat, selfMarker.lng]}
             icon={createRiderIcon(selfMarker.rider_name, selfMarker.rider_photo)}
