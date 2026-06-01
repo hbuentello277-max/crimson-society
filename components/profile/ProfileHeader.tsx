@@ -27,6 +27,7 @@ export default function ProfileHeader({ profile }: Props) {
                   alt={`${displayName} profile picture`}
                   fill
                   sizes="112px"
+                  priority
                   className="object-cover"
                   unoptimized={avatarUrl.includes("supabase")}
                 />

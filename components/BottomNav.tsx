@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
@@ -101,6 +101,7 @@ const NAV = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { session, loading } = useAuth();
   const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
@@ -411,6 +412,9 @@ export default function BottomNav() {
             <li key={n.href}>
               <Link
                 href={n.href}
+                prefetch
+                onFocus={() => router.prefetch(n.href)}
+                onMouseEnter={() => router.prefetch(n.href)}
                 className={`flex flex-col items-center gap-1 px-1.5 py-1 transition ${
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}

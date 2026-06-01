@@ -531,6 +531,7 @@ export default function PublicProfilePage() {
                       alt={`${displayName} profile picture`}
                       fill
                       sizes="112px"
+                      priority
                       className="object-cover"
                       unoptimized={avatarUrl.includes("supabase")}
                     />
@@ -661,7 +662,7 @@ export default function PublicProfilePage() {
 
             {postsState === "loaded" && posts.length > 0 && (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-                {posts.map((post) => {
+                {posts.map((post, index) => {
                   const imageUrl = getBestImageUrl(
                     post.image_thumbnail_url || post.image_display_url,
                     post.image_url,
@@ -689,6 +690,7 @@ export default function PublicProfilePage() {
                           alt={post.caption || "Crimson Society post"}
                           fill
                           sizes="(max-width: 768px) 50vw, 320px"
+                          priority={index < 2}
                           className="object-cover"
                         />
                       ) : (
@@ -720,7 +722,7 @@ export default function PublicProfilePage() {
 
             {garageState === "loaded" && motorcycles.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {motorcycles.map((bike) => (
+                {motorcycles.map((bike, index) => (
                   <article
                     key={bike.id}
                     className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
@@ -732,6 +734,7 @@ export default function PublicProfilePage() {
                           alt={`${bike.name || bike.label || "Motorcycle"} photo`}
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
+                          priority={index === 0}
                           className="object-cover"
                           unoptimized={bike.photo_url.includes("supabase")}
                         />

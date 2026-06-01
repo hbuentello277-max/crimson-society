@@ -185,6 +185,7 @@ function InboxTabs() {
         <div className="mx-auto grid max-w-sm grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           <Link
             href="/inbox"
+            prefetch
             className={`rounded-lg px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
               activeTab === "messages"
                 ? "bg-[#7f111b]/35 text-[#f4dadd]"
@@ -196,6 +197,7 @@ function InboxTabs() {
           </Link>
           <Link
             href="/inbox?tab=notifications"
+            prefetch
             className={`rounded-lg px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
               activeTab === "notifications"
                 ? "bg-[#7f111b]/35 text-[#f4dadd]"
@@ -219,8 +221,20 @@ export default function InboxPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#050405] text-white">
-          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Opening inbox</p>
+        <main className="min-h-screen bg-[#050405] px-5 pt-[calc(env(safe-area-inset-top)+5rem)] text-white">
+          <div className="mx-auto max-w-2xl space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <div className="flex animate-pulse items-center gap-3">
+                  <div className="h-11 w-11 rounded-full bg-white/10" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-36 rounded-full bg-white/10" />
+                    <div className="h-2 w-52 max-w-full rounded-full bg-white/10" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </main>
       }
     >

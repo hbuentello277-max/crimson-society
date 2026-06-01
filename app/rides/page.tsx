@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
@@ -507,13 +507,14 @@ export default function RidesPage() {
   const [showHostModal, setShowHostModal] = useState(false);
   const [editingRide, setEditingRide] = useState<Ride | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [loadingMeets, setLoadingMeets] = useState(true);
   const selectedRideRef = useRef<Ride | null>(null);
 
   const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
 
   const allMeets = realMeets;
 
-  function getRideDateTime(ride: Ride) {
+  const getRideDateTime = useCallback((ride: Ride) => {
   const date = ride.date?.trim();
   const time = ride.time?.trim();
 
@@ -523,25 +524,32 @@ export default function RidesPage() {
   const parsed = new Date(`${date}T${safeTime}`);
 
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+}, []);
 
-  const upcomingMeets = allMeets.filter((ride) => {
-  const dateTime = getRideDateTime(ride);
-  if (!dateTime) return true;
-  return dateTime.getTime() >= Date.now();
-});
+  const { upcomingMeets, completedMeets } = useMemo(() => {
+  const now = Date.now();
+  const upcoming: Ride[] = [];
+  const completed: Ride[] = [];
 
-  const completedMeets = allMeets.filter((ride) => {
-  const dateTime = getRideDateTime(ride);
-  if (!dateTime) return false;
-  return dateTime.getTime() < Date.now();
-});
+  for (const ride of allMeets) {
+    const dateTime = getRideDateTime(ride);
+    if (!dateTime || dateTime.getTime() >= now) {
+      upcoming.push(ride);
+    } else {
+      completed.push(ride);
+    }
+  }
 
-   const visibleMeets =
-  meetTab === "upcoming" ? upcomingMeets : completedMeets;
+  return { upcomingMeets: upcoming, completedMeets: completed };
+}, [allMeets, getRideDateTime]);
+
+   const visibleMeets = useMemo(
+  () => (meetTab === "upcoming" ? upcomingMeets : completedMeets),
+  [completedMeets, meetTab, upcomingMeets],
+);
 
    const featuredRide = visibleMeets[0];
-   const compactRides = visibleMeets.slice(1); 
+   const compactRides = useMemo(() => visibleMeets.slice(1), [visibleMeets]);
 
   useEffect(() => {
     selectedRideRef.current = selectedRide;
@@ -676,11 +684,22 @@ export default function RidesPage() {
     let active = true;
 
     async function loadMeets() {
+      setLoadingMeets(true);
       const { data, error } = await supabase
         .from("rides")
         .select('*')
         .eq("status", "active")
         .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load meets:", error);
+        if (active) {
+          setToast(error.message || "Could not load meets.");
+          window.setTimeout(() => setToast(null), 2200);
+          setLoadingMeets(false);
+        }
+        return;
+      }
 
       const rows = (data || []) as RideRow[];
 
@@ -692,6 +711,7 @@ export default function RidesPage() {
         if (active) {
           setGoing({});
           setRealMeets([]);
+          setLoadingMeets(false);
         }
         return;
       }
@@ -774,6 +794,7 @@ const ridesWithRoutes = await Promise.all(
 
       if (active) {
          setRealMeets(ridesWithRoutes);
+         setLoadingMeets(false);
 }
       
       
@@ -1200,7 +1221,21 @@ let duration: string | null = newRide.duration || null;
   </button>
 </div>       
 
-        {featuredRide && (
+        {loadingMeets && (
+          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
+            <div className="h-[280px] animate-pulse bg-white/10 sm:h-[360px]" />
+            <div className="space-y-4 p-5 sm:p-6">
+              <div className="h-4 w-2/3 rounded-full bg-white/10" />
+              <div className="h-3 w-1/2 rounded-full bg-white/10" />
+              <div className="flex flex-wrap gap-2">
+                <div className="h-10 w-36 rounded-lg bg-white/10" />
+                <div className="h-10 w-24 rounded-lg bg-white/10" />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!loadingMeets && featuredRide && (
           <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
             <div className="relative h-[280px] sm:h-[360px]">
               <Image
@@ -1312,7 +1347,21 @@ let duration: string | null = newRide.duration || null;
           </div>
 
           <div className="mt-4 grid gap-3">
-            {compactRides.map((ride) => (
+            {loadingMeets &&
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
+                  <div className="flex animate-pulse gap-4">
+                    <div className="h-24 w-28 shrink-0 rounded-lg bg-white/10" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 w-2/3 rounded-full bg-white/10" />
+                      <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                      <div className="h-3 w-4/5 rounded-full bg-white/10" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {!loadingMeets && compactRides.map((ride) => (
               <RideCard
                 key={ride.id}
                 ride={ride}

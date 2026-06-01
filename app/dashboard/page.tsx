@@ -683,7 +683,7 @@ setFeedLoading(false);
               </div>
             )}
 
-            {posts.map((p) => {
+            {posts.map((p, postIndex) => {
               const count = likeCounts[p.id] ?? p.likes;
               const isLiked = !!liked[p.id];
               const isBookmarked = !!bookmarked[p.id];
@@ -793,7 +793,8 @@ setFeedLoading(false);
                             alt={`${p.author.name} post image ${idx + 1}`}
                             fill
                             sizes="(max-width: 768px) 100vw, 768px"
-                            quality={92}
+                            priority={postIndex === 0 && idx === 0}
+                            quality={88}
                             className="object-cover"
                           />
                           {photos.length > 1 && (
@@ -824,7 +825,8 @@ setFeedLoading(false);
                           alt={`${p.author.name} reel cover`}
                           fill
                           sizes="(max-width: 768px) 100vw, 768px"
-                          quality={90}
+                          priority={postIndex === 0}
+                          quality={86}
                           className="object-cover"
                         />
                       ) : p.mediaStatus === "queued" || p.mediaStatus === "processing" ? (

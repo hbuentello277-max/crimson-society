@@ -246,6 +246,7 @@ export default function ConnectPage() {
     const motorcycles = ((motorcyclesResponse.data || []) as MotorcycleRow[]) || [];
     const connections = ((connectionsResponse.data || []) as ConnectionRow[]) || [];
     const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
+    const motorcycleMap = new Map(motorcycles.map((bike) => [bike.user_id, bike]));
 
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
@@ -285,7 +286,7 @@ export default function ConnectPage() {
     const nextMembers = profiles
       .filter((profile) => !blockedIds.has(profile.id))
       .map((profile) => {
-        const bike = motorcycles.find((item) => item.user_id === profile.id);
+        const bike = motorcycleMap.get(profile.id);
         const mutualCount = mutualCountFor(profile.id, acceptedConnections, myConnectionIds);
 
         return {
@@ -599,14 +600,22 @@ export default function ConnectPage() {
         )}
 
         <ul className="mt-5 space-y-4">
-          {loading && (
-            <li className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
-              <div className="h-20 animate-pulse rounded-2xl bg-white/10" />
-            </li>
-          )}
+          {loading &&
+            Array.from({ length: 4 }).map((_, index) => (
+              <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
+                <div className="flex animate-pulse items-center gap-5">
+                  <div className="h-20 w-20 shrink-0 rounded-full bg-white/10" />
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="h-6 w-40 rounded-full bg-white/10" />
+                    <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+                    <div className="h-3 w-32 rounded-full bg-white/10" />
+                  </div>
+                </div>
+              </li>
+            ))}
 
           {!loading &&
-            filtered.map((m) => {
+            filtered.map((m, index) => {
               const status = statuses[m.id] ?? "none";
               const profileHref = profileHrefFromHandle(m.handle);
 
@@ -618,6 +627,7 @@ export default function ConnectPage() {
                       alt={m.name}
                       fill
                       sizes="80px"
+                      priority={index < 3}
                       className="object-cover"
                       unoptimized={m.photo.includes("supabase")}
                     />
@@ -656,6 +666,7 @@ export default function ConnectPage() {
                     {profileHref ? (
                       <Link
                         href={profileHref}
+                        prefetch
                         className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
                       >
                         {avatarContent}
@@ -670,7 +681,7 @@ export default function ConnectPage() {
                     )}
 
                     {profileHref ? (
-                      <Link href={profileHref} className="min-w-0 flex-1 text-left">
+                      <Link href={profileHref} prefetch className="min-w-0 flex-1 text-left">
                         {textContent}
                       </Link>
                     ) : (
