@@ -105,6 +105,8 @@ const [garageState, setGarageState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
+const [deleteRequesting, setDeleteRequesting] = useState(false);
+const [deleteRequestStatus, setDeleteRequestStatus] = useState<string | null>(null);
 
 useEffect(() => {
 if (!userId || authLoading) return;
@@ -221,6 +223,32 @@ setDeletingPostId(null);
 setToast("Post deleted.");
 setTimeout(() => setToast(null), 1400);
 
+};
+
+const requestAccountDeletion = async () => {
+if (!userId || deleteRequesting) return;
+
+const confirmed = window.confirm(
+  "Request account deletion? Your profile will be reviewed for safe removal. Shared ride, meet, and message history will not be deleted automatically during this beta flow."
+);
+
+if (!confirmed) return;
+
+setDeleteRequesting(true);
+setDeleteRequestStatus(null);
+
+const { error } = await supabase.from("account_deletion_requests").insert({
+  user_id: userId,
+  details: "Requested from private profile safety controls.",
+});
+
+if (error) {
+  setDeleteRequestStatus(error.code === "23505" ? "A deletion request is already pending." : error.message);
+} else {
+  setDeleteRequestStatus("Account deletion request submitted.");
+}
+
+setDeleteRequesting(false);
 };
 
 const tabs = useMemo(() => {
@@ -456,6 +484,28 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         />
       </section>
     )}
+
+    <section className="mt-6 rounded-[24px] border border-[#b4141e]/25 bg-[#b4141e]/8 p-5">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">Account Safety</p>
+      <h2 className="mt-2 font-serif text-2xl text-white">Delete Account Request</h2>
+      <p className="mt-3 text-sm leading-6 text-zinc-400">
+        Full account deletion is handled as a request during beta so shared meet, ride, and message
+        history can be reviewed safely before anything destructive happens.
+      </p>
+      <button
+        type="button"
+        onClick={() => void requestAccountDeletion()}
+        disabled={deleteRequesting}
+        className="mt-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-5 py-2.5 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
+      >
+        {deleteRequesting ? "Submitting" : "Request Account Deletion"}
+      </button>
+      {deleteRequestStatus && (
+        <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-400">
+          {deleteRequestStatus}
+        </p>
+      )}
+    </section>
   </div>
 
   {toast && (

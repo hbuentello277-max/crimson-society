@@ -126,6 +126,11 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Unsafe riding or meet behavior");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -330,6 +335,32 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
       next.delete(messageId);
       return next;
     });
+  }
+
+  async function submitRideReport() {
+    if (!currentUserId || reporting) return;
+
+    setReporting(true);
+    setSafetyMessage(null);
+
+    const { error } = await supabase.from("user_reports").insert({
+      reporter_id: currentUserId,
+      reported_user_id: ride.hostId ?? null,
+      ride_id: ride.id,
+      reason: reportReason,
+      details: reportDetails.trim() || null,
+    });
+
+    if (error) {
+      setSafetyMessage(error.message || "Could not submit report.");
+    } else {
+      setReportOpen(false);
+      setReportDetails("");
+      setSafetyMessage("Meet report submitted.");
+      window.setTimeout(() => setSafetyMessage(null), 2600);
+    }
+
+    setReporting(false);
   }
 
   const safeRoute =
@@ -752,6 +783,15 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
             Start Ride Tracking
           </Link>
 
+          <button
+            type="button"
+            onClick={() => setReportOpen(true)}
+            disabled={!currentUserId}
+            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#7f111b]/50 hover:text-[#f4dadd] disabled:opacity-50"
+          >
+            Report Meet
+          </button>
+
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -775,6 +815,68 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
             </button>
           </div>
         </div>
+
+        {reportOpen && (
+          <div className="absolute inset-0 z-20 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+            <div className="w-full rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-[#f4dadd]">Report Meet</p>
+                  <h3 className="mt-2 font-serif text-2xl text-white">{ride.name}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(false)}
+                  className="rounded-full border border-white/10 px-3 py-1 text-sm text-zinc-400"
+                >
+                  Close
+                </button>
+              </div>
+
+              <label className="mt-5 block text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                Reason
+                <select
+                  value={reportReason}
+                  onChange={(event) => setReportReason(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm normal-case tracking-normal text-white outline-none"
+                >
+                  <option className="bg-black" value="Unsafe riding or meet behavior">Unsafe riding or meet behavior</option>
+                  <option className="bg-black" value="Harassment or abuse">Harassment or abuse</option>
+                  <option className="bg-black" value="Spam or scam">Spam or scam</option>
+                  <option className="bg-black" value="False or misleading meet">False or misleading meet</option>
+                  <option className="bg-black" value="Other">Other</option>
+                </select>
+              </label>
+
+              <label className="mt-4 block text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                Details
+                <textarea
+                  value={reportDetails}
+                  onChange={(event) => setReportDetails(event.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="Optional context for moderators"
+                  className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm normal-case tracking-normal text-white outline-none placeholder:text-zinc-600"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => void submitRideReport()}
+                disabled={reporting}
+                className="mt-5 w-full rounded-xl border border-[#7f111b]/70 bg-[#7f111b]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:opacity-60"
+              >
+                {reporting ? "Submitting" : "Submit Report"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {safetyMessage && (
+          <div className="absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#7f111b]/50 bg-[#0a0a0b]/95 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] shadow-2xl">
+            {safetyMessage}
+          </div>
+        )}
       </div>
     </div>
   );

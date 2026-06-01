@@ -166,6 +166,13 @@ export default function PublicProfilePage() {
   const [garageState, setGarageState] = useState<LoadState>("idle");
   const [ridesState, setRidesState] = useState<LoadState>("idle");
   const [tab, setTab] = useState<"posts" | "garage" | "rides">("posts");
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlockingMe, setIsBlockingMe] = useState(false);
+  const [safetyBusy, setSafetyBusy] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("Harassment or abuse");
+  const [reportDetails, setReportDetails] = useState("");
+  const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!usernameParam) return;
@@ -291,6 +298,37 @@ export default function PublicProfilePage() {
     void loadRides();
   }, [profile?.id, tab]);
 
+  useEffect(() => {
+    if (!session?.user?.id || !profile?.id || session.user.id === profile.id) {
+      setIsBlocked(false);
+      setIsBlockingMe(false);
+      return;
+    }
+
+    let active = true;
+
+    const loadBlockState = async () => {
+      const { data, error } = await supabase
+        .from("user_blocks")
+        .select("blocker_id, blocked_id")
+        .or(
+          `and(blocker_id.eq.${session.user.id},blocked_id.eq.${profile.id}),and(blocker_id.eq.${profile.id},blocked_id.eq.${session.user.id})`,
+        );
+
+      if (error || !active) return;
+
+      const rows = (data || []) as { blocker_id: string; blocked_id: string }[];
+      setIsBlocked(rows.some((row) => row.blocker_id === session.user.id));
+      setIsBlockingMe(rows.some((row) => row.blocker_id === profile.id));
+    };
+
+    void loadBlockState();
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.id, session?.user?.id]);
+
   const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
   const ridingTags = useMemo(() => {
@@ -359,6 +397,72 @@ export default function PublicProfilePage() {
     profile.bike_type ? profile.bike_type : null,
   ].filter(Boolean) as string[];
 
+  async function toggleBlock() {
+    if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
+
+    setSafetyBusy(true);
+    setSafetyMessage(null);
+
+    if (isBlocked) {
+      const { error } = await supabase
+        .from("user_blocks")
+        .delete()
+        .eq("blocker_id", session.user.id)
+        .eq("blocked_id", profile.id);
+
+      if (error) {
+        setSafetyMessage(error.message || "Could not unblock this rider.");
+      } else {
+        setIsBlocked(false);
+        setSafetyMessage("Rider unblocked.");
+      }
+    } else {
+      const { error } = await supabase.from("user_blocks").upsert(
+        {
+          blocker_id: session.user.id,
+          blocked_id: profile.id,
+          reason: "profile_block",
+        },
+        { onConflict: "blocker_id,blocked_id" },
+      );
+
+      if (error) {
+        setSafetyMessage(error.message || "Could not block this rider.");
+      } else {
+        setIsBlocked(true);
+        setSafetyMessage("Rider blocked. They cannot message you.");
+      }
+    }
+
+    setSafetyBusy(false);
+    window.setTimeout(() => setSafetyMessage(null), 2600);
+  }
+
+  async function submitReport() {
+    if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
+
+    setSafetyBusy(true);
+    setSafetyMessage(null);
+
+    const { error } = await supabase.from("user_reports").insert({
+      reporter_id: session.user.id,
+      reported_user_id: profile.id,
+      reason: reportReason,
+      details: reportDetails.trim() || null,
+    });
+
+    if (error) {
+      setSafetyMessage(error.message || "Could not submit report.");
+    } else {
+      setReportOpen(false);
+      setReportDetails("");
+      setSafetyMessage("Report submitted for review.");
+      window.setTimeout(() => setSafetyMessage(null), 2600);
+    }
+
+    setSafetyBusy(false);
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
@@ -387,6 +491,25 @@ export default function PublicProfilePage() {
             >
               Back to Feed
             </Link>
+            {!isOwnProfile && session?.user?.id && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                >
+                  Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void toggleBlock()}
+                  disabled={safetyBusy}
+                  className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82] disabled:opacity-60"
+                >
+                  {isBlocked ? "Unblock" : "Block"}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -439,6 +562,14 @@ export default function PublicProfilePage() {
 
                   {profile.bio?.trim() && (
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">{profile.bio.trim()}</p>
+                  )}
+
+                  {(isBlocked || isBlockingMe) && (
+                    <div className="mt-4 rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/10 px-4 py-3 text-sm text-[#f1c3c7]">
+                      {isBlocked
+                        ? "You blocked this rider. Direct interaction is disabled."
+                        : "This rider is not available for direct interaction."}
+                    </div>
                   )}
 
                   <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-sm">
@@ -668,6 +799,68 @@ export default function PublicProfilePage() {
           </section>
         )}
       </div>
+
+      {reportOpen && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Report Profile</p>
+                <h2 className="mt-2 font-serif text-3xl text-white">{displayName}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                className="rounded-full border border-white/10 px-3 py-1 text-sm text-zinc-400"
+              >
+                Close
+              </button>
+            </div>
+
+            <label className="mt-5 block text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+              Reason
+              <select
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm normal-case tracking-normal text-white outline-none"
+              >
+                <option className="bg-black" value="Harassment or abuse">Harassment or abuse</option>
+                <option className="bg-black" value="Spam or scam">Spam or scam</option>
+                <option className="bg-black" value="Impersonation">Impersonation</option>
+                <option className="bg-black" value="Unsafe behavior">Unsafe behavior</option>
+                <option className="bg-black" value="Other">Other</option>
+              </select>
+            </label>
+
+            <label className="mt-4 block text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+              Details
+              <textarea
+                value={reportDetails}
+                onChange={(event) => setReportDetails(event.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Optional context for moderators"
+                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm normal-case tracking-normal text-white outline-none placeholder:text-zinc-600"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => void submitReport()}
+              disabled={safetyBusy}
+              className="mt-5 w-full rounded-xl border border-[#b4141e]/60 bg-[#b4141e]/20 py-3 text-[10px] uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:bg-[#b4141e]/30 disabled:opacity-60"
+            >
+              {safetyBusy ? "Submitting" : "Submit Report"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {safetyMessage && (
+        <div className="fixed bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
+          {safetyMessage}
+        </div>
+      )}
     </main>
   );
 }

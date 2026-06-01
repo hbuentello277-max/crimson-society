@@ -380,7 +380,7 @@ export default function MessagesPanel() {
       return;
     }
 
-    const [conversationsResponse, allMembersResponse, messagesResponse] = await Promise.all([
+    const [conversationsResponse, allMembersResponse, messagesResponse, blocksResponse] = await Promise.all([
       supabase
         .from("conversations")
         .select("id, conversation_type, title, avatar_url, created_at, updated_at")
@@ -396,15 +396,20 @@ export default function MessagesPanel() {
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: true })
         .limit(300),
+      supabase
+        .from("user_blocks")
+        .select("blocker_id, blocked_id")
+        .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
     ]);
 
-    if (conversationsResponse.error || allMembersResponse.error || messagesResponse.error) {
+    if (conversationsResponse.error || allMembersResponse.error || messagesResponse.error || blocksResponse.error) {
       setConversations([]);
       setThreads({});
       setErrorMsg(
         conversationsResponse.error?.message ||
           allMembersResponse.error?.message ||
           messagesResponse.error?.message ||
+          blocksResponse.error?.message ||
           "Could not load messages.",
       );
       setLoadingMessages(false);
@@ -414,10 +419,33 @@ export default function MessagesPanel() {
     const conversationRows = (conversationsResponse.data || []) as ConversationRow[];
     const allMembers = (allMembersResponse.data || []) as unknown as MemberRow[];
     const messageRows = (messagesResponse.data || []) as unknown as MessageRow[];
+    const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
+    const blockedIds = new Set(
+      blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
+    );
+    const visibleConversationIds = new Set(
+      conversationRows
+        .filter((conversation) => {
+          if (conversation.conversation_type !== "direct") return true;
+          return !allMembers.some(
+            (member) => member.conversation_id === conversation.id && blockedIds.has(member.user_id),
+          );
+        })
+        .map((conversation) => conversation.id),
+    );
+    const visibleConversationRows = conversationRows.filter((conversation) =>
+      visibleConversationIds.has(conversation.id),
+    );
+    const visibleMembers = allMembers.filter((member) =>
+      visibleConversationIds.has(member.conversation_id),
+    );
+    const visibleMessages = messageRows.filter((message) =>
+      visibleConversationIds.has(message.conversation_id),
+    );
     const profileIds = Array.from(
       new Set([
-        ...allMembers.map((member) => member.user_id),
-        ...messageRows.map((message) => message.sender_id),
+        ...visibleMembers.map((member) => member.user_id),
+        ...visibleMessages.map((message) => message.sender_id),
       ]),
     );
 
@@ -438,14 +466,14 @@ export default function MessagesPanel() {
 
     const profilesById = buildProfileMap((profilesResponse.data || []) as ProfileRow[]);
     const nextConversations = buildConversations(
-      conversationRows,
-      allMembers,
-      messageRows,
+      visibleConversationRows,
+      visibleMembers,
+      visibleMessages,
       userId,
       profilesById,
     ).sort((a, b) => {
-      const aMessage = messageRows.filter((message) => message.conversation_id === a.id).at(-1);
-      const bMessage = messageRows.filter((message) => message.conversation_id === b.id).at(-1);
+      const aMessage = visibleMessages.filter((message) => message.conversation_id === a.id).at(-1);
+      const bMessage = visibleMessages.filter((message) => message.conversation_id === b.id).at(-1);
 
       return (
         new Date(bMessage?.created_at || 0).getTime() -
@@ -453,7 +481,7 @@ export default function MessagesPanel() {
       );
     });
 
-    const nextThreads = messageRows.reduce<Record<string, Message[]>>((acc, row) => {
+    const nextThreads = visibleMessages.reduce<Record<string, Message[]>>((acc, row) => {
       acc[row.conversation_id] = [
         ...(acc[row.conversation_id] || []),
         mapMessage(row, profilesById),
@@ -532,6 +560,22 @@ export default function MessagesPanel() {
   const openDirectConversation = useCallback(
     async (peerId: string) => {
       if (!userId || !isUuid(peerId) || peerId === userId) return;
+
+      const blockCheck = await supabase
+        .from("user_blocks")
+        .select("blocker_id, blocked_id")
+        .or(`and(blocker_id.eq.${userId},blocked_id.eq.${peerId}),and(blocker_id.eq.${peerId},blocked_id.eq.${userId})`)
+        .limit(1);
+
+      if (blockCheck.error) {
+        setErrorMsg(blockCheck.error.message);
+        return;
+      }
+
+      if ((blockCheck.data || []).length > 0) {
+        setErrorMsg("Messaging is unavailable because one of you has blocked the other.");
+        return;
+      }
 
       const directKey = directKeyFor(userId, peerId);
       const existing = await supabase
