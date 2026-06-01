@@ -29,6 +29,13 @@ carbon: "bg-gradient-to-br from-[#1a1a1c] via-[#2a2a2e] to-[#0a0a0c]",
 ember: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
 };
 
+const policyLinks = [
+{ href: "/terms", label: "Terms" },
+{ href: "/privacy", label: "Privacy" },
+{ href: "/community-guidelines", label: "Guidelines" },
+{ href: "/safety", label: "Safety" },
+];
+
 type Motorcycle = {
 id: string;
 label: string | null;
@@ -521,6 +528,22 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           {deleteRequestStatus}
         </p>
       )}
+    </section>
+
+    <section className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Policies & Safety</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {policyLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            prefetch
+            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
     </section>
   </div>
 

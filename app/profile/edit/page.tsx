@@ -42,6 +42,13 @@ type MotorcycleTextField = "label" | "name" | "year" | "finish";
 
 const GARAGE_PHOTO_BUCKET = "garage-bike-photos";
 
+const policyLinks = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/community-guidelines", label: "Guidelines" },
+  { href: "/safety", label: "Safety" },
+];
+
 function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Upload timed out. Please try again.")), ms);
@@ -528,6 +535,22 @@ export default function ProfileEditPage() {
                   ))}
                 </div>
               </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Policies & Safety</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {policyLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                prefetch
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+              >
+                {link.label}
+              </Link>
             ))}
           </div>
         </section>
