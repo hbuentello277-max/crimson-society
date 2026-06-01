@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,10 @@ import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
+
+const RideMap = dynamic(() => import("@/components/RideMap"), {
+  ssr: false,
+});
 
 type PostType = "photo" | "reel" | "status";
 
@@ -153,14 +158,6 @@ const emptyLiveMapPreview: LiveMapPreview = {
   lastUpdatedAt: null,
   riders: [],
 };
-
-const previewMarkerPositions = [
-  { left: "18%", top: "34%" },
-  { left: "78%", top: "28%" },
-  { left: "42%", top: "56%" },
-  { left: "86%", top: "76%" },
-  { left: "26%", top: "80%" },
-];
 
 const statusBgMap: Record<string, string> = {
   noir: "bg-gradient-to-br from-[#050505] via-[#0c0c0d] to-[#050505]",
@@ -319,40 +316,6 @@ function formatLiveUpdated(value: string | null) {
   const diffMinutes = Math.floor(diffSeconds / 60);
   if (diffMinutes < 60) return `Updated ${diffMinutes}m ago`;
   return "Updated over 1h ago";
-}
-
-function getPreviewMarkerStyle(
-  rider: Pick<DashboardLiveRider, "lat" | "lng">,
-  riders: DashboardLiveRider[],
-  index: number,
-) {
-  const fallback = previewMarkerPositions[index % previewMarkerPositions.length];
-  const lats = riders.map((item) => item.lat).filter(Number.isFinite);
-  const lngs = riders.map((item) => item.lng).filter(Number.isFinite);
-
-  if (lats.length < 2 || lngs.length < 2) {
-    return { ...fallback, transform: "translate(-50%, -50%)" };
-  }
-
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const latSpan = maxLat - minLat;
-  const lngSpan = maxLng - minLng;
-
-  if (latSpan < 0.0001 || lngSpan < 0.0001) {
-    return { ...fallback, transform: "translate(-50%, -50%)" };
-  }
-
-  const left = 18 + ((rider.lng - minLng) / lngSpan) * 64;
-  const top = 26 + (1 - (rider.lat - minLat) / latSpan) * 48;
-
-  return {
-    left: `${Math.max(12, Math.min(88, left))}%`,
-    top: `${Math.max(22, Math.min(82, top))}%`,
-    transform: "translate(-50%, -50%)",
-  };
 }
 
 function mapRideToDashboardMeet(
@@ -933,6 +896,23 @@ setFeedLoading(false);
   };
 
   const openMapHref = "/rides/track?live=1";
+  const previewMapRiders = liveMapPreview.riders.slice(0, 5).map((rider) => {
+    const cleanUsername = rider.username?.trim().replace(/^@+/, "") || null;
+
+    return {
+      user_id: rider.userId,
+      rider_name: rider.name,
+      rider_username: cleanUsername,
+      rider_display_name: rider.name,
+      rider_photo: rider.photo,
+      lat: rider.lat,
+      lng: rider.lng,
+      profile_href: cleanUsername ? `/profile/${encodeURIComponent(cleanUsername)}` : null,
+    };
+  });
+  const previewMapCenter = previewMapRiders[0]
+    ? { lat: previewMapRiders[0].lat, lng: previewMapRiders[0].lng }
+    : { lat: 29.4241, lng: -98.4936 };
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
@@ -1035,43 +1015,25 @@ setFeedLoading(false);
             ) : (
               <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
                 <div className="relative h-44 bg-[#07080a]">
-                  <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:28px_28px]" />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(180,20,30,0.32),transparent_22%),radial-gradient(circle_at_78%_58%,rgba(232,122,130,0.18),transparent_18%),linear-gradient(135deg,transparent_12%,rgba(180,20,30,0.22)_13%,transparent_15%,transparent_62%,rgba(255,255,255,0.08)_64%,transparent_66%)]" />
-                  <div className="absolute left-[8%] right-[12%] top-[46%] h-px rotate-[-12deg] bg-[#b4141e]/55 shadow-[0_0_16px_rgba(180,20,30,0.35)]" />
-                  <div className="absolute left-[22%] right-[8%] top-[62%] h-px rotate-[16deg] bg-[#f1c3c7]/18" />
-                  <div className="absolute left-[14%] top-[20%] h-2 w-2 rounded-full bg-[#b4141e]/70 shadow-[0_0_22px_rgba(180,20,30,0.55)]" />
-                  <div className="absolute right-[20%] top-[46%] h-1.5 w-1.5 rounded-full bg-[#f1c3c7]/45" />
-                  <div className="absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
-                    Who&apos;s riding tonight?
-                  </div>
-
                   {liveMapPreview.activeRiderCount > 0 ? (
                     <>
-                      {liveMapPreview.riders.slice(0, 5).map((rider, index) => (
-                        <div
-                          key={rider.userId}
-                          className="absolute h-9 w-9 rounded-full"
-                          style={getPreviewMarkerStyle(rider, liveMapPreview.riders, index)}
-                          title={rider.username ? `@${rider.username}` : rider.name}
-                        >
-                          <span className="absolute inset-0 rounded-full bg-[#b4141e]/45 animate-ping" />
-                          <div className="absolute inset-0 overflow-hidden rounded-full border-2 border-[#f1c3c7] bg-[#160709] shadow-[0_0_0_6px_rgba(180,20,30,0.16),0_12px_28px_rgba(0,0,0,0.55)]">
-                            {rider.photo ? (
-                              <Image
-                                src={rider.photo}
-                                alt={rider.name}
-                                fill
-                                sizes="36px"
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[#f1c3c7]">
-                                {rider.name.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                      <div className="absolute inset-0">
+                        <RideMap
+                          lat={previewMapCenter.lat}
+                          lng={previewMapCenter.lng}
+                          meetPoint="Live riders"
+                          route={[]}
+                          riders={previewMapRiders}
+                          compact
+                          interactive={false}
+                          hideHint
+                          showMeetMarker={false}
+                        />
+                      </div>
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
+                      <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7] backdrop-blur">
+                        Who&apos;s riding tonight?
+                      </div>
 
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
@@ -1094,17 +1056,28 @@ setFeedLoading(false);
                       </div>
                     </>
                   ) : (
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-                        No live riders
-                      </p>
-                      <h2 className="mt-1 font-serif text-3xl leading-none text-white">
-                        The map is quiet.
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">
-                        Live locations appear here when a ride is active and riders choose to share.
-                      </p>
-                    </div>
+                    <>
+                      <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:28px_28px]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(180,20,30,0.32),transparent_22%),radial-gradient(circle_at_78%_58%,rgba(232,122,130,0.18),transparent_18%),linear-gradient(135deg,transparent_12%,rgba(180,20,30,0.22)_13%,transparent_15%,transparent_62%,rgba(255,255,255,0.08)_64%,transparent_66%)]" />
+                      <div className="absolute left-[8%] right-[12%] top-[46%] h-px rotate-[-12deg] bg-[#b4141e]/55 shadow-[0_0_16px_rgba(180,20,30,0.35)]" />
+                      <div className="absolute left-[22%] right-[8%] top-[62%] h-px rotate-[16deg] bg-[#f1c3c7]/18" />
+                      <div className="absolute left-[14%] top-[20%] h-2 w-2 rounded-full bg-[#b4141e]/70 shadow-[0_0_22px_rgba(180,20,30,0.55)]" />
+                      <div className="absolute right-[20%] top-[46%] h-1.5 w-1.5 rounded-full bg-[#f1c3c7]/45" />
+                      <div className="absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                        Who&apos;s riding tonight?
+                      </div>
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+                          No live riders
+                        </p>
+                        <h2 className="mt-1 font-serif text-3xl leading-none text-white">
+                          The map is quiet.
+                        </h2>
+                        <p className="mt-2 text-sm leading-6 text-zinc-400">
+                          Live locations appear here when a ride is active and riders choose to share.
+                        </p>
+                      </div>
+                    </>
                   )}
                 </div>
 

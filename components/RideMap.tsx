@@ -38,6 +38,7 @@ type RideMapProps = {
   route?: RoutePoint[];
   riders?: LiveRideRider[];
   selfLocation?: RoutePoint | null;
+  selfRider?: LiveRideRider | null;
   editable?: boolean;
   height?: number;
   compact?: boolean;
@@ -154,23 +155,28 @@ function createRiderIcon(name?: string | null, photo?: string | null) {
     html: `
       <div style="
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 7px;
-        min-width: 0;
+        width: 112px;
         filter: drop-shadow(0 12px 24px rgba(0,0,0,0.62));
       ">
         <div style="
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 38px;
-          height: 38px;
+          width: 43px;
+          height: 43px;
           border-radius: 9999px;
           background: linear-gradient(135deg, rgba(40,14,17,0.98), rgba(22,8,10,0.98));
-          border: 2.5px solid rgba(180,20,30,0.98);
-          box-shadow: 0 0 0 3px rgba(244,209,214,0.92), 0 0 0 8px rgba(180,20,30,0.18);
+          border: 3px solid rgba(180,20,30,0.98);
+          box-shadow:
+            0 0 0 2px rgba(244,209,214,0.95),
+            0 0 0 8px rgba(180,20,30,0.2),
+            0 0 26px rgba(180,20,30,0.46),
+            0 13px 28px rgba(0,0,0,0.64);
           color: rgba(244,209,214,0.94);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 800;
           letter-spacing: 0.04em;
           font-family: inherit;
@@ -181,14 +187,15 @@ function createRiderIcon(name?: string | null, photo?: string | null) {
             : escapeHtml(initial)
         }</div>
         <div style="
-          max-width: 98px;
+          margin-top: 6px;
+          max-width: 108px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
           border: 1px solid rgba(255,255,255,0.16);
           border-radius: 9999px;
           background: rgba(5,4,5,0.82);
-          padding: 5px 8px;
+          padding: 5px 9px;
           color: rgba(255,245,246,0.96);
           font-size: 11px;
           font-weight: 700;
@@ -199,27 +206,11 @@ function createRiderIcon(name?: string | null, photo?: string | null) {
       </div>
     `,
     className: "",
-    iconSize: [150, 46],
-    iconAnchor: [19, 23],
+    iconSize: [112, 72],
+    iconAnchor: [56, 22],
+    popupAnchor: [0, -24],
   });
 }
-
-const selfIcon = L.divIcon({
-  html: `
-    <div style="
-      position: relative;
-      width: 22px;
-      height: 22px;
-      border-radius: 9999px;
-      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98), rgba(232,122,130,0.95) 24%, rgba(180,20,30,0.98) 58%);
-      border: 2px solid rgba(255,255,255,0.98);
-      box-shadow: 0 0 0 9px rgba(180,20,30,0.16), 0 10px 24px rgba(0,0,0,0.52);
-    "></div>
-  `,
-  className: "",
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
 
 function MobileTouchFix({ interactive }: { interactive: boolean }) {
   const map = useMap();
@@ -330,6 +321,7 @@ export default function RideMap({
   route = [],
   riders = [],
   selfLocation = null,
+  selfRider = null,
   editable = false,
   height = 320,
   compact = false,
@@ -347,6 +339,24 @@ export default function RideMap({
   const displayRoute = route.length > 0 ? route : [{ lat, lng }];
   const destination = displayRoute[displayRoute.length - 1];
   const hasMultiplePoints = displayRoute.length > 1;
+  const selfMarker = selfLocation
+    ? {
+        user_id: selfRider?.user_id || "current-user",
+        rider_name: selfRider?.rider_name || selfRider?.rider_display_name || "You",
+        rider_username: selfRider?.rider_username || null,
+        rider_display_name: selfRider?.rider_display_name || selfRider?.rider_name || "You",
+        rider_photo: selfRider?.rider_photo || null,
+        lat: selfLocation.lat,
+        lng: selfLocation.lng,
+        distance_label: "You are here",
+        last_updated_label: selfRider?.last_updated_label || "Current GPS location",
+        profile_href: selfRider?.profile_href || null,
+      }
+    : null;
+  const displayedRiders =
+    selfMarker && selfMarker.user_id
+      ? riders.filter((rider) => rider.user_id !== selfMarker.user_id)
+      : riders;
 
   return (
     <div
@@ -398,13 +408,77 @@ export default function RideMap({
           </Marker>
         )}
 
-        {selfLocation && (
-          <Marker position={[selfLocation.lat, selfLocation.lng]} icon={selfIcon}>
+        {selfMarker && (
+          <Marker
+            position={[selfMarker.lat, selfMarker.lng]}
+            icon={createRiderIcon(selfMarker.rider_name, selfMarker.rider_photo)}
+          >
             <Popup>
-              <div style={{ minWidth: 120 }}>
-                <strong>You</strong>
-                <br />
-                <span>Current location</span>
+              <div style={{ minWidth: 190, color: "#171112" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 44,
+                      height: 44,
+                      borderRadius: 9999,
+                      overflow: "hidden",
+                      background: "#160709",
+                      border: "2px solid #b4141e",
+                      color: "#f1c3c7",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {selfMarker.rider_photo ? (
+                      <img
+                        src={selfMarker.rider_photo}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      (selfMarker.rider_name?.trim().charAt(0) || "Y").toUpperCase()
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ display: "block", fontSize: 14 }}>
+                      {selfMarker.rider_display_name || selfMarker.rider_name || "You"}
+                    </strong>
+                    <span style={{ display: "block", color: "#6f6265", fontSize: 12 }}>
+                      {selfMarker.rider_username ? `@${selfMarker.rider_username}` : "Current location"}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "grid", gap: 4, fontSize: 12 }}>
+                  <span>You are here</span>
+                  <span style={{ color: "#6f6265" }}>
+                    {selfMarker.last_updated_label || "Current GPS location"}
+                  </span>
+                </div>
+
+                {selfMarker.profile_href && (
+                  <a
+                    href={selfMarker.profile_href}
+                    style={{
+                      display: "block",
+                      marginTop: 12,
+                      borderRadius: 9999,
+                      background: "#b4141e",
+                      padding: "8px 12px",
+                      color: "white",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textAlign: "center",
+                      textDecoration: "none",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    View Profile
+                  </a>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -431,7 +505,7 @@ export default function RideMap({
             </Marker>
           ))}
 
-        {riders.map((rider) => (
+        {displayedRiders.map((rider) => (
           <Marker
             key={rider.user_id}
             position={[rider.lat, rider.lng]}

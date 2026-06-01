@@ -250,6 +250,7 @@ export default function RideTrackingPage() {
   const [sharingStatus, setSharingStatus] = useState<SharingStatus>("idle");
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
+  const [selfProfile, setSelfProfile] = useState<ProfileRow | null>(null);
   const [userLocationError, setUserLocationError] = useState<string | null>(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [globalActiveMeetCount, setGlobalActiveMeetCount] = useState(0);
@@ -314,6 +315,23 @@ export default function RideTrackingPage() {
       })),
     [liveRiders, now, userLocation]
   );
+  const selfMapRider = useMemo(() => {
+    if (!userId || !userLocation) return null;
+
+    const displayName = selfProfile ? riderName(selfProfile) : "You";
+
+    return {
+      user_id: userId,
+      rider_name: displayName,
+      rider_username: selfProfile?.username || null,
+      rider_display_name: displayName,
+      rider_photo: riderPhoto(selfProfile),
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      last_updated_label: "Current GPS location",
+      profile_href: profileHref(selfProfile?.username),
+    };
+  }, [selfProfile, userId, userLocation]);
   const liveMapCenter = userLocation ||
     (mappedLiveRiders[0] ? { lat: mappedLiveRiders[0].lat, lng: mappedLiveRiders[0].lng } : null) || {
       lat: 29.4241,
@@ -338,6 +356,39 @@ export default function RideTrackingPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 10000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setSelfProfile(null);
+      return;
+    }
+
+    let active = true;
+
+    const loadSelfProfile = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error("Failed to load current rider profile:", error);
+        setSelfProfile(null);
+        return;
+      }
+
+      setSelfProfile((data as ProfileRow | null) ?? null);
+    };
+
+    void loadSelfProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const clearLocationWatch = useCallback(() => {
     if (watchIdRef.current !== null && "geolocation" in navigator) {
@@ -380,7 +431,7 @@ export default function RideTrackingPage() {
     mapWatchIdRef.current = navigator.geolocation.watchPosition(
       applyPosition,
       (error) => {
-        setUserLocationError(error.message || "Unable to follow your location.");
+        setUserLocationError(error.message || "Unable to update your location.");
       },
       WATCH_OPTIONS
     );
@@ -872,6 +923,7 @@ export default function RideTrackingPage() {
           route={[]}
           riders={mappedLiveRiders}
           selfLocation={userLocation}
+          selfRider={selfMapRider}
           compact
           interactive
           hideHint
