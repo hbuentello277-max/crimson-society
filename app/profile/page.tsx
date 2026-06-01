@@ -35,6 +35,8 @@ label: string | null;
 name: string | null;
 year: string | null;
 finish: string | null;
+photo_url: string | null;
+photo_path: string | null;
 };
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -42,6 +44,10 @@ type LoadState = "idle" | "loading" | "loaded" | "error";
 function EmptyPanel({ title, body }: { title: string; body: string }) {
 return ( <div className="rounded-[26px] border border-white/10 bg-white/[0.025] p-8 text-center shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]"> <div className="mx-auto flex items-center justify-center gap-4"> <span className="h-px w-10 bg-white/15" /> <span className="text-[#b4141e]">✦</span> <span className="h-px w-10 bg-white/15" /> </div> <p className="mt-5 font-serif text-2xl italic text-zinc-300">{title}</p> <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-zinc-500">{body}</p> </div>
 );
+}
+
+function bikeInitial(bike: Motorcycle) {
+return (bike.name?.trim() || bike.label?.trim() || "G").charAt(0).toUpperCase();
 }
 
 function ProfileSkeleton() {
@@ -172,7 +178,7 @@ setGarageState("loading");
 
 const { data, error: garageError } = await supabase
   .from("motorcycles")
-  .select("id, label, name, year, finish")
+  .select("id, label, name, year, finish, photo_url, photo_path")
   .eq("user_id", userId)
   .order("created_at", { ascending: true });
 
@@ -449,6 +455,23 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                 key={bike.id}
                 className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
               >
+                <div className="relative aspect-[4/3] bg-black">
+                  {bike.photo_url ? (
+                    <Image
+                      src={bike.photo_url}
+                      alt={`${bike.name || bike.label || "Motorcycle"} photo`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover"
+                      unoptimized={bike.photo_url.includes("supabase")}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] font-serif text-5xl text-[#f0c8cb]">
+                      {bikeInitial(bike)}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
+                </div>
                 <div className="border-b border-white/10 px-5 py-5">
                   <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
                     {bike.label || "Garage"}

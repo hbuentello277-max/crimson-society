@@ -52,6 +52,8 @@ type Motorcycle = {
   name: string | null;
   year: string | null;
   finish: string | null;
+  photo_url: string | null;
+  photo_path: string | null;
 };
 
 type ProfileRide = {
@@ -102,6 +104,10 @@ function normalizeSocialUrl(value: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function bikeInitial(bike: Motorcycle) {
+  return (bike.name?.trim() || bike.label?.trim() || "G").charAt(0).toUpperCase();
 }
 
 function formatRideTime(time: string) {
@@ -254,7 +260,7 @@ export default function PublicProfilePage() {
 
       const { data, error } = await supabase
         .from("motorcycles")
-        .select("id, label, name, year, finish")
+        .select("id, label, name, year, finish, photo_url, photo_path")
         .eq("user_id", profile.id)
         .order("created_at", { ascending: true });
 
@@ -719,6 +725,23 @@ export default function PublicProfilePage() {
                     key={bike.id}
                     className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
                   >
+                    <div className="relative aspect-[4/3] bg-black">
+                      {bike.photo_url ? (
+                        <Image
+                          src={bike.photo_url}
+                          alt={`${bike.name || bike.label || "Motorcycle"} photo`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover"
+                          unoptimized={bike.photo_url.includes("supabase")}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] font-serif text-5xl text-[#f0c8cb]">
+                          {bikeInitial(bike)}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
+                    </div>
                     <div className="border-b border-white/10 px-5 py-5">
                       <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
                         {bike.label || "Garage"}

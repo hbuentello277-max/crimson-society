@@ -22,6 +22,9 @@ type Motorcycle = {
   name: string;
   year: string;
   finish: string;
+  photoUrl: string | null;
+  photoPath: string | null;
+  uploadingPhoto: boolean;
   isNew: boolean;
 };
 
@@ -31,7 +34,13 @@ type MotorcycleRow = {
   name: string | null;
   year: string | null;
   finish: string | null;
+  photo_url: string | null;
+  photo_path: string | null;
 };
+
+type MotorcycleTextField = "label" | "name" | "year" | "finish";
+
+const GARAGE_PHOTO_BUCKET = "garage-bike-photos";
 
 function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -53,6 +62,16 @@ function withCacheBust(url: string) {
   return `${url}${separator}t=${Date.now()}`;
 }
 
+function bikeInitial(bike: Pick<Motorcycle, "name" | "label">) {
+  return (bike.name.trim() || bike.label.trim() || "G").charAt(0).toUpperCase();
+}
+
+function storageExtension(file: File) {
+  const fromName = file.name.split(".").pop()?.toLowerCase();
+  if (fromName && /^[a-z0-9]+$/.test(fromName)) return fromName;
+  return file.type.split("/")[1] || "jpg";
+}
+
 export default function ProfileEditPage() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, error, updateIdentity, updateAvatar, refresh } = useProfile();
@@ -71,7 +90,7 @@ export default function ProfileEditPage() {
     const loadGarage = async () => {
       const { data } = await supabase
         .from("motorcycles")
-        .select("id, label, name, year, finish")
+        .select("id, label, name, year, finish, photo_url, photo_path")
         .eq("user_id", userId)
         .order("created_at", { ascending: true });
 
@@ -84,6 +103,9 @@ export default function ProfileEditPage() {
               name: bike.name ?? "",
               year: bike.year ?? "",
               finish: bike.finish ?? "",
+              photoUrl: bike.photo_url,
+              photoPath: bike.photo_path,
+              uploadingPhoto: false,
               isNew: false,
             }))
           : [
@@ -93,6 +115,9 @@ export default function ProfileEditPage() {
                 name: "",
                 year: "",
                 finish: "",
+                photoUrl: null,
+                photoPath: null,
+                uploadingPhoto: false,
                 isNew: true,
               },
             ],
@@ -104,7 +129,7 @@ export default function ProfileEditPage() {
 
   function updateMotorcycle(
     id: string,
-    field: keyof Omit<Motorcycle, "id" | "isNew">,
+    field: MotorcycleTextField,
     value: string,
   ) {
     setMotorcycles((prev) =>
@@ -121,9 +146,26 @@ export default function ProfileEditPage() {
         name: "",
         year: "",
         finish: "",
+        photoUrl: null,
+        photoPath: null,
+        uploadingPhoto: false,
         isNew: true,
       },
     ]);
+  }
+
+  function setMotorcycleUploading(id: string, uploadingPhoto: boolean) {
+    setMotorcycles((prev) =>
+      prev.map((bike) => (bike.id === id ? { ...bike, uploadingPhoto } : bike)),
+    );
+  }
+
+  function updateMotorcyclePhoto(id: string, photoUrl: string | null, photoPath: string | null) {
+    setMotorcycles((prev) =>
+      prev.map((bike) =>
+        bike.id === id ? { ...bike, photoUrl, photoPath, isNew: false, uploadingPhoto: false } : bike,
+      ),
+    );
   }
 
   async function saveProfileDetails(values: ProfileIdentityInput) {
@@ -160,6 +202,8 @@ export default function ProfileEditPage() {
       name: bike.name.trim(),
       year: bike.year.trim(),
       finish: bike.finish.trim(),
+      photo_url: bike.photoUrl,
+      photo_path: bike.photoPath,
     }));
 
     const { error: garageError } = await supabase
@@ -210,6 +254,106 @@ export default function ProfileEditPage() {
     } finally {
       setUploadingImage(false);
       e.target.value = "";
+    }
+  }
+
+  async function handleBikePhotoUpload(e: ChangeEvent<HTMLInputElement>, bikeId: string) {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    const bike = motorcycles.find((item) => item.id === bikeId);
+    if (!bike) return;
+
+    setMotorcycleUploading(bikeId, true);
+    setGarageMsg("Uploading motorcycle photo...");
+
+    try {
+      if (!file.type.startsWith("image/")) throw new Error("Please select an image file.");
+      if (file.size > 8 * 1024 * 1024) throw new Error("Bike photo must be under 8MB.");
+
+      const filePath = `${userId}/${bikeId}/${Date.now()}.${storageExtension(file)}`;
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from(GARAGE_PHOTO_BUCKET).upload(filePath, file, {
+          upsert: false,
+          contentType: file.type || "image/jpeg",
+          cacheControl: "3600",
+        }),
+      );
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from(GARAGE_PHOTO_BUCKET)
+        .getPublicUrl(filePath);
+      const rawImageUrl = publicUrlData.publicUrl;
+      if (!rawImageUrl) throw new Error("Could not generate motorcycle photo URL.");
+
+      const photoUrl = withCacheBust(rawImageUrl);
+      const { error: garageError } = await supabase.from("motorcycles").upsert(
+        {
+          id: bike.id,
+          user_id: userId,
+          label: bike.label.trim() || "Garage",
+          name: bike.name.trim(),
+          year: bike.year.trim(),
+          finish: bike.finish.trim(),
+          photo_url: photoUrl,
+          photo_path: filePath,
+        },
+        { onConflict: "id" },
+      );
+
+      if (garageError) throw garageError;
+
+      if (bike.photoPath && bike.photoPath !== filePath) {
+        await supabase.storage.from(GARAGE_PHOTO_BUCKET).remove([bike.photoPath]);
+      }
+
+      updateMotorcyclePhoto(bikeId, photoUrl, filePath);
+      setGarageMsg("Motorcycle photo saved.");
+    } catch (uploadError) {
+      setMotorcycleUploading(bikeId, false);
+      setGarageMsg(uploadError instanceof Error ? uploadError.message : "Could not upload motorcycle photo.");
+    } finally {
+      e.target.value = "";
+    }
+  }
+
+  async function removeBikePhoto(bikeId: string) {
+    if (!userId) return;
+
+    const bike = motorcycles.find((item) => item.id === bikeId);
+    if (!bike) return;
+
+    setMotorcycleUploading(bikeId, true);
+    setGarageMsg("Removing motorcycle photo...");
+
+    try {
+      if (bike.photoPath) {
+        await supabase.storage.from(GARAGE_PHOTO_BUCKET).remove([bike.photoPath]);
+      }
+
+      const { error: garageError } = await supabase.from("motorcycles").upsert(
+        {
+          id: bike.id,
+          user_id: userId,
+          label: bike.label.trim() || "Garage",
+          name: bike.name.trim(),
+          year: bike.year.trim(),
+          finish: bike.finish.trim(),
+          photo_url: null,
+          photo_path: null,
+        },
+        { onConflict: "id" },
+      );
+
+      if (garageError) throw garageError;
+
+      updateMotorcyclePhoto(bikeId, null, null);
+      setGarageMsg("Motorcycle photo removed.");
+    } catch (removeError) {
+      setMotorcycleUploading(bikeId, false);
+      setGarageMsg(removeError instanceof Error ? removeError.message : "Could not remove motorcycle photo.");
     }
   }
 
@@ -331,16 +475,58 @@ export default function ProfileEditPage() {
           {garageMsg && <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">{garageMsg}</p>}
           <div className="mt-6 space-y-4">
             {motorcycles.map((bike, index) => (
-              <div key={bike.id} className="grid gap-4 rounded-[24px] border border-white/10 bg-black/20 p-5 md:grid-cols-4">
-                {(["label", "name", "year", "finish"] as const).map((field) => (
-                  <input
-                    key={field}
-                    value={bike[field]}
-                    onChange={(e) => updateMotorcycle(bike.id, field, e.target.value)}
-                    placeholder={field === "label" ? `Garage ${index + 1}` : field}
-                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
-                  />
-                ))}
+              <div key={bike.id} className="grid gap-5 rounded-[24px] border border-white/10 bg-black/20 p-5 md:grid-cols-[180px_1fr]">
+                <div>
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] border border-white/10 bg-[#080809]">
+                    {bike.photoUrl ? (
+                      <Image
+                        src={bike.photoUrl}
+                        alt={`${bike.name || bike.label || "Motorcycle"} photo`}
+                        fill
+                        sizes="180px"
+                        className="object-cover"
+                        unoptimized={bike.photoUrl.includes("supabase")}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] font-serif text-4xl text-[#f0c8cb]">
+                        {bikeInitial(bike)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">
+                      {bike.uploadingPhoto ? "Uploading" : bike.photoUrl ? "Change" : "Upload"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => void handleBikePhotoUpload(e, bike.id)}
+                        className="hidden"
+                        disabled={bike.uploadingPhoto}
+                      />
+                    </label>
+                    {bike.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => void removeBikePhoto(bike.id)}
+                        disabled={bike.uploadingPhoto}
+                        className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:border-[#b4141e]/60 hover:text-[#e87a82] disabled:opacity-60"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid content-start gap-4 md:grid-cols-2">
+                  {(["label", "name", "year", "finish"] as const).map((field) => (
+                    <input
+                      key={field}
+                      value={bike[field]}
+                      onChange={(e) => updateMotorcycle(bike.id, field, e.target.value)}
+                      placeholder={field === "label" ? `Garage ${index + 1}` : field}
+                      className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
