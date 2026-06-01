@@ -88,6 +88,11 @@ function formatMessageTime(createdAt: string) {
   });
 }
 
+function profileHref(username?: string | null) {
+  const clean = username?.trim().replace(/^@+/, "");
+  return clean ? `/profile/${clean}` : null;
+}
+
 function normalizeMessages(data: unknown): RideMessage[] {
   if (!Array.isArray(data)) return [];
 
@@ -451,18 +456,33 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
             <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
               Hosted by
             </p>
-            <div className="flex items-center gap-3">
-              <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
-                <Image
-                  src={ride.host.photo}
-                  alt={ride.host.name}
-                  fill
-                  sizes="36px"
-                  className="object-cover"
-                />
+            {profileHref(ride.host.username) ? (
+              <Link href={profileHref(ride.host.username)!} className="flex items-center gap-3">
+                <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                  <Image
+                    src={ride.host.photo}
+                    alt={ride.host.name}
+                    fill
+                    sizes="36px"
+                    className="object-cover"
+                  />
+                </div>
+                <span className="text-sm text-zinc-200 transition hover:text-[#f4dadd]">{ride.host.name}</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                  <Image
+                    src={ride.host.photo}
+                    alt={ride.host.name}
+                    fill
+                    sizes="36px"
+                    className="object-cover"
+                  />
+                </div>
+                <span className="text-sm text-zinc-200">{ride.host.name}</span>
               </div>
-              <span className="text-sm text-zinc-200">{ride.host.name}</span>
-            </div>
+            )}
           </div>
 
           <div className="mt-5">
@@ -471,20 +491,33 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {ride.going.map((rider) => (
-                <div key={rider.name} className="flex items-center gap-2">
-                  <div className="relative h-7 w-7 overflow-hidden rounded-full border border-white/10">
-                    <Image
-                      src={rider.photo}
-                      alt={rider.name}
-                      fill
-                      sizes="28px"
-                      className="object-cover"
-                    />
+              {ride.going.map((rider) => {
+                const href = profileHref(rider.username);
+                const content = (
+                  <>
+                    <div className="relative h-7 w-7 overflow-hidden rounded-full border border-white/10">
+                      <Image
+                        src={rider.photo}
+                        alt={rider.name}
+                        fill
+                        sizes="28px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <span className="text-xs text-zinc-400">{rider.name}</span>
+                  </>
+                );
+
+                return href ? (
+                  <Link key={`${rider.username}-${rider.name}`} href={href} className="flex items-center gap-2 transition hover:text-[#f4dadd]">
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={rider.name} className="flex items-center gap-2">
+                    {content}
                   </div>
-                  <span className="text-xs text-zinc-400">{rider.name}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -518,8 +551,9 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
                     message.sender?.profile_image_url ||
                     message.sender?.avatar_url ||
                     "/icon.png";
-                  const canDelete =
-                    message.user_id === currentUserId || ride.hostId === currentUserId;
+	                  const canDelete =
+	                    message.user_id === currentUserId || ride.hostId === currentUserId;
+                    const senderHref = profileHref(message.sender?.username);
 
                   if (message.kind === "system") {
                     return (
@@ -547,22 +581,35 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
                     );
                   }
 
-                  return (
-                    <div key={message.id} className="flex gap-2">
-                      <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10">
-                        <Image
-                          src={senderPhoto}
-                          alt={senderName}
+	                  return (
+	                    <div key={message.id} className="flex gap-2">
+	                      <Link
+                          href={senderHref || "#"}
+                          aria-disabled={!senderHref}
+                          className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10"
+                          onClick={(event) => {
+                            if (!senderHref) event.preventDefault();
+                          }}
+                        >
+	                        <Image
+	                          src={senderPhoto}
+	                          alt={senderName}
                           fill
                           sizes="28px"
-                          className="object-cover"
-                        />
-                      </div>
+	                          className="object-cover"
+	                        />
+	                      </Link>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="min-w-0 text-xs font-semibold text-zinc-200">
-                            {senderName}{" "}
+	                          <p className="min-w-0 text-xs font-semibold text-zinc-200">
+	                            {senderHref ? (
+                                <Link href={senderHref} className="transition hover:text-[#f4dadd]">
+                                  {senderName}
+                                </Link>
+                              ) : (
+                                senderName
+                              )}{" "}
                             <span className="font-normal text-zinc-600">
                               &middot; {formatMessageTime(message.created_at)}
                             </span>

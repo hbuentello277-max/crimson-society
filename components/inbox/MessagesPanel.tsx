@@ -12,6 +12,7 @@ type Conversation = {
   id: string;
   name: string;
   handle: string;
+  profileHref?: string | null;
   photo: string | null;
   lastMessage: string;
   timeLabel: string;
@@ -74,6 +75,7 @@ type Suggestion = {
   id: string;
   name: string;
   handle: string;
+  profileHref: string | null;
   photo: string | null;
   reason: string;
 };
@@ -103,6 +105,11 @@ function profileHandle(profile: ProfileRow | null | undefined) {
 
 function profilePhoto(profile: ProfileRow | null | undefined) {
   return profile?.profile_image_url || profile?.avatar_url || null;
+}
+
+function publicProfileHref(profile: ProfileRow | null | undefined) {
+  const username = profile?.username?.trim().replace(/^@+/, "");
+  return username ? `/profile/${username}` : null;
 }
 
 function suggestionReason(profile: ProfileRow, me: ProfileRow | null) {
@@ -212,6 +219,7 @@ function buildConversations(
       id: conversation.id,
       name: isGroup ? conversation.title || "Crimson Group" : profileName(otherProfile),
       handle: isGroup ? `${conversationMembers.length} riders` : profileHandle(otherProfile),
+      profileHref: isGroup ? null : publicProfileHref(otherProfile),
       photo: conversation.avatar_url || profilePhoto(otherProfile),
       lastMessage: latest?.body || "No messages yet.",
       timeLabel: timeLabel(latest?.created_at || conversation.updated_at),
@@ -513,6 +521,7 @@ export default function MessagesPanel() {
         id: profile.id,
         name: profileName(profile),
         handle: profileHandle(profile),
+        profileHref: publicProfileHref(profile),
         photo: profilePhoto(profile),
         reason: suggestionReason(profile, me),
       }));
@@ -842,18 +851,33 @@ export default function MessagesPanel() {
                 ‹
               </button>
 
-              <MessagesAvatar photo={active.photo} name={active.name} online={active.online} size={40} />
+              {active.profileHref ? (
+                <Link href={active.profileHref} className="shrink-0">
+                  <MessagesAvatar photo={active.photo} name={active.name} online={active.online} size={40} />
+                </Link>
+              ) : (
+                <MessagesAvatar photo={active.photo} name={active.name} online={active.online} size={40} />
+              )}
 
-              <div className="flex-1">
-                <p className="text-sm text-white">{active.name}</p>
-                <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                  {active.isGroup
-                    ? `${active.members} riders`
-                    : active.online
-                      ? `Online · ${active.handle}`
-                      : active.handle}
-                </p>
-              </div>
+              {active.profileHref ? (
+                <Link href={active.profileHref} className="min-w-0 flex-1">
+                  <p className="text-sm text-white transition hover:text-[#e87a82]">{active.name}</p>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+                    {active.online ? `Online · ${active.handle}` : active.handle}
+                  </p>
+                </Link>
+              ) : (
+                <div className="flex-1">
+                  <p className="text-sm text-white">{active.name}</p>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+                    {active.isGroup
+                      ? `${active.members} riders`
+                      : active.online
+                        ? `Online · ${active.handle}`
+                        : active.handle}
+                  </p>
+                </div>
+              )}
 
               <button
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
@@ -862,12 +886,22 @@ export default function MessagesPanel() {
                 ☎
               </button>
 
-              <button
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                aria-label="Details"
-              >
-                ⋯
-              </button>
+              {active.profileHref ? (
+                <Link
+                  href={active.profileHref}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                  aria-label="View profile"
+                >
+                  ⋯
+                </Link>
+              ) : (
+                <button
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                  aria-label="Details"
+                >
+                  ⋯
+                </button>
+              )}
             </div>
           </header>
 

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl } from "@/lib/media";
@@ -26,6 +26,13 @@ type PublicProfile = {
   riding_style: string | null;
   profile_tags: string[] | null;
   status: string | null;
+  membership_status: string | null;
+  hide_location_from_suggestions: boolean | null;
+  hide_from_suggestions: boolean | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
+  website_url: string | null;
 };
 
 type ProfilePost = {
@@ -47,6 +54,22 @@ type Motorcycle = {
   finish: string | null;
 };
 
+type ProfileRide = {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+  meet_point: string;
+  destination: string;
+  privacy: string | null;
+  distance: string | null;
+  duration: string | null;
+  cover: string | null;
+  tracking_status: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
 const statusBgMap: Record<string, string> = {
@@ -65,12 +88,35 @@ function profileHandle(profile: PublicProfile | null) {
 }
 
 function profileLocation(profile: PublicProfile | null) {
+  if (profile?.hide_location_from_suggestions) return "Region private";
+
   return (
     profile?.location?.trim() ||
     [profile?.city, profile?.state].filter(Boolean).join(", ") ||
     profile?.riding_area?.trim() ||
     "Location pending"
   );
+}
+
+function normalizeSocialUrl(value: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function formatRideTime(time: string) {
+  if (!time || time.toLowerCase().includes("am") || time.toLowerCase().includes("pm")) return time;
+  if (!time.includes(":")) return time;
+
+  const [hours, minutes] = time.split(":");
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function EmptyPanel({ title, body }: { title: string; body: string }) {
@@ -108,17 +154,18 @@ function ProfileSkeleton() {
 export default function PublicProfilePage() {
   const params = useParams<{ username: string }>();
   const usernameParam = Array.isArray(params?.username) ? params.username[0] : params?.username;
-  const router = useRouter();
-  const { session, isAdmin } = useAuth();
+  const { session } = useAuth();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
+  const [rides, setRides] = useState<ProfileRide[]>([]);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
   const [profileState, setProfileState] = useState<LoadState>("idle");
   const [postsState, setPostsState] = useState<LoadState>("idle");
   const [garageState, setGarageState] = useState<LoadState>("idle");
-  const [tab, setTab] = useState<"posts" | "garage">("posts");
+  const [ridesState, setRidesState] = useState<LoadState>("idle");
+  const [tab, setTab] = useState<"posts" | "garage" | "rides">("posts");
 
   useEffect(() => {
     if (!usernameParam) return;
@@ -129,7 +176,7 @@ export default function PublicProfilePage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status",
+          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, hide_location_from_suggestions, hide_from_suggestions, instagram_url, tiktok_url, youtube_url, website_url",
         )
         .eq("username", usernameParam)
         .maybeSingle();
@@ -142,11 +189,6 @@ export default function PublicProfilePage() {
       const nextProfile = data as PublicProfile;
       setProfile(nextProfile);
       setProfileState("loaded");
-
-      if (session?.user?.id && nextProfile.id === session.user.id) {
-        router.replace("/profile");
-        return;
-      }
 
       const { data: membershipData } = await supabase
         .from("subscriptions")
@@ -162,7 +204,7 @@ export default function PublicProfilePage() {
     };
 
     void loadProfile();
-  }, [router, session?.user?.id, usernameParam]);
+  }, [usernameParam]);
 
   useEffect(() => {
     if (!profile?.id || tab !== "posts") return;
@@ -221,7 +263,36 @@ export default function PublicProfilePage() {
     void loadGarage();
   }, [profile?.id, tab]);
 
+  useEffect(() => {
+    if (!profile?.id || tab !== "rides") return;
+
+    const loadRides = async () => {
+      setRidesState("loading");
+
+      const { data, error } = await supabase
+        .from("rides")
+        .select(
+          "id, name, date, time, meet_point, destination, privacy, distance, duration, cover, tracking_status, started_at, ended_at",
+        )
+        .eq("host_id", profile.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(24);
+
+      if (error) {
+        setRidesState("error");
+        return;
+      }
+
+      setRides((data as ProfileRide[]) ?? []);
+      setRidesState("loaded");
+    };
+
+    void loadRides();
+  }, [profile?.id, tab]);
+
   const blackcardAccessActive = hasBlackcardAccess(membership, false);
+  const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
   const ridingTags = useMemo(() => {
     if (!profile) return [] as string[];
     return [profile.riding_style, ...(profile.profile_tags || [])]
@@ -276,6 +347,17 @@ export default function PublicProfilePage() {
 
   const displayName = profileDisplayName(profile);
   const avatarUrl = profile.profile_image_url || profile.avatar_url;
+  const socialLinks = [
+    ["Instagram", normalizeSocialUrl(profile.instagram_url)],
+    ["TikTok", normalizeSocialUrl(profile.tiktok_url)],
+    ["YouTube", normalizeSocialUrl(profile.youtube_url)],
+    ["Website", normalizeSocialUrl(profile.website_url)],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
+  const badges = [
+    blackcardAccessActive ? "Blackcard" : null,
+    profile.membership_status === "active" ? "Member" : null,
+    profile.bike_type ? profile.bike_type : null,
+  ].filter(Boolean) as string[];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -291,6 +373,14 @@ export default function PublicProfilePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
+            {isOwnProfile && (
+              <Link
+                href="/profile"
+                className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/65"
+              >
+                Private Profile
+              </Link>
+            )}
             <Link
               href="/dashboard"
               className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-white"
@@ -327,11 +417,14 @@ export default function PublicProfilePage() {
                     <h2 className="font-serif text-[32px] leading-none text-white sm:text-[42px]">
                       {displayName}
                     </h2>
-                    {blackcardAccessActive && (
-                      <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#e87a82]">
-                        ✦ Blackcard
+                    {badges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#e87a82]"
+                      >
+                        {badge}
                       </span>
-                    )}
+                    ))}
                   </div>
 
                   <p className="mt-2 break-words text-[11px] uppercase tracking-[0.2em] text-zinc-500">
@@ -348,12 +441,41 @@ export default function PublicProfilePage() {
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">{profile.bio.trim()}</p>
                   )}
 
+                  <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-sm">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
+                      <p className="text-sm text-zinc-100">0</p>
+                      <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Followers</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
+                      <p className="text-sm text-zinc-100">0</p>
+                      <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Following</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-zinc-600"
+                    >
+                      Follow Soon
+                    </button>
+                  </div>
+
+                  {socialLinks.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {socialLinks.map(([label, href]) => (
+                        <a
+                          key={label}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                        >
+                          {label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {profile.bike_type && (
-                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-zinc-400">
-                        {profile.bike_type}
-                      </span>
-                    )}
                     {ridingTags.map((tag) => (
                       <span
                         key={tag}
@@ -370,28 +492,20 @@ export default function PublicProfilePage() {
         </section>
 
         <div className="mt-5 flex gap-2 border-b border-white/10 pb-3">
-          <button
-            type="button"
-            onClick={() => setTab("posts")}
-            className={`rounded-full px-4 py-2 text-[10px] uppercase tracking-[0.24em] transition ${
-              tab === "posts"
-                ? "border border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
-                : "border border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200"
-            }`}
-          >
-            Posts
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("garage")}
-            className={`rounded-full px-4 py-2 text-[10px] uppercase tracking-[0.24em] transition ${
-              tab === "garage"
-                ? "border border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
-                : "border border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200"
-            }`}
-          >
-            Garage
-          </button>
+          {(["posts", "garage", "rides"] as const).map((nextTab) => (
+            <button
+              key={nextTab}
+              type="button"
+              onClick={() => setTab(nextTab)}
+              className={`rounded-full px-4 py-2 text-[10px] uppercase tracking-[0.24em] transition ${
+                tab === nextTab
+                  ? "border border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
+                  : "border border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200"
+              }`}
+            >
+              {nextTab === "garage" ? "Garage" : nextTab === "rides" ? "Rides" : "Posts"}
+            </button>
+          ))}
         </div>
 
         {tab === "posts" && (
@@ -483,6 +597,68 @@ export default function PublicProfilePage() {
                       </h3>
                       <p className="mt-3 text-sm text-zinc-400">
                         {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "rides" && (
+          <section className="mt-5">
+            {ridesState === "loading" && (
+              <EmptyPanel title="Loading rides." body="Finding this rider's hosted meets." />
+            )}
+
+            {ridesState === "error" && (
+              <EmptyPanel title="Rides could not load." body="Hosted meet history is unavailable right now." />
+            )}
+
+            {ridesState === "loaded" && rides.length === 0 && (
+              <EmptyPanel title="No rides listed." body="Hosted public meets will appear here." />
+            )}
+
+            {ridesState === "loaded" && rides.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {rides.map((ride) => (
+                  <article
+                    key={ride.id}
+                    className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
+                  >
+                    <div className="relative h-44 bg-black">
+                      {ride.cover ? (
+                        <Image
+                          src={ride.cover}
+                          alt={ride.name}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.26em] text-zinc-600">
+                          Meet
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
+                      <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/50 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-200 backdrop-blur">
+                        {ride.tracking_status === "ended" ? "Completed" : "Upcoming"}
+                      </span>
+                    </div>
+
+                    <div className="p-5">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">
+                        {ride.date} / {formatRideTime(ride.time)}
+                      </p>
+                      <h3 className="mt-2 font-serif text-3xl leading-none text-white">
+                        {ride.name}
+                      </h3>
+                      <p className="mt-3 text-sm leading-6 text-zinc-400">
+                        {ride.meet_point} to {ride.destination}
+                      </p>
+                      <p className="mt-3 text-[10px] uppercase tracking-[0.2em] text-zinc-600">
+                        {ride.distance || "Distance pending"} / {ride.duration || "Duration pending"}
                       </p>
                     </div>
                   </article>

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -21,6 +22,7 @@ export type RideTrackingStatus = "not_started" | "active" | "ended";
 type Rider = {
   name: string;
   photo: string;
+  username?: string | null;
 };
 
 export type Ride = {
@@ -264,6 +266,11 @@ function parseTrackingStatus(value: unknown): RideTrackingStatus {
   return value === "active" || value === "ended" ? value : "not_started";
 }
 
+function profileHref(username?: string | null) {
+  const clean = username?.trim().replace(/^@+/, "");
+  return clean ? `/profile/${clean}` : null;
+}
+
 function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
   const savedRoute = parseRoute(row.route);
   const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
@@ -297,6 +304,7 @@ function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
     host: {
       name: hostName,
       photo: hostPhoto,
+      username: hostProfile?.username ?? null,
     },
     going: row.attendeeRiders || [],
     description: row.description || "Meet details coming soon.",
@@ -410,22 +418,30 @@ function RideCard({
 
           <div className="mt-4 flex items-center justify-between gap-3">
            <div className="flex items-center gap-2">
-  <div className="flex -space-x-2">
-    {ride.going.slice(0, 4).map((rider) => (
-      <div
-        key={rider.name}
-        className="relative h-7 w-7 overflow-hidden rounded-full border border-[#050405] bg-zinc-900"
-      >
-        <Image
-          src={rider.photo}
-          alt={rider.name}
-          fill
-          sizes="28px"
-          className="object-cover"
-        />
-      </div>
-    ))}
-  </div>
+	  <div className="flex -space-x-2">
+	    {ride.going.slice(0, 4).map((rider) => {
+        const href = profileHref(rider.username);
+        const avatar = (
+          <div className="relative h-7 w-7 overflow-hidden rounded-full border border-[#050405] bg-zinc-900">
+            <Image
+              src={rider.photo}
+              alt={rider.name}
+              fill
+              sizes="28px"
+              className="object-cover"
+            />
+          </div>
+        );
+
+        return href ? (
+          <Link key={`${rider.username}-${rider.name}`} href={href} className="transition hover:scale-105">
+            {avatar}
+          </Link>
+        ) : (
+          <div key={rider.name}>{avatar}</div>
+        );
+      })}
+	  </div>
 
   <span className="text-xs text-zinc-500">
     {ride.going.length} going
@@ -736,6 +752,7 @@ for (const attendee of typedAttendanceRows) {
       profile.username?.trim() ||
       "Crimson Member",
     photo: profile.profile_image_url || profile.avatar_url || DEFAULT_HOST_PHOTO,
+    username: profile.username,
   };
 
   const current = attendeesByRide.get(attendee.ride_id) || [];
@@ -1085,6 +1102,7 @@ let duration: string | null = newRide.duration || null;
         profile?.username?.trim() ||
         "Crimson Member";
       hostAttendee.photo = profile?.profile_image_url || profile?.avatar_url || DEFAULT_HOST_PHOTO;
+      hostAttendee.username = profile?.username ?? null;
       savedRow.attendeeRiders = [hostAttendee];
     }
 
