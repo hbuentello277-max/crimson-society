@@ -15,6 +15,7 @@ export default function LandingPage() {
   const { session, loading } = useAuth();
   const [splashFailed, setSplashFailed] = useState(false);
   const [isFading, setIsFading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
