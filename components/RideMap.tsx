@@ -25,6 +25,8 @@ export type LiveRideRider = {
   lat: number;
   lng: number;
   distance_label?: string | null;
+  last_updated_label?: string | null;
+  profile_href?: string | null;
 };
 
 type Waypoint = { id: string; label: string; lat: number; lng: number };
@@ -146,6 +148,7 @@ function escapeHtml(value: string) {
 
 function createRiderIcon(name?: string | null, photo?: string | null) {
   const initial = (name?.trim()?.charAt(0) || "R").toUpperCase();
+  const safeName = escapeHtml(name?.trim() || "Rider");
   const safePhoto = photo?.trim() ? escapeHtml(photo.trim()) : null;
 
   return L.divIcon({
@@ -153,28 +156,52 @@ function createRiderIcon(name?: string | null, photo?: string | null) {
       <div style="
         display: flex;
         align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 9999px;
-        background: linear-gradient(135deg, rgba(40,14,17,0.98), rgba(22,8,10,0.98));
-        border: 2px solid rgba(244,209,214,0.95);
-        box-shadow: 0 0 0 5px rgba(127,17,27,0.2), 0 8px 18px rgba(0,0,0,0.5);
-        color: rgba(244,209,214,0.94);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        font-family: inherit;
-        overflow: hidden;
-      ">${
-        safePhoto
-          ? `<img src="${safePhoto}" alt="" style="width:100%;height:100%;object-fit:cover;" />`
-          : escapeHtml(initial)
-      }</div>
+        gap: 7px;
+        min-width: 0;
+        filter: drop-shadow(0 12px 24px rgba(0,0,0,0.62));
+      ">
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 38px;
+          height: 38px;
+          border-radius: 9999px;
+          background: linear-gradient(135deg, rgba(40,14,17,0.98), rgba(22,8,10,0.98));
+          border: 2.5px solid rgba(180,20,30,0.98);
+          box-shadow: 0 0 0 3px rgba(244,209,214,0.92), 0 0 0 8px rgba(180,20,30,0.18);
+          color: rgba(244,209,214,0.94);
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          font-family: inherit;
+          overflow: hidden;
+        ">${
+          safePhoto
+            ? `<img src="${safePhoto}" alt="" style="width:100%;height:100%;object-fit:cover;" />`
+            : escapeHtml(initial)
+        }</div>
+        <div style="
+          max-width: 98px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          border: 1px solid rgba(255,255,255,0.16);
+          border-radius: 9999px;
+          background: rgba(5,4,5,0.82);
+          padding: 5px 8px;
+          color: rgba(255,245,246,0.96);
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1;
+          letter-spacing: 0.01em;
+          backdrop-filter: blur(10px);
+        ">${safeName}</div>
+      </div>
     `,
     className: "",
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [150, 46],
+    iconAnchor: [19, 23],
   });
 }
 
@@ -409,12 +436,71 @@ export default function RideMap({
             icon={createRiderIcon(rider.rider_name, rider.rider_photo)}
           >
             <Popup>
-              <div style={{ minWidth: 150 }}>
-                <strong>{rider.rider_username ? `@${rider.rider_username}` : "Rider"}</strong>
-                <br />
-                <span>{rider.rider_display_name || rider.rider_name || "Crimson rider"}</span>
-                <br />
-                <span>{rider.distance_label || "Distance unavailable"}</span>
+              <div style={{ minWidth: 190, color: "#171112" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 44,
+                      height: 44,
+                      borderRadius: 9999,
+                      overflow: "hidden",
+                      background: "#160709",
+                      border: "2px solid #b4141e",
+                      color: "#f1c3c7",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {rider.rider_photo ? (
+                      <img
+                        src={rider.rider_photo}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      (rider.rider_name?.trim().charAt(0) || "R").toUpperCase()
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ display: "block", fontSize: 14 }}>
+                      {rider.rider_display_name || rider.rider_name || "Crimson rider"}
+                    </strong>
+                    <span style={{ display: "block", color: "#6f6265", fontSize: 12 }}>
+                      {rider.rider_username ? `@${rider.rider_username}` : "Crimson Society"}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "grid", gap: 4, fontSize: 12 }}>
+                  <span>{rider.distance_label || "Distance unavailable"}</span>
+                  <span style={{ color: "#6f6265" }}>
+                    {rider.last_updated_label || "Live location active"}
+                  </span>
+                </div>
+
+                {rider.profile_href && (
+                  <a
+                    href={rider.profile_href}
+                    style={{
+                      display: "block",
+                      marginTop: 12,
+                      borderRadius: 9999,
+                      background: "#b4141e",
+                      padding: "8px 12px",
+                      color: "white",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textAlign: "center",
+                      textDecoration: "none",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    View Profile
+                  </a>
+                )}
               </div>
             </Popup>
           </Marker>

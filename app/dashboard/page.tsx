@@ -1008,22 +1008,25 @@ setFeedLoading(false);
                       {liveMapPreview.riders.slice(0, 5).map((rider, index) => (
                         <div
                           key={rider.userId}
-                          className={`absolute ${previewMarkerPositions[index]} h-9 w-9 overflow-hidden rounded-full border-2 border-[#f1c3c7] bg-[#160709] shadow-[0_0_0_6px_rgba(180,20,30,0.16),0_12px_28px_rgba(0,0,0,0.55)]`}
+                          className={`absolute ${previewMarkerPositions[index]} h-9 w-9 rounded-full`}
                           title={rider.username ? `@${rider.username}` : rider.name}
                         >
-                          {rider.photo ? (
-                            <Image
-                              src={rider.photo}
-                              alt={rider.name}
-                              fill
-                              sizes="36px"
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[#f1c3c7]">
-                              {rider.name.charAt(0)}
-                            </div>
-                          )}
+                          <span className="absolute inset-0 rounded-full bg-[#b4141e]/45 animate-ping" />
+                          <div className="absolute inset-0 overflow-hidden rounded-full border-2 border-[#f1c3c7] bg-[#160709] shadow-[0_0_0_6px_rgba(180,20,30,0.16),0_12px_28px_rgba(0,0,0,0.55)]">
+                            {rider.photo ? (
+                              <Image
+                                src={rider.photo}
+                                alt={rider.name}
+                                fill
+                                sizes="36px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[#f1c3c7]">
+                                {rider.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
 

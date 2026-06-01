@@ -76,6 +76,9 @@ type LiveRideRider = {
   rider_photo: string | null;
   lat: number;
   lng: number;
+  last_updated_at?: string | null;
+  last_updated_label?: string | null;
+  profile_href?: string | null;
 };
 
 type RideLiveMapRow = {
@@ -188,6 +191,11 @@ function riderPhoto(profile: ProfileRow | null | undefined) {
   return profile?.profile_image_url || profile?.avatar_url || null;
 }
 
+function profileHref(username?: string | null) {
+  const clean = username?.trim().replace(/^@+/, "");
+  return clean ? `/profile/${encodeURIComponent(clean)}` : null;
+}
+
 function distanceInMiles(from: RoutePoint, to: RoutePoint) {
   const earthRadiusMiles = 3958.8;
   const toRadians = (value: number) => (value * Math.PI) / 180;
@@ -296,8 +304,11 @@ export default function RideTrackingPage() {
       liveRiders.map((rider) => ({
         ...rider,
         distance_label: formatDistanceAway(userLocation, rider),
+        last_updated_label: rider.last_updated_at
+          ? `Updated ${formatLastUpdated(rider.last_updated_at, now)}`
+          : rider.last_updated_label || null,
       })),
-    [liveRiders, userLocation]
+    [liveRiders, now, userLocation]
   );
   const liveMapCenter = userLocation ||
     (mappedLiveRiders[0] ? { lat: mappedLiveRiders[0].lat, lng: mappedLiveRiders[0].lng } : null) || {
@@ -679,13 +690,18 @@ export default function RideTrackingPage() {
     setLiveRiders(
       rows.map((row) => {
         const profile = profileMap.get(row.user_id);
+        const displayName = riderName(profile);
 
         return {
           user_id: row.user_id,
-          rider_name: riderName(profile),
+          rider_name: displayName,
+          rider_username: profile?.username || null,
+          rider_display_name: displayName,
           rider_photo: riderPhoto(profile),
           lat: row.lat,
           lng: row.lng,
+          last_updated_at: row.updated_at,
+          profile_href: profileHref(profile?.username),
         };
       })
     );
@@ -757,6 +773,8 @@ export default function RideTrackingPage() {
           rider_photo: riderPhoto(profile),
           lat: row.lat,
           lng: row.lng,
+          last_updated_at: row.updated_at,
+          profile_href: profileHref(profile?.username),
         };
       })
     );
