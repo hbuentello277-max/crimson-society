@@ -63,7 +63,7 @@ export default function LandingPage() {
               fill
               priority
               sizes="100vw"
-              className="scale-[1.12] object-cover object-center"
+              className="object-contain object-center scale-[1.03]"
               onError={() => setSplashFailed(true)}
             />
           )}
@@ -80,18 +80,12 @@ export default function LandingPage() {
         </div>
 
         {showGuestButtons && (
-          <div className="absolute inset-x-0 bottom-0 z-10 mx-auto grid w-full grid-cols-2 gap-3 px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] sm:max-w-[30rem]">
+          <div className="absolute inset-x-0 bottom-10 z-10 flex justify-center px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
             <Link
               href="/login"
               className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/75 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-white shadow-[0_18px_40px_-22px_rgba(180,20,30,0.9)] transition hover:bg-[#b4141e]"
             >
               Join Society
-            </Link>
-            <Link
-              href="/shop"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-white/18 bg-black/35 px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/12"
-            >
-              Explore Drops
             </Link>
           </div>
         )}
