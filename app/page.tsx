@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
-const AUTH_REDIRECT_DELAY = 1750;
+const AUTH_REDIRECT_DELAY = 2700;
 const SPLASH_FADE_MS = 420;
 const AUTHED_DESTINATION = "/dashboard"; // change to "/feed" or "/dashboard" if that is your real app home
 
