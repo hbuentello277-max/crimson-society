@@ -1071,9 +1071,16 @@ setFeedLoading(false);
                     />
                   </div>
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                  <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur">
+                  <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-130px)] truncate rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur">
                     Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
                   </div>
+
+                  <Link
+                    href={openMapHref}
+                    className="absolute right-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur transition hover:bg-[#b4141e]/25"
+                  >
+                    View Map
+                  </Link>
 
                   {liveMapPreview.activeRiderCount > 0 && (
                     <div className="absolute bottom-4 left-4 right-4">
@@ -1096,18 +1103,6 @@ setFeedLoading(false);
                       </div>
                     </div>
                   )}
-                </div>
-
-                <div className="flex items-center justify-between gap-3 p-4">
-                  <p className="min-w-0 truncate text-xs uppercase tracking-[0.16em] text-zinc-500">
-                    {liveMapPreview.ride?.city || "Crimson live tracking"}
-                  </p>
-                  <Link
-                    href={openMapHref}
-                    className="shrink-0 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25"
-                  >
-                    View Map
-                  </Link>
                 </div>
               </article>
             )}
