@@ -252,22 +252,13 @@ setDeleteRequesting(false);
 };
 
 const tabs = useMemo(() => {
-const hasAccess = hasBlackcardAccess(membership, isAdmin);
-return hasAccess
-? [
-{ k: "posts" as const, label: "Posts" },
-{ k: "rides" as const, label: "Rides" },
-{ k: "garage" as const, label: "Garage" },
-{ k: "saved" as const, label: "Saved" },
-{ k: "blackcard" as const, label: "Blackcard" },
-]
-: [
+return [
 { k: "posts" as const, label: "Posts" },
 { k: "rides" as const, label: "Rides" },
 { k: "garage" as const, label: "Garage" },
 { k: "saved" as const, label: "Saved" },
 ];
-}, [isAdmin, membership]);
+}, []);
 
 const blackcardAccessActive = hasBlackcardAccess(membership, isAdmin);
 

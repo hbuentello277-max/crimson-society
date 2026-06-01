@@ -1,6 +1,6 @@
 "use client";
 
-export type ProfileTab = "posts" | "rides" | "garage" | "saved" | "blackcard";
+export type ProfileTab = "posts" | "rides" | "garage" | "saved";
 
 type Tab = { k: ProfileTab; label: string };
 

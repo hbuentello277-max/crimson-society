@@ -50,7 +50,7 @@ export default function LandingPage() {
 
   return (
     <main
-      className={`relative min-h-[100dvh] overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
+      className={`relative h-[100dvh] min-h-[100dvh] w-screen overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
         isFading ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -65,8 +65,8 @@ export default function LandingPage() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
 
-      <section className="relative flex min-h-[100dvh] w-full items-stretch justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#151113] via-[#090909] to-black">
+      <section className="absolute inset-0 h-[100dvh] w-screen overflow-hidden">
+        <div className="absolute inset-0 h-full w-full bg-gradient-to-b from-[#151113] via-[#090909] to-black">
           {!splashFailed && (
             <Image
               src="/splash.png"
@@ -74,7 +74,7 @@ export default function LandingPage() {
               fill
               priority
               sizes="100vw"
-              className="object-cover object-center"
+              className="h-full w-full object-cover object-center"
               onError={() => setSplashFailed(true)}
             />
           )}
