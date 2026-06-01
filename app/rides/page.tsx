@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
@@ -497,8 +497,9 @@ function RideCard({
   );
 }
 
-export default function RidesPage() {
+function RidesPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, loading: authLoading } = useAuth();
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
@@ -509,6 +510,8 @@ export default function RidesPage() {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [loadingMeets, setLoadingMeets] = useState(true);
   const selectedRideRef = useRef<Ride | null>(null);
+  const openedMeetParamRef = useRef<string | null>(null);
+  const meetParam = searchParams.get("meet");
 
   const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
 
@@ -649,6 +652,19 @@ export default function RidesPage() {
     setSelectedRide(ride);
     void markRideRead(ride.id);
   }
+
+  useEffect(() => {
+    if (!meetParam || loadingMeets || openedMeetParamRef.current === meetParam) return;
+
+    const ride = realMeets.find((meet) => meet.id === meetParam);
+    if (!ride) return;
+
+    const dateTime = getRideDateTime(ride);
+    setMeetTab(dateTime && dateTime.getTime() < Date.now() ? "completed" : "upcoming");
+    openedMeetParamRef.current = meetParam;
+    setSelectedRide(ride);
+    void markRideRead(ride.id);
+  }, [getRideDateTime, loadingMeets, markRideRead, meetParam, realMeets]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -1406,5 +1422,21 @@ let duration: string | null = newRide.duration || null;
         </div>
       )}
     </main>
+  );
+}
+
+export default function RidesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+          <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+            <div className="h-80 animate-pulse rounded-lg border border-white/10 bg-white/[0.03]" />
+          </div>
+        </main>
+      }
+    >
+      <RidesPageContent />
+    </Suspense>
   );
 }

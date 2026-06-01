@@ -67,6 +67,63 @@ type RawPost = {
   }[];
 };
 
+type RoutePoint = {
+  lat: number;
+  lng: number;
+};
+
+type RideWaypoint = RoutePoint & {
+  id: string;
+  label: string;
+};
+
+type DashboardRideRow = {
+  id: string;
+  host_id: string;
+  name: string;
+  date: string | null;
+  time: string | null;
+  meet_point: string | null;
+  city: string | null;
+  route: unknown;
+  waypoints: unknown;
+  tracking_status: string | null;
+  started_at: string | null;
+};
+
+type DashboardAttendeeRow = {
+  ride_id: string;
+};
+
+type DashboardLiveLocationRow = {
+  ride_id: string;
+  user_id: string;
+  lat: number;
+  lng: number;
+  updated_at: string;
+};
+
+type DashboardMeet = {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+  meetPoint: string;
+  city: string;
+  riderCount: number;
+  trackingStatus: string | null;
+  route: RoutePoint[];
+  waypoints: RideWaypoint[];
+  hostId: string;
+  startedAt: string | null;
+};
+
+type LiveMapPreview = {
+  ride: DashboardMeet | null;
+  activeRiderCount: number;
+  lastUpdatedAt: string | null;
+};
+
 const statusBgMap: Record<string, string> = {
   noir: "bg-gradient-to-br from-[#050505] via-[#0c0c0d] to-[#050505]",
   crimson: "bg-gradient-to-br from-[#3a0709] via-[#b4141e] to-[#3a0709]",
@@ -159,6 +216,93 @@ function pickSound(postSounds: RawPost["post_sounds"]) {
   return sound ?? null;
 }
 
+function isRoutePoint(value: unknown): value is RoutePoint {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "lat" in value &&
+    "lng" in value &&
+    typeof (value as RoutePoint).lat === "number" &&
+    typeof (value as RoutePoint).lng === "number" &&
+    Number.isFinite((value as RoutePoint).lat) &&
+    Number.isFinite((value as RoutePoint).lng)
+  );
+}
+
+function parseRoute(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const route = value.filter(isRoutePoint);
+  return route.length > 1 ? route : [];
+}
+
+function parseWaypoints(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter((item): item is RideWaypoint => {
+    return (
+      isRoutePoint(item) &&
+      "id" in item &&
+      "label" in item &&
+      typeof item.id === "string" &&
+      typeof item.label === "string"
+    );
+  });
+}
+
+function getRideDateTime(ride: Pick<DashboardMeet, "date" | "time">) {
+  const date = ride.date?.trim();
+  if (!date) return null;
+
+  const time = ride.time?.trim();
+  const safeTime = time && time.includes(":") ? time : "23:59";
+  const parsed = new Date(`${date}T${safeTime}`);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatMeetTime(date: string, time: string) {
+  const parsed = getRideDateTime({ date, time });
+  if (!parsed) return `${date || "Date TBD"} / ${time || "Time TBD"}`;
+
+  return parsed.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatLiveUpdated(value: string | null) {
+  if (!value) return "No live signal";
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (diffSeconds < 60) return "Updated just now";
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `Updated ${diffMinutes}m ago`;
+  return "Updated over 1h ago";
+}
+
+function mapRideToDashboardMeet(
+  ride: DashboardRideRow,
+  attendeeCounts: Map<string, number>,
+): DashboardMeet {
+  return {
+    id: ride.id,
+    name: ride.name || "Untitled Meet",
+    date: ride.date || "",
+    time: ride.time || "",
+    meetPoint: ride.meet_point || "Meet point pending",
+    city: ride.city || ride.meet_point || "Location pending",
+    riderCount: attendeeCounts.get(ride.id) || 0,
+    trackingStatus: ride.tracking_status,
+    route: parseRoute(ride.route),
+    waypoints: parseWaypoints(ride.waypoints),
+    hostId: ride.host_id,
+    startedAt: ride.started_at,
+  };
+}
+
 function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
   const sound = pickSound(post.post_sounds);
@@ -226,6 +370,13 @@ export default function DashboardPage() {
   const [pullY, setPullY] = useState(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardMeets, setDashboardMeets] = useState<DashboardMeet[]>([]);
+  const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>({
+    ride: null,
+    activeRiderCount: 0,
+    lastUpdatedAt: null,
+  });
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pullStartY = useRef<number | null>(null);
@@ -357,6 +508,92 @@ if (livePostIds.length > 0) {
 setFeedLoading(false);
   }, [session]);
 
+  const loadDashboardSections = useCallback(async () => {
+    if (!session) return;
+
+    setDashboardLoading(true);
+
+    const { data: rideData, error: ridesError } = await supabase
+      .from("rides")
+      .select("id, host_id, name, date, time, meet_point, city, route, waypoints, tracking_status, started_at")
+      .eq("status", "active")
+      .order("date", { ascending: true })
+      .order("time", { ascending: true })
+      .limit(8);
+
+    if (ridesError) {
+      console.error("Failed to load dashboard meets:", ridesError);
+      setDashboardMeets([]);
+      setLiveMapPreview({ ride: null, activeRiderCount: 0, lastUpdatedAt: null });
+      setDashboardLoading(false);
+      return;
+    }
+
+    const rows = (rideData || []) as DashboardRideRow[];
+    const rideIds = rows.map((ride) => ride.id);
+
+    if (rideIds.length === 0) {
+      setDashboardMeets([]);
+      setLiveMapPreview({ ride: null, activeRiderCount: 0, lastUpdatedAt: null });
+      setDashboardLoading(false);
+      return;
+    }
+
+    const [{ data: attendeeRows, error: attendeesError }, { data: liveRows, error: liveError }] =
+      await Promise.all([
+        supabase.from("ride_attendees").select("ride_id").in("ride_id", rideIds),
+        supabase
+          .from("ride_live_locations")
+          .select("ride_id, user_id, lat, lng, updated_at")
+          .in("ride_id", rideIds)
+          .eq("sharing_enabled", true)
+          .gte("updated_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+      ]);
+
+    if (attendeesError) {
+      console.error("Failed to load dashboard meet attendees:", attendeesError);
+    }
+
+    if (liveError) {
+      console.error("Failed to load dashboard live riders:", liveError);
+    }
+
+    const attendeeCounts = new Map<string, number>();
+    for (const row of (attendeeRows || []) as DashboardAttendeeRow[]) {
+      attendeeCounts.set(row.ride_id, (attendeeCounts.get(row.ride_id) || 0) + 1);
+    }
+
+    const nextMeets = rows
+      .map((ride) => mapRideToDashboardMeet(ride, attendeeCounts))
+      .filter((ride) => {
+        const dateTime = getRideDateTime(ride);
+        return !dateTime || dateTime.getTime() >= Date.now();
+      })
+      .slice(0, 4);
+
+    const liveLocations = (liveRows || []) as DashboardLiveLocationRow[];
+    const liveCounts = new Map<string, number>();
+    let lastUpdatedAt: string | null = null;
+
+    for (const row of liveLocations) {
+      liveCounts.set(row.ride_id, (liveCounts.get(row.ride_id) || 0) + 1);
+      if (!lastUpdatedAt || row.updated_at > lastUpdatedAt) lastUpdatedAt = row.updated_at;
+    }
+
+    const liveRide =
+      nextMeets.find((ride) => ride.trackingStatus === "active" && (liveCounts.get(ride.id) || 0) > 0) ||
+      nextMeets.find((ride) => ride.trackingStatus === "active") ||
+      null;
+
+    setDashboardMeets(nextMeets);
+    setLiveMapPreview({
+      ride: liveRide,
+      activeRiderCount: liveRide ? liveCounts.get(liveRide.id) || 0 : 0,
+      lastUpdatedAt,
+    });
+    setDashboardLoading(false);
+  }, [session]);
+
   useEffect(() => {
     if (!session) return;
 
@@ -374,6 +611,16 @@ setFeedLoading(false);
       window.removeEventListener("focus", onFocus);
     };
   }, [loadFeed, session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const timer = window.setTimeout(() => {
+      void loadDashboardSections();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadDashboardSections, session]);
 
   const doRefresh = () => {
     if (refreshing) return;
@@ -582,6 +829,33 @@ setFeedLoading(false);
     setTimeout(() => setToast(null), 1400);
   };
 
+  const openMapHref = liveMapPreview.ride?.route.length
+    ? "/rides/track"
+    : liveMapPreview.ride
+      ? `/rides?meet=${liveMapPreview.ride.id}`
+      : "/rides";
+
+  function prepareLiveMap() {
+    const ride = liveMapPreview.ride;
+    if (!ride || ride.route.length === 0) return;
+
+    window.sessionStorage.setItem(
+      "crimson-active-ride",
+      JSON.stringify({
+        id: ride.id,
+        hostId: ride.hostId,
+        route: ride.route,
+        waypoints: ride.waypoints,
+        name: ride.name,
+        meetPoint: ride.meetPoint,
+        destination: "Destination",
+        trackingStatus: ride.trackingStatus,
+        startedAt: ride.startedAt,
+        endedAt: null,
+      }),
+    );
+  }
+
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
   const willRefresh = pullY >= PULL_THRESHOLD;
@@ -670,6 +944,139 @@ setFeedLoading(false);
         }}
       >
         <div className="mx-auto max-w-2xl px-5 pt-6">
+          <section className="space-y-4">
+            {dashboardLoading ? (
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+                <div className="h-40 animate-pulse bg-white/10" />
+                <div className="space-y-3 p-4">
+                  <div className="h-3 w-36 rounded-full bg-white/10" />
+                  <div className="h-6 w-48 rounded-full bg-white/10" />
+                  <div className="h-3 w-56 max-w-full rounded-full bg-white/10" />
+                </div>
+              </div>
+            ) : (
+              <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
+                <div className="relative h-44 bg-[#07080a]">
+                  <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:28px_28px]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(180,20,30,0.32),transparent_22%),radial-gradient(circle_at_78%_58%,rgba(232,122,130,0.18),transparent_18%),linear-gradient(135deg,transparent_12%,rgba(180,20,30,0.22)_13%,transparent_15%,transparent_62%,rgba(255,255,255,0.08)_64%,transparent_66%)]" />
+                  <div className="absolute left-4 top-4 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                    Who&apos;s riding tonight?
+                  </div>
+
+                  {liveMapPreview.activeRiderCount > 0 ? (
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
+                        Live now
+                      </p>
+                      <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
+                        {liveMapPreview.ride?.name || "Active ride"}
+                      </h2>
+                      <p className="mt-2 text-sm text-zinc-300">
+                        {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} sharing / {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+                        No live riders
+                      </p>
+                      <h2 className="mt-1 font-serif text-3xl leading-none text-white">
+                        The map is quiet.
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-zinc-400">
+                        Live locations appear here when a ride is active and riders choose to share.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <p className="min-w-0 truncate text-xs uppercase tracking-[0.16em] text-zinc-500">
+                    {liveMapPreview.ride?.city || "Crimson live tracking"}
+                  </p>
+                  <Link
+                    href={openMapHref}
+                    onClick={prepareLiveMap}
+                    className="shrink-0 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25"
+                  >
+                    View Map
+                  </Link>
+                </div>
+              </article>
+            )}
+
+            <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">
+                    Upcoming Meets
+                  </p>
+                  <h2 className="mt-1 font-serif text-2xl italic text-white">Next on the road</h2>
+                </div>
+                <Link
+                  href="/rides"
+                  className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                >
+                  See All
+                </Link>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {dashboardLoading &&
+                  Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index} className="rounded-xl border border-white/10 bg-black/25 p-3">
+                      <div className="animate-pulse space-y-2">
+                        <div className="h-4 w-40 rounded-full bg-white/10" />
+                        <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+                        <div className="h-3 w-28 rounded-full bg-white/10" />
+                      </div>
+                    </div>
+                  ))}
+
+                {!dashboardLoading && dashboardMeets.length === 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-zinc-400">
+                    No upcoming Meets are on the ledger yet.
+                  </div>
+                )}
+
+                {!dashboardLoading &&
+                  dashboardMeets.slice(0, 3).map((meet) => (
+                    <Link
+                      key={meet.id}
+                      href={`/rides?meet=${meet.id}`}
+                      className="rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate font-serif text-xl leading-tight text-white">
+                            {meet.name}
+                          </h3>
+                          <p className="mt-1 truncate text-[10px] uppercase tracking-[0.12em] text-[#e87a82]">
+                            {formatMeetTime(meet.date, meet.time)}
+                          </p>
+                          <p className="mt-1 truncate text-sm text-zinc-400">
+                            {meet.meetPoint}
+                          </p>
+                        </div>
+                        <div className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.1em] text-zinc-500">
+                          {meet.riderCount} going
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            </section>
+          </section>
+
+          <div className="mt-7 mb-3 flex items-end justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">
+                Latest Posts
+              </p>
+              <h2 className="mt-1 font-serif text-2xl italic text-white">From the society</h2>
+            </div>
+          </div>
+
           <div className="space-y-6">
             {feedLoading && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
