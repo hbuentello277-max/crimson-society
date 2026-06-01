@@ -179,6 +179,10 @@ export default function PublicProfilePage() {
   const [reportReason, setReportReason] = useState("Harassment or abuse");
   const [reportDetails, setReportDetails] = useState("");
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     if (!usernameParam) return;
@@ -335,6 +339,56 @@ export default function PublicProfilePage() {
     };
   }, [profile?.id, session?.user?.id]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    let active = true;
+
+    const loadFollowState = async () => {
+      const currentUserId = session?.user?.id ?? null;
+
+      const [
+        { count: nextFollowerCount, error: followerError },
+        { count: nextFollowingCount, error: followingError },
+        followResponse,
+      ] = await Promise.all([
+        supabase
+          .from("user_follows")
+          .select("follower_id", { count: "exact", head: true })
+          .eq("following_id", profile.id),
+        supabase
+          .from("user_follows")
+          .select("following_id", { count: "exact", head: true })
+          .eq("follower_id", profile.id),
+        currentUserId && currentUserId !== profile.id
+          ? supabase
+              .from("user_follows")
+              .select("following_id")
+              .eq("follower_id", currentUserId)
+              .eq("following_id", profile.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (!active) return;
+
+      if (followerError || followingError || followResponse.error) {
+        console.error("Failed to load follow state:", followerError || followingError || followResponse.error);
+        return;
+      }
+
+      setFollowerCount(nextFollowerCount || 0);
+      setFollowingCount(nextFollowingCount || 0);
+      setIsFollowing(Boolean(followResponse.data));
+    };
+
+    void loadFollowState();
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.id, session?.user?.id]);
+
   const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
   const ridingTags = useMemo(() => {
@@ -469,6 +523,46 @@ export default function PublicProfilePage() {
     setSafetyBusy(false);
   }
 
+  async function toggleFollow() {
+    const currentUserId = session?.user?.id;
+    if (!currentUserId || !profile?.id || isOwnProfile || followBusy || isBlocked || isBlockingMe) return;
+
+    setFollowBusy(true);
+    setSafetyMessage(null);
+
+    if (isFollowing) {
+      const { error } = await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", currentUserId)
+        .eq("following_id", profile.id);
+
+      if (error) {
+        setSafetyMessage(error.message || "Could not unfollow this rider.");
+      } else {
+        setIsFollowing(false);
+        setFollowerCount((count) => Math.max(0, count - 1));
+      }
+
+      setFollowBusy(false);
+      return;
+    }
+
+    const { error } = await supabase.from("user_follows").insert({
+      follower_id: currentUserId,
+      following_id: profile.id,
+    });
+
+    if (error && error.code !== "23505") {
+      setSafetyMessage(error.message || "Could not follow this rider.");
+    } else {
+      setIsFollowing(true);
+      setFollowerCount((count) => count + (error?.code === "23505" ? 0 : 1));
+    }
+
+    setFollowBusy(false);
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
@@ -579,22 +673,35 @@ export default function PublicProfilePage() {
                     </div>
                   )}
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-sm">
+                  <div className={`mt-4 grid gap-2 sm:max-w-sm ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
                     <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
-                      <p className="text-sm text-zinc-100">0</p>
+                      <p className="text-sm text-zinc-100">{followerCount}</p>
                       <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Followers</p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
-                      <p className="text-sm text-zinc-100">0</p>
+                      <p className="text-sm text-zinc-100">{followingCount}</p>
                       <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Following</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-zinc-600"
-                    >
-                      Follow Soon
-                    </button>
+                    {!isOwnProfile && session?.user?.id && (
+                      <button
+                        type="button"
+                        onClick={() => void toggleFollow()}
+                        disabled={followBusy || isBlocked || isBlockingMe}
+                        className={`rounded-2xl border px-3 py-2 text-[9px] uppercase tracking-[0.18em] transition disabled:opacity-60 ${
+                          isFollowing
+                            ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65"
+                            : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                        }`}
+                      >
+                        {followBusy
+                          ? "Saving"
+                          : isBlocked || isBlockingMe
+                            ? "Unavailable"
+                            : isFollowing
+                              ? "Following"
+                              : "Follow"}
+                      </button>
+                    )}
                   </div>
 
                   {socialLinks.length > 0 && (

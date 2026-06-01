@@ -12,7 +12,8 @@ type NotificationType =
   | "meet_joined"
   | "meet_left"
   | "meet_chat_message"
-  | "meet_chat_photo";
+  | "meet_chat_photo"
+  | "profile_followed";
 
 type NotificationRow = {
   id: string;
@@ -90,6 +91,8 @@ function typeLabel(type: NotificationType) {
       return "Meet left";
     case "meet_chat_photo":
       return "Meet photo";
+    case "profile_followed":
+      return "New follower";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -354,7 +357,7 @@ export default function NotificationsPanel() {
             Notifications
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-            Meet joins, leaves, chat messages, and shared photos in one quiet ledger.
+            Follows, meet joins, leaves, chat messages, and shared photos in one quiet ledger.
           </p>
         </header>
 
@@ -369,7 +372,7 @@ export default function NotificationsPanel() {
                 No notifications yet.
               </p>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Meet activity will appear here when riders join, leave, chat, or share photos.
+                Profile and meet activity will appear here when riders follow, join, leave, chat, or share photos.
               </p>
               <Link
                 href="/rides"
