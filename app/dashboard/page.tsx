@@ -1007,12 +1007,9 @@ setFeedLoading(false);
 
             <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">
-                    Upcoming Meets
-                  </p>
-                  <h2 className="mt-1 font-serif text-2xl italic text-white">Next on the road</h2>
-                </div>
+                <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                  Upcoming Meets
+                </p>
                 <Link
                   href="/rides"
                   className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
@@ -1024,11 +1021,14 @@ setFeedLoading(false);
               <div className="mt-4 grid gap-3">
                 {dashboardLoading &&
                   Array.from({ length: 2 }).map((_, index) => (
-                    <div key={index} className="rounded-xl border border-white/10 bg-black/25 p-3">
-                      <div className="animate-pulse space-y-2">
-                        <div className="h-4 w-40 rounded-full bg-white/10" />
-                        <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
-                        <div className="h-3 w-28 rounded-full bg-white/10" />
+                    <div key={index} className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3">
+                      <div className="flex animate-pulse items-center gap-3">
+                        <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
+                          <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+                          <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1044,22 +1044,34 @@ setFeedLoading(false);
                     <Link
                       key={meet.id}
                       href={`/rides?meet=${meet.id}`}
-                      className="rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
+                      className="block overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate font-serif text-xl leading-tight text-white">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
+                          <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
+                          <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
+                            Meet
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <h3 className="truncate font-serif text-lg leading-tight text-white">
                             {meet.name}
                           </h3>
-                          <p className="mt-1 truncate text-[10px] uppercase tracking-[0.12em] text-[#e87a82]">
+                          <p className="mt-1 truncate text-[10px] uppercase tracking-[0.1em] text-[#e87a82]">
                             {formatMeetTime(meet.date, meet.time)}
                           </p>
-                          <p className="mt-1 truncate text-sm text-zinc-400">
+                          <p className="mt-1 truncate text-xs leading-5 text-zinc-400">
                             {meet.meetPoint}
                           </p>
-                        </div>
-                        <div className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.1em] text-zinc-500">
-                          {meet.riderCount} going
+                          <div className="mt-1.5 flex min-w-0 items-center gap-2">
+                            <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.1em] text-zinc-500">
+                              {meet.city}
+                            </p>
+                            <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.08em] text-zinc-500">
+                              {meet.riderCount} going
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Link>
