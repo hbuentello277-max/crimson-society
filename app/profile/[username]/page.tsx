@@ -617,7 +617,7 @@ export default function PublicProfilePage() {
           <div className="relative px-5 py-6 sm:px-7">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_32%)]" />
             <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 items-start gap-4">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 bg-black shadow-[0_0_40px_-10px_rgba(180,20,30,0.8)] sm:h-28 sm:w-28">
                   {avatarUrl ? (
                     <Image
@@ -673,33 +673,35 @@ export default function PublicProfilePage() {
                     </div>
                   )}
 
-                  <div className={`mt-4 grid gap-2 sm:max-w-sm ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
+                  <div className={`mt-4 grid w-full max-w-md gap-2 ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
                       <p className="text-sm text-zinc-100">{followerCount}</p>
-                      <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Followers</p>
+                      <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Followers</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-3 py-2 text-center">
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
                       <p className="text-sm text-zinc-100">{followingCount}</p>
-                      <p className="mt-1 text-[9px] uppercase tracking-[0.18em] text-zinc-600">Following</p>
+                      <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Following</p>
                     </div>
                     {!isOwnProfile && session?.user?.id && (
                       <button
                         type="button"
                         onClick={() => void toggleFollow()}
                         disabled={followBusy || isBlocked || isBlockingMe}
-                        className={`rounded-2xl border px-3 py-2 text-[9px] uppercase tracking-[0.18em] transition disabled:opacity-60 ${
+                        className={`min-w-0 rounded-2xl border px-2 py-2 text-[8px] uppercase tracking-[0.04em] transition disabled:opacity-60 ${
                           isFollowing
                             ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65"
                             : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
                         }`}
                       >
-                        {followBusy
-                          ? "Saving"
-                          : isBlocked || isBlockingMe
-                            ? "Unavailable"
-                            : isFollowing
-                              ? "Following"
-                              : "Follow"}
+                        <span className="block truncate">
+                          {followBusy
+                            ? "Saving"
+                            : isBlocked || isBlockingMe
+                              ? "Unavailable"
+                              : isFollowing
+                                ? "Following"
+                                : "Follow"}
+                        </span>
                       </button>
                     )}
                   </div>

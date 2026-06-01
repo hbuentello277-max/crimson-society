@@ -602,12 +602,12 @@ export default function ConnectPage() {
         <ul className="mt-5 space-y-4">
           {loading &&
             Array.from({ length: 4 }).map((_, index) => (
-              <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
-                <div className="flex animate-pulse items-center gap-5">
-                  <div className="h-20 w-20 shrink-0 rounded-full bg-white/10" />
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="h-6 w-40 rounded-full bg-white/10" />
-                    <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+              <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <div className="flex animate-pulse items-center gap-3">
+                  <div className="h-14 w-14 shrink-0 rounded-full bg-white/10" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-5 w-36 rounded-full bg-white/10" />
+                    <div className="h-3 w-48 max-w-full rounded-full bg-white/10" />
                     <div className="h-3 w-32 rounded-full bg-white/10" />
                   </div>
                 </div>
@@ -626,13 +626,13 @@ export default function ConnectPage() {
                       src={m.photo}
                       alt={m.name}
                       fill
-                      sizes="80px"
+                      sizes="64px"
                       priority={index < 3}
                       className="object-cover"
                       unoptimized={m.photo.includes("supabase")}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-serif text-2xl italic text-white">
+                    <div className="flex h-full w-full items-center justify-center font-serif text-xl italic text-white">
                       {m.name.charAt(0)}
                     </div>
                   )}
@@ -641,16 +641,20 @@ export default function ConnectPage() {
 
               const textContent = (
                 <>
-                  <h3 className="font-serif text-3xl leading-tight">{m.name}</h3>
+                  <h3 className="truncate font-serif text-2xl leading-tight text-white">{m.name}</h3>
 
-                  <p className="mt-1 break-words text-sm uppercase tracking-[0.25em] text-zinc-500">
-                    {m.handle} · {m.city}
+                  <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.08em] text-zinc-500">
+                    {m.handle}
                   </p>
 
-                  <p className="mt-2 text-base text-zinc-400">{m.bike}</p>
+                  <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.06em] text-zinc-500">
+                    {m.city}
+                  </p>
+
+                  <p className="mt-1 truncate text-sm text-zinc-400">{m.bike}</p>
 
                   {m.mutualCount > 0 && (
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#e87a82]">
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#e87a82]">
                       {m.mutualCount} mutual
                     </p>
                   )}
@@ -660,21 +664,21 @@ export default function ConnectPage() {
               return (
                 <li
                   key={m.id}
-                  className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-6 transition hover:border-white/20"
+                  className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 transition hover:border-white/20"
                 >
-                  <div className="flex items-center gap-5">
+                  <div className="flex items-center gap-3">
                     {profileHref ? (
                       <Link
                         href={profileHref}
                         prefetch
-                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
+                        className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_20px_-8px_rgba(180,20,30,0.65)] transition hover:scale-105 sm:h-16 sm:w-16"
                       >
                         {avatarContent}
                       </Link>
                     ) : (
                       <button
                         onClick={() => setOpenId(m.id)}
-                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_24px_-6px_rgba(180,20,30,0.6)] transition hover:scale-105"
+                        className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_20px_-8px_rgba(180,20,30,0.65)] transition hover:scale-105 sm:h-16 sm:w-16"
                       >
                         {avatarContent}
                       </button>
@@ -695,7 +699,7 @@ export default function ConnectPage() {
                         status === "pending" ? handleCancelRequest(m.id) : handleConnect(m.id)
                       }
                       disabled={status === "connected"}
-                      className={`shrink-0 rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.25em] transition ${
+                      className={`shrink-0 rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.1em] transition sm:px-4 ${
                         status === "connected"
                           ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
                           : status === "pending"
@@ -706,7 +710,7 @@ export default function ConnectPage() {
                       }`}
                     >
                       {status === "connected"
-                        ? "✓ Connected"
+                        ? "Connected"
                         : status === "pending"
                           ? "Pending"
                           : status === "requested"
@@ -715,17 +719,17 @@ export default function ConnectPage() {
                     </button>
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     {m.style.map((s) => (
                       <span
                         key={s}
-                        className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-zinc-500"
+                        className="max-w-full truncate rounded-full border border-white/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.08em] text-zinc-500"
                       >
                         {s}
                       </span>
                     ))}
 
-                    <span className="ml-auto text-xs uppercase tracking-[0.3em] text-zinc-600">
+                    <span className="max-w-full truncate rounded-full border border-white/5 px-2.5 py-1 text-[9px] uppercase tracking-[0.08em] text-zinc-600 sm:ml-auto">
                       {m.suggestionReason}
                     </span>
                   </div>

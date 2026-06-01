@@ -50,23 +50,12 @@ export default function LandingPage() {
 
   return (
     <main
-      className={`relative h-[100dvh] min-h-[100dvh] w-screen overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
+      className={`fixed inset-0 h-[100dvh] w-[100vw] overflow-hidden bg-[#050505] text-white transition-opacity duration-500 ${
         isFading ? "opacity-0" : "opacity-100"
       }`}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 44% at 50% -6%, rgba(180,20,30,0.22), transparent 64%)",
-        }}
-      />
-
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/70 to-transparent" />
-
-      <section className="absolute inset-0 h-[100dvh] w-screen overflow-hidden">
-        <div className="absolute inset-0 h-full w-full bg-gradient-to-b from-[#151113] via-[#090909] to-black">
+      <section className="fixed inset-0 h-[100dvh] w-[100vw] overflow-hidden">
+        <div className="absolute inset-0 h-full w-full">
           {!splashFailed && (
             <Image
               src="/splash.png"
@@ -74,7 +63,7 @@ export default function LandingPage() {
               fill
               priority
               sizes="100vw"
-              className="h-full w-full object-cover object-center"
+              className="scale-[1.12] object-cover object-center"
               onError={() => setSplashFailed(true)}
             />
           )}
@@ -87,8 +76,7 @@ export default function LandingPage() {
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/78" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(180,20,30,0.24),transparent_68%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/70" />
         </div>
 
         {showGuestButtons && (
