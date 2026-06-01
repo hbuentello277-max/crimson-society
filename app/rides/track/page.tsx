@@ -71,9 +71,17 @@ type ProfileRow = {
 type LiveRideRider = {
   user_id: string;
   rider_name: string | null;
+  rider_username?: string | null;
+  rider_display_name?: string | null;
   rider_photo: string | null;
   lat: number;
   lng: number;
+};
+
+type RideLiveMapRow = {
+  id: string;
+  status: string | null;
+  tracking_status: string | null;
 };
 
 type RideLifecycleRow = {
@@ -180,6 +188,31 @@ function riderPhoto(profile: ProfileRow | null | undefined) {
   return profile?.profile_image_url || profile?.avatar_url || null;
 }
 
+function distanceInMiles(from: RoutePoint, to: RoutePoint) {
+  const earthRadiusMiles = 3958.8;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const lat1 = toRadians(from.lat);
+  const lat2 = toRadians(to.lat);
+  const deltaLat = toRadians(to.lat - from.lat);
+  const deltaLng = toRadians(to.lng - from.lng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusMiles * c;
+}
+
+function formatDistanceAway(userLocation: RoutePoint | null, rider: Pick<LiveRideRider, "lat" | "lng">) {
+  if (!userLocation) return "Distance unavailable";
+
+  const miles = distanceInMiles(userLocation, { lat: rider.lat, lng: rider.lng });
+  if (miles < 0.1) return "Nearby";
+  if (miles < 10) return `${miles.toFixed(1)} mi away`;
+  return `${Math.round(miles)} mi away`;
+}
+
 function formatLastUpdated(value: string | null, referenceTime = Date.now()) {
   if (!value) return "Not sharing";
 
@@ -200,8 +233,14 @@ export default function RideTrackingPage() {
   const { session, loading: authLoading } = useAuth();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [liveMapMode, setLiveMapMode] = useState(false);
   const [sharingStatus, setSharingStatus] = useState<SharingStatus>("idle");
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
+  const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
+  const [userLocationError, setUserLocationError] = useState<string | null>(null);
+  const [followUserLocation, setFollowUserLocation] = useState(true);
+  const [recenterSignal, setRecenterSignal] = useState(0);
+  const [globalActiveMeetCount, setGlobalActiveMeetCount] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -209,6 +248,7 @@ export default function RideTrackingPage() {
   const [lifecycleBusy, setLifecycleBusy] = useState<"starting" | "ending" | null>(null);
   const [now, setNow] = useState(Date.now());
   const watchIdRef = useRef<number | null>(null);
+  const mapWatchIdRef = useRef<number | null>(null);
   const lastSentAtRef = useRef(0);
   const sharingRef = useRef(false);
 
@@ -251,8 +291,29 @@ export default function RideTrackingPage() {
   const statusLabel = useMemo(() => {
     return rideStateCopy.label;
   }, [rideStateCopy.label]);
+  const mappedLiveRiders = useMemo(
+    () =>
+      liveRiders.map((rider) => ({
+        ...rider,
+        distance_label: formatDistanceAway(userLocation, rider),
+      })),
+    [liveRiders, userLocation]
+  );
+  const liveMapCenter = userLocation ||
+    (mappedLiveRiders[0] ? { lat: mappedLiveRiders[0].lat, lng: mappedLiveRiders[0].lng } : null) || {
+      lat: 29.4241,
+      lng: -98.4936,
+    };
 
   useEffect(() => {
+    const isLiveMap = new URLSearchParams(window.location.search).get("live") === "1";
+    setLiveMapMode(isLiveMap);
+
+    if (isLiveMap) {
+      setLoaded(true);
+      return;
+    }
+
     const stored = window.sessionStorage.getItem("crimson-active-ride");
     setActiveRide(parseStoredRide(stored));
     setLoaded(true);
@@ -269,6 +330,50 @@ export default function RideTrackingPage() {
       watchIdRef.current = null;
     }
   }, []);
+
+  const clearMapLocationWatch = useCallback(() => {
+    if (mapWatchIdRef.current !== null && "geolocation" in navigator) {
+      navigator.geolocation.clearWatch(mapWatchIdRef.current);
+      mapWatchIdRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!liveMapMode) return;
+
+    if (!("geolocation" in navigator)) {
+      setUserLocationError("Location is not available on this device.");
+      return;
+    }
+
+    const applyPosition = (position: GeolocationPosition) => {
+      setUserLocation({
+        lat: Number(position.coords.latitude.toFixed(6)),
+        lng: Number(position.coords.longitude.toFixed(6)),
+      });
+      setUserLocationError(null);
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      applyPosition,
+      (error) => {
+        setUserLocationError(error.message || "Location permission was denied.");
+      },
+      WATCH_OPTIONS
+    );
+
+    mapWatchIdRef.current = navigator.geolocation.watchPosition(
+      applyPosition,
+      (error) => {
+        setUserLocationError(error.message || "Unable to follow your location.");
+      },
+      WATCH_OPTIONS
+    );
+
+    return () => {
+      clearMapLocationWatch();
+    };
+  }, [clearMapLocationWatch, liveMapMode]);
 
   const applyRideLifecycle = useCallback((row: RideLifecycleRow) => {
     setActiveRide((current) => {
@@ -586,7 +691,79 @@ export default function RideTrackingPage() {
     );
   }, [activeRide?.id, isRideLive]);
 
+  const loadGlobalLiveLocations = useCallback(async () => {
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("ride_live_locations")
+      .select("ride_id, user_id, lat, lng, heading, speed, sharing_enabled, updated_at")
+      .eq("sharing_enabled", true)
+      .gte("updated_at", cutoff)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error("Failed to load global live rider locations:", error);
+      return;
+    }
+
+    const rows = (data || []) as LiveLocationRow[];
+    const rideIds = Array.from(new Set(rows.map((row) => row.ride_id)));
+
+    const { data: rideRows, error: rideError } = rideIds.length
+      ? await supabase
+          .from("rides")
+          .select("id, status, tracking_status")
+          .in("id", rideIds)
+      : { data: [], error: null };
+
+    if (rideError) {
+      console.error("Failed to load active live rides:", rideError);
+    }
+
+    const activeRideIds = new Set(
+      ((rideRows || []) as RideLiveMapRow[])
+        .filter((ride) => ride.status === "active" && ride.tracking_status === "active")
+        .map((ride) => ride.id)
+    );
+    const activeRows = rows.filter((row) => activeRideIds.has(row.ride_id));
+    const profileIds = Array.from(new Set(activeRows.map((row) => row.user_id)));
+
+    const { data: profiles, error: profilesError } = profileIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+          .in("id", profileIds)
+      : { data: [], error: null };
+
+    if (profilesError) {
+      console.error("Failed to load global live rider profiles:", profilesError);
+    }
+
+    const profileMap = new Map(
+      ((profiles || []) as ProfileRow[]).map((profile) => [profile.id, profile])
+    );
+
+    setGlobalActiveMeetCount(activeRideIds.size);
+    setLiveRiders(
+      activeRows.map((row) => {
+        const profile = profileMap.get(row.user_id);
+        const displayName = riderName(profile);
+
+        return {
+          user_id: row.user_id,
+          rider_name: displayName,
+          rider_username: profile?.username || null,
+          rider_display_name: displayName,
+          rider_photo: riderPhoto(profile),
+          lat: row.lat,
+          lng: row.lng,
+        };
+      })
+    );
+  }, []);
+
   useEffect(() => {
+    if (liveMapMode) return;
     if (!activeRide?.id) return;
 
     void loadLiveLocations();
@@ -615,12 +792,43 @@ export default function RideTrackingPage() {
       window.clearInterval(refresh);
       void supabase.removeChannel(channel);
     };
-  }, [activeRide?.id, loadLiveLocations]);
+  }, [activeRide?.id, liveMapMode, loadLiveLocations]);
+
+  useEffect(() => {
+    if (!liveMapMode || authLoading || !session) return;
+
+    void loadGlobalLiveLocations();
+
+    const channel = supabase
+      .channel("global-live-rider-map")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ride_live_locations",
+        },
+        () => {
+          void loadGlobalLiveLocations();
+        }
+      )
+      .subscribe();
+
+    const refresh = window.setInterval(() => {
+      void loadGlobalLiveLocations();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(refresh);
+      void supabase.removeChannel(channel);
+    };
+  }, [authLoading, liveMapMode, loadGlobalLiveLocations, session]);
 
   useEffect(() => {
     return () => {
       sharingRef.current = false;
       clearLocationWatch();
+      clearMapLocationWatch();
 
       if (activeRide?.id && userId) {
         void supabase
@@ -630,7 +838,87 @@ export default function RideTrackingPage() {
           .eq("user_id", userId);
       }
     };
-  }, [activeRide?.id, clearLocationWatch, userId]);
+  }, [activeRide?.id, clearLocationWatch, clearMapLocationWatch, userId]);
+
+  if (loaded && liveMapMode) {
+    return (
+      <main className="fixed inset-0 z-50 overflow-hidden bg-[#050405] text-zinc-100">
+        <RideMap
+          lat={liveMapCenter.lat}
+          lng={liveMapCenter.lng}
+          meetPoint="Live riders"
+          route={[]}
+          riders={mappedLiveRiders}
+          selfLocation={userLocation}
+          compact
+          interactive
+          hideHint
+          showMeetMarker={false}
+          recenterSignal={recenterSignal}
+          followSelfLocation={followUserLocation}
+        />
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] bg-gradient-to-b from-black/75 via-black/35 to-transparent px-4 pb-10 pt-[calc(env(safe-area-inset-top)+14px)]">
+          <div className="pointer-events-auto flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">
+                Live Rider Map
+              </p>
+              <h1 className="mt-1 truncate font-serif text-3xl leading-none text-white">
+                Who&apos;s riding tonight?
+              </h1>
+              <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-200">
+                <span className="rounded-full border border-white/10 bg-black/55 px-2.5 py-1 backdrop-blur">
+                  {mappedLiveRiders.length} rider{mappedLiveRiders.length === 1 ? "" : "s"} live
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/55 px-2.5 py-1 backdrop-blur">
+                  {globalActiveMeetCount} active meet{globalActiveMeetCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+
+            <Link
+              href="/dashboard"
+              className="shrink-0 rounded-full border border-white/15 bg-black/55 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+            >
+              Close
+            </Link>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
+          <div className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/70 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setRecenterSignal((value) => value + 1)}
+              disabled={!userLocation}
+              className="flex-1 rounded-xl border border-white/10 px-3 py-3 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:text-zinc-600"
+            >
+              Recenter
+            </button>
+            <button
+              type="button"
+              onClick={() => setFollowUserLocation((value) => !value)}
+              disabled={!userLocation}
+              className={`flex-1 rounded-xl border px-3 py-3 text-[10px] uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:text-zinc-600 ${
+                followUserLocation
+                  ? "border-[#b4141e]/60 bg-[#b4141e]/20 text-[#f1c3c7]"
+                  : "border-white/10 text-zinc-200 hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+              }`}
+            >
+              Follow Me
+            </button>
+          </div>
+
+          {userLocationError && (
+            <div className="pointer-events-auto mx-auto mt-2 max-w-md rounded-xl border border-[#7f111b]/50 bg-[#10080a]/90 px-4 py-3 text-xs leading-5 text-[#f0c9ce] backdrop-blur">
+              {userLocationError}
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
@@ -710,7 +998,7 @@ export default function RideTrackingPage() {
                 lng={origin.lng}
                 meetPoint={activeRide.meetPoint}
                 route={activeRide.route}
-                riders={liveRiders}
+                riders={mappedLiveRiders}
                 height={420}
                 interactive
                 hideHint

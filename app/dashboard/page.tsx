@@ -85,6 +85,7 @@ type DashboardRideRow = {
   time: string | null;
   meet_point: string | null;
   city: string | null;
+  cover: string | null;
   route: unknown;
   waypoints: unknown;
   tracking_status: string | null;
@@ -103,6 +104,15 @@ type DashboardLiveLocationRow = {
   updated_at: string;
 };
 
+type DashboardProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  full_name: string | null;
+  profile_image_url: string | null;
+  avatar_url: string | null;
+};
+
 type DashboardMeet = {
   id: string;
   name: string;
@@ -110,6 +120,7 @@ type DashboardMeet = {
   time: string;
   meetPoint: string;
   city: string;
+  cover: string | null;
   riderCount: number;
   trackingStatus: string | null;
   route: RoutePoint[];
@@ -118,11 +129,36 @@ type DashboardMeet = {
   startedAt: string | null;
 };
 
+type DashboardLiveRider = {
+  userId: string;
+  name: string;
+  username: string | null;
+  photo: string | null;
+};
+
 type LiveMapPreview = {
   ride: DashboardMeet | null;
   activeRiderCount: number;
+  activeMeetCount: number;
   lastUpdatedAt: string | null;
+  riders: DashboardLiveRider[];
 };
+
+const emptyLiveMapPreview: LiveMapPreview = {
+  ride: null,
+  activeRiderCount: 0,
+  activeMeetCount: 0,
+  lastUpdatedAt: null,
+  riders: [],
+};
+
+const previewMarkerPositions = [
+  "left-[18%] top-[34%]",
+  "right-[22%] top-[28%]",
+  "left-[42%] top-[56%]",
+  "right-[14%] bottom-[24%]",
+  "left-[26%] bottom-[20%]",
+];
 
 const statusBgMap: Record<string, string> = {
   noir: "bg-gradient-to-br from-[#050505] via-[#0c0c0d] to-[#050505]",
@@ -294,6 +330,7 @@ function mapRideToDashboardMeet(
     time: ride.time || "",
     meetPoint: ride.meet_point || "Meet point pending",
     city: ride.city || ride.meet_point || "Location pending",
+    cover: ride.cover || null,
     riderCount: attendeeCounts.get(ride.id) || 0,
     trackingStatus: ride.tracking_status,
     route: parseRoute(ride.route),
@@ -372,11 +409,7 @@ export default function DashboardPage() {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardMeets, setDashboardMeets] = useState<DashboardMeet[]>([]);
-  const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>({
-    ride: null,
-    activeRiderCount: 0,
-    lastUpdatedAt: null,
-  });
+  const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>(emptyLiveMapPreview);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pullStartY = useRef<number | null>(null);
@@ -515,7 +548,7 @@ setFeedLoading(false);
 
     const { data: rideData, error: ridesError } = await supabase
       .from("rides")
-      .select("id, host_id, name, date, time, meet_point, city, route, waypoints, tracking_status, started_at")
+      .select("id, host_id, name, date, time, meet_point, city, cover, route, waypoints, tracking_status, started_at")
       .eq("status", "active")
       .order("date", { ascending: true })
       .order("time", { ascending: true })
@@ -524,7 +557,7 @@ setFeedLoading(false);
     if (ridesError) {
       console.error("Failed to load dashboard meets:", ridesError);
       setDashboardMeets([]);
-      setLiveMapPreview({ ride: null, activeRiderCount: 0, lastUpdatedAt: null });
+      setLiveMapPreview(emptyLiveMapPreview);
       setDashboardLoading(false);
       return;
     }
@@ -534,7 +567,7 @@ setFeedLoading(false);
 
     if (rideIds.length === 0) {
       setDashboardMeets([]);
-      setLiveMapPreview({ ride: null, activeRiderCount: 0, lastUpdatedAt: null });
+      setLiveMapPreview(emptyLiveMapPreview);
       setDashboardLoading(false);
       return;
     }
@@ -573,12 +606,42 @@ setFeedLoading(false);
 
     const liveLocations = (liveRows || []) as DashboardLiveLocationRow[];
     const liveCounts = new Map<string, number>();
+    const liveUserIds = Array.from(new Set(liveLocations.map((row) => row.user_id)));
     let lastUpdatedAt: string | null = null;
 
     for (const row of liveLocations) {
       liveCounts.set(row.ride_id, (liveCounts.get(row.ride_id) || 0) + 1);
       if (!lastUpdatedAt || row.updated_at > lastUpdatedAt) lastUpdatedAt = row.updated_at;
     }
+
+    const { data: liveProfiles, error: liveProfilesError } = liveUserIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+          .in("id", liveUserIds)
+      : { data: [], error: null };
+
+    if (liveProfilesError) {
+      console.error("Failed to load dashboard live rider profiles:", liveProfilesError);
+    }
+
+    const liveProfileMap = new Map(
+      ((liveProfiles || []) as DashboardProfileRow[]).map((profile) => [profile.id, profile])
+    );
+
+    const previewRiders = liveLocations.slice(0, 5).map((location) => {
+      const profile = liveProfileMap.get(location.user_id);
+      return {
+        userId: location.user_id,
+        name:
+          profile?.display_name?.trim() ||
+          profile?.full_name?.trim() ||
+          profile?.username?.trim() ||
+          "Rider",
+        username: profile?.username || null,
+        photo: profile?.profile_image_url || profile?.avatar_url || null,
+      };
+    });
 
     const liveRide =
       nextMeets.find((ride) => ride.trackingStatus === "active" && (liveCounts.get(ride.id) || 0) > 0) ||
@@ -588,8 +651,10 @@ setFeedLoading(false);
     setDashboardMeets(nextMeets);
     setLiveMapPreview({
       ride: liveRide,
-      activeRiderCount: liveRide ? liveCounts.get(liveRide.id) || 0 : 0,
+      activeRiderCount: liveLocations.length,
+      activeMeetCount: Array.from(liveCounts.values()).filter((count) => count > 0).length,
       lastUpdatedAt,
+      riders: previewRiders,
     });
     setDashboardLoading(false);
   }, [session]);
@@ -829,32 +894,7 @@ setFeedLoading(false);
     setTimeout(() => setToast(null), 1400);
   };
 
-  const openMapHref = liveMapPreview.ride?.route.length
-    ? "/rides/track"
-    : liveMapPreview.ride
-      ? `/rides?meet=${liveMapPreview.ride.id}`
-      : "/rides";
-
-  function prepareLiveMap() {
-    const ride = liveMapPreview.ride;
-    if (!ride || ride.route.length === 0) return;
-
-    window.sessionStorage.setItem(
-      "crimson-active-ride",
-      JSON.stringify({
-        id: ride.id,
-        hostId: ride.hostId,
-        route: ride.route,
-        waypoints: ride.waypoints,
-        name: ride.name,
-        meetPoint: ride.meetPoint,
-        destination: "Destination",
-        trackingStatus: ride.trackingStatus,
-        startedAt: ride.startedAt,
-        endedAt: null,
-      }),
-    );
-  }
+  const openMapHref = liveMapPreview.activeRiderCount > 0 ? "/rides/track?live=1" : "/rides";
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
@@ -964,17 +1004,49 @@ setFeedLoading(false);
                   </div>
 
                   {liveMapPreview.activeRiderCount > 0 ? (
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
-                        Live now
-                      </p>
-                      <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
-                        {liveMapPreview.ride?.name || "Active ride"}
-                      </h2>
-                      <p className="mt-2 text-sm text-zinc-300">
-                        {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} sharing / {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
-                      </p>
-                    </div>
+                    <>
+                      {liveMapPreview.riders.slice(0, 5).map((rider, index) => (
+                        <div
+                          key={rider.userId}
+                          className={`absolute ${previewMarkerPositions[index]} h-9 w-9 overflow-hidden rounded-full border-2 border-[#f1c3c7] bg-[#160709] shadow-[0_0_0_6px_rgba(180,20,30,0.16),0_12px_28px_rgba(0,0,0,0.55)]`}
+                          title={rider.username ? `@${rider.username}` : rider.name}
+                        >
+                          {rider.photo ? (
+                            <Image
+                              src={rider.photo}
+                              alt={rider.name}
+                              fill
+                              sizes="36px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[#f1c3c7]">
+                              {rider.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
+                          Live now
+                        </p>
+                        <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
+                          {liveMapPreview.ride?.name || "Active rides"}
+                        </h2>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-300">
+                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                            {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} live
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                            {liveMapPreview.activeMeetCount} active meet{liveMapPreview.activeMeetCount === 1 ? "" : "s"}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
+                            {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="absolute bottom-4 left-4 right-4">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
@@ -996,7 +1068,6 @@ setFeedLoading(false);
                   </p>
                   <Link
                     href={openMapHref}
-                    onClick={prepareLiveMap}
                     className="shrink-0 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25"
                   >
                     View Map
@@ -1048,10 +1119,22 @@ setFeedLoading(false);
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
-                          <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
-                          <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
-                            Meet
-                          </div>
+                          {meet.cover ? (
+                            <Image
+                              src={meet.cover}
+                              alt={meet.name}
+                              fill
+                              sizes="64px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <>
+                              <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
+                              <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
+                                Meet
+                              </div>
+                            </>
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1 overflow-hidden">

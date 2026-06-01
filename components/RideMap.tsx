@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
+  Popup,
   Polyline,
   Tooltip,
   TileLayer,
@@ -18,9 +19,12 @@ type RoutePoint = { lat: number; lng: number };
 export type LiveRideRider = {
   user_id: string;
   rider_name: string | null;
+  rider_username?: string | null;
+  rider_display_name?: string | null;
   rider_photo: string | null;
   lat: number;
   lng: number;
+  distance_label?: string | null;
 };
 
 type Waypoint = { id: string; label: string; lat: number; lng: number };
@@ -31,13 +35,17 @@ type RideMapProps = {
   meetPoint: string;
   route?: RoutePoint[];
   riders?: LiveRideRider[];
+  selfLocation?: RoutePoint | null;
   editable?: boolean;
   height?: number;
   compact?: boolean;
   hideHint?: boolean;
   interactive?: boolean;
+  showMeetMarker?: boolean;
   showDestination?: boolean;
   showWaypoints?: boolean;
+  recenterSignal?: number;
+  followSelfLocation?: boolean;
   waypoints?: Waypoint[];
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
@@ -127,32 +135,65 @@ function createWaypointIcon(label: string) {
   });
 }
 
-function createRiderIcon(name?: string | null) {
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function createRiderIcon(name?: string | null, photo?: string | null) {
   const initial = (name?.trim()?.charAt(0) || "R").toUpperCase();
+  const safePhoto = photo?.trim() ? escapeHtml(photo.trim()) : null;
+
   return L.divIcon({
     html: `
       <div style="
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 20px;
-        height: 20px;
+        width: 28px;
+        height: 28px;
         border-radius: 9999px;
         background: linear-gradient(135deg, rgba(40,14,17,0.98), rgba(22,8,10,0.98));
-        border: 1.5px solid rgba(159,24,39,0.7);
-        box-shadow: 0 0 0 4px rgba(127,17,27,0.16), 0 4px 12px rgba(0,0,0,0.42);
+        border: 2px solid rgba(244,209,214,0.95);
+        box-shadow: 0 0 0 5px rgba(127,17,27,0.2), 0 8px 18px rgba(0,0,0,0.5);
         color: rgba(244,209,214,0.94);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.04em;
         font-family: inherit;
-      ">${initial}</div>
+        overflow: hidden;
+      ">${
+        safePhoto
+          ? `<img src="${safePhoto}" alt="" style="width:100%;height:100%;object-fit:cover;" />`
+          : escapeHtml(initial)
+      }</div>
     `,
     className: "",
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
+
+const selfIcon = L.divIcon({
+  html: `
+    <div style="
+      position: relative;
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98), rgba(232,122,130,0.95) 24%, rgba(180,20,30,0.98) 58%);
+      border: 2px solid rgba(255,255,255,0.98);
+      box-shadow: 0 0 0 9px rgba(180,20,30,0.16), 0 10px 24px rgba(0,0,0,0.52);
+    "></div>
+  `,
+  className: "",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
 
 function MobileTouchFix({ interactive }: { interactive: boolean }) {
   const map = useMap();
@@ -194,6 +235,34 @@ function FitToRoute({
   return null;
 }
 
+function FollowSelfLocation({
+  selfLocation,
+  recenterSignal,
+  followSelfLocation,
+}: {
+  selfLocation?: RoutePoint | null;
+  recenterSignal?: number;
+  followSelfLocation?: boolean;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!selfLocation || !recenterSignal) return;
+    map.setView([selfLocation.lat, selfLocation.lng], Math.max(map.getZoom(), 13), {
+      animate: true,
+    });
+  }, [map, recenterSignal, selfLocation]);
+
+  useEffect(() => {
+    if (!selfLocation || !followSelfLocation) return;
+    map.setView([selfLocation.lat, selfLocation.lng], Math.max(map.getZoom(), 13), {
+      animate: true,
+    });
+  }, [followSelfLocation, map, selfLocation]);
+
+  return null;
+}
+
 function EditableEvents({
   editable,
   route,
@@ -229,13 +298,17 @@ export default function RideMap({
   meetPoint,
   route = [],
   riders = [],
+  selfLocation = null,
   editable = false,
   height = 320,
   compact = false,
   hideHint = false,
   interactive = true,
+  showMeetMarker = true,
   showDestination = false,
   showWaypoints = false,
+  recenterSignal = 0,
+  followSelfLocation = false,
   waypoints = [],
   onMeetPointChange,
   onRouteChange,
@@ -276,6 +349,11 @@ export default function RideMap({
 
         <MobileTouchFix interactive={interactive} />
         <FitToRoute lat={lat} lng={lng} route={displayRoute} compact={compact} />
+        <FollowSelfLocation
+          selfLocation={selfLocation}
+          recenterSignal={recenterSignal}
+          followSelfLocation={followSelfLocation}
+        />
         <EditableEvents
           editable={editable}
           route={route}
@@ -283,11 +361,23 @@ export default function RideMap({
           onRouteChange={onRouteChange}
         />
 
-        {!compact && (
+        {showMeetMarker && !compact && (
           <Marker position={[lat, lng]} icon={meetIcon}>
             <Tooltip direction="top" offset={[0, -14]} opacity={1} permanent={false}>
               {meetPoint || "Meet point"}
             </Tooltip>
+          </Marker>
+        )}
+
+        {selfLocation && (
+          <Marker position={[selfLocation.lat, selfLocation.lng]} icon={selfIcon}>
+            <Popup>
+              <div style={{ minWidth: 120 }}>
+                <strong>You</strong>
+                <br />
+                <span>Current location</span>
+              </div>
+            </Popup>
           </Marker>
         )}
 
@@ -316,11 +406,17 @@ export default function RideMap({
           <Marker
             key={rider.user_id}
             position={[rider.lat, rider.lng]}
-            icon={createRiderIcon(rider.rider_name)}
+            icon={createRiderIcon(rider.rider_name, rider.rider_photo)}
           >
-            <Tooltip direction="top" offset={[0, -13]} opacity={1}>
-              {rider.rider_name || "Rider"}
-            </Tooltip>
+            <Popup>
+              <div style={{ minWidth: 150 }}>
+                <strong>{rider.rider_username ? `@${rider.rider_username}` : "Rider"}</strong>
+                <br />
+                <span>{rider.rider_display_name || rider.rider_name || "Crimson rider"}</span>
+                <br />
+                <span>{rider.distance_label || "Distance unavailable"}</span>
+              </div>
+            </Popup>
           </Marker>
         ))}
 
