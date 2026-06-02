@@ -59,6 +59,7 @@ export default function TermsPage() {
           ],
         },
       ]}
+      includeSupportContact
     />
   );
 }

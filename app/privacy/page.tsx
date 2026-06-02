@@ -59,6 +59,7 @@ export default function PrivacyPage() {
           ],
         },
       ]}
+      includeSupportContact
     />
   );
 }

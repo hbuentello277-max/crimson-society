@@ -804,6 +804,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
               { href: "/rides/track?live=1", label: "Location Sharing" },
               { href: "/blackcard", label: "Blackcard" },
               { href: "/safety", label: "Safety" },
+              { href: "/support", label: "Support" },
             ].map((item) => (
               <Link
                 key={item.label}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SupportContactSection from "@/components/policies/SupportContactSection";
 
 type PolicySection = {
   title: string;
@@ -11,6 +12,7 @@ type PolicyPageProps = {
   updated: string;
   intro: string;
   sections: PolicySection[];
+  includeSupportContact?: boolean;
 };
 
 const policyLinks = [
@@ -20,7 +22,14 @@ const policyLinks = [
   { href: "/safety", label: "Safety" },
 ];
 
-export default function PolicyPage({ eyebrow, title, updated, intro, sections }: PolicyPageProps) {
+export default function PolicyPage({
+  eyebrow,
+  title,
+  updated,
+  intro,
+  sections,
+  includeSupportContact = false,
+}: PolicyPageProps) {
   return (
     <main className="min-h-screen bg-[#050505] px-5 pb-28 pt-[calc(env(safe-area-inset-top)+2rem)] text-white sm:px-6">
       <div className="mx-auto max-w-3xl">
@@ -65,6 +74,12 @@ export default function PolicyPage({ eyebrow, title, updated, intro, sections }:
             </section>
           ))}
         </div>
+
+        {includeSupportContact && (
+          <div className="mt-5">
+            <SupportContactSection />
+          </div>
+        )}
 
         <footer className="mt-10 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-5">
           <p className="text-sm leading-7 text-[#f1c3c7]">
