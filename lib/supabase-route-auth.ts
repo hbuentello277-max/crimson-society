@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
+export type RouteAuthMethod = "bearer" | "cookie" | "none";
+
 function getSupabasePublicKey() {
   return (
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -15,13 +17,28 @@ function readBearerToken(request: Request) {
   return match?.[1]?.trim() || null;
 }
 
-export type RouteAuthResult =
-  | { supabase: SupabaseClient; userId: string }
-  | { supabase: null; userId: null; error: string };
+export type RouteAuthSuccess = {
+  ok: true;
+  supabase: SupabaseClient;
+  userId: string;
+  authMethod: RouteAuthMethod;
+};
+
+export type RouteAuthFailure = {
+  ok: false;
+  supabase: null;
+  userId: null;
+  authMethod: RouteAuthMethod;
+  error: string;
+  authDetail?: string;
+};
+
+export type RouteAuthResult = RouteAuthSuccess | RouteAuthFailure;
 
 /**
  * Resolves the signed-in user for API routes.
- * Prefers Authorization Bearer (reliable in installed PWAs); falls back to SSR cookies.
+ * Bearer JWT is validated with auth.getUser(jwt) (required on the server).
+ * Falls back to SSR cookies when no Authorization header is sent.
  */
 export async function getAuthedSupabaseFromRequest(
   request: Request,
@@ -30,25 +47,40 @@ export async function getAuthedSupabaseFromRequest(
   const supabaseKey = getSupabasePublicKey();
 
   if (!supabaseUrl || !supabaseKey) {
-    return { supabase: null, userId: null, error: "Supabase is not configured." };
+    return {
+      ok: false,
+      supabase: null,
+      userId: null,
+      authMethod: "none",
+      error: "Supabase is not configured.",
+    };
   }
 
   const bearer = readBearerToken(request);
 
   if (bearer) {
     const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${bearer}` } },
     });
+
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(bearer);
 
     if (error || !user?.id) {
-      return { supabase: null, userId: null, error: "Unauthorized" };
+      return {
+        ok: false,
+        supabase: null,
+        userId: null,
+        authMethod: "bearer",
+        error: "Unauthorized",
+        authDetail: error?.message || "Bearer JWT validation failed",
+      };
     }
 
-    return { supabase, userId: user.id };
+    return { ok: true, supabase, userId: user.id, authMethod: "bearer" };
   }
 
   const supabase = await createServerSupabaseClient();
@@ -58,8 +90,15 @@ export async function getAuthedSupabaseFromRequest(
   } = await supabase.auth.getUser();
 
   if (error || !user?.id) {
-    return { supabase: null, userId: null, error: "Unauthorized" };
+    return {
+      ok: false,
+      supabase: null,
+      userId: null,
+      authMethod: "cookie",
+      error: "Unauthorized",
+      authDetail: error?.message || "No session cookie",
+    };
   }
 
-  return { supabase, userId: user.id };
+  return { ok: true, supabase, userId: user.id, authMethod: "cookie" };
 }

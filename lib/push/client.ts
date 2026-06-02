@@ -11,20 +11,54 @@ function detectPushPlatform(): "web" | "ios" | "android" {
   return "web";
 }
 
+async function resolveAccessToken() {
+  const {
+    data: { session: initialSession },
+  } = await supabase.auth.getSession();
+
+  if (initialSession?.access_token) {
+    return initialSession.access_token;
+  }
+
+  const {
+    data: { session: refreshedSession },
+    error: refreshError,
+  } = await supabase.auth.refreshSession();
+
+  if (refreshError) {
+    return null;
+  }
+
+  return refreshedSession?.access_token ?? null;
+}
+
 async function pushRegisterHeaders() {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
+  const accessToken = await resolveAccessToken();
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
   }
 
   return headers;
+}
+
+function formatRegisterFailure(
+  payload: { error?: string; code?: string; hint?: string } | null,
+  status: number,
+) {
+  if (payload?.error?.trim()) {
+    const hint = payload.hint ? ` ${payload.hint}` : "";
+    return `${payload.error.trim()}${hint}`;
+  }
+
+  if (status === 401) {
+    return "Sign in again to save your push token.";
+  }
+
+  return `Could not save push token (HTTP ${status}).`;
 }
 
 export type PushPermissionState = NotificationPermission | "unsupported";
@@ -112,13 +146,12 @@ export async function registerPushTokenWithServer(token: string) {
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    const detail =
-      payload?.error?.trim() ||
-      (response.status === 401
-        ? "Sign in again to save your push token."
-        : `Could not save push token (HTTP ${response.status}).`);
-    throw new Error(detail);
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      code?: string;
+      hint?: string;
+    } | null;
+    throw new Error(formatRegisterFailure(payload, response.status));
   }
 }
 
@@ -130,13 +163,12 @@ export async function disablePushOnServer() {
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    const detail =
-      payload?.error?.trim() ||
-      (response.status === 401
-        ? "Sign in again to update push settings."
-        : `Could not disable push notifications (HTTP ${response.status}).`);
-    throw new Error(detail);
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      code?: string;
+      hint?: string;
+    } | null;
+    throw new Error(formatRegisterFailure(payload, response.status));
   }
 }
 
