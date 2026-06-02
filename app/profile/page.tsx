@@ -4,11 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import {
+  profileDisplayName,
+  profileHandle,
+  profileLocation,
+} from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
 type ProfilePost = {
@@ -91,7 +95,7 @@ default:
 return (
 <Link
 href={href}
-className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
+className={`rounded-full border px-2.5 py-1.5 text-[9px] uppercase tracking-[0.16em] transition ${styles[variant]}`}
 >
 {children} </Link>
 );
@@ -116,7 +120,7 @@ default:
 return ( <button
    type="button"
    onClick={onClick}
-   className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
+   className={`rounded-full border px-2.5 py-1.5 text-[9px] uppercase tracking-[0.16em] transition ${styles[variant]}`}
  >
 {children} </button>
 );
@@ -466,41 +470,83 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </div>
     </div>
 
-    <ProfileHeader profile={profile} />
-
-    {blackcardAccessActive && (
-      <div className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
-            <h2 className="mt-1 font-serif text-xl text-white">Blackcard Member</h2>
+    <section className="mt-3 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
+      <div className="relative px-4 py-4 sm:px-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_32%)]" />
+        <div className="relative flex min-w-0 items-start gap-3.5">
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 bg-black shadow-[0_0_40px_-10px_rgba(180,20,30,0.8)] sm:h-24 sm:w-24">
+            {(profile.profile_image_url || profile.avatar_url) ? (
+              <Image
+                src={profile.profile_image_url || profile.avatar_url || ""}
+                alt={`${profileDisplayName(profile)} profile picture`}
+                fill
+                sizes="96px"
+                priority
+                className="object-cover"
+                unoptimized={(profile.profile_image_url || profile.avatar_url || "").includes("supabase")}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-2xl text-[#f0c8cb]">
+                {profileDisplayName(profile).charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
-          <span className="text-xl text-[#b4141e]">✦</span>
+
+          <div className="min-w-0 pt-0.5">
+            <h2 className="font-serif text-[28px] leading-none text-white sm:text-[36px]">
+              {profileDisplayName(profile)}
+            </h2>
+            <p className="mt-1.5 break-words text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              {profileHandle(profile)} · {profileLocation(profile)}
+            </p>
+            {profile.quote?.trim() && (
+              <p className="mt-2 max-w-xl font-serif text-base italic leading-6 text-zinc-300">
+                “{profile.quote.trim()}”
+              </p>
+            )}
+            {profile.bio?.trim() && (
+              <p className="mt-2 max-w-2xl text-sm leading-5 text-zinc-400">{profile.bio.trim()}</p>
+            )}
+          </div>
         </div>
       </div>
-    )}
+    </section>
 
-    <section className="mt-4 grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.025] text-center">
+    <section className="mt-3 grid grid-cols-3 overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.025] text-center">
       {[
         { label: "Posts", value: stats.posts },
         { label: "Followers", value: stats.followers },
         { label: "Following", value: stats.following },
       ].map((item) => (
-        <div key={item.label} className="min-w-0 border-r border-white/10 px-2 py-4 last:border-r-0">
-          <p className="truncate text-xl font-semibold leading-none text-white sm:text-2xl">
+        <div key={item.label} className="min-w-0 border-r border-white/10 px-2 py-3 last:border-r-0">
+          <p className="truncate text-lg font-semibold leading-none text-white sm:text-xl">
             {item.value}
           </p>
-          <p className="mt-2 truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500 sm:tracking-[0.22em]">
+          <p className="mt-1.5 truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500 sm:tracking-[0.2em]">
             {item.label}
           </p>
         </div>
       ))}
     </section>
 
-    <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
+    {blackcardAccessActive && (
+      <div className="mt-3 rounded-[18px] border border-[#b4141e]/25 bg-[#090909]/90 px-4 py-3 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
+            <h2 className="mt-0.5 font-serif text-lg text-white">Blackcard Member</h2>
+          </div>
+          <span className="text-lg text-[#b4141e]">✦</span>
+        </div>
+      </div>
+    )}
+
+    <div className="[&>div]:!mt-5">
+      <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
+    </div>
 
     {tab === "posts" && (
-      <section className="mt-5">
+      <section className="mt-4">
         {postsState === "loading" && (
           <EmptyPanel title="Loading posts." body="Gathering your latest ride archive." />
         )}
@@ -589,7 +635,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
 
     {tab === "garage" && (
-      <section className="mt-5">
+      <section className="mt-4">
         {garageState === "loading" && (
           <EmptyPanel title="Loading garage." body="Pulling your machines from Supabase." />
         )}
@@ -649,7 +695,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
 
     {tab !== "posts" && tab !== "garage" && (
-      <section className="mt-5">
+      <section className="mt-4">
         <EmptyPanel
           title="Coming into focus."
           body="This profile section is wired to shared state and ready for the next data layer."
