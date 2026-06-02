@@ -8,16 +8,16 @@ export type ProfileStatItem = {
 
 export function CompactProfileStats({ items }: { items: ProfileStatItem[] }) {
   return (
-    <div className="mt-3 grid grid-cols-3 border-t border-white/10 pt-3">
+    <div className="mt-2 grid grid-cols-3 border-t border-white/10 pt-2">
       {items.map((item, index) => {
         const content = (
           <>
             <p className="text-2xl font-semibold leading-none text-white">{item.value}</p>
-            <p className="mt-1 text-sm text-zinc-500">{item.label}</p>
+            <p className="mt-0.5 text-sm leading-tight text-zinc-500">{item.label}</p>
           </>
         );
 
-        const className = `flex min-w-0 flex-col items-center justify-center px-2 py-1 text-center ${
+        const className = `flex min-w-0 flex-col items-center justify-center px-1.5 py-0.5 text-center ${
           index < items.length - 1 ? "border-r border-white/10" : ""
         }`;
 

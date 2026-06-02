@@ -574,7 +574,7 @@ export default function PublicProfilePage() {
   };
 
   const compactButtonClass =
-    "inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+    "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
   async function toggleBlock() {
     if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
@@ -860,42 +860,44 @@ export default function PublicProfilePage() {
           }
           actions={
             !isOwnProfile && session?.user?.id ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => void toggleFollow()}
-                  disabled={followBusy || isBlocked || isBlockingMe}
-                  className={`group/follow ${compactButtonClass} ${
-                    followRelationship === "following"
-                      ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
-                      : followRelationship === "requested_out" ||
-                          followRelationship === "requested_in"
-                        ? "border-white/20 text-zinc-300"
-                        : ""
-                  } disabled:opacity-60`}
-                >
-                  {followRelationship === "following" && !followBusy && !isBlocked && !isBlockingMe ? (
-                    <>
-                      <span className="group-hover/follow:hidden">{followButtonLabel()}</span>
-                      <span className="hidden group-hover/follow:inline">{followButtonLabel("hover")}</span>
-                    </>
-                  ) : (
-                    followButtonLabel()
-                  )}
-                </button>
-                {!interactionRestricted ? (
-                  <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
-                    Message
-                  </Link>
-                ) : (
-                  <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
-                    Message
+              <div className="grid gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void toggleFollow()}
+                    disabled={followBusy || isBlocked || isBlockingMe}
+                    className={`group/follow ${compactButtonClass} ${
+                      followRelationship === "following"
+                        ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
+                        : followRelationship === "requested_out" ||
+                            followRelationship === "requested_in"
+                          ? "border-white/20 text-zinc-300"
+                          : ""
+                    } disabled:opacity-60`}
+                  >
+                    {followRelationship === "following" && !followBusy && !isBlocked && !isBlockingMe ? (
+                      <>
+                        <span className="group-hover/follow:hidden">{followButtonLabel()}</span>
+                        <span className="hidden group-hover/follow:inline">{followButtonLabel("hover")}</span>
+                      </>
+                    ) : (
+                      followButtonLabel()
+                    )}
                   </button>
-                )}
+                  {!interactionRestricted ? (
+                    <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
+                      Message
+                    </Link>
+                  ) : (
+                    <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
+                      Message
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => void sharePublicProfile()}
-                  className={`${compactButtonClass} col-span-2 gap-1.5`}
+                  className={`${compactButtonClass} w-full`}
                 >
                   <IconShare />
                   Share Profile
@@ -905,7 +907,7 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => void sharePublicProfile()}
-                className={`${compactButtonClass} w-full gap-1.5`}
+                className={`${compactButtonClass} w-full`}
               >
                 <IconShare />
                 Share Profile

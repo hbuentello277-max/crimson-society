@@ -80,7 +80,7 @@ return ( <div className="animate-pulse"> <div className="h-3 w-28 rounded-full b
 }
 
 const compactButtonClass =
-  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
 function normalizeSocialUrl(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -517,8 +517,8 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         { label: "Following", value: stats.following, href: "/profile/following" },
       ]}
       actions={
-        <>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <Link href="/profile/edit" className={compactButtonClass}>
               <IconEdit />
               Edit Profile
@@ -531,13 +531,13 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           {isAdmin && (
             <Link
               href="/admin"
-              className={`${compactButtonClass} mt-2 w-full border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65`}
+              className={`${compactButtonClass} w-full border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65`}
             >
               <IconAdmin />
               Admin
             </Link>
           )}
-        </>
+        </div>
       }
     />
 
