@@ -34,6 +34,13 @@ const copy = {
     enterEmailToResend: "Enter your email to resend confirmation.",
     confirmationResent: "Confirmation email resent.",
     genericError: "Something went wrong.",
+    ageConfirm: "I confirm I am 18 years or older.",
+    termsAgree: "I agree to the",
+    termsLink: "Terms of Service",
+    guidelinesAgree: "I agree to the",
+    guidelinesLink: "Community Guidelines",
+    complianceRequired:
+      "Please confirm you are 18 or older and agree to the Terms and Community Guidelines before creating your account.",
   },
   es: {
     eyebrow: "RIDE • CULTURE • LEGACY",
@@ -61,6 +68,13 @@ const copy = {
     enterEmailToResend: "Ingresa tu correo para reenviar la confirmación.",
     confirmationResent: "Correo de confirmación reenviado.",
     genericError: "Algo salió mal.",
+    ageConfirm: "Confirmo que tengo 18 años o más.",
+    termsAgree: "Acepto los",
+    termsLink: "Términos de servicio",
+    guidelinesAgree: "Acepto las",
+    guidelinesLink: "Normas de la comunidad",
+    complianceRequired:
+      "Confirma que tienes 18 años o más y acepta los Términos y las Normas de la comunidad antes de crear tu cuenta.",
   },
 } as const;
 
@@ -79,6 +93,11 @@ export default function SignUpPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState<LoadingState>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
+
+  const complianceComplete = ageConfirmed && termsAccepted && guidelinesAccepted;
 
   const changeLanguage = (next: Language) => {
     setLanguage(next);
@@ -101,6 +120,11 @@ export default function SignUpPage() {
     setMessage("");
 
     const trimmedEmail = email.trim();
+
+    if (!complianceComplete) {
+      setError(t.complianceRequired);
+      return;
+    }
 
     if (!trimmedEmail || !password || !confirmPassword) {
       setError(t.fillAllFields);
@@ -237,6 +261,71 @@ export default function SignUpPage() {
                   />
                 </div>
 
+                <div className="space-y-2.5 rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
+                  <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={ageConfirmed}
+                      onChange={(e) => {
+                        setAgeConfirmed(e.target.checked);
+                        if (error === t.complianceRequired) setError("");
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 accent-[#b4141e]"
+                    />
+                    <span>{t.ageConfirm}</span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => {
+                        setTermsAccepted(e.target.checked);
+                        if (error === t.complianceRequired) setError("");
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 accent-[#b4141e]"
+                    />
+                    <span>
+                      {t.termsAgree}{" "}
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#e87a82] underline decoration-[#b4141e]/40 underline-offset-2 hover:text-[#f1c3c7]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.termsLink}
+                      </Link>
+                      .
+                    </span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={guidelinesAccepted}
+                      onChange={(e) => {
+                        setGuidelinesAccepted(e.target.checked);
+                        if (error === t.complianceRequired) setError("");
+                      }}
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 accent-[#b4141e]"
+                    />
+                    <span>
+                      {t.guidelinesAgree}{" "}
+                      <Link
+                        href="/community-guidelines"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#e87a82] underline decoration-[#b4141e]/40 underline-offset-2 hover:text-[#f1c3c7]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.guidelinesLink}
+                      </Link>
+                      .
+                    </span>
+                  </label>
+                </div>
+
                 {error ? (
                   <div className="rounded-2xl border border-red-700/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
                     {error}
@@ -251,7 +340,7 @@ export default function SignUpPage() {
 
                 <button
                   type="submit"
-                  disabled={loading === "signup"}
+                  disabled={loading === "signup" || !complianceComplete}
                   className="h-12 w-full rounded-2xl border border-red-700/60 bg-red-700 text-sm font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {loading === "signup" ? t.creating : t.createAccount}
