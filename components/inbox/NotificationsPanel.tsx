@@ -19,7 +19,6 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
-import { PushNotificationSettings } from "@/components/push/PushNotificationSettings";
 import { supabase } from "@/lib/supabase";
 
 type NotificationRow = NotificationItem & {
@@ -315,8 +314,6 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
             Follows, meet joins, removals, cancellations, ride endings, and meet chat in one ledger.
           </p>
         </header>
-
-        <PushNotificationSettings />
 
         <section className="mt-7">
           {loading ? (

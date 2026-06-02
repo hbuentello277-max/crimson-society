@@ -27,7 +27,15 @@ type DeployProbe = {
   stale: boolean;
 };
 
-export function PushNotificationSettings() {
+type PushNotificationSettingsProps = {
+  embedded?: boolean;
+  showBuildDebug?: boolean;
+};
+
+export function PushNotificationSettings({
+  embedded = false,
+  showBuildDebug = false,
+}: PushNotificationSettingsProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [permission, setPermission] = useState(getPushPermissionState());
@@ -65,6 +73,8 @@ export function PushNotificationSettings() {
   }, [permission]);
 
   useEffect(() => {
+    if (!showBuildDebug) return;
+
     let cancelled = false;
 
     async function probeDeploy() {
@@ -146,7 +156,7 @@ export function PushNotificationSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [showBuildDebug]);
 
   async function handleEnable() {
     setStatus("loading");
@@ -182,9 +192,21 @@ export function PushNotificationSettings() {
   const configured = isPushConfiguredOnClient();
 
   return (
-    <section className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-[#d85f6c]">Device alerts</p>
-      <h2 className="mt-2 font-serif text-2xl leading-none text-[#f4f0ea]">Push notifications</h2>
+    <section
+      className={
+        embedded
+          ? "py-4"
+          : "mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-5"
+      }
+    >
+      {!embedded && (
+        <p className="text-[10px] uppercase tracking-[0.22em] text-[#d85f6c]">Device alerts</p>
+      )}
+      <h2
+        className={`font-serif text-2xl leading-none text-[#f4f0ea] ${embedded ? "" : "mt-2"}`}
+      >
+        Push notifications
+      </h2>
       <p className="mt-3 text-sm leading-6 text-zinc-400">
         Get alerts for messages, follows, and meet activity even when Crimson Society is in the
         background. In-app notifications remain your activity ledger.
@@ -226,6 +248,7 @@ export function PushNotificationSettings() {
 
       {message && <p className="mt-4 text-sm leading-6 text-zinc-400">{message}</p>}
 
+      {showBuildDebug && (
       <div
         className={`mt-4 rounded-lg border px-4 py-3 text-xs leading-5 ${
           deployProbe.stale
@@ -264,8 +287,9 @@ export function PushNotificationSettings() {
           latest main. Remove and re-add the Home Screen app after redeploy.
         </p>
       </div>
+      )}
 
-      <div className="mt-6 rounded-lg border border-white/10 bg-black/25 p-4">
+      <div className={`${embedded ? "mt-4" : "mt-6"} rounded-lg border border-white/10 bg-black/25 p-4`}>
         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">iPhone (PWA)</p>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-zinc-400">
           <li>Open Crimson Society in Safari.</li>

@@ -891,7 +891,7 @@ export default function PublicProfilePage() {
                     )}
                   </button>
                   {!interactionRestricted ? (
-                    <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
+                    <Link href={`/inbox?peer=${profile.id}`} className={compactButtonClass}>
                       Message
                     </Link>
                   ) : (

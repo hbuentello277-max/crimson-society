@@ -5,7 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
+import { NewMessageSheet } from "@/components/inbox/NewMessageSheet";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
+import {
+  isUuid,
+  openDirectConversationWithPeer,
+} from "@/lib/messages/direct-conversation";
+import { ensureUserProfile } from "@/lib/profile";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
@@ -159,16 +166,6 @@ function messageTime(value: string) {
   });
 }
 
-function directKeyFor(a: string, b: string) {
-  return [a, b].sort().join(":");
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
 function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Message {
   const sender = profilesById.get(row.sender_id) ?? null;
 
@@ -237,56 +234,11 @@ function buildConversations(
   });
 }
 
-function MessagesAvatar({
-  photo,
-  name,
-  online,
-  isGroup,
-  size = 48,
-}: {
-  photo: string | null;
-  name: string;
-  online?: boolean;
-  isGroup?: boolean;
-  size?: number;
-}) {
-  return (
-    <div
-      className="relative flex-shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#b4141e]"
-      style={{ height: size, width: size }}
-    >
-      {photo ? (
-        <Image
-          src={photo}
-          alt={name}
-          fill
-          sizes={`${size}px`}
-          className="object-cover"
-          unoptimized={photo.includes("supabase")}
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
-          {name.charAt(0).toUpperCase()}
-        </div>
-      )}
-
-      {online && (
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0c0c0d] bg-[#b4141e]" />
-      )}
-
-      {isGroup && (
-        <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border border-[#0c0c0d] bg-[#b4141e] text-[8px] text-white">
-          ◈
-        </span>
-      )}
-    </div>
-  );
-}
-
 export default function MessagesPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationParam = searchParams.get("conversation");
+  const peerParam = searchParams.get("peer");
   const { session, loading: authLoading } = useAuth();
   const userId = session?.user?.id ?? null;
 
@@ -575,73 +527,32 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
 
   const openDirectConversation = useCallback(
     async (peerId: string) => {
-      if (!userId || !isUuid(peerId) || peerId === userId) return;
+      if (!userId) return;
 
-      const blockCheck = await supabase
-        .from("user_blocks")
-        .select("blocker_id, blocked_id")
-        .or(`and(blocker_id.eq.${userId},blocked_id.eq.${peerId}),and(blocker_id.eq.${peerId},blocked_id.eq.${userId})`)
-        .limit(1);
+      setErrorMsg("");
 
-      if (blockCheck.error) {
-        setErrorMsg(blockCheck.error.message);
-        return;
+      if (session?.user) {
+        await ensureUserProfile(session.user).catch(() => null);
       }
 
-      if ((blockCheck.data || []).length > 0) {
-        setErrorMsg("Messaging is unavailable because one of you has blocked the other.");
+      const result = await openDirectConversationWithPeer(supabase, userId, peerId);
+
+      if (!result.ok) {
+        setErrorMsg(result.error);
         return;
-      }
-
-      const directKey = directKeyFor(userId, peerId);
-      const existing = await supabase
-        .from("conversations")
-        .select("id")
-        .eq("direct_key", directKey)
-        .maybeSingle();
-
-      let conversationId = existing.data?.id as string | undefined;
-
-      if (!conversationId) {
-        const created = await supabase
-          .from("conversations")
-          .insert({
-            conversation_type: "direct",
-            direct_key: directKey,
-            created_by: userId,
-          })
-          .select("id")
-          .single();
-
-        if (created.error || !created.data) {
-          setErrorMsg(created.error?.message || "Could not open conversation.");
-          return;
-        }
-
-        conversationId = created.data.id as string;
-
-        const membersResponse = await supabase.from("conversation_members").insert([
-          {
-            conversation_id: conversationId,
-            user_id: userId,
-            last_read_at: new Date().toISOString(),
-          },
-          { conversation_id: conversationId, user_id: peerId },
-        ]);
-
-        if (membersResponse.error) {
-          setErrorMsg(membersResponse.error.message);
-          return;
-        }
       }
 
       await loadConversations();
-      setActiveId(conversationId);
+      setActiveId(result.conversationId);
       setShowNewMessage(false);
       setMemberSearch("");
-      window.history.replaceState(null, "", `/inbox?conversation=${conversationId}`);
+      window.history.replaceState(
+        null,
+        "",
+        `/inbox?conversation=${result.conversationId}`,
+      );
     },
-    [loadConversations, userId],
+    [loadConversations, session?.user, userId],
   );
 
   useEffect(() => {
@@ -696,19 +607,28 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
   }, [loadSuggestions, showNewMessage, userId]);
 
   useEffect(() => {
-    if (!conversationParam || !userId) return;
+    if (!peerParam || !userId || !isUuid(peerParam)) return;
+
+    const timer = window.setTimeout(() => {
+      void openDirectConversation(peerParam);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [openDirectConversation, peerParam, userId]);
+
+  useEffect(() => {
+    if (!conversationParam || !userId || !isUuid(conversationParam)) return;
 
     if (conversations.some((conversation) => conversation.id === conversationParam)) {
       const timer = window.setTimeout(() => setActiveId(conversationParam), 0);
       return () => window.clearTimeout(timer);
     }
 
-    const timer = window.setTimeout(() => {
-      void openDirectConversation(conversationParam);
-    }, 0);
+    if (peerParam) return;
 
+    const timer = window.setTimeout(() => setActiveId(conversationParam), 0);
     return () => window.clearTimeout(timer);
-  }, [conversationParam, conversations, openDirectConversation, userId]);
+  }, [conversationParam, conversations, peerParam, userId]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -822,72 +742,10 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
     }
   }
 
-  const newMessageModal = showNewMessage ? (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0b0d] p-4 shadow-[0_0_50px_rgba(180,20,30,0.18)]">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-white">New Message</h2>
-            <p className="mt-1 text-xs uppercase tracking-[0.25em] text-white/35">
-              Choose a rider
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowNewMessage(false);
-              setMemberSearch("");
-            }}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/60 hover:border-[#b4141e]/60 hover:text-white"
-            aria-label="Close new message"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mb-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
-          <span className="text-white/40">⌕</span>
-          <input
-            value={memberSearch}
-            onChange={(e) => setMemberSearch(e.target.value)}
-            placeholder="Search riders..."
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-            autoFocus
-          />
-        </div>
-
-        <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-          {filteredSuggestions.map((member) => (
-            <button
-              key={member.id}
-              type="button"
-              onClick={() => void openDirectConversation(member.id)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/50"
-            >
-              <MessagesAvatar photo={member.photo} name={member.name} size={42} />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white">{member.name}</p>
-                <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                  {member.handle} · {member.reason}
-                </p>
-              </div>
-            </button>
-          ))}
-
-          {filteredSuggestions.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-8 text-center">
-              <p className="text-sm text-white/50">No riders found.</p>
-              <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-white/30">
-                Try another search
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  ) : null;
+  const closeNewMessageSheet = useCallback(() => {
+    setShowNewMessage(false);
+    setMemberSearch("");
+  }, []);
 
   if (authLoading || (!session && !authLoading)) {
     return (
@@ -1104,7 +962,14 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
           </div>
         </main>
 
-        {newMessageModal}
+        <NewMessageSheet
+          open={showNewMessage}
+          memberSearch={memberSearch}
+          suggestions={filteredSuggestions}
+          onMemberSearchChange={setMemberSearch}
+          onSelect={(peerId) => void openDirectConversation(peerId)}
+          onClose={closeNewMessageSheet}
+        />
 
         <ReportContentModal
           open={Boolean(reportMessageTarget)}
@@ -1305,7 +1170,14 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
         </div>
       </main>
 
-      {newMessageModal}
+      <NewMessageSheet
+        open={showNewMessage}
+        memberSearch={memberSearch}
+        suggestions={filteredSuggestions}
+        onMemberSearchChange={setMemberSearch}
+        onSelect={(peerId) => void openDirectConversation(peerId)}
+        onClose={closeNewMessageSheet}
+      />
     </>
   );
 }

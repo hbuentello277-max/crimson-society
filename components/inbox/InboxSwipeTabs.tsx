@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import MessagesPanel from "@/components/inbox/MessagesPanel";
 import NotificationsPanel from "@/components/inbox/NotificationsPanel";
 import { supabase } from "@/lib/supabase";
@@ -312,6 +313,10 @@ export default function InboxSwipeTabs() {
   return (
     <>
       <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-[#050505]/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
+        <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
+          <InboxOverflowMenu />
+        </div>
         <div className="mx-auto grid max-w-sm grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           <button
             type="button"

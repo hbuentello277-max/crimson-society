@@ -859,7 +859,7 @@ export default function ConnectPage() {
 
                 {statuses[openMember.id] === "connected" && (
                   <Link
-                    href={`/inbox?conversation=${openMember.id}`}
+                    href={`/inbox?peer=${openMember.id}`}
                     className="w-full rounded-full border border-white/10 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
                   >
                     Message
