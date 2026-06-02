@@ -183,6 +183,7 @@ export default function AdminPage() {
   const [moderationLoading, setModerationLoading] = useState(true);
   const [moderationError, setModerationError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [moderationBusyId, setModerationBusyId] = useState<string | null>(null);
 
   const myUserId = session?.user?.id ?? null;
 
