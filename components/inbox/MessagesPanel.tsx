@@ -23,6 +23,7 @@ import {
   type DmMessageType,
   validateDmImageFile,
 } from "@/lib/messages/dm-message";
+import { CS_BADGE_SM } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
 const DM_MESSAGE_SELECT =
@@ -990,9 +991,11 @@ export default function MessagesPanel({
                     <button
                       key={t}
                       onClick={() => setTab(t)}
-                      className={`rounded-lg py-2 text-[11px] uppercase tracking-[0.22em] transition ${
-                        tab === t ? "bg-[#b4141e] text-white" : "text-white/50"
-                      }`}
+                    className={`rounded-full border py-2 text-[11px] uppercase tracking-[0.22em] transition ${
+                      tab === t
+                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                        : "border-transparent text-white/50"
+                    }`}
                     >
                       {t}
                     </button>
@@ -1020,7 +1023,9 @@ export default function MessagesPanel({
                   key={t}
                   onClick={() => setTab(t)}
                   className={`rounded-lg py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition ${
-                    tab === t ? "bg-[#b4141e] text-white" : "text-white/50"
+                    tab === t
+                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                      : "border-transparent text-white/50"
                   }`}
                 >
                   {t}
@@ -1085,7 +1090,10 @@ export default function MessagesPanel({
                   }
                 >
                   {embedded && c.unread > 0 && (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#b4141e]" aria-hidden />
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full border border-[#b4141e] bg-[#b4141e]/20"
+                      aria-hidden
+                    />
                   )}
                   {embedded && c.unread === 0 && <span className="w-2 shrink-0" aria-hidden />}
 
@@ -1115,7 +1123,7 @@ export default function MessagesPanel({
                       </p>
 
                       {c.unread > 0 && (
-                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#b4141e] px-1 text-[10px] font-semibold text-white">
+                        <span className={CS_BADGE_SM}>
                           {c.unread > 9 ? "9+" : c.unread}
                         </span>
                       )}

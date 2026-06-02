@@ -620,7 +620,7 @@ export default function RideMap({
             />
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
-              pathOptions={{ color: "#7f111b", weight: compact ? 6 : 7, opacity: 0.96, lineCap: "round", lineJoin: "round" }}
+              pathOptions={{ color: "#b4141e", weight: compact ? 6 : 7, opacity: 0.96, lineCap: "round", lineJoin: "round" }}
             />
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}

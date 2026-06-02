@@ -26,7 +26,7 @@ export function TrackerControls({
         type="button"
         onClick={onStart}
         disabled={isActive || isRequesting}
-        className="rounded-lg border border-[#8d1622] bg-[#7f111b] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#fff7f7] transition hover:bg-[#941824] disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+        className="rounded-lg border border-[#b4141e] bg-[#b4141e]/20 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
       >
         {status === "paused" ? "Resume Ride" : isRequesting ? "Requesting GPS" : "Start Ride"}
       </button>
@@ -35,7 +35,7 @@ export function TrackerControls({
         type="button"
         onClick={onPause}
         disabled={!isActive}
-        className="rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[#7f111b]/60 hover:bg-[#7f111b]/15 disabled:cursor-not-allowed disabled:text-zinc-600"
+        className="rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15 disabled:cursor-not-allowed disabled:text-zinc-600"
       >
         Pause Ride
       </button>
@@ -44,7 +44,7 @@ export function TrackerControls({
         type="button"
         onClick={onStop}
         disabled={!canStop}
-        className="rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[#7f111b]/60 hover:bg-[#7f111b]/15 disabled:cursor-not-allowed disabled:text-zinc-600"
+        className="rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15 disabled:cursor-not-allowed disabled:text-zinc-600"
       >
         Stop Ride
       </button>

@@ -942,7 +942,7 @@ setFeedLoading(false);
           </div>
           <Link
             href="/create"
-            className="rounded-full bg-[#b4141e] px-4 py-2 text-xs uppercase tracking-[0.25em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] hover:bg-[#d11827]"
+            className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
           >
             + Post
           </Link>
@@ -1504,7 +1504,7 @@ setFeedLoading(false);
               />
               <button
                 onClick={sendComment}
-                className="rounded-full bg-[#b4141e] px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white hover:bg-[#d11827]"
+                className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
               >
                 Send
               </button>

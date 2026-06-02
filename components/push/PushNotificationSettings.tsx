@@ -231,7 +231,7 @@ export function PushNotificationSettings({
           type="button"
           onClick={() => void handleEnable()}
           disabled={!configured || status === "loading" || status === "unsupported"}
-          className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Enable notifications
         </button>

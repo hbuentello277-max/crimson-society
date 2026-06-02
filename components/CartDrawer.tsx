@@ -238,7 +238,7 @@ export default function CartDrawer() {
 
                 <button
                   onClick={goCheckout}
-                  className="mt-4 w-full rounded-full bg-[#b4141e] px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_25px_rgba(180,20,30,0.4)] transition hover:bg-[#d11827]"
+                  className="mt-4 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
                 >
                   Checkout
                 </button>

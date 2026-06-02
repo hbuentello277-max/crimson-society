@@ -426,12 +426,12 @@ export default function BottomNav() {
                 >
                   {n.icon}
                   {n.href === "/rides" && meetUnreadTotal > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
                       {meetBadgeLabel}
                     </span>
                   )}
                   {n.href === "/inbox" && inboxUnreadTotal > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#050505] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.8)]">
+                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
                       {inboxBadgeLabel}
                     </span>
                   )}
@@ -440,7 +440,7 @@ export default function BottomNav() {
                   {n.label}
                 </span>
                 {active && (
-                  <span className="h-0.5 w-5 rounded-full bg-[#b4141e] shadow-[0_0_8px_rgba(180,20,30,0.8)]" />
+                  <span className="h-0.5 w-5 rounded-full bg-[#b4141e]/80" />
                 )}
               </Link>
             </li>

@@ -10,6 +10,7 @@ import { MessageComposer } from "@/components/inbox/MessageComposer";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { ThreadOverflowMenu } from "@/components/inbox/ThreadOverflowMenu";
 import type { DmMessageType } from "@/lib/messages/dm-message";
+import { CS_BUBBLE_OUTGOING } from "@/lib/crimson-accent";
 
 export type ThreadConversation = {
   id: string;
@@ -279,7 +280,7 @@ export function MessageThreadScreen({
                     <div
                       className={`px-4 py-3 text-[15px] leading-relaxed ${
                         isMe
-                          ? "rounded-[22px] rounded-br-md bg-[#b4141e] text-white"
+                          ? CS_BUBBLE_OUTGOING
                           : "rounded-[22px] rounded-bl-md bg-[#262626] text-white/95"
                       }`}
                     >

@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import MessagesPanel from "@/components/inbox/MessagesPanel";
 import NotificationsPanel from "@/components/inbox/NotificationsPanel";
+import { CS_CTA_PRIMARY_MD, CS_PILL_ACTIVE, CS_PILL_INACTIVE } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 
 type InboxTab = "messages" | "notifications";
@@ -39,7 +40,7 @@ function TabBadge({ count }: { count: number }) {
   if (count <= 0) return null;
 
   return (
-    <span className="ml-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-[#120608] bg-[#7f111b] px-1 text-[9px] font-semibold leading-none text-[#f4dadd] shadow-[0_0_12px_rgba(127,17,27,0.55)]">
+    <span className="ml-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
       {badgeLabel(count)}
     </span>
   );
@@ -330,10 +331,8 @@ export default function InboxSwipeTabs() {
           <button
             type="button"
             onClick={() => setTab("messages")}
-            className={`rounded-lg px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
-              activeTab === "messages"
-                ? "bg-[#7f111b]/35 text-[#f4dadd]"
-                : "text-zinc-500 hover:text-zinc-300"
+            className={`rounded-full border px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
+              activeTab === "messages" ? CS_PILL_ACTIVE : CS_PILL_INACTIVE
             }`}
           >
             Messages
@@ -342,10 +341,8 @@ export default function InboxSwipeTabs() {
           <button
             type="button"
             onClick={() => setTab("notifications")}
-            className={`rounded-lg px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
-              activeTab === "notifications"
-                ? "bg-[#7f111b]/35 text-[#f4dadd]"
-                : "text-zinc-500 hover:text-zinc-300"
+            className={`rounded-full border px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
+              activeTab === "notifications" ? CS_PILL_ACTIVE : CS_PILL_INACTIVE
             }`}
           >
             Notifications
@@ -358,7 +355,7 @@ export default function InboxSwipeTabs() {
             <button
               type="button"
               onClick={() => setNewMessageRequestId((current) => current + 1)}
-              className="w-full rounded-full bg-[#b4141e] px-4 py-2.5 text-xs uppercase tracking-[0.22em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] transition hover:bg-[#d11827]"
+              className={`w-full ${CS_CTA_PRIMARY_MD}`}
             >
               + New Message
             </button>

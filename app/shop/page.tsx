@@ -221,8 +221,8 @@ export default function ShopPage() {
                   onClick={() => setCategory(c)}
                   className={`flex-shrink-0 rounded-full border px-4 py-2 text-[11px] uppercase tracking-[0.25em] transition ${
                     category === c
-                      ? "border-[#b4141e] bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
-                      : "border-white/10 bg-black/30 text-white/55 hover:text-white"
+                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                      : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
                   }`}
                 >
                   {categoryLabels[c]}
@@ -524,7 +524,7 @@ export default function ShopPage() {
                             disabled={isWaitlistState(active) || isComingSoon(active)}
                             className={`min-w-[3rem] rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.2em] transition ${
                               size === s
-                                ? "border-[#b4141e] bg-[#b4141e]/15 text-white shadow-[0_0_12px_rgba(180,20,30,0.3)]"
+                                ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                                 : "border-white/10 bg-black/30 text-white/70 hover:border-white/30"
                             } ${
                               isWaitlistState(active) || isComingSoon(active)
@@ -546,7 +546,7 @@ export default function ShopPage() {
                           ? "border border-white/10 bg-white/[0.04] text-white/65 hover:border-white/20"
                           : isWaitlistState(active)
                           ? "border border-white/10 bg-black/40 text-white/80 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-white"
-                          : "bg-[#b4141e] text-white shadow-[0_0_25px_rgba(180,20,30,0.4)] hover:bg-[#d11827]"
+                          : "border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
                       }`}
                     >
                       {isComingSoon(active)
@@ -585,7 +585,7 @@ export default function ShopPage() {
 
                       <button
                         type="submit"
-                        className="rounded-full bg-[#b4141e] px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-white hover:bg-[#d11827]"
+                        className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
                       >
                         Notify
                       </button>

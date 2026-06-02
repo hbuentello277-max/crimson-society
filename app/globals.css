@@ -8,6 +8,13 @@
   --foreground: #ededed;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond', Georgia, serif;
+
+  /* Connect ALL pill — canonical accent */
+  --cs-accent: #b4141e;
+  --cs-accent-text: #e87a82;
+  --cs-accent-muted: #f1c3c7;
+  --cs-accent-surface: rgb(180 20 30 / 0.2);
+  --cs-accent-border: rgb(180 20 30 / 1);
 }
 
 @theme inline {
@@ -15,6 +22,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
+  --color-cs-accent: var(--cs-accent);
+  --color-cs-accent-text: var(--cs-accent-text);
 }
 
 body {
@@ -27,5 +36,45 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(1.03); }
   to   { opacity: 1; transform: scale(1); }
-}.no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Connect ALL pill design system */
+@layer components {
+  .cs-pill {
+    @apply rounded-full border px-3.5 py-1.5 text-[11px] uppercase tracking-[0.22em] transition;
+  }
+
+  .cs-pill-active {
+    border-color: var(--cs-accent-border);
+    background-color: var(--cs-accent-surface);
+    color: var(--cs-accent-text);
+  }
+
+  .cs-pill-inactive {
+    @apply border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300;
+  }
+
+  .cs-cta-primary {
+    border-color: var(--cs-accent-border);
+    background-color: var(--cs-accent-surface);
+    color: var(--cs-accent-text);
+    @apply rounded-full border transition hover:bg-[#b4141e]/30 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .cs-badge {
+    border-color: var(--cs-accent-border);
+    background-color: var(--cs-accent-surface);
+    color: var(--cs-accent-text);
+    @apply inline-flex items-center justify-center rounded-full border font-semibold leading-none;
+  }
+
+  .cs-icon-btn-active {
+    border-color: var(--cs-accent-border);
+    background-color: var(--cs-accent-surface);
+    color: var(--cs-accent-text);
+    @apply flex items-center justify-center rounded-full border transition hover:bg-[#b4141e]/30;
+  }
+}

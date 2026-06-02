@@ -343,13 +343,13 @@ function RideCard({
 
             <div className="flex shrink-0 flex-col items-end gap-2">
               {unreadCount > 0 && (
-                <span className="rounded-md border border-[#7f111b]/80 bg-[#7f111b]/35 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[#f4dadd] shadow-[0_0_24px_-12px_rgba(216,95,108,0.9)]">
+                <span className="rounded-md border border-[#b4141e]/80 bg-[#b4141e]/35 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[#f4dadd] shadow-[0_0_24px_-12px_rgba(216,95,108,0.9)]">
                   {unreadCount} new
                 </span>
               )}
 
               {ride.privacy === "Invite" && (
-                <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
+                <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
                   Invite
                 </span>
               )}
@@ -429,7 +429,7 @@ function RideCard({
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                  className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#b4141e]/28"
                 >
                   Cancel
                 </button>
@@ -441,10 +441,10 @@ function RideCard({
                 disabled={canManage || isCanceled || inviteJoinBlocked}
                 className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                   isGoing
-                    ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
+                    ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                     : inviteJoinBlocked
                       ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
                 }`}
               >
                 {canManage
@@ -1293,10 +1293,10 @@ let duration: string | null = newRide.duration || null;
   <button
     type="button"
     onClick={() => setMeetTab("upcoming")}
-    className={`rounded-lg px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+    className={`rounded-full border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition ${
       meetTab === "upcoming"
-        ? "bg-[#7f111b]/35 text-[#f4dadd]"
-        : "text-zinc-500 hover:text-zinc-300"
+        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
     }`}
   >
     Upcoming ({upcomingMeets.length})
@@ -1305,10 +1305,10 @@ let duration: string | null = newRide.duration || null;
   <button
     type="button"
     onClick={() => setMeetTab("completed")}
-    className={`rounded-lg px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+    className={`rounded-full border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition ${
       meetTab === "completed"
-        ? "bg-[#7f111b]/35 text-[#f4dadd]"
-        : "text-zinc-500 hover:text-zinc-300"
+        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
     }`}
   >
     Past ({completedMeets.length})
@@ -1348,7 +1348,7 @@ let duration: string | null = newRide.duration || null;
                   {featuredRide.type}
                 </span>
 
-                <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
+                <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
                   Featured
                 </span>
               </div>
@@ -1382,7 +1382,7 @@ let duration: string | null = newRide.duration || null;
                 >
                   View Route / Details
                   {(unreadCounts[featuredRide.id] || 0) > 0 && (
-                    <span className="absolute -right-2 -top-2 rounded-full border border-[#120608] bg-[#7f111b] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#f4dadd]">
+                    <span className="absolute -right-2 -top-2 rounded-full border border-[#120608] bg-[#b4141e] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#f4dadd]">
                       {unreadCounts[featuredRide.id]} new
                     </span>
                   )}
@@ -1403,7 +1403,7 @@ let duration: string | null = newRide.duration || null;
                     <button
                       type="button"
                       onClick={() => void cancelMeet(featuredRide.id)}
-                      className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                      className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#b4141e]/28"
                     >
                       Cancel
                     </button>
@@ -1422,13 +1422,13 @@ let duration: string | null = newRide.duration || null;
                   }
                   className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     going[featuredRide.id]
-                      ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
+                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                       : featuredRide.privacy === "Invite" &&
                           featuredRide.hostId !== session?.user?.id &&
                           !isAdmin &&
                           !going[featuredRide.id]
                         ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                        : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                        : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
                   }`}
                 >
                   {featuredRide.hostId === session?.user?.id
@@ -1526,7 +1526,7 @@ let duration: string | null = newRide.duration || null;
       )}
 
       {toast && (
-        <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+86px)] z-50 mx-auto max-w-sm rounded-lg border border-[#7f111b]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">
+        <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+86px)] z-50 mx-auto max-w-sm rounded-lg border border-[#b4141e]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">
           {toast}
         </div>
       )}

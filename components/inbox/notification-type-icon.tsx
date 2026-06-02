@@ -12,7 +12,7 @@ const TYPE_STYLES: Record<
   meet_removed: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   meet_canceled: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   meet_ended: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
-  direct_message: { bg: "bg-[#b4141e]", label: "Messages", glyph: "✉" },
+  direct_message: { bg: "bg-[#b4141e]/20 border border-[#b4141e]", label: "Messages", glyph: "✉" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

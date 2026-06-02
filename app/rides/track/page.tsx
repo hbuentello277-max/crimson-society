@@ -1133,7 +1133,7 @@ export default function RideTrackingPage() {
             </div>
             <Link
               href="/connect"
-              className="mt-4 flex rounded-xl border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-3 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#7f111b]/35"
+              className="mt-4 flex rounded-xl border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-3 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/35"
             >
               Manage Friends
             </Link>
@@ -1195,7 +1195,7 @@ export default function RideTrackingPage() {
           </div>
 
           {(permissionError || locationError || liveShareError || userLocationError) && (
-            <div className="pointer-events-auto mx-auto mt-2 max-w-md rounded-xl border border-[#7f111b]/50 bg-[#10080a]/90 px-4 py-3 text-xs leading-5 text-[#f0c9ce] backdrop-blur">
+            <div className="pointer-events-auto mx-auto mt-2 max-w-md rounded-xl border border-[#b4141e]/50 bg-[#10080a]/90 px-4 py-3 text-xs leading-5 text-[#f0c9ce] backdrop-blur">
               {permissionError || locationError || liveShareError || userLocationError}
             </div>
           )}
@@ -1249,7 +1249,7 @@ export default function RideTrackingPage() {
               </p>
               <Link
                 href="/rides"
-                className="mt-5 inline-flex rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
+                className="mt-5 inline-flex rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
               >
                 Back to Meets
               </Link>
@@ -1322,7 +1322,7 @@ export default function RideTrackingPage() {
                       type="button"
                       onClick={() => void startRide()}
                       disabled={lifecycleBusy !== null}
-                      className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+                      className="rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
                     >
                       {lifecycleBusy === "starting" ? "Starting" : "Start Ride"}
                     </button>
@@ -1348,7 +1348,7 @@ export default function RideTrackingPage() {
               </div>
 
               {lifecycleError && (
-                <div className="mt-4 rounded-lg border border-[#7f111b]/50 bg-[#7f111b]/12 px-4 py-3 text-sm text-[#f0c9ce]">
+                <div className="mt-4 rounded-lg border border-[#b4141e]/50 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#f0c9ce]">
                   {lifecycleError}
                 </div>
               )}
@@ -1393,7 +1393,7 @@ export default function RideTrackingPage() {
                       type="button"
                       onClick={startSharingLocation}
                       disabled={!canShare || sharingStatus === "requesting"}
-                      className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+                      className="rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
                     >
                       {sharingStatus === "requesting" ? "Requesting GPS" : "Start Sharing Location"}
                     </button>
@@ -1402,7 +1402,7 @@ export default function RideTrackingPage() {
               </div>
 
               {(permissionError || locationError) && (
-                <div className="mt-4 rounded-lg border border-[#7f111b]/50 bg-[#7f111b]/12 px-4 py-3 text-sm text-[#f0c9ce]">
+                <div className="mt-4 rounded-lg border border-[#b4141e]/50 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#f0c9ce]">
                   {permissionError || locationError}
                 </div>
               )}

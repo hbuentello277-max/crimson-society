@@ -874,7 +874,7 @@ export default function PublicProfilePage() {
                     disabled={followBusy || isBlocked || isBlockingMe}
                     className={`group/follow ${compactButtonClass} ${
                       followRelationship === "following"
-                        ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
+                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                         : followRelationship === "requested_out" ||
                             followRelationship === "requested_in"
                           ? "border-white/20 text-zinc-300"

@@ -362,7 +362,7 @@ export function HostRideModal({
 
               <button
                 type="submit"
-                className="flex-1 rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
+                className="flex-1 rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
               >
                 {mode === "edit" ? "Save Changes" : "Create Meet"}
               </button>
@@ -500,7 +500,7 @@ function inputCls(hasError: boolean) {
     "w-full rounded-lg border bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition",
     "focus:ring-1",
     hasError
-      ? "border-[#7f111b]/70 focus:border-[#d85f6c] focus:ring-[#d85f6c]/30"
+      ? "border-[#b4141e]/70 focus:border-[#d85f6c] focus:ring-[#d85f6c]/30"
       : "border-white/10 focus:border-white/25 focus:ring-white/10",
   ].join(" ");
 }

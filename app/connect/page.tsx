@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 
@@ -510,11 +511,7 @@ export default function ConnectPage() {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`rounded-full border px-3.5 py-1.5 text-[11px] uppercase tracking-[0.22em] transition ${
-                      active
-                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
-                    }`}
+                    className={csPill(active)}
                   >
                     {f}
                   </button>

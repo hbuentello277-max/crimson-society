@@ -616,13 +616,13 @@ export function RideDetailsModal({
             )}
 
             {isRideLive && !isCanceled && (
-              <span className="rounded-full border border-[#7f111b]/60 bg-[#7f111b]/25 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] backdrop-blur-sm">
+              <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/25 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] backdrop-blur-sm">
                 Live
               </span>
             )}
 
             {ride.privacy === "Invite" && (
-              <span className="rounded-full border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
+              <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
                 Invite Only
               </span>
             )}
@@ -727,7 +727,7 @@ export function RideDetailsModal({
           )}
 
           {canModerate && (
-            <div className="mt-5 rounded-lg border border-[#7f111b]/35 bg-[#7f111b]/10 p-4">
+            <div className="mt-5 rounded-lg border border-[#b4141e]/35 bg-[#b4141e]/10 p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-[#f0c9ce]">
                 Host Controls
               </p>
@@ -746,7 +746,7 @@ export function RideDetailsModal({
                     type="button"
                     onClick={onCancelMeet}
                     disabled={!!moderationBusy}
-                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#7f111b]/32 disabled:opacity-50"
+                    className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#b4141e]/32 disabled:opacity-50"
                   >
                     Cancel Meet
                   </button>
@@ -822,7 +822,7 @@ export function RideDetailsModal({
                                 type="button"
                                 onClick={() => void removeRider(attendee.userId)}
                                 disabled={moderationBusy === attendee.userId}
-                                className="shrink-0 rounded-md border border-[#7f111b]/50 bg-[#7f111b]/15 px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28 disabled:opacity-50"
+                                className="shrink-0 rounded-md border border-[#b4141e]/50 bg-[#b4141e]/15 px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce] transition hover:bg-[#b4141e]/28 disabled:opacity-50"
                               >
                                 Remove
                               </button>
@@ -972,7 +972,7 @@ export function RideDetailsModal({
                               type="button"
                               onClick={() => void deleteMessage(message.id)}
                               disabled={deletingMessageIds.has(message.id)}
-                              className="shrink-0 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-zinc-500 transition hover:border-[#7f111b]/50 hover:text-[#f4dadd] disabled:opacity-50"
+                              className="shrink-0 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#f4dadd] disabled:opacity-50"
                             >
                               Delete
                             </button>
@@ -1071,7 +1071,7 @@ export function RideDetailsModal({
                 type="button"
                 onClick={() => void sendMessage()}
                 disabled={!canUseChat || sending || (!draft.trim() && !selectedImage)}
-                className="rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
+                className="rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-zinc-600"
               >
                 {sending ? "Sending" : "Send"}
               </button>
@@ -1099,7 +1099,7 @@ export function RideDetailsModal({
                 })
               );
             }}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
+            className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
           >
             Start Ride Tracking
           </Link>
@@ -1108,7 +1108,7 @@ export function RideDetailsModal({
             type="button"
             onClick={() => setReportOpen(true)}
             disabled={!currentUserId}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#7f111b]/50 hover:text-[#f4dadd] disabled:opacity-50"
+            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#f4dadd] disabled:opacity-50"
           >
             Report Meet
           </button>
@@ -1138,8 +1138,8 @@ export function RideDetailsModal({
                   : inviteJoinBlocked
                     ? "border-white/10 bg-white/[0.02] text-zinc-600"
                     : isGoing
-                      ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
-                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
+                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/18"
               }`}
             >
               {isCanceled
@@ -1203,7 +1203,7 @@ export function RideDetailsModal({
                 type="button"
                 onClick={() => void submitRideReport()}
                 disabled={reporting}
-                className="mt-5 w-full rounded-xl border border-[#7f111b]/70 bg-[#7f111b]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#7f111b]/40 disabled:opacity-60"
+                className="mt-5 w-full rounded-xl border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:opacity-60"
               >
                 {reporting ? "Submitting" : "Submit Report"}
               </button>
@@ -1212,7 +1212,7 @@ export function RideDetailsModal({
         )}
 
         {safetyMessage && (
-          <div className="absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#7f111b]/50 bg-[#0a0a0b]/95 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] shadow-2xl">
+          <div className="absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#b4141e]/50 bg-[#0a0a0b]/95 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] shadow-2xl">
             {safetyMessage}
           </div>
         )}

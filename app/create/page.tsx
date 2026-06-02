@@ -419,7 +419,7 @@ export default function CreatePage() {
             disabled={!canPost() || submitting}
             className={`rounded-full px-4 py-1.5 text-xs uppercase tracking-[0.25em] transition ${
               canPost() && !submitting
-                ? "bg-[#b4141e] text-white hover:bg-[#d11827]"
+                ? "border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
                 : "cursor-not-allowed border border-white/10 text-white/30"
             }`}
           >
@@ -436,8 +436,8 @@ export default function CreatePage() {
               onClick={() => setType(t)}
               className={`rounded-xl py-2.5 text-[11px] uppercase tracking-[0.3em] transition ${
                 type === t
-                  ? "bg-[#b4141e] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)]"
-                  : "text-white/55 hover:text-white"
+                  ? "border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                  : "border border-transparent text-white/55 hover:text-white"
               }`}
             >
               {t}
@@ -915,7 +915,7 @@ export default function CreatePage() {
                     <div
                       className={`flex h-6 w-6 items-center justify-center rounded-full border ${
                         isTagged
-                          ? "border-[#b4141e] bg-[#b4141e] text-white"
+                          ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                           : "border-white/20"
                       }`}
                     >

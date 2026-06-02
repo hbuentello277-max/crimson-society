@@ -80,7 +80,7 @@ function NotificationAvatar({
   const name = actorDisplayName(actor);
 
   return (
-    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#7f111b]/80">
+    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#b4141e]/80">
       {photo ? (
         <Image
           src={photo}
@@ -280,7 +280,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
           </p>
           <Link
             href="/rides"
-            className="mt-5 inline-flex rounded-full bg-[#b4141e] px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-white"
+            className="mt-5 inline-flex rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
           >
             View Meets
           </Link>
@@ -317,7 +317,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                             }`
                           : `flex items-center gap-3 rounded-lg border p-3 transition ${
                               isUnread
-                                ? "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
+                                ? "border-[#b4141e] bg-[#b4141e]/10 hover:bg-[#b4141e]/20"
                                 : "border-white/10 bg-white/[0.025] hover:border-white/20"
                             }`
                       }
@@ -356,7 +356,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                       </div>
 
                       {isUnread && (
-                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#b4141e] px-1 text-[10px] font-semibold text-white">
+                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[10px] font-semibold text-[#e87a82]">
                           1
                         </span>
                       )}
