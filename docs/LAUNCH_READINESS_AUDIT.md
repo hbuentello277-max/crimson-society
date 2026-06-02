@@ -1,13 +1,15 @@
-# Crimson Society — Launch Readiness Audit
+# Crimson Society — Launch Readiness Audit (Refresh)
 
-**Audit date:** June 2, 2026  
-**Branch:** `main` (pre-audit HEAD: `5ce43b8`)  
-**Scope:** Full-app review for App Store / production launch (report only; no fixes applied)  
-**Validation:** `npx tsc --noEmit` ✅ · `npm run build` ✅  
+**Audit date:** June 2, 2026 (refresh)  
+**Branch:** `main`  
+**Baseline:** Prior audit score **62 / 100** (`docs/LAUNCH_READINESS_AUDIT.md` @ `18d6cb3`)  
+**HEAD at refresh:** `7fc271836b80369bd7af8fedac1c1fade9c0d439`  
+**Scope:** Full-app review for App Store / production launch (audit only; no product fixes in this commit)  
+**Validation:** `npx tsc --noEmit` ✅ · `npm run build` ✅ (Next.js 16.2.6, **41 routes**)
 
 ---
 
-## Launch readiness score: **62 / 100**
+## Launch readiness score: **76 / 100** (+14 vs baseline)
 
 | Band | Meaning |
 |------|---------|
@@ -16,7 +18,22 @@
 | 40–59 | Major gaps in safety, ops, or compliance |
 | &lt;40 | Not safe to ship |
 
-**Verdict:** Suitable for **closed beta** with ops discipline. **Not** ready for broad App Store launch until critical items below are resolved and pending Supabase migrations are applied to production.
+**Verdict:** **Closed / invite beta ready** with ops discipline. **Approaching** public App Store readiness; remaining gaps are mostly **production ops**, **policy packaging**, and **post-launch polish** — not missing core social/meet/messaging flows.
+
+### Delta since baseline (sprints landed on `main`)
+
+| Area | Baseline | Now |
+|------|----------|-----|
+| Privacy toggles | DB only | `/profile/edit` → `PrivacySettingsSection` (`hide_from_suggestions`, `hide_location_from_suggestions`, blocked list) |
+| Support contact | Missing | `/support`, profile menu, legal pages via `SupportContactSection` |
+| Signup compliance | Missing | Age 18+, Terms, Guidelines checkboxes + links on `/signup` |
+| Public follower links | Counts not tappable | `/profile/[username]/followers` & `/following` |
+| Admin moderation | Read-only UI | Report + deletion queue actions wired to secure PATCH APIs |
+| Account deletion | Request-only | Admin **complete** → `applyDeletionCompletion` (profile blocked + auth ban) |
+| Debug surfaces | Shipped | **Removed** (`/api/debug/profile-save`, edit-profile debug panel) |
+| Host Controls | Duplicate block | **Single** block in `RideDetailsModal` |
+| Messages inbox | Suggestions as threads | **Real conversations only** (`conversationHasMessages`); New Message modal separate |
+| Stale API dir | `api/admin/membership/` | **Removed** from tree |
 
 ---
 
@@ -24,24 +41,28 @@
 
 | Area | Notes |
 |------|--------|
-| **Authentication** | Email/password signup & login, email confirmation flow, `/auth/callback`, profile bootstrap via `ensureUserProfile`, role/status on session (`AuthProvider`). |
-| **Profile setup** | Multi-step `/profile/setup` (rider, bike, style). |
-| **Own profile** | `/profile` with posts, stats, settings links, Blackcard badge, account deletion *request*. |
-| **Public profiles** | `/profile/[username]` with posts, garage, hosted meets, follow/unfollow, block, report. |
-| **Followers / following lists** | `/profile/followers`, `/profile/following`, `/profile/[username]/followers`, `/profile/[username]/following` via `FollowListView`. |
-| **Blocking (client)** | Block/unblock on public profile; `lib/blocking.ts` helpers; meet join blocked when host blocked (after migration). |
-| **Reporting (user)** | Profile & meet report modals → `user_reports`. |
-| **Messages** | DM inbox (`MessagesPanel`), realtime badges, block checks in discovery paths. |
-| **Notifications** | Eight types in `lib/notifications.ts`; `NotificationsPanel`; deep links to profile/meet. |
-| **Inbox UX** | `InboxSwipeTabs` (swipe + tab bar, unread badges, URL `?tab=notifications`). |
-| **Meets** | Create/join/leave, chat, media, route snapping, read receipts, meet reports. |
-| **Meet host controls** | `RideDetailsModal`: View/Hide Riders, Remove Rider, Cancel Meet, End Ride (when tracking active); `cancelMeet` on rides page. |
-| **Live map** | Dashboard preview of active riders; `/rides/track` lifecycle (start/share/end). |
-| **Blackcard / Stripe** | Checkout session API, webhook → subscription + profile premium fields; `/blackcard`, admin pricing. |
-| **Legal pages** | `/privacy`, `/terms`, `/safety`, `/community-guidelines` (June 2026 copy). |
-| **Admin (partial)** | Gated layout; profile role/status/membership; Blackcard, shop, sounds admin; secure `/api/admin/profiles/membership`. |
-| **PWA metadata** | `app/manifest.ts`, icons (`public/icon-192.png`, `icon-512.png`), `appleWebApp` in layout. |
-| **Build health** | TypeScript clean; Next.js production build succeeds (40 routes). |
+| **Authentication** | Email/password signup & login, email confirmation, `/auth/callback`, `ensureUserProfile`, session role/status (`AuthProvider`). |
+| **Signup compliance** | Required checkboxes: 18+, Terms (`/terms`), Community Guidelines (`/community-guidelines`); submit disabled until all checked. |
+| **Profile setup** | Multi-step `/profile/setup`. |
+| **Own profile** | `/profile` — posts, stats, settings, Blackcard, deletion request/cancel, **Support** menu link. |
+| **Public profiles** | `/profile/[username]` — posts, garage, meets, follow/unfollow, block, report; **tappable** follower/following counts. |
+| **Followers / following** | Own: `/profile/followers`, `/profile/following`. Public: `/profile/[username]/followers`, `/following` via `FollowListView`. |
+| **Blocking** | Profile block/unblock; `lib/blocking.ts`; blocked list at `/profile/privacy/blocked`; meet join blocked when host blocked (migration-dependent). |
+| **Reporting (user)** | Profile & meet reports → `user_reports`. |
+| **Admin moderation** | Gated `/admin`; report status actions (reviewing / resolved / dismissed); deletion queue (reviewing / completed / canceled); secure APIs. |
+| **Account deletion** | User request on private profile; admin completion disables access (`applyDeletionCompletion`). |
+| **Messages** | Inbox `MessagesPanel`; **conversation list = threads with ≥1 message**; realtime; block checks; New Message modal for starting chats. |
+| **Notifications** | Eight types in `lib/notifications.ts`; `NotificationsPanel`; deep links. |
+| **Inbox UX** | `InboxSwipeTabs`; `/messages` & `/notifications` redirect to `/inbox`. |
+| **Meets** | Create/join/leave, chat, media, routes, read receipts, meet reports. |
+| **Meet host controls** | Single Host Controls: View/Hide Riders, Cancel Meet, End Ride, remove rider; `canModerate` gated. |
+| **Live map** | Dashboard preview; `/rides/track` share lifecycle. |
+| **Privacy (in-app)** | Discovery visibility + location-in-discovery toggles; live map linked from settings copy. |
+| **Blackcard / Stripe** | Checkout + webhook; admin pricing. |
+| **Support** | `/support` page; `lib/support.ts` (`NEXT_PUBLIC_SUPPORT_EMAIL` or fallback). |
+| **Legal pages** | `/privacy`, `/terms`, `/safety`, `/community-guidelines` + **Support / Contact** section. |
+| **PWA metadata** | `app/manifest.ts`, icons, `appleWebApp` in layout. |
+| **Build health** | TypeScript clean; production build succeeds. |
 
 ---
 
@@ -49,56 +70,56 @@
 
 | Area | Gap |
 |------|-----|
-| **Admin moderation** | Dashboard shows reports & deletion queue **read-only**; PATCH APIs exist (`/api/admin/reports`, `/api/admin/deletion-requests`) but UI does not call them. |
-| **Admin profile list** | Loads via client `supabase.from("profiles")` — subject to RLS; `/api/admin/profiles` exists but is unused in UI. |
-| **Account deletion** | User can submit request only; no automated auth/user purge; copy describes beta manual review. |
-| **Privacy settings** | DB columns `hide_from_suggestions`, `hide_location_from_suggestions` exist; **no user-facing toggles** in edit profile. |
-| **Public profile social** | Follower/following **counts** on others’ profiles are not linked to list pages (own profile links work). |
-| **Blocking enforcement** | App logic + migrations in repo; **production DB may lag** (see migrations). |
-| **Meet “Invite” privacy** | `Open` \| `Invite` only — no host approval / lock-meet workflow. |
-| **PWA** | Manifest + icons only; **no service worker**, offline shell, or install prompt. |
-| **Redirects** | `/messages`, `/notifications` → inbox; legacy paths still in nav history. |
-| **Error / empty states** | Present on major surfaces; some flows use `alert()` or generic console errors. |
-| **Password policy** | Minimum 6 characters on signup — below typical App Store / security expectations. |
+| **Production database parity** | Repo migrations through `20260602160000`; **cannot verify** applied on live Supabase from codebase alone. |
+| **Account deletion** | Access disable on complete; **no automated content/auth purge**; manual follow-up documented in API response. |
+| **Reporter feedback** | Users can report; **no in-app status** when admin resolves/dismisses (unless added as notification type later). |
+| **Invite-only meets** | `Open` \| `Invite` UI label; **join flow does not enforce** invite-only in `toggleJoin` / RLS (open join still possible). |
+| **Password policy** | Minimum **6 characters** on signup — below typical App Store / security expectations. |
+| **Support email in production** | Fallback `hbuentello277@gmail.com` unless `NEXT_PUBLIC_SUPPORT_EMAIL` set in deploy env. |
+| **Admin profile Control Room** | Moderation uses client `supabase.from("profiles")` for lookups; `/api/admin/profiles` exists but full list not primary path. |
+| **PWA** | Manifest + icons; **no service worker**, offline shell, or guided install. |
+| **Live location disclosures** | Browser geolocation on map/track; App Privacy labels / store metadata must be completed **outside** repo. |
+| **Data export** | No “download my data” self-serve flow. |
 
 ---
 
-## 3. Missing
+## 3. Missing (post-launch or non-code)
 
 | Item | Impact |
 |------|--------|
-| **Age verification / minimum age gate** | App Store Guideline 1.2 (UGC), COPPA-adjacent risk for social product. |
-| **Support / contact channel in-app** | Policies lack actionable support email; review often asks for contact + moderation path. |
-| **Documented moderation SLA & in-app “report outcome”** | Users can report; no status feedback. |
-| **Automated account deletion pipeline** | GDPR/CCPA-style expectations for “delete my account”. |
-| **Service worker + install UX** | “Add to Home Screen” not guided; limited offline behavior. |
+| **Service worker + install UX** | Limited “Add to Home Screen” guidance. |
 | **Meet reminders / scheduled notifications** | No cron/edge jobs for upcoming meets. |
-| **Invite-only meet enforcement** | `Invite` privacy not clearly enforced in join RLS/UI. |
-| **Remove empty `app/api/admin/membership/` directory** | Stale artifact (route removed from build); cleanup for clarity. |
+| **Automated full erasure pipeline** | GDPR-style full delete beyond ban + block. |
+| **MFA / passkeys** | Account hardening. |
+| **Report outcome notifications to reporters** | Trust & safety transparency. |
+| **Invite-only meet enforcement (server + UI)** | Privacy setting credibility. |
 
 ---
 
-## 4. App Store review risks
+## 4. App Store review risks (updated)
 
-1. **User-generated content** without demonstrated **timely moderation** (read-only admin queue).
-2. **No age attestation** on signup for a social/messaging/rides product.
-3. **Account deletion** request-only; policies promise review but no in-app completion path.
-4. **Live location** — must ensure App Privacy labels and permission strings match behavior (browser geolocation + ride context).
-5. **Debug / diagnostic surfaces** shipped in production build (`/api/debug/profile-save`, “Profile Save Debug” on edit profile).
-6. **Physical safety disclaimers** exist on `/safety` and `/terms` — good; ensure they are linked at signup (currently policy links mainly on profile edit).
+| Risk | Status |
+|------|--------|
+| UGC without moderation path | **Mitigated** — admin queue actions exist. |
+| No age attestation | **Mitigated** — signup checkboxes (attestation, not ID verification). |
+| No support contact | **Mitigated** — `/support` + legal sections. |
+| Account deletion unclear | **Partially mitigated** — request + admin complete disables access; not full purge. |
+| Live location / permissions | **Operational** — ensure store privacy questionnaire matches geolocation + ride sharing. |
+| Debug endpoints in production | **Resolved** — removed. |
+| Policies not linked at signup | **Resolved** — Terms + Guidelines linked from checkboxes. |
+| Weak password rules | **Still open** — 6-char minimum. |
+| Discovery privacy promises vs product | **Resolved** — toggles in edit profile. |
 
 ---
 
-## 5. Likely user complaints
+## 5. Likely user complaints (remaining)
 
-- Reports “go nowhere” from the user’s perspective (no acknowledgment beyond toast).
-- Deletion requests feel stuck in “beta”.
-- Cannot control discovery privacy (hide from suggestions / hide region) despite policy mentions.
-- Follower counts on other profiles don’t open lists.
-- Joining a meet after host canceled if DB migration not applied (stale `active` meets).
-- Notification gaps if production DB missing new `notifications.type` values (migration `20260602160000`).
-- PWA users expecting native-like install — only browser manual add.
-- Weak password rules + no MFA.
+- Deletion “completed” but posts/messages still visible in community history (by design; needs clear copy).
+- Reports feel one-way (no reporter notification).
+- Invite meets behave like open joins.
+- PWA install not guided.
+- Support email may look personal if env not set to `support@crimsonsociety.app`.
+- Notification/type errors if production DB migrations lag.
 
 ---
 
@@ -106,102 +127,149 @@
 
 | Severity | Issue |
 |----------|--------|
-| **High** | `/api/debug/profile-save` exposed in production — authenticated profile mutation probe. |
-| **High** | Three Supabase migrations **in repo, not verified applied** to project `clelrausyoejbpqlxplf` — blocking, host moderation, notification constraint. |
-| **Medium** | Admin moderation data fetched client-side; relies on RLS + `is_profile_admin` — correct if RLS is current, fragile if migrations lag. |
-| **Medium** | Service role used in Stripe webhook & secured admin routes — ensure secrets rotation and no logging of keys. |
-| **Low** | `Profile Save Debug` panel visible to end users on `/profile/edit` on error. |
-| **Resolved** | Unauthenticated `/api/admin/membership` **removed** from build output (empty directory remains). |
+| **High** | **Production migrations unverified** — blocking, host moderation, notification type constraint may be missing on live DB. |
+| **Medium** | Admin moderation fetches reports/deletions client-side — depends on RLS + `is_profile_admin`. |
+| **Medium** | Service role in Stripe webhook & admin APIs — secrets hygiene required. |
+| **Low** | Password length 6 — credential stuffing risk. |
+| **Resolved** | `/api/debug/profile-save` removed. |
+| **Resolved** | End-user Profile Save Debug panel removed from edit profile. |
 
 ---
 
 ## 7. Privacy concerns
 
-- Live location stored in `ride_live_locations` — policies describe scope; needs **in-app controls** aligned with `hide_location_from_suggestions`.
-- Public profile exposes posts, garage, meets — consistent with terms but users cannot limit discovery without DB-only flags.
-- Messages stored and described as reviewable for safety — standard for UGC apps; needs operational access policy.
-- No explicit “download my data” flow.
+| Topic | Status |
+|-------|--------|
+| Discovery opt-out | **In-app toggles** on `/profile/edit`. |
+| Location in discovery | **Toggle** + Connect respects `hide_location_from_suggestions`. |
+| Live location | Ride-scoped; controlled on `/rides/track`; linked from privacy settings. |
+| Messages reviewable | Described in Privacy Policy; operational policy needed. |
+| Data export | Not implemented. |
 
 ---
 
 ## 8. Moderation concerns
 
-- Reports insert works; **no admin UI actions** (resolve/dismiss/suspend from queue).
-- Deletion requests visible; **no complete/reject** buttons despite PATCH API.
-- Host can remove riders / cancel meets (app + migration) — good for meet-level moderation.
-- No content moderation queue for posts/meet chat beyond admin “Recent Posts” read-only list.
-- No automated triage, SLA, or escalation contacts in Safety page.
+| Topic | Status |
+|-------|--------|
+| Report intake | Working (`user_reports` insert). |
+| Admin report actions | **Working** (reviewing / resolved / dismissed via API). |
+| Deletion queue | **Working** (reviewing / completed / canceled; complete bans user). |
+| Post/meet chat moderation | Read-only recent lists; no per-message delete UI. |
+| SLA / escalation in Safety | Support email present; no published response SLA in app. |
 
 ---
 
-## Prioritized backlog
+## Remaining backlog
 
-### CRITICAL
+### CRITICAL (before broad App Store launch)
 
-| # | Item | Why | Affected files / areas | Effort |
-|---|------|-----|------------------------|--------|
-| C1 | **Apply pending Supabase migrations to production** | Blocking, meet host RLS, notification types break silently if DB lags. | `supabase/migrations/20260602140000_harden_blocking_safety.sql`, `20260602150000_meet_host_moderation.sql`, `20260602160000_fix_notifications_type_check.sql` | **S** (ops; `supabase db push` + verify) |
-| C2 | **Remove or gate debug endpoints & debug UI** | Data integrity risk; unprofessional in review. | `app/api/debug/profile-save/route.ts`, `app/profile/edit/page.tsx` (Profile Save Debug) | **S** |
-| C3 | **Wire admin moderation actions to secure APIs** | App Store expects actionable UGC moderation. | `app/admin/page.tsx`, `app/api/admin/reports/route.ts`, `app/api/admin/deletion-requests/route.ts`, `lib/admin-api.ts` | **M** (1–2 days) |
-| C4 | **Account deletion completion path** | Legal / App Store account deletion expectations. | `app/api/admin/deletion-requests`, Supabase Auth admin, `app/profile/page.tsx`, ops runbook | **L** (3–5 days) |
-| C5 | **Age gate + signup attestation** | Social/UGC/messaging apps routinely rejected without it. | `app/signup/page.tsx`, `app/terms/page.tsx`, optional DB flag | **M** |
+| # | Item | Why |
+|---|------|-----|
+| C1 | **Apply & verify Supabase migrations on production** | Blocking, meet host RLS, notification types fail silently if DB lags. |
+| C2 | **App Store privacy labels + permission copy** | Must match geolocation, messaging, photos, live location behavior. |
+| C3 | **Set production `NEXT_PUBLIC_SUPPORT_EMAIL`** | Review expects stable brand contact (e.g. `support@crimsonsociety.app`). |
 
-### HIGH
+### HIGH (strongly recommended pre-launch)
 
-| # | Item | Why | Affected files / areas | Effort |
-|---|------|-----|------------------------|--------|
-| H1 | **Privacy toggles in profile settings** | Policies promise controls users cannot access. | `components/profile/EditProfileForm.tsx`, `lib/profile.ts` | **M** |
-| H2 | **Support contact in policies + Safety** | Review contact requirement. | `app/privacy/page.tsx`, `app/safety/page.tsx`, `components/policies/PolicyPage.tsx` | **S** |
-| H3 | **Link public profile follower/following counts** | Expected social UX; reduces confusion. | `app/profile/[username]/page.tsx` | **S** |
-| H4 | **Report status feedback for reporters** | Trust & safety perception. | `user_reports` read path, notifications optional | **M** |
-| H5 | **Strengthen password policy** | Security & review checklist. | `app/signup/page.tsx`, Supabase Auth settings | **S** |
-| H6 | **Verify RLS on admin-only tables** | Client-side admin fetches depend on it. | Supabase policies, `app/admin/page.tsx` | **S** (audit) |
+| # | Item | Why |
+|---|------|-----|
+| H1 | **Strengthen password policy** (8+ chars, complexity or Supabase Auth settings) | Security + review checklist. |
+| H2 | **Reporter notification on report resolution** | UGC trust signal for App Review narrative. |
+| H3 | **Invite-only meet enforcement** | UI promises `Invite` privacy. |
+| H4 | **Deletion completion copy + optional email** | Set expectations when content retained. |
+| H5 | **Staging smoke test matrix** | Auth, block, meet host, messages, notifications, Stripe, admin queue on prod-parity DB. |
 
-### MEDIUM
+### MEDIUM (can ship beta without)
 
-| # | Item | Why | Affected files / areas | Effort |
-|---|------|-----|------------------------|--------|
-| M1 | **PWA service worker + install prompt** | Install flow audit item incomplete. | `app/layout.tsx`, new `public/sw.js` or next-pwa | **M** |
-| M2 | **Use `/api/admin/profiles` for Control Room list** | Avoid RLS-limited partial admin view. | `app/admin/page.tsx`, `app/api/admin/profiles/route.ts` | **S** |
-| M3 | **Invite-only meet enforcement** | Privacy setting credibility. | `app/rides/page.tsx`, RLS on `ride_attendees` | **M** |
-| M4 | **Meet reminders** | Engagement & safety (optional). | Edge function / cron, `notifications` types | **L** |
-| M5 | **Remove stale `app/api/admin/membership/` directory** | Confusion during security review. | filesystem cleanup | **XS** |
-| M6 | **Signup links to Terms / Guidelines** | Compliance visibility at account creation. | `app/signup/page.tsx` | **S** |
+| # | Item | Why |
+|---|------|-----|
+| M1 | **PWA service worker + install prompt** | Install audit item. |
+| M2 | **Use `/api/admin/profiles` for Control Room** | Avoid RLS-limited admin profile reads. |
+| M3 | **Meet reminders** | Engagement. |
+| M4 | **Replace `alert()` on create flow** | Polish. |
+| M5 | **Content purge runbook for completed deletions** | Legal ops. |
 
-### LOW
+### LOW (after launch)
 
-| # | Item | Why | Affected files / areas | Effort |
-|---|------|-----|------------------------|--------|
-| L1 | **Replace `alert()` on create flow** | Polish. | `app/create/page.tsx` | **S** |
-| L2 | **Consolidate `/messages` / `/notifications` redirects** | Reduce duplicate routes in analytics. | `app/messages/page.tsx`, `app/notifications/page.tsx` | **XS** |
-| L3 | **Data export request** | Privacy best practice. | New API + settings link | **L** |
-| L4 | **MFA / passkeys** | Hardening post-launch. | Supabase Auth config | **L** |
+| # | Item |
+|---|------|
+| L1 | Data export request flow |
+| L2 | MFA / passkeys |
+| L3 | Automated triage / SLA dashboard |
+| L4 | Per-message moderation tools |
 
-*Effort key: **XS** &lt;2h · **S** half day · **M** 1–2 days · **L** 3+ days*
+---
+
+## Required before App Store submission
+
+1. **Production DB** — All migrations applied; smoke-test block, host remove/cancel, notifications insert, meet cancel.  
+2. **Compliance package** — Privacy nutrition labels, age attestation description, support URL/email, Terms/Privacy URLs in App Store Connect.  
+3. **Support** — Production env email + tested mailbox.  
+4. **Password policy** — Align app + Supabase Auth with review expectations.  
+5. **Moderation proof** — Admin account + documented workflow (reports + deletion queue already in app).  
+6. **Live location** — Accurate “data collected” disclosure for ride tracking.  
+7. **Test build** — Clean `tsc` + `build`; no debug routes in output.
+
+---
+
+## Can wait until after launch
+
+- Service worker / offline PWA  
+- Meet reminders  
+- Reporter-facing report status UI  
+- Invite-only enforcement (if beta only uses Open meets)  
+- Full automated data erasure  
+- MFA, data export, advanced admin content tools  
+- Analytics consolidation for legacy redirects  
 
 ---
 
 ## Recommended next sprint
 
-1. **Ops:** Apply migrations C1; smoke-test follow/block/meet host/notifications on staging production parity.  
-2. **Security:** C2 debug removal.  
-3. **Trust & safety:** C3 admin queue actions + H2 support contact.  
-4. **Compliance:** C5 age gate + H1 privacy toggles + M6 signup policy links.  
-5. **Polish:** H3 follower links + H5 passwords.
+1. **Ops:** C1 migration verification + H5 smoke matrix on staging/production.  
+2. **Compliance:** C2 App Store privacy questionnaire + C3 support email in Vercel/host env.  
+3. **Trust:** H1 passwords + H2 report-resolved notification (optional type in `notifications`).  
+4. **Product integrity:** H3 invite-only joins if `Invite` meets are marketed.  
+5. **Polish:** M1 PWA install hint (lightweight) or defer post-launch.
+
+---
+
+## Area-by-area summary
+
+| Area | Rating | Notes |
+|------|--------|-------|
+| Authentication | ✅ Ready | |
+| Profiles | ✅ Ready | Privacy + blocked list added |
+| Followers | ✅ Ready | Public + own links |
+| Blocking | ✅ Ready | Migration-dependent on prod |
+| Reports | ⚠️ Partial | Admin acts; no reporter feedback |
+| Admin moderation | ✅ Ready | UI + APIs wired |
+| Messages | ✅ Ready | Real threads only; New Message separate |
+| Notifications | ⚠️ Partial | Code ready; DB type constraint on prod |
+| Meets | ✅ Ready | Host controls deduped |
+| Live map | ✅ Ready | Policy/disclosure external |
+| Privacy | ✅ Ready | In-app toggles |
+| Account deletion | ⚠️ Partial | Ban/block; not full purge |
+| Support | ✅ Ready | Set prod email |
+| Legal pages | ✅ Ready | Support section on all four |
+| Signup compliance | ✅ Ready | |
+| PWA | ⚠️ Partial | Metadata only |
+| App Store requirements | ⚠️ Partial | Code ~ready; ops/legal packaging open |
 
 ---
 
 ## Files reviewed (representative)
 
-**App routes:** `app/login`, `signup`, `auth/callback`, `dashboard`, `connect`, `create`, `inbox`, `messages/*`, `notifications`, `profile/*`, `rides`, `rides/track`, `blackcard`, `checkout/*`, `admin/*`, `privacy`, `terms`, `safety`, `community-guidelines`, `manifest.ts`, `layout.tsx`
+**App routes:** `app/login`, `signup`, `auth/callback`, `dashboard`, `connect`, `create`, `inbox`, `messages/*`, `notifications`, `profile/*`, `rides`, `rides/track`, `blackcard`, `checkout/*`, `admin/*`, `privacy`, `terms`, `safety`, `community-guidelines`, `support`, `manifest.ts`, `layout.tsx`
 
-**Components:** `AuthProvider`, `BottomNav`, `inbox/*`, `profile/*`, `rides/*`, `RideMap`, `blackcard/*`, `policies/PolicyPage`
+**Components:** `AuthProvider`, `BottomNav`, `inbox/*`, `profile/*` (incl. `PrivacySettingsSection`), `rides/RideDetailsModal`, `RideMap`, `policies/*`, `blackcard/*`
 
-**API:** `app/api/admin/*`, `app/api/stripe/*`, `app/api/debug/profile-save`
+**API:** `app/api/admin/reports`, `deletion-requests`, `profiles`, `profiles/membership`, `stripe/*` (no debug routes)
 
-**Lib:** `profile.ts`, `blocking.ts`, `notifications.ts`, `admin-api.ts`, `membership.ts`, `stripe.ts`, `requireCompleteProfile.ts`, rides/gps helpers
+**Lib:** `profile.ts`, `blocking.ts`, `notifications.ts`, `admin-api.ts`, `account-deletion.ts`, `support.ts`, `membership.ts`
 
-**Database:** `supabase/migrations/*` (through `20260602160000_fix_notifications_type_check.sql`)
+**Database:** `supabase/migrations/*` through `20260602160000_fix_notifications_type_check.sql`
 
 ---
 
@@ -209,9 +277,9 @@
 
 ```
 npx tsc --noEmit   # exit 0
-npm run build      # exit 0, Next.js 16.2.6, 40 routes
+npm run build      # exit 0, Next.js 16.2.6, 41 routes
 ```
 
 ---
 
-*This document is audit-only. No product code was changed as part of this commit.*
+*Refresh audit only. Product behavior documented as of `7fc2718` on `main`.*
