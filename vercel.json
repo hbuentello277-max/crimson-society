@@ -4,5 +4,11 @@
       "path": "/api/cron/push-dispatch",
       "schedule": "*/2 * * * *"
     }
+  ],
+  "headers": [
+    {
+      "source": "/api/push/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    }
   ]
 }
