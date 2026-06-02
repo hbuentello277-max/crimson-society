@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { NewMessageSheet } from "@/components/inbox/NewMessageSheet";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
+import { fetchDirectConversationPreview } from "@/lib/messages/conversation-preview";
 import {
   isUuid,
   openDirectConversationWithPeer,
@@ -234,7 +235,15 @@ function buildConversations(
   });
 }
 
-export default function MessagesPanel({ embedded = false }: { embedded?: boolean }) {
+type MessagesPanelProps = {
+  embedded?: boolean;
+  newMessageRequestId?: number;
+};
+
+export default function MessagesPanel({
+  embedded = false,
+  newMessageRequestId = 0,
+}: MessagesPanelProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationParam = searchParams.get("conversation");
@@ -254,6 +263,11 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
+  const [threadFocusConversation, setThreadFocusConversation] = useState<Conversation | null>(
+    null,
+  );
+  const [focusComposerOnOpen, setFocusComposerOnOpen] = useState(false);
   const [reportMessageTarget, setReportMessageTarget] = useState<{
     messageId: string;
     conversationId: string;
@@ -263,7 +277,10 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
   } | null>(null);
   const [reportMessageBusy, setReportMessageBusy] = useState(false);
 
-  const active = conversations.find((c) => c.id === activeId) || null;
+  const active =
+    (activeId && conversations.find((c) => c.id === activeId)) ||
+    (activeId && threadFocusConversation?.id === activeId ? threadFocusConversation : null) ||
+    null;
   const activeThread = activeId ? threads[activeId] || [] : [];
 
   const filtered = useMemo(
@@ -525,6 +542,37 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
     setSuggestions(next);
   }, [userId]);
 
+  const enterConversationThread = useCallback(
+    async (conversationId: string, peerId?: string) => {
+      if (!userId) return;
+
+      const preview = await fetchDirectConversationPreview(
+        supabase,
+        conversationId,
+        userId,
+        peerId,
+      );
+
+      if (!preview) {
+        setErrorMsg("Could not open conversation.");
+        return;
+      }
+
+      setThreadFocusConversation(preview);
+      setActiveId(conversationId);
+      setThreads((prev) => ({
+        ...prev,
+        [conversationId]: prev[conversationId] ?? [],
+      }));
+      setFocusComposerOnOpen(true);
+      setShowNewMessage(false);
+      setMemberSearch("");
+      window.history.replaceState(null, "", `/inbox?conversation=${conversationId}`);
+      void loadConversations();
+    },
+    [loadConversations, userId],
+  );
+
   const openDirectConversation = useCallback(
     async (peerId: string) => {
       if (!userId) return;
@@ -542,17 +590,9 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
         return;
       }
 
-      await loadConversations();
-      setActiveId(result.conversationId);
-      setShowNewMessage(false);
-      setMemberSearch("");
-      window.history.replaceState(
-        null,
-        "",
-        `/inbox?conversation=${result.conversationId}`,
-      );
+      await enterConversationThread(result.conversationId, peerId);
     },
-    [loadConversations, session?.user, userId],
+    [enterConversationThread, session?.user, userId],
   );
 
   useEffect(() => {
@@ -597,6 +637,11 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
   }, [loadConversations, userId]);
 
   useEffect(() => {
+    if (!newMessageRequestId) return;
+    setShowNewMessage(true);
+  }, [newMessageRequestId]);
+
+  useEffect(() => {
     if (!showNewMessage || !userId) return;
 
     const timer = window.setTimeout(() => {
@@ -608,27 +653,25 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
 
   useEffect(() => {
     if (!peerParam || !userId || !isUuid(peerParam)) return;
+    if (activeId) return;
 
     const timer = window.setTimeout(() => {
       void openDirectConversation(peerParam);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [openDirectConversation, peerParam, userId]);
+  }, [activeId, openDirectConversation, peerParam, userId]);
 
   useEffect(() => {
-    if (!conversationParam || !userId || !isUuid(conversationParam)) return;
+    if (!conversationParam || !userId || !isUuid(conversationParam) || peerParam) return;
+    if (activeId === conversationParam) return;
 
-    if (conversations.some((conversation) => conversation.id === conversationParam)) {
-      const timer = window.setTimeout(() => setActiveId(conversationParam), 0);
-      return () => window.clearTimeout(timer);
-    }
+    const timer = window.setTimeout(() => {
+      void enterConversationThread(conversationParam);
+    }, 0);
 
-    if (peerParam) return;
-
-    const timer = window.setTimeout(() => setActiveId(conversationParam), 0);
     return () => window.clearTimeout(timer);
-  }, [conversationParam, conversations, peerParam, userId]);
+  }, [activeId, conversationParam, enterConversationThread, peerParam, userId]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -667,6 +710,17 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activeId, threads]);
+
+  useEffect(() => {
+    if (!focusComposerOnOpen || !active) return;
+
+    const timer = window.setTimeout(() => {
+      composerRef.current?.focus();
+      setFocusComposerOnOpen(false);
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [active, focusComposerOnOpen]);
 
   const sendMessage = async () => {
     if (!draft.trim() || !activeId) return;
@@ -736,8 +790,10 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
 
   function closeConversation() {
     setActiveId(null);
+    setThreadFocusConversation(null);
+    setFocusComposerOnOpen(false);
 
-    if (typeof window !== "undefined" && window.location.pathname !== "/inbox") {
+    if (typeof window !== "undefined") {
       window.history.replaceState(null, "", "/inbox");
     }
   }
@@ -759,10 +815,14 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
 
   if (!session) return null;
 
+  const threadShellClass = embedded
+    ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-[#050405]"
+    : "relative flex min-h-screen flex-col overflow-hidden bg-[#050405]";
+
   if (active) {
     return (
       <>
-        <main className="relative flex min-h-screen flex-col overflow-hidden bg-[#050405] text-zinc-100">
+        <main className={`${threadShellClass} text-zinc-100`}>
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
@@ -775,8 +835,12 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
             }}
           />
 
-          <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-            <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pb-3 pt-[calc(1.6rem+env(safe-area-inset-top))]">
+          <header className="sticky top-0 z-40 shrink-0 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
+            <div
+              className={`mx-auto flex max-w-2xl items-center gap-3 px-4 pb-3 ${
+                embedded ? "pt-3" : "pt-[calc(1.6rem+env(safe-area-inset-top))]"
+              }`}
+            >
               <button
                 onClick={closeConversation}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
@@ -922,24 +986,19 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
             </div>
           </div>
 
-          <div className="border-t border-white/10 bg-[#050505]/95 backdrop-blur-xl">
+          <div
+            className="shrink-0 border-t border-white/10 bg-[#050505]/95 backdrop-blur-xl"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
+          >
             <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setShowNewMessage(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                aria-label="New Message"
-              >
-                ＋
-              </button>
-
               <div className="flex flex-1 items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2">
                 <input
+                  ref={composerRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
                   placeholder={`Message ${active.name.split(" ")[0]}...`}
-                  className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                  className="flex-1 bg-transparent text-base text-white outline-none placeholder:text-white/35"
                 />
                 <button className="text-white/50 hover:text-[#e87a82]" aria-label="Photo">
                   ◧
@@ -1009,9 +1068,13 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
     );
   }
 
+  const listShellClass = embedded
+    ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-[#050405]"
+    : "relative min-h-screen overflow-hidden bg-[#050405]";
+
   return (
     <>
-      <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+      <main className={`${listShellClass} text-zinc-100`}>
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -1024,37 +1087,33 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
           }}
         />
 
-        <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
+        <header
+          className={`border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl ${
+            embedded ? "shrink-0" : "sticky top-0 z-40"
+          }`}
+        >
           <div
             className={`mx-auto max-w-2xl px-5 pb-4 ${
-              embedded ? "pt-4" : "pt-[calc(1rem+env(safe-area-inset-top))]"
+              embedded ? "pt-2" : "pt-[calc(1rem+env(safe-area-inset-top))]"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div className="w-[72px]" />
+            {!embedded && (
+              <div className="mt-10 text-center">
+                <div className="mx-auto flex items-center justify-center gap-4">
+                  <span className="h-px w-12 bg-white/20" />
+                  <span className="text-xl text-[#b4141e]">✦</span>
+                  <span className="h-px w-12 bg-white/20" />
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setShowNewMessage(true)}
-                className="rounded-full bg-[#b4141e] px-4 py-2 text-xs uppercase tracking-[0.25em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] transition hover:bg-[#d11827]"
-              >
-                + New
-              </button>
-            </div>
-
-            <div className="mt-10 text-center">
-              <div className="mx-auto flex items-center justify-center gap-4">
-                <span className="h-px w-12 bg-white/20" />
-                <span className="text-xl text-[#b4141e]">✦</span>
-                <span className="h-px w-12 bg-white/20" />
+                <h1 className="mt-6 font-serif text-7xl leading-none text-white">Messages</h1>
               </div>
+            )}
 
-              <h1 className="mt-6 font-serif text-7xl leading-none text-white">
-                Messages
-              </h1>
-            </div>
+            {embedded && (
+              <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Messages</p>
+            )}
 
-            <div className="mt-10">
+            <div className={embedded ? "mt-3" : "mt-10"}>
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2.5">
                 <span className="text-white/40">⌕</span>
                 <input
@@ -1084,7 +1143,11 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
           </div>
         </header>
 
-        <div className="relative mx-auto mt-8 max-w-2xl px-5">
+        <div
+          className={`relative mx-auto max-w-2xl px-5 ${
+            embedded ? "mt-4 flex-1 overflow-y-auto overscroll-contain pb-6" : "mt-8"
+          }`}
+        >
           {errorMsg && (
             <div className="mb-4 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 p-4 text-sm text-[#f1c3c7]">
               {errorMsg}
@@ -1124,10 +1187,7 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
                 <button
                   key={c.id}
                   onClick={() => {
-                    setActiveId(c.id);
-                    if (isUuid(c.id)) {
-                      window.history.replaceState(null, "", `/inbox?conversation=${c.id}`);
-                    }
+                    void enterConversationThread(c.id);
                   }}
                   className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.15)]"
                 >

@@ -53,6 +53,7 @@ export default function InboxSwipeTabs() {
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [newMessageRequestId, setNewMessageRequestId] = useState(0);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef(0);
@@ -310,9 +311,14 @@ export default function InboxSwipeTabs() {
   const translateX =
     -activeIndex * 50 + (viewportWidth.current ? (dragOffset / viewportWidth.current) * 50 : 0);
 
+  const viewportTopClass =
+    activeTab === "messages"
+      ? "top-[calc(env(safe-area-inset-top)+9.5rem)]"
+      : "top-[calc(env(safe-area-inset-top)+5.75rem)]";
+
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-[#050505]/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
+      <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-[#050505]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
         <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
           <InboxOverflowMenu />
@@ -343,11 +349,23 @@ export default function InboxSwipeTabs() {
             <TabBadge count={notificationUnreadCount} />
           </button>
         </div>
+
+        {activeTab === "messages" && (
+          <div className="mx-auto mt-3 max-w-sm">
+            <button
+              type="button"
+              onClick={() => setNewMessageRequestId((current) => current + 1)}
+              className="w-full rounded-full bg-[#b4141e] px-4 py-2.5 text-xs uppercase tracking-[0.22em] text-white shadow-[0_0_20px_rgba(180,20,30,0.35)] transition hover:bg-[#d11827]"
+            >
+              + New Message
+            </button>
+          </div>
+        )}
       </div>
 
       <div
         ref={viewportRef}
-        className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)+4.25rem)] overflow-hidden touch-pan-y"
+        className={`fixed inset-x-0 bottom-0 overflow-hidden touch-pan-y ${viewportTopClass}`}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -361,7 +379,7 @@ export default function InboxSwipeTabs() {
           style={{ transform: `translateX(${translateX}%)` }}
         >
           <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
-            <MessagesPanel embedded />
+            <MessagesPanel embedded newMessageRequestId={newMessageRequestId} />
           </div>
           <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
             <NotificationsPanel embedded />
