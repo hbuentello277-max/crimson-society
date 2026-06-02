@@ -10,7 +10,6 @@ import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
-import { isBlockedWithHost } from "@/lib/blocking";
 import { buildSnappedRoute } from "@/lib/routing";
 
 type RoutePoint = { lat: number; lng: number };
@@ -19,6 +18,7 @@ type RideWaypoint = RoutePoint & { id: string; label: string };
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
 export type RidePrivacy = "Open" | "Invite";
 export type RideTrackingStatus = "not_started" | "active" | "ended";
+export type RideStatus = "active" | "canceled";
 
 type Rider = {
   name: string;
@@ -52,6 +52,7 @@ export type Ride = {
   trackingStatus?: RideTrackingStatus;
   startedAt?: string | null;
   endedAt?: string | null;
+  status?: RideStatus;
 };
 
 type RideRow = {
@@ -78,6 +79,8 @@ type RideRow = {
   tracking_status?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
+  status?: string | null;
+  created_at?: string | null;
   attendeeRiders?: Rider[];
   host?: {
     id: string;
@@ -319,6 +322,7 @@ function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
     trackingStatus: parseTrackingStatus(row.tracking_status),
     startedAt: row.started_at ?? null,
     endedAt: row.ended_at ?? null,
+    status: row.status === "canceled" ? "canceled" : "active",
   };
 }     
 
@@ -346,6 +350,7 @@ function RideCard({
   ride,
   isGoing,
   canManage,
+  canModerate,
   unreadCount,
   onJoin,
   onViewDetails,
@@ -355,12 +360,15 @@ function RideCard({
   ride: Ride;
   isGoing: boolean;
   canManage: boolean;
+  canModerate: boolean;
   unreadCount: number;
   onJoin: () => void;
   onViewDetails: () => void;
   onEdit: () => void;
   onCancel: () => void;
 }) {
+  const isCanceled = ride.status === "canceled";
+
   return (
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
       <div className="grid gap-0 sm:grid-cols-[144px_1fr]">
@@ -400,6 +408,12 @@ function RideCard({
               {ride.privacy === "Invite" && (
                 <span className="rounded-md border border-[#7f111b]/45 bg-[#7f111b]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
                   Invite
+                </span>
+              )}
+
+              {isCanceled && (
+                <span className="rounded-md border border-zinc-600/60 bg-zinc-800/50 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-300">
+                  Canceled
                 </span>
               )}
             </div>
@@ -459,29 +473,29 @@ function RideCard({
               </button>
 
               {canManage && (
-                <>
-                  <button
-                    type="button"
-                    onClick={onEdit}
-                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-                  >
-                    Edit
-                  </button>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                >
+                  Edit
+                </button>
+              )}
 
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
-                  >
-                    Cancel
-                  </button>
-                </>
+              {canModerate && !isCanceled && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28"
+                >
+                  Cancel
+                </button>
               )}
 
               <button
                 type="button"
                 onClick={onJoin}
-                disabled={canManage}
+                disabled={canManage || isCanceled}
                 className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
                   isGoing
                     ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
@@ -501,7 +515,7 @@ function RideCard({
 function RidesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, isAdmin } = useAuth();
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -702,11 +716,28 @@ function RidesPageContent() {
 
     async function loadMeets() {
       setLoadingMeets(true);
-      const { data, error } = await supabase
-        .from("rides")
-        .select('*')
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
+      const userId = session?.user?.id;
+
+      const [
+        { data: activeData, error: activeError },
+        { data: canceledHostedData, error: canceledHostedError },
+      ] = await Promise.all([
+        supabase
+          .from("rides")
+          .select("*")
+          .eq("status", "active")
+          .order("created_at", { ascending: false }),
+        userId
+          ? supabase
+              .from("rides")
+              .select("*")
+              .eq("status", "canceled")
+              .eq("host_id", userId)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] as RideRow[], error: null }),
+      ]);
+
+      const error = activeError || canceledHostedError;
 
       if (error) {
         console.error("Failed to load meets:", error);
@@ -718,7 +749,46 @@ function RidesPageContent() {
         return;
       }
 
-      const rows = (data || []) as RideRow[];
+      let canceledAttendeeRows: RideRow[] = [];
+      if (userId) {
+        const { data: attendanceRows } = await supabase
+          .from("ride_attendees")
+          .select("ride_id")
+          .eq("user_id", userId);
+
+        const attendedRideIds = Array.from(
+          new Set((attendanceRows || []).map((row) => row.ride_id).filter(Boolean))
+        );
+
+        if (attendedRideIds.length > 0) {
+          const { data: canceledAttendeeData, error: canceledAttendeeError } = await supabase
+            .from("rides")
+            .select("*")
+            .eq("status", "canceled")
+            .in("id", attendedRideIds)
+            .order("created_at", { ascending: false });
+
+          if (canceledAttendeeError) {
+            console.error("Failed to load canceled meets:", canceledAttendeeError);
+          } else {
+            canceledAttendeeRows = (canceledAttendeeData || []) as RideRow[];
+          }
+        }
+      }
+
+      const rowMap = new Map<string, RideRow>();
+      for (const row of [
+        ...((activeData || []) as RideRow[]),
+        ...((canceledHostedData || []) as RideRow[]),
+        ...canceledAttendeeRows,
+      ]) {
+        rowMap.set(row.id, row);
+      }
+
+      const rows = Array.from(rowMap.values()).sort(
+        (a, b) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
 
       const rideIds = rows.map((row) => row.id);
 
@@ -885,15 +955,8 @@ const ridesWithRoutes = await Promise.all(
     return;
   }
 
-  try {
-    if (await isBlockedWithHost(session.user.id, ride?.hostId)) {
-      setToast("You cannot join this meet because of a block.");
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
-  } catch (blockError) {
-    console.error("Failed to verify block state before joining meet:", blockError);
-    setToast("Could not verify meet access.");
+  if (ride?.status === "canceled") {
+    setToast("This meet was canceled.");
     window.setTimeout(() => setToast(null), 2500);
     return;
   }
@@ -971,41 +1034,62 @@ const ridesWithRoutes = await Promise.all(
   window.setTimeout(() => setToast(null), 2000);
 }
 
+  function applyRidePatch(rideId: string, patch: Partial<Ride>) {
+    setRealMeets((current) =>
+      current.map((ride) => (ride.id === rideId ? { ...ride, ...patch } : ride))
+    );
+    setSelectedRide((current) =>
+      current?.id === rideId ? { ...current, ...patch } : current
+    );
+  }
+
   async function cancelMeet(rideId: string) {
-const confirmed = window.confirm("Cancel this meet?");
-if (!confirmed) return;
+    const confirmed = window.confirm("Cancel this meet for all attendees?");
+    if (!confirmed) return;
 
-if (!session?.user?.id) {
-setToast("You must be signed in to cancel a meet.");
-window.setTimeout(() => setToast(null), 2500);
-return;
-}
+    if (!session?.user?.id) {
+      setToast("You must be signed in to cancel a meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
 
-const { error } = await supabase
-.from("rides")
-.update({ status: "canceled" })
-.eq("id", rideId)
-.eq("host_id", session.user.id)
+    const endedAt = new Date().toISOString();
+    let query = supabase
+      .from("rides")
+      .update({
+        status: "canceled",
+        tracking_status: "ended",
+        ended_at: endedAt,
+      })
+      .eq("id", rideId);
 
-if (error) {
-console.error("Failed to cancel meet FULL:", error);
-setToast(`Could not cancel meet: ${error.message}`);
-window.setTimeout(() => setToast(null), 5000);
-return;
-}
+    if (!isAdmin) {
+      query = query.eq("host_id", session.user.id);
+    }
 
+    const { error } = await query;
 
-setRealMeets((current) =>
-current.filter((ride) => ride.id !== rideId)
-);
+    if (error) {
+      console.error("Failed to cancel meet:", error);
+      setToast(`Could not cancel meet: ${error.message}`);
+      window.setTimeout(() => setToast(null), 5000);
+      return;
+    }
 
-if (selectedRide?.id === rideId) {
-setSelectedRide(null);
-}
+    applyRidePatch(rideId, {
+      status: "canceled",
+      trackingStatus: "ended",
+      endedAt,
+    });
 
-setToast("Meet canceled.");
-window.setTimeout(() => setToast(null), 2500);
-}
+    setGoing((current) => ({
+      ...current,
+      [rideId]: false,
+    }));
+
+    setToast("Meet canceled.");
+    window.setTimeout(() => setToast(null), 2500);
+  }
 
 
   async function saveMeet(newRide: HostRideForm) {
@@ -1325,15 +1409,17 @@ let duration: string | null = newRide.duration || null;
                 </button>
 
                 {featuredRide.hostId === session?.user?.id && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setEditingRide(featuredRide)}
-                      className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-                    >
-                      Edit
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRide(featuredRide)}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                  >
+                    Edit
+                  </button>
+                )}
 
+                {(featuredRide.hostId === session?.user?.id || isAdmin) &&
+                  featuredRide.status !== "canceled" && (
                     <button
                       type="button"
                       onClick={() => void cancelMeet(featuredRide.id)}
@@ -1341,13 +1427,15 @@ let duration: string | null = newRide.duration || null;
                     >
                       Cancel
                     </button>
-                  </>
-                )}
+                  )}
 
                 <button
                   type="button"
                   onClick={() => toggleJoin(featuredRide.id)}
-                  disabled={featuredRide.hostId === session?.user?.id}
+                  disabled={
+                    featuredRide.hostId === session?.user?.id ||
+                    featuredRide.status === "canceled"
+                  }
                   className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
                     going[featuredRide.id]
                       ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
@@ -1396,6 +1484,7 @@ let duration: string | null = newRide.duration || null;
                 key={ride.id}
                 ride={ride}
                 canManage={ride.hostId === session?.user?.id}
+                canModerate={ride.hostId === session?.user?.id || isAdmin}
                 unreadCount={unreadCounts[ride.id] || 0}
                 onEdit={() => setEditingRide(ride)}
                 isGoing={!!going[ride.id]}
@@ -1412,9 +1501,22 @@ let duration: string | null = newRide.duration || null;
         <RideDetailsModal
           ride={selectedRide}
           isGoing={!!going[selectedRide.id]}
+          isAdmin={isAdmin}
           onJoin={() => toggleJoin(selectedRide.id)}
           onRead={markRideRead}
           onClose={() => setSelectedRide(null)}
+          onRideUpdated={(patch) => applyRidePatch(selectedRide.id, patch)}
+          onAttendeesChanged={(nextGoing) => {
+            setSelectedRide((current) =>
+              current ? { ...current, going: nextGoing } : current
+            );
+            setRealMeets((current) =>
+              current.map((item) =>
+                item.id === selectedRide.id ? { ...item, going: nextGoing } : item
+              )
+            );
+          }}
+          onCancelMeet={() => void cancelMeet(selectedRide.id)}
         />
       )}
 

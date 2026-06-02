@@ -3,19 +3,31 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import type { Ride } from "@/app/rides/page";
+import type { Ride, RideTrackingStatus } from "@/app/rides/page";
+import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
 
+type MeetAttendee = {
+  userId: string;
+  name: string;
+  username: string | null;
+  photo: string;
+};
+
 interface Props {
   ride: Ride;
   isGoing: boolean;
+  isAdmin: boolean;
   onJoin: () => void;
   onRead: (rideId: string) => void;
   onClose: () => void;
+  onRideUpdated: (patch: Partial<Ride>) => void;
+  onAttendeesChanged: (going: Ride["going"]) => void;
+  onCancelMeet: () => void;
 }
 
 type RideMessage = {
@@ -118,7 +130,20 @@ function safeFileName(name: string) {
   return cleaned || "meet-chat-photo";
 }
 
-export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Props) {
+const DEFAULT_RIDER_PHOTO = "/icon.png";
+
+export function RideDetailsModal({
+  ride,
+  isGoing,
+  isAdmin,
+  onJoin,
+  onRead,
+  onClose,
+  onRideUpdated,
+  onAttendeesChanged,
+  onCancelMeet,
+}: Props) {
+  const { session } = useAuth();
   const [messages, setMessages] = useState<RideMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -131,11 +156,18 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
   const [reportDetails, setReportDetails] = useState("");
   const [reporting, setReporting] = useState(false);
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
+  const [attendees, setAttendees] = useState<MeetAttendee[]>([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [showRidersPanel, setShowRidersPanel] = useState(false);
+  const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isHost = ride.hostId === currentUserId;
-  const canUseChat = isGoing || isHost;
+  const canModerate = isHost || isAdmin;
+  const isCanceled = ride.status === "canceled";
+  const isRideLive = ride.trackingStatus === "active";
+  const canUseChat = (isGoing || isHost) && !isCanceled;
 
   useEffect(() => {
     let active = true;
@@ -242,6 +274,152 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
 
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedImage]);
+
+  const loadAttendees = useCallback(async () => {
+    setLoadingAttendees(true);
+
+    const { data, error } = await supabase
+      .from("ride_attendees")
+      .select(
+        `
+        user_id,
+        profile:profiles!ride_attendees_user_id_fkey (
+          id,
+          username,
+          display_name,
+          full_name,
+          profile_image_url,
+          avatar_url
+        )
+      `
+      )
+      .eq("ride_id", ride.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Failed to load meet riders:", error);
+      setLoadingAttendees(false);
+      return;
+    }
+
+    const nextAttendees: MeetAttendee[] = [];
+    const nextGoing: Ride["going"] = [];
+
+    for (const row of data || []) {
+      const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+      const name =
+        profile?.display_name?.trim() ||
+        profile?.full_name?.trim() ||
+        profile?.username?.trim() ||
+        "Crimson Member";
+      const photo =
+        profile?.profile_image_url || profile?.avatar_url || DEFAULT_RIDER_PHOTO;
+
+      nextAttendees.push({
+        userId: row.user_id,
+        name,
+        username: profile?.username ?? null,
+        photo,
+      });
+
+      nextGoing.push({
+        name,
+        photo,
+        username: profile?.username ?? null,
+      });
+    }
+
+    setAttendees(nextAttendees);
+    onAttendeesChanged(nextGoing);
+    setLoadingAttendees(false);
+  }, [onAttendeesChanged, ride.id]);
+
+  useEffect(() => {
+    if (!canModerate) return;
+    void loadAttendees();
+  }, [canModerate, loadAttendees]);
+
+  useEffect(() => {
+    if (showRidersPanel && canModerate) {
+      void loadAttendees();
+    }
+  }, [canModerate, loadAttendees, showRidersPanel]);
+
+  async function removeRider(userId: string) {
+    if (!canModerate || moderationBusy) return;
+    if (userId === ride.hostId) return;
+
+    const confirmed = window.confirm("Remove this rider from the meet?");
+    if (!confirmed) return;
+
+    setModerationBusy(userId);
+
+    const { error } = await supabase
+      .from("ride_attendees")
+      .delete()
+      .eq("ride_id", ride.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Failed to remove rider:", error);
+      setSafetyMessage(error.message || "Could not remove rider.");
+      setModerationBusy(null);
+      return;
+    }
+
+    const nextAttendees = attendees.filter((attendee) => attendee.userId !== userId);
+    setAttendees(nextAttendees);
+    onAttendeesChanged(
+      nextAttendees.map((attendee) => ({
+        name: attendee.name,
+        photo: attendee.photo,
+        username: attendee.username,
+      }))
+    );
+
+    setSafetyMessage("Rider removed.");
+    window.setTimeout(() => setSafetyMessage(null), 2400);
+    setModerationBusy(null);
+  }
+
+  async function endActiveRide() {
+    if (!canModerate || !isRideLive || moderationBusy) return;
+
+    const confirmed = window.confirm("End this ride now?");
+    if (!confirmed) return;
+
+    setModerationBusy("end");
+
+    const endedAt = new Date().toISOString();
+    let query = supabase
+      .from("rides")
+      .update({
+        tracking_status: "ended",
+        ended_at: endedAt,
+      })
+      .eq("id", ride.id);
+
+    if (!isAdmin) {
+      query = query.eq("host_id", session?.user?.id ?? "");
+    }
+
+    const { error } = await query;
+
+    if (error) {
+      console.error("Failed to end ride:", error);
+      setSafetyMessage(error.message || "Could not end ride.");
+      setModerationBusy(null);
+      return;
+    }
+
+    onRideUpdated({
+      trackingStatus: "ended" as RideTrackingStatus,
+      endedAt,
+    });
+    setSafetyMessage("Ride ended.");
+    window.setTimeout(() => setSafetyMessage(null), 2400);
+    setModerationBusy(null);
+  }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -418,10 +596,22 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
             </svg>
           </button>
 
-          <div className="absolute left-3 top-3 flex gap-2">
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <span className="rounded-full border border-white/20 bg-black/50 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur-sm">
               {ride.type}
             </span>
+
+            {isCanceled && (
+              <span className="rounded-full border border-zinc-500/50 bg-zinc-900/70 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300 backdrop-blur-sm">
+                Canceled
+              </span>
+            )}
+
+            {isRideLive && !isCanceled && (
+              <span className="rounded-full border border-[#7f111b]/60 bg-[#7f111b]/25 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd] backdrop-blur-sm">
+                Live
+              </span>
+            )}
 
             {ride.privacy === "Invite" && (
               <span className="rounded-full border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
@@ -515,6 +705,241 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
               </div>
             )}
           </div>
+
+          {isCanceled && (
+            <div className="mt-5 rounded-lg border border-zinc-600/40 bg-zinc-900/40 px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                Meet canceled
+              </p>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                This meet was canceled. New riders cannot join, but the meet record is
+                preserved for attendees.
+              </p>
+            </div>
+          )}
+
+          {canModerate && (
+            <div className="mt-5 rounded-lg border border-[#7f111b]/35 bg-[#7f111b]/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#f0c9ce]">
+                Host Controls
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRidersPanel((open) => !open)}
+                  className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30"
+                >
+                  {showRidersPanel ? "Hide Riders" : "View Riders"}
+                </button>
+
+                {!isCanceled && (
+                  <button
+                    type="button"
+                    onClick={onCancelMeet}
+                    disabled={!!moderationBusy}
+                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#7f111b]/32 disabled:opacity-50"
+                  >
+                    Cancel Meet
+                  </button>
+                )}
+
+                {isRideLive && !isCanceled && (
+                  <button
+                    type="button"
+                    onClick={() => void endActiveRide()}
+                    disabled={!!moderationBusy}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
+                  >
+                    End Ride
+                  </button>
+                )}
+              </div>
+
+              {showRidersPanel && (
+                <div className="mt-4">
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Riders ({attendees.length})
+                  </p>
+
+                  {loadingAttendees ? (
+                    <p className="text-sm text-zinc-500">Loading riders...</p>
+                  ) : attendees.length === 0 ? (
+                    <p className="text-sm text-zinc-500">No riders yet.</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {attendees.map((attendee) => {
+                        const href = profileHref(attendee.username);
+                        const isMeetHost = attendee.userId === ride.hostId;
+
+                        return (
+                          <div
+                            key={attendee.userId}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10">
+                                <Image
+                                  src={attendee.photo}
+                                  alt={attendee.name}
+                                  fill
+                                  sizes="36px"
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                {href ? (
+                                  <Link
+                                    href={href}
+                                    className="block truncate text-sm font-medium text-zinc-100 transition hover:text-[#f4dadd]"
+                                  >
+                                    {attendee.name}
+                                  </Link>
+                                ) : (
+                                  <p className="truncate text-sm font-medium text-zinc-100">
+                                    {attendee.name}
+                                  </p>
+                                )}
+                                <p className="truncate text-xs text-zinc-500">
+                                  {attendee.username
+                                    ? `@${attendee.username.replace(/^@+/, "")}`
+                                    : "No username"}
+                                  {isMeetHost ? " / Host" : ""}
+                                </p>
+                              </div>
+                            </div>
+
+                            {!isMeetHost && (
+                              <button
+                                type="button"
+                                onClick={() => void removeRider(attendee.userId)}
+                                disabled={moderationBusy === attendee.userId}
+                                className="shrink-0 rounded-md border border-[#7f111b]/50 bg-[#7f111b]/15 px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28 disabled:opacity-50"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isCanceled && (
+            <div className="mt-5 rounded-lg border border-zinc-600/40 bg-zinc-900/40 px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">Meet canceled</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                This meet was canceled. New riders cannot join, but the meet record is preserved
+                for attendees.
+              </p>
+            </div>
+          )}
+
+          {canModerate && (
+            <div className="mt-5 rounded-lg border border-[#7f111b]/35 bg-[#7f111b]/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#f0c9ce]">Host Controls</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRidersPanel((open) => !open)}
+                  className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30"
+                >
+                  {showRidersPanel ? "Hide Riders" : "View Riders"}
+                </button>
+                {!isCanceled && (
+                  <button
+                    type="button"
+                    onClick={onCancelMeet}
+                    disabled={!!moderationBusy}
+                    className="rounded-lg border border-[#7f111b]/60 bg-[#7f111b]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#7f111b]/32 disabled:opacity-50"
+                  >
+                    Cancel Meet
+                  </button>
+                )}
+                {isRideLive && !isCanceled && (
+                  <button
+                    type="button"
+                    onClick={() => void endActiveRide()}
+                    disabled={!!moderationBusy}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
+                  >
+                    End Ride
+                  </button>
+                )}
+              </div>
+              {showRidersPanel && (
+                <div className="mt-4">
+                  <p className="mb-3 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    Riders ({attendees.length})
+                  </p>
+                  {loadingAttendees ? (
+                    <p className="text-sm text-zinc-500">Loading riders...</p>
+                  ) : attendees.length === 0 ? (
+                    <p className="text-sm text-zinc-500">No riders yet.</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {attendees.map((attendee) => {
+                        const href = profileHref(attendee.username);
+                        const isMeetHost = attendee.userId === ride.hostId;
+                        return (
+                          <div
+                            key={attendee.userId}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10">
+                                <Image
+                                  src={attendee.photo}
+                                  alt={attendee.name}
+                                  fill
+                                  sizes="36px"
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                {href ? (
+                                  <Link
+                                    href={href}
+                                    className="block truncate text-sm font-medium text-zinc-100 transition hover:text-[#f4dadd]"
+                                  >
+                                    {attendee.name}
+                                  </Link>
+                                ) : (
+                                  <p className="truncate text-sm font-medium text-zinc-100">
+                                    {attendee.name}
+                                  </p>
+                                )}
+                                <p className="truncate text-xs text-zinc-500">
+                                  {attendee.username
+                                    ? `@${attendee.username.replace(/^@+/, "")}`
+                                    : "No username"}
+                                  {isMeetHost ? " / Host" : ""}
+                                </p>
+                              </div>
+                            </div>
+                            {!isMeetHost && (
+                              <button
+                                type="button"
+                                onClick={() => void removeRider(attendee.userId)}
+                                disabled={moderationBusy === attendee.userId}
+                                className="shrink-0 rounded-md border border-[#7f111b]/50 bg-[#7f111b]/15 px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce] transition hover:bg-[#7f111b]/28 disabled:opacity-50"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-5">
             <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
@@ -804,14 +1229,22 @@ export function RideDetailsModal({ ride, isGoing, onJoin, onRead, onClose }: Pro
               onClick={() => {
                 onJoin();
               }}
-              disabled={isHost}
+              disabled={isHost || isCanceled}
               className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
-                isGoing
-                  ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
-                  : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
+                isCanceled
+                  ? "border-white/10 bg-white/[0.02] text-zinc-600"
+                  : isGoing
+                    ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
+                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
               }`}
             >
-              {isHost ? "Hosting" : isGoing ? "✓ Going" : "JOIN RIDE"}
+              {isCanceled
+                ? "Canceled"
+                : isHost
+                  ? "Hosting"
+                  : isGoing
+                    ? "✓ Going"
+                    : "JOIN RIDE"}
             </button>
           </div>
         </div>
