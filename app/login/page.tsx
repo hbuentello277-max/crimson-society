@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { redirectAfterAuth } from "@/lib/auth/redirect-after-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,8 +24,8 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && session) {
-      router.replace("/profile/setup");
+    if (!authLoading && session?.user?.id) {
+      void redirectAfterAuth(router, session.user.id);
     }
   }, [authLoading, session, router]);
 
@@ -65,7 +66,18 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/profile/setup");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.id) {
+      await redirectAfterAuth(router, user.id);
+    } else {
+      router.replace("/profile/setup");
+    }
+
+    setLoading(false);
+    return;
   }
 
   async function resendConfirmationEmail() {

@@ -1,21 +1,9 @@
 import { NextResponse } from "next/server";
+import { isPushDispatchAuthorized } from "@/lib/push/cron-auth";
 import { dispatchPushForNotification, processPendingPushJobs } from "@/lib/push/dispatch";
 
-function isAuthorized(request: Request) {
-  const secret = process.env.PUSH_DISPATCH_SECRET;
-  if (!secret) {
-    return false;
-  }
-
-  const headerSecret = request.headers.get("x-push-dispatch-secret");
-  const bearer = request.headers.get("authorization");
-  const bearerSecret = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
-
-  return headerSecret === secret || bearerSecret === secret;
-}
-
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isPushDispatchAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

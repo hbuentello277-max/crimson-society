@@ -15,7 +15,10 @@ Crimson Society uses **Firebase Cloud Messaging (FCM)** for device push. In-app 
 
 1. App event → Postgres trigger inserts `notifications` row (existing).
 2. `enqueue_push_notification_job` trigger inserts `push_notification_jobs` row.
-3. **Supabase Database Webhook** (or cron) POSTs to `/api/push/dispatch` with `PUSH_DISPATCH_SECRET`.
+3. **Automatic dispatch** (pick one or more):
+   - **pg_net** trigger on `push_notification_jobs` — configure `public.push_dispatch_config` (see migration `20260603120000_push_dispatch_http_trigger.sql`)
+   - **Supabase Database Webhook** on `push_notification_jobs` INSERT → `/api/push/dispatch`
+   - **Vercel Cron** — `vercel.json` calls `/api/cron/push-dispatch` every 2 minutes
 4. Next.js server loads tokens + sends FCM HTTP v1 (service account, server-only).
 5. Service worker shows background notification; tap opens deep link.
 
@@ -110,8 +113,11 @@ curl -X POST http://localhost:3000/api/push/dispatch \
   -d '{"notification_id":"<uuid>"}'
 ```
 
+## Production checklist
+
+See **`docs/PRODUCTION_PUSH_AND_AUTH_CHECKLIST.md`** for secrets, webhooks, PWA testing, and email verification URLs.
+
 ## What is not included
 
 - Native iOS/Android store apps (FCM native SDKs).
 - Automatic Supabase Edge Function deploy (Next.js dispatch route is the default).
-- `pg_net` database HTTP (not enabled in repo); use Database Webhook instead.
