@@ -12,6 +12,8 @@
     "@stripe/stripe-js": "^9.6.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
+    "firebase": "^12.14.0",
+    "firebase-admin": "^13.10.0",
     "framer-motion": "^12.39.0",
     "leaflet": "^1.9.4",
     "next": "16.2.6",

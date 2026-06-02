@@ -6,7 +6,8 @@ export type NotificationType =
   | "profile_followed"
   | "meet_removed"
   | "meet_canceled"
-  | "meet_ended";
+  | "meet_ended"
+  | "direct_message";
 
 export type NotificationActor = {
   id: string;
@@ -23,6 +24,7 @@ export type NotificationItem = {
   title: string;
   body: string;
   ride_id: string | null;
+  conversation_id?: string | null;
   actor_id: string | null;
   read_at: string | null;
   created_at: string;
@@ -47,11 +49,15 @@ export function actorProfileHref(actor: NotificationActor | null | undefined) {
 }
 
 export function notificationDestination(
-  notification: Pick<NotificationItem, "type" | "ride_id">,
+  notification: Pick<NotificationItem, "type" | "ride_id" | "conversation_id">,
   actor: NotificationActor | null | undefined
 ) {
   if (notification.type === "profile_followed") {
     return actorProfileHref(actor) || "/inbox?tab=notifications";
+  }
+
+  if (notification.type === "direct_message" && notification.conversation_id) {
+    return `/inbox?conversation=${notification.conversation_id}`;
   }
 
   if (notification.ride_id) {
@@ -77,6 +83,8 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Meet photo";
     case "profile_followed":
       return "New follower";
+    case "direct_message":
+      return "Message";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -107,6 +115,8 @@ export function notificationSummary(
       return trimmedBody || "Your meet was canceled";
     case "meet_ended":
       return trimmedBody || "Ride tracking has ended";
+    case "direct_message":
+      return trimmedBody || `${name} sent you a message`;
     default:
       return trimmedBody || notification.title;
   }
@@ -144,6 +154,7 @@ export function isKnownNotificationType(value: string): value is NotificationTyp
     value === "profile_followed" ||
     value === "meet_removed" ||
     value === "meet_canceled" ||
-    value === "meet_ended"
+    value === "meet_ended" ||
+    value === "direct_message"
   );
 }

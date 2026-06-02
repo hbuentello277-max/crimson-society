@@ -19,6 +19,7 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
+import { PushNotificationSettings } from "@/components/push/PushNotificationSettings";
 import { supabase } from "@/lib/supabase";
 
 type NotificationRow = NotificationItem & {
@@ -149,7 +150,9 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
 
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, user_id, type, title, body, ride_id, actor_id, read_at, created_at")
+        .select(
+          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at",
+        )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -312,6 +315,8 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
             Follows, meet joins, removals, cancellations, ride endings, and meet chat in one ledger.
           </p>
         </header>
+
+        <PushNotificationSettings />
 
         <section className="mt-7">
           {loading ? (
