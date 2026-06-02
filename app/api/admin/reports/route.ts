@@ -36,7 +36,9 @@ export async function PATCH(request: Request) {
       .from("user_reports")
       .update({ status, updated_at: now })
       .eq("id", id)
-      .select("id, reporter_id, reported_user_id, ride_id, reason, details, status, created_at, updated_at")
+      .select(
+        "id, reporter_id, reported_user_id, ride_id, post_id, message_id, conversation_id, reason, details, status, created_at, updated_at",
+      )
       .single();
 
     if (error) {

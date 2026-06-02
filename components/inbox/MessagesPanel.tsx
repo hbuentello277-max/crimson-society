@@ -5,8 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
 type Conversation = {
   id: string;
@@ -300,6 +302,14 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [reportMessageTarget, setReportMessageTarget] = useState<{
+    messageId: string;
+    conversationId: string;
+    senderId: string;
+    senderName: string;
+    preview: string;
+  } | null>(null);
+  const [reportMessageBusy, setReportMessageBusy] = useState(false);
 
   const active = conversations.find((c) => c.id === activeId) || null;
   const activeThread = activeId ? threads[activeId] || [] : [];
@@ -1030,6 +1040,23 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
                       <span className="mt-1 px-1 text-[10px] uppercase tracking-[0.25em] text-white/35">
                         {m.timeLabel}
                       </span>
+                      {!isMe && activeId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReportMessageTarget({
+                              messageId: m.id,
+                              conversationId: activeId,
+                              senderId: m.senderId,
+                              senderName: m.senderName || active.name,
+                              preview: m.text,
+                            })
+                          }
+                          className="mt-1 px-1 text-[9px] uppercase tracking-[0.2em] text-zinc-500 transition hover:text-[#e87a82]"
+                        >
+                          Report
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1078,6 +1105,41 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
         </main>
 
         {newMessageModal}
+
+        <ReportContentModal
+          open={Boolean(reportMessageTarget)}
+          title="Report Message"
+          subtitle={
+            reportMessageTarget
+              ? `Report a message from ${reportMessageTarget.senderName}.`
+              : undefined
+          }
+          reasons={DEFAULT_REPORT_REASONS}
+          busy={reportMessageBusy}
+          onClose={() => {
+            if (!reportMessageBusy) setReportMessageTarget(null);
+          }}
+          onSubmit={async ({ reason, details }) => {
+            if (!userId || !reportMessageTarget) return;
+            setReportMessageBusy(true);
+            const { error } = await submitUserReport({
+              reporterId: userId,
+              reason,
+              details,
+              messageId: reportMessageTarget.messageId,
+              conversationId: reportMessageTarget.conversationId,
+              reportedUserId: reportMessageTarget.senderId,
+            });
+            setReportMessageBusy(false);
+            if (error) {
+              setErrorMsg(error.message);
+              return;
+            }
+            setReportMessageTarget(null);
+            setErrorMsg("Message report submitted.");
+            window.setTimeout(() => setErrorMsg(""), 2600);
+          }}
+        />
       </>
     );
   }

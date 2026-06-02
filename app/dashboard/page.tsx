@@ -11,6 +11,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ReportContentModal } from "@/components/safety/ReportContentModal";
+import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 
 const FEED_POST_LIMIT = 40;
@@ -346,6 +348,12 @@ export default function DashboardPage() {
   const [pullY, setPullY] = useState(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [reportPostTarget, setReportPostTarget] = useState<{
+    postId: string;
+    authorId: string;
+    authorName: string;
+  } | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardMeets, setDashboardMeets] = useState<DashboardMeet[]>([]);
   const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>(emptyLiveMapPreview);
@@ -1178,6 +1186,10 @@ setFeedLoading(false);
               const canDeletePost = Boolean(
                 p.userId && session?.user?.id && (p.userId === session.user.id || isAdmin),
               );
+              const canReportPost = Boolean(
+                p.userId && session?.user?.id && p.userId !== session.user.id,
+              );
+              const showPostMenu = canDeletePost || canReportPost;
               const profileHref = getProfileHref(p.author.handle);
 
               const avatar = (
@@ -1234,7 +1246,7 @@ setFeedLoading(false);
                       {p.timeLabel}
                     </span>
 
-                    {canDeletePost && (
+                    {showPostMenu && (
                       <div className="relative">
                         <button
                           type="button"
@@ -1248,15 +1260,33 @@ setFeedLoading(false);
                         </button>
 
                         {openMenuId === p.id && (
-                          <div className="absolute right-0 top-10 z-30 w-40 overflow-hidden rounded-2xl border border-white/10 bg-[#090909] shadow-2xl">
-                            <button
-                              type="button"
-                              onClick={() => void deletePost(p)}
-                              disabled={deletingPostId === p.id}
-                              className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[#e87a82] hover:bg-[#b4141e]/15 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {deletingPostId === p.id ? "Deleting" : "Delete"}
-                            </button>
+                          <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-2xl border border-white/10 bg-[#090909] shadow-2xl">
+                            {canReportPost && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setReportPostTarget({
+                                    postId: p.id,
+                                    authorId: p.userId!,
+                                    authorName: p.author.name,
+                                  });
+                                }}
+                                className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-300 hover:bg-white/[0.04]"
+                              >
+                                Report
+                              </button>
+                            )}
+                            {canDeletePost && (
+                              <button
+                                type="button"
+                                onClick={() => void deletePost(p)}
+                                disabled={deletingPostId === p.id}
+                                className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[#e87a82] hover:bg-[#b4141e]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {deletingPostId === p.id ? "Deleting" : "Delete"}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1545,6 +1575,41 @@ setFeedLoading(false);
           </div>
         </div>
       )}
+
+      <ReportContentModal
+        open={Boolean(reportPostTarget)}
+        title="Report Post"
+        subtitle={
+          reportPostTarget
+            ? `Report ${reportPostTarget.authorName}'s post for moderator review.`
+            : undefined
+        }
+        reasons={DEFAULT_REPORT_REASONS}
+        busy={reportBusy}
+        onClose={() => {
+          if (!reportBusy) setReportPostTarget(null);
+        }}
+        onSubmit={async ({ reason, details }) => {
+          if (!session?.user?.id || !reportPostTarget) return;
+          setReportBusy(true);
+          const { error } = await submitUserReport({
+            reporterId: session.user.id,
+            reason,
+            details,
+            postId: reportPostTarget.postId,
+            reportedUserId: reportPostTarget.authorId,
+          });
+          setReportBusy(false);
+          if (error) {
+            setToast(error.message);
+            window.setTimeout(() => setToast(null), 2800);
+            return;
+          }
+          setReportPostTarget(null);
+          setToast("Post report submitted.");
+          window.setTimeout(() => setToast(null), 2600);
+        }}
+      />
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">

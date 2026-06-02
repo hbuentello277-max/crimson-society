@@ -10,8 +10,10 @@ import { getBestImageUrl } from "@/lib/media";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
+import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
 type PublicProfile = {
   id: string;
@@ -202,6 +204,10 @@ export default function PublicProfilePage() {
   >("none");
   const [postCount, setPostCount] = useState(0);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [reportPostOpen, setReportPostOpen] = useState(false);
+  const [reportPostBusy, setReportPostBusy] = useState(false);
 
   useEffect(() => {
     if (!usernameParam) return;
@@ -977,6 +983,37 @@ export default function PublicProfilePage() {
                       key={post.id}
                       className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]"
                     >
+                      {!isOwnProfile && !interactionRestricted && profile?.id && (
+                        <div className="absolute right-2 top-2 z-20">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenPostMenuId((current) =>
+                                current === post.id ? null : post.id,
+                              )
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/65 text-lg leading-none text-white/75 backdrop-blur hover:border-white/25 hover:text-white"
+                            aria-label="Post options"
+                          >
+                            ⋯
+                          </button>
+                          {openPostMenuId === post.id && (
+                            <div className="absolute right-0 top-10 w-40 overflow-hidden rounded-2xl border border-white/10 bg-[#090909] shadow-2xl">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPostMenuId(null);
+                                  setReportPostId(post.id);
+                                  setReportPostOpen(true);
+                                }}
+                                className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-300 hover:bg-white/[0.04]"
+                              >
+                                Report
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {isStatus ? (
                         <div className={`flex h-full w-full items-center justify-center px-4 text-center ${statusClass}`}>
                           <p className="font-serif text-lg italic leading-snug text-white">
@@ -1199,6 +1236,45 @@ export default function PublicProfilePage() {
           </div>
         </div>
       )}
+
+      <ReportContentModal
+        open={reportPostOpen}
+        title="Report Post"
+        subtitle={
+          profile
+            ? `Report a post by ${displayName} for moderator review.`
+            : undefined
+        }
+        reasons={DEFAULT_REPORT_REASONS}
+        busy={reportPostBusy}
+        onClose={() => {
+          if (!reportPostBusy) {
+            setReportPostOpen(false);
+            setReportPostId(null);
+          }
+        }}
+        onSubmit={async ({ reason, details }) => {
+          if (!session?.user?.id || !profile?.id || !reportPostId) return;
+          setReportPostBusy(true);
+          const { error } = await submitUserReport({
+            reporterId: session.user.id,
+            reason,
+            details,
+            postId: reportPostId,
+            reportedUserId: profile.id,
+          });
+          setReportPostBusy(false);
+          if (error) {
+            setSafetyMessage(error.message);
+            window.setTimeout(() => setSafetyMessage(null), 2800);
+            return;
+          }
+          setReportPostOpen(false);
+          setReportPostId(null);
+          setSafetyMessage("Post report submitted.");
+          window.setTimeout(() => setSafetyMessage(null), 2600);
+        }}
+      />
 
       {safetyMessage && (
         <div className="fixed bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">

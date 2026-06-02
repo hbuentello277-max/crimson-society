@@ -46,7 +46,7 @@ export default function TermsPage() {
         {
           title: "Reports, Blocking, and Enforcement",
           body: [
-            "You may report profiles, users, Meets, or ride content for safety, abuse, impersonation, harassment, or other policy concerns. Reports may be reviewed by Crimson Society admins or owners.",
+            "You may report profiles, users, posts, direct messages, Meets, or ride content for safety, abuse, impersonation, harassment, or other policy concerns. Reports may be reviewed by Crimson Society admins or owners.",
             "We may remove content, limit features, suspend accounts, or take other action when we believe it is needed to protect the community or comply with law.",
           ],
         },

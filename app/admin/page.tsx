@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  getUserReportTargetType,
+  userReportTargetLabel,
+  type UserReportTargetType,
+} from "@/lib/user-reports";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked";
@@ -28,12 +33,38 @@ type AdminReport = {
   reporter_id: string;
   reported_user_id: string | null;
   ride_id: string | null;
+  post_id: string | null;
+  message_id: string | null;
+  conversation_id: string | null;
   reason: string | null;
   details: string | null;
   status: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
+
+function getAdminReportTargetType(report: AdminReport): UserReportTargetType {
+  return getUserReportTargetType(report);
+}
+
+function formatAdminReportTargetRef(report: AdminReport) {
+  const type = getAdminReportTargetType(report);
+  if (type === "post" && report.post_id) {
+    return `Post ${report.post_id.slice(0, 8)}`;
+  }
+  if (type === "message") {
+    if (report.message_id) {
+      return `Message ${report.message_id.slice(0, 8)}`;
+    }
+    if (report.conversation_id) {
+      return `Conversation ${report.conversation_id.slice(0, 8)}`;
+    }
+  }
+  if (type === "meet" && report.ride_id) {
+    return `Meet ${report.ride_id.slice(0, 8)}`;
+  }
+  return null;
+}
 
 type AccountDeletionRequest = {
   id: string;
@@ -237,9 +268,11 @@ export default function AdminPage() {
     const [reportsResponse, deletionResponse, postsResponse, ridesResponse] = await Promise.all([
       supabase
         .from("user_reports")
-        .select("id, reporter_id, reported_user_id, ride_id, reason, details, status, created_at, updated_at")
+        .select(
+          "id, reporter_id, reported_user_id, ride_id, post_id, message_id, conversation_id, reason, details, status, created_at, updated_at",
+        )
         .order("created_at", { ascending: false })
-        .limit(8),
+        .limit(24),
       supabase
         .from("account_deletion_requests")
         .select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
@@ -739,22 +772,31 @@ export default function AdminPage() {
                       </p>
                     ) : (
                       <div className="space-y-3">
-                        {reports.map((report) => (
+                        {reports.map((report) => {
+                          const targetType = getAdminReportTargetType(report);
+                          const targetRef = formatAdminReportTargetRef(report);
+
+                          return (
                           <div key={report.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-sm font-semibold text-white">
                                 {report.reason || "Report"}
                               </p>
-                              <span className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[#e9b0b6]">
-                                {report.status || "pending"}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                                  {userReportTargetLabel(targetType)}
+                                </span>
+                                <span className="rounded-full border border-[#b4141e]/30 bg-[#b4141e]/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[#e9b0b6]">
+                                  {report.status || "pending"}
+                                </span>
+                              </div>
                             </div>
                             <p className="mt-2 text-xs leading-5 text-zinc-500">
                               Reporter {getProfileLabel(report.reporter_id, moderationProfiles)}
                               {report.reported_user_id
-                                ? ` • User ${getProfileLabel(report.reported_user_id, moderationProfiles)}`
+                                ? ` • Reported ${getProfileLabel(report.reported_user_id, moderationProfiles)}`
                                 : ""}
-                              {report.ride_id ? ` • Meet ${report.ride_id.slice(0, 8)}` : ""}
+                              {targetRef ? ` • ${targetRef}` : ""}
                             </p>
                             {report.details && (
                               <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
@@ -793,7 +835,8 @@ export default function AdminPage() {
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

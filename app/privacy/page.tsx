@@ -39,7 +39,7 @@ export default function PrivacyPage() {
         {
           title: "Reports and Blocking",
           body: [
-            "When you report a user, profile, or Meet, we store the reporter, reported user or ride, reason, details, status, and creation time. Reports are used for moderation and community safety.",
+            "When you report a user, profile, post, direct message, or Meet, we store the reporter, reported user or content reference, reason, details, status, and creation time. Reports are used for moderation and community safety.",
             "When you block a rider, we store the block relationship so direct interaction can be limited where supported, including messaging and profile actions.",
           ],
         },
