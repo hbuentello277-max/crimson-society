@@ -38,8 +38,8 @@ type MessageThreadScreenProps = {
   focusComposer?: boolean;
 };
 
-/** Space for fixed BottomNav (~72px) + safe area on iPhone PWA */
-const COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 4.75rem)";
+/** BottomNav clearance + home-indicator safe area (tighter Messenger-style gap). */
+const COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 2.25rem)";
 
 export function MessageThreadScreen({
   open,
