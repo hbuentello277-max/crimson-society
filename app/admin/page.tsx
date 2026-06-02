@@ -132,6 +132,18 @@ function getMembershipTier(item: AdminProfile): MembershipTier {
   return "regular";
 }
 
+type ReportActionStatus = "reviewing" | "resolved" | "dismissed";
+type DeletionActionStatus = "reviewing" | "completed" | "canceled";
+
+function isReportClosed(status: string | null | undefined) {
+  return status === "resolved" || status === "dismissed";
+}
+
+function isDeletionClosed(status: string | null | undefined) {
+  return status === "completed" || status === "canceled";
+}
+
+
 function AdminSkeleton() {
   return (
     <div className="mt-8 animate-pulse space-y-5">
@@ -182,8 +194,8 @@ export default function AdminPage() {
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
   const [moderationLoading, setModerationLoading] = useState(true);
   const [moderationError, setModerationError] = useState("");
+  const [moderationSavingId, setModerationSavingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [moderationBusyId, setModerationBusyId] = useState<string | null>(null);
 
   const myUserId = session?.user?.id ?? null;
 
@@ -303,6 +315,81 @@ export default function AdminPage() {
     );
     setModerationLoading(false);
   }
+
+  async function updateReportStatus(reportId: string, status: ReportActionStatus) {
+    setModerationSavingId(reportId);
+    setModerationError("");
+    setSuccessMsg("");
+
+    try {
+      const response = await fetch("/api/admin/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: reportId, status }),
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string; report?: AdminReport }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to update report.");
+      }
+
+      if (result?.report) {
+        setReports((prev) =>
+          prev.map((item) => (item.id === reportId ? { ...item, ...result.report } : item)),
+        );
+      }
+
+      setSuccessMsg("Report status updated.");
+    } catch (error) {
+      setModerationError(error instanceof Error ? error.message : "Failed to update report.");
+    } finally {
+      setModerationSavingId(null);
+    }
+  }
+
+  async function updateDeletionRequestStatus(requestId: string, status: DeletionActionStatus) {
+    setModerationSavingId(requestId);
+    setModerationError("");
+    setSuccessMsg("");
+
+    try {
+      const response = await fetch("/api/admin/deletion-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: requestId, status }),
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string; request?: AccountDeletionRequest }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to update deletion request.");
+      }
+
+      if (result?.request) {
+        setDeletionRequests((prev) =>
+          prev.map((item) => (item.id === requestId ? { ...item, ...result.request } : item)),
+        );
+      }
+
+      setSuccessMsg(
+        status === "completed"
+          ? "Deletion request marked completed (status only — account data not removed)."
+          : "Deletion request status updated.",
+      );
+    } catch (error) {
+      setModerationError(
+        error instanceof Error ? error.message : "Failed to update deletion request.",
+      );
+    } finally {
+      setModerationSavingId(null);
+    }
+  }
+
 
   useEffect(() => {
     async function loadAdminPage() {
@@ -562,8 +649,9 @@ export default function AdminPage() {
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold">Moderation Dashboard</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                    Review reports, deletion requests, recent posts, and active meet activity. Profile
-                    access controls below are live; moderation queue action buttons are read-only placeholders.
+                    Review reports, deletion requests, recent posts, and active meet activity. Use the
+                    queue actions to update report and deletion-request status. Completing a deletion
+                    request updates status only and does not remove account data.
                   </p>
                 </div>
                 <button
@@ -620,11 +708,8 @@ export default function AdminPage() {
               ) : (
                 <div className="mt-5 grid gap-4 xl:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="mb-4">
                       <h3 className="font-serif text-2xl text-white">Reports Queue</h3>
-                      <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                        Read only
-                      </span>
                     </div>
 
                     {reports.length === 0 ? (
@@ -658,6 +743,34 @@ export default function AdminPage() {
                             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
                               {formatAdminDate(report.created_at)}
                             </p>
+                            {!isReportClosed(report.status) && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === report.id}
+                                  onClick={() => void updateReportStatus(report.id, "reviewing")}
+                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {moderationSavingId === report.id ? "Saving" : "Mark reviewed"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === report.id}
+                                  onClick={() => void updateReportStatus(report.id, "resolved")}
+                                  className="rounded-full border border-emerald-500/30 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-200/90 transition hover:border-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Resolve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === report.id}
+                                  onClick={() => void updateReportStatus(report.id, "dismissed")}
+                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -665,11 +778,12 @@ export default function AdminPage() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="mb-4">
                       <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
-                      <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                        Read only
-                      </span>
+                      <p className="mt-2 text-xs leading-5 text-zinc-500">
+                        Mark completed updates request status only. It does not delete auth users or
+                        profile data.
+                      </p>
                     </div>
 
                     {deletionRequests.length === 0 ? (
@@ -696,6 +810,41 @@ export default function AdminPage() {
                             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
                               Requested {formatAdminDate(request.requested_at)}
                             </p>
+                            {!isDeletionClosed(request.status) && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === request.id}
+                                  onClick={() =>
+                                    void updateDeletionRequestStatus(request.id, "reviewing")
+                                  }
+                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {moderationSavingId === request.id ? "Saving" : "Mark reviewed"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === request.id}
+                                  onClick={() =>
+                                    void updateDeletionRequestStatus(request.id, "completed")
+                                  }
+                                  title="Updates request status only; does not delete account data"
+                                  className="rounded-full border border-emerald-500/30 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-200/90 transition hover:border-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Mark completed
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={moderationSavingId === request.id}
+                                  onClick={() =>
+                                    void updateDeletionRequestStatus(request.id, "canceled")
+                                  }
+                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

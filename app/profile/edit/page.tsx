@@ -7,12 +7,10 @@ import EditProfileForm from "@/components/profile/EditProfileForm";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  getProfileSaveErrorDetails,
   profileDisplayName,
   profileHandle,
   profileLocation,
   type ProfileIdentityInput,
-  type ProfileSaveErrorDetails,
 } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
@@ -86,7 +84,6 @@ export default function ProfileEditPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingGarage, setSavingGarage] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
-  const [profileSaveError, setProfileSaveError] = useState<ProfileSaveErrorDetails | null>(null);
   const [garageMsg, setGarageMsg] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
@@ -178,15 +175,14 @@ export default function ProfileEditPage() {
   async function saveProfileDetails(values: ProfileIdentityInput) {
     setSavingProfile(true);
     setProfileMsg("");
-    setProfileSaveError(null);
 
     try {
       await updateIdentity(values);
       setProfileMsg("Profile saved.");
     } catch (saveError) {
-      const details = getProfileSaveErrorDetails(saveError);
-      setProfileSaveError(details);
-      setProfileMsg(`${details.operation.toUpperCase()} failed: ${details.message}`);
+      const message =
+        saveError instanceof Error ? saveError.message : "Could not save profile. Please try again.";
+      setProfileMsg(message);
     } finally {
       setSavingProfile(false);
     }
@@ -433,40 +429,6 @@ export default function ProfileEditPage() {
         </section>
 
         <EditProfileForm profile={profile} saving={savingProfile} message={profileMsg} onSubmit={saveProfileDetails} />
-
-        {profileSaveError && (
-          <section className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-left">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-red-300">
-              Profile Save Debug
-            </p>
-            <dl className="mt-3 grid gap-2 text-xs text-red-100 sm:grid-cols-2">
-              <div>
-                <dt className="text-red-300/70">Operation</dt>
-                <dd className="break-words">{profileSaveError.operation}</dd>
-              </div>
-              <div>
-                <dt className="text-red-300/70">Code</dt>
-                <dd className="break-words">{profileSaveError.code || "none"}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-red-300/70">Message</dt>
-                <dd className="break-words">{profileSaveError.message}</dd>
-              </div>
-              {profileSaveError.details && (
-                <div className="sm:col-span-2">
-                  <dt className="text-red-300/70">Details</dt>
-                  <dd className="break-words">{profileSaveError.details}</dd>
-                </div>
-              )}
-              {profileSaveError.hint && (
-                <div className="sm:col-span-2">
-                  <dt className="text-red-300/70">Hint</dt>
-                  <dd className="break-words">{profileSaveError.hint}</dd>
-                </div>
-              )}
-            </dl>
-          </section>
-        )}
 
         <section className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
