@@ -420,12 +420,12 @@ Your account cannot use app features right now. </p> </div> </main>
 
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-  <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex items-start justify-between gap-4 sm:block">
+  <div className="relative mx-auto max-w-5xl px-5 pb-24 pt-6 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start justify-between gap-3 sm:block">
         <div>
         <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
-        <h1 className="mt-2 font-serif text-3xl leading-none text-white sm:text-4xl">
+        <h1 className="mt-1.5 font-serif text-3xl leading-none text-white sm:text-4xl">
           Identity
         </h1>
         </div>
@@ -433,18 +433,18 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:hidden"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:hidden"
           aria-label="Open profile menu"
         >
           ⋯
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
+      <div className="flex flex-wrap items-center gap-1.5 sm:max-w-[70%] sm:justify-end">
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="hidden h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:flex"
+          className="hidden h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:flex"
           aria-label="Open profile menu"
         >
           ⋯
