@@ -33,8 +33,12 @@ export default function SupportPage() {
         </Link>
 
         <header className="mt-8 border-b border-white/10 pb-7">
-          <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">Crimson Society</p>
-          <h1 className="mt-3 font-serif text-4xl leading-none text-white sm:text-5xl">Support</h1>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
+            Crimson Society
+          </p>
+          <h1 className="mt-3 font-serif text-4xl leading-none text-white sm:text-5xl">
+            Support
+          </h1>
           <p className="mt-5 text-base leading-7 text-zinc-300">
             Contact Crimson Society for account help, safety concerns, moderation questions, and beta
             support during launch readiness.
@@ -42,10 +46,12 @@ export default function SupportPage() {
         </header>
 
         <section className="mt-8 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 p-5">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Contact email</p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">
+            Contact email
+          </p>
           <a
             href={SUPPORT_MAILTO}
-            className="mt-3 inline-block font-serif text-2xl text-white underline decoration-[#b4141e]/50 underline-offset-4 transition hover:text-[#f1c3c7]"
+            className="mt-3 inline-block break-all font-serif text-2xl text-white underline decoration-[#b4141e]/50 underline-offset-4 transition hover:text-[#f1c3c7]"
           >
             {SUPPORT_EMAIL}
           </a>

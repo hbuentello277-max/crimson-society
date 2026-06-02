@@ -20,6 +20,7 @@ const policyLinks = [
   { href: "/privacy", label: "Privacy" },
   { href: "/community-guidelines", label: "Guidelines" },
   { href: "/safety", label: "Safety" },
+  { href: "/support", label: "Support" },
 ];
 
 export default function PolicyPage({
@@ -43,11 +44,13 @@ export default function PolicyPage({
         <header className="mt-8 border-b border-white/10 pb-7">
           <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">{eyebrow}</p>
           <h1 className="mt-3 font-serif text-4xl leading-none text-white sm:text-5xl">{title}</h1>
-          <p className="mt-4 text-sm uppercase tracking-[0.22em] text-zinc-500">Last updated {updated}</p>
+          <p className="mt-4 text-sm uppercase tracking-[0.22em] text-zinc-500">
+            Last updated {updated}
+          </p>
           <p className="mt-5 text-base leading-7 text-zinc-300">{intro}</p>
         </header>
 
-        <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {policyLinks.map((link) => (
             <Link
               key={link.href}
