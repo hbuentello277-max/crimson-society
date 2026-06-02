@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { MessageThreadScreen } from "@/components/inbox/MessageThreadScreen";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { NewMessageSheet } from "@/components/inbox/NewMessageSheet";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
@@ -238,11 +239,13 @@ function buildConversations(
 type MessagesPanelProps = {
   embedded?: boolean;
   newMessageRequestId?: number;
+  onThreadActiveChange?: (active: boolean) => void;
 };
 
 export default function MessagesPanel({
   embedded = false,
   newMessageRequestId = 0,
+  onThreadActiveChange,
 }: MessagesPanelProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -262,8 +265,6 @@ export default function MessagesPanel({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
   const [threadFocusConversation, setThreadFocusConversation] = useState<Conversation | null>(
     null,
   );
@@ -706,21 +707,8 @@ export default function MessagesPanel({
   }, [loadConversations, userId]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [activeId, threads]);
-
-  useEffect(() => {
-    if (!focusComposerOnOpen || !active) return;
-
-    const timer = window.setTimeout(() => {
-      composerRef.current?.focus();
-      setFocusComposerOnOpen(false);
-    }, 120);
-
-    return () => window.clearTimeout(timer);
-  }, [active, focusComposerOnOpen]);
+    onThreadActiveChange?.(Boolean(active));
+  }, [active, onThreadActiveChange]);
 
   const sendMessage = async () => {
     if (!draft.trim() || !activeId) return;
@@ -815,266 +803,36 @@ export default function MessagesPanel({
 
   if (!session) return null;
 
-  const threadShellClass = embedded
-    ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-[#050405]"
-    : "relative flex min-h-screen flex-col overflow-hidden bg-[#050405]";
-
-  if (active) {
-    return (
-      <>
-        <main className={`${threadShellClass} text-zinc-100`}>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: `
-                radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
-                radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
-                linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
-              `,
-            }}
-          />
-
-          <header className="sticky top-0 z-40 shrink-0 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-            <div
-              className={`mx-auto flex max-w-2xl items-center gap-3 px-4 pb-3 ${
-                embedded ? "pt-3" : "pt-[calc(1.6rem+env(safe-area-inset-top))]"
-              }`}
-            >
-              <button
-                onClick={closeConversation}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                aria-label="Back"
-              >
-                ‹
-              </button>
-
-              {active.profileHref ? (
-                <Link href={active.profileHref} className="shrink-0">
-                  <MessagesAvatar photo={active.photo} name={active.name} online={active.online} size={40} />
-                </Link>
-              ) : (
-                <MessagesAvatar photo={active.photo} name={active.name} online={active.online} size={40} />
-              )}
-
-              {active.profileHref ? (
-                <Link href={active.profileHref} className="min-w-0 flex-1">
-                  <p className="text-sm text-white transition hover:text-[#e87a82]">{active.name}</p>
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                    {active.online ? `Online · ${active.handle}` : active.handle}
-                  </p>
-                </Link>
-              ) : (
-                <div className="flex-1">
-                  <p className="text-sm text-white">{active.name}</p>
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                    {active.isGroup
-                      ? `${active.members} riders`
-                      : active.online
-                        ? `Online · ${active.handle}`
-                        : active.handle}
-                  </p>
-                </div>
-              )}
-
-              <button
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                aria-label="Call"
-              >
-                ☎
-              </button>
-
-              {active.profileHref ? (
-                <Link
-                  href={active.profileHref}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                  aria-label="View profile"
-                >
-                  ⋯
-                </Link>
-              ) : (
-                <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                  aria-label="Details"
-                >
-                  ⋯
-                </button>
-              )}
-            </div>
-          </header>
-
-          <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-4 py-6">
-            <div className="mx-auto flex max-w-2xl flex-col gap-3">
-              <div className="mb-2 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/30">
-                <div className="h-px w-8 bg-white/15" />
-                <span>End-to-End · Riders Only</span>
-                <div className="h-px w-8 bg-white/15" />
-              </div>
-
-              {activeThread.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-black/25 p-8 text-center">
-                  <p className="font-serif text-xl italic text-white">Start the line.</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.28em] text-white/35">
-                    No messages yet
-                  </p>
-                </div>
-              )}
-
-              {activeThread.map((m, i) => {
-                const isMe = m.senderId === userId || m.senderId === "me";
-                const prev = activeThread[i - 1];
-                const showAvatar = !isMe && (!prev || prev.senderId !== m.senderId);
-
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}
-                  >
-                    {!isMe && (
-                      <div className="h-7 w-7 flex-shrink-0">
-                        {showAvatar && (
-                          <MessagesAvatar
-                            photo={m.senderPhoto ?? null}
-                            name={m.senderName || ""}
-                            size={28}
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    <div className={`flex max-w-[78%] flex-col ${isMe ? "items-end" : "items-start"}`}>
-                      {active.isGroup && !isMe && showAvatar && m.senderName && (
-                        <span className="mb-0.5 ml-3 text-[10px] uppercase tracking-[0.25em] text-[#e87a82]">
-                          {m.senderName}
-                        </span>
-                      )}
-
-                      <div
-                        className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
-                          isMe
-                            ? "rounded-br-md bg-gradient-to-br from-[#b4141e] to-[#8a0f17] text-white shadow-[0_0_18px_rgba(180,20,30,0.25)]"
-                            : "rounded-bl-md border border-white/10 bg-gradient-to-b from-[#141416] to-[#0a0a0c] text-white/90"
-                        }`}
-                      >
-                        {m.text}
-                      </div>
-
-                      <span className="mt-1 px-1 text-[10px] uppercase tracking-[0.25em] text-white/35">
-                        {m.timeLabel}
-                      </span>
-                      {!isMe && activeId && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setReportMessageTarget({
-                              messageId: m.id,
-                              conversationId: activeId,
-                              senderId: m.senderId,
-                              senderName: m.senderName || active.name,
-                              preview: m.text,
-                            })
-                          }
-                          className="mt-1 px-1 text-[9px] uppercase tracking-[0.2em] text-zinc-500 transition hover:text-[#e87a82]"
-                        >
-                          Report
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div
-            className="shrink-0 border-t border-white/10 bg-[#050505]/95 backdrop-blur-xl"
-            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
-          >
-            <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
-              <div className="flex flex-1 items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2">
-                <input
-                  ref={composerRef}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
-                  placeholder={`Message ${active.name.split(" ")[0]}...`}
-                  className="flex-1 bg-transparent text-base text-white outline-none placeholder:text-white/35"
-                />
-                <button className="text-white/50 hover:text-[#e87a82]" aria-label="Photo">
-                  ◧
-                </button>
-              </div>
-
-              <button
-                onClick={() => void sendMessage()}
-                disabled={!draft.trim()}
-                className={`flex h-10 w-10 items-center justify-center rounded-full transition ${
-                  draft.trim()
-                    ? "bg-[#b4141e] text-white shadow-[0_0_20px_rgba(180,20,30,0.45)] hover:bg-[#d11827]"
-                    : "border border-white/10 text-white/30"
-                }`}
-                aria-label="Send"
-              >
-                ➤
-              </button>
-            </div>
-          </div>
-        </main>
-
-        <NewMessageSheet
-          open={showNewMessage}
-          memberSearch={memberSearch}
-          suggestions={filteredSuggestions}
-          onMemberSearchChange={setMemberSearch}
-          onSelect={(peerId) => void openDirectConversation(peerId)}
-          onClose={closeNewMessageSheet}
-        />
-
-        <ReportContentModal
-          open={Boolean(reportMessageTarget)}
-          title="Report Message"
-          subtitle={
-            reportMessageTarget
-              ? `Report a message from ${reportMessageTarget.senderName}.`
-              : undefined
-          }
-          reasons={DEFAULT_REPORT_REASONS}
-          busy={reportMessageBusy}
-          onClose={() => {
-            if (!reportMessageBusy) setReportMessageTarget(null);
-          }}
-          onSubmit={async ({ reason, details }) => {
-            if (!userId || !reportMessageTarget) return;
-            setReportMessageBusy(true);
-            const { error } = await submitUserReport({
-              reporterId: userId,
-              reason,
-              details,
-              messageId: reportMessageTarget.messageId,
-              conversationId: reportMessageTarget.conversationId,
-              reportedUserId: reportMessageTarget.senderId,
-            });
-            setReportMessageBusy(false);
-            if (error) {
-              setErrorMsg(error.message);
-              return;
-            }
-            setReportMessageTarget(null);
-            setErrorMsg("Message report submitted.");
-            window.setTimeout(() => setErrorMsg(""), 2600);
-          }}
-        />
-      </>
-    );
-  }
-
   const listShellClass = embedded
     ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-[#050405]"
     : "relative min-h-screen overflow-hidden bg-[#050405]";
 
   return (
     <>
-      <main className={`${listShellClass} text-zinc-100`}>
+      {active && (
+        <MessageThreadScreen
+          open
+          conversation={active}
+          messages={activeThread}
+          draft={draft}
+          userId={userId}
+          onDraftChange={setDraft}
+          onSend={() => void sendMessage()}
+          onBack={closeConversation}
+          onReportMessage={(message) =>
+            setReportMessageTarget({
+              messageId: message.id,
+              conversationId: active.id,
+              senderId: message.senderId,
+              senderName: message.senderName || active.name,
+              preview: message.text,
+            })
+          }
+          focusComposer={focusComposerOnOpen}
+        />
+      )}
+
+      <main className={`${listShellClass} text-zinc-100 ${active ? "hidden" : ""}`}>
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -1231,12 +989,47 @@ export default function MessagesPanel({
       </main>
 
       <NewMessageSheet
-        open={showNewMessage}
+        open={showNewMessage && !active}
         memberSearch={memberSearch}
         suggestions={filteredSuggestions}
         onMemberSearchChange={setMemberSearch}
         onSelect={(peerId) => void openDirectConversation(peerId)}
         onClose={closeNewMessageSheet}
+      />
+
+      <ReportContentModal
+        open={Boolean(reportMessageTarget)}
+        title="Report Message"
+        subtitle={
+          reportMessageTarget
+            ? `Report a message from ${reportMessageTarget.senderName}.`
+            : undefined
+        }
+        reasons={DEFAULT_REPORT_REASONS}
+        busy={reportMessageBusy}
+        onClose={() => {
+          if (!reportMessageBusy) setReportMessageTarget(null);
+        }}
+        onSubmit={async ({ reason, details }) => {
+          if (!userId || !reportMessageTarget) return;
+          setReportMessageBusy(true);
+          const { error } = await submitUserReport({
+            reporterId: userId,
+            reason,
+            details,
+            messageId: reportMessageTarget.messageId,
+            conversationId: reportMessageTarget.conversationId,
+            reportedUserId: reportMessageTarget.senderId,
+          });
+          setReportMessageBusy(false);
+          if (error) {
+            setErrorMsg(error.message);
+            return;
+          }
+          setReportMessageTarget(null);
+          setErrorMsg("Message report submitted.");
+          window.setTimeout(() => setErrorMsg(""), 2600);
+        }}
       />
     </>
   );

@@ -54,6 +54,7 @@ export default function InboxSwipeTabs() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [newMessageRequestId, setNewMessageRequestId] = useState(0);
+  const [threadOpen, setThreadOpen] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef(0);
@@ -311,13 +312,15 @@ export default function InboxSwipeTabs() {
   const translateX =
     -activeIndex * 50 + (viewportWidth.current ? (dragOffset / viewportWidth.current) * 50 : 0);
 
-  const viewportTopClass =
-    activeTab === "messages"
+  const viewportTopClass = threadOpen
+    ? "top-0"
+    : activeTab === "messages"
       ? "top-[calc(env(safe-area-inset-top)+9.5rem)]"
       : "top-[calc(env(safe-area-inset-top)+5.75rem)]";
 
   return (
     <>
+      {!threadOpen && (
       <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-[#050505]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
         <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
@@ -362,24 +365,29 @@ export default function InboxSwipeTabs() {
           </div>
         )}
       </div>
+      )}
 
       <div
         ref={viewportRef}
-        className={`fixed inset-x-0 bottom-0 overflow-hidden touch-pan-y ${viewportTopClass}`}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        className={`fixed inset-x-0 bottom-0 overflow-hidden touch-pan-y ${viewportTopClass} ${threadOpen ? "pointer-events-none" : ""}`}
+        onTouchStart={threadOpen ? undefined : onTouchStart}
+        onTouchMove={threadOpen ? undefined : onTouchMove}
+        onTouchEnd={threadOpen ? undefined : onTouchEnd}
+        onPointerDown={threadOpen ? undefined : onPointerDown}
+        onPointerMove={threadOpen ? undefined : onPointerMove}
+        onPointerUp={threadOpen ? undefined : onPointerUp}
+        onPointerCancel={threadOpen ? undefined : onPointerUp}
       >
         <div
           className={`flex h-full w-[200%] ${isDragging ? "" : "transition-transform duration-300 ease-out"}`}
           style={{ transform: `translateX(${translateX}%)` }}
         >
           <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
-            <MessagesPanel embedded newMessageRequestId={newMessageRequestId} />
+            <MessagesPanel
+              embedded
+              newMessageRequestId={newMessageRequestId}
+              onThreadActiveChange={setThreadOpen}
+            />
           </div>
           <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
             <NotificationsPanel embedded />
