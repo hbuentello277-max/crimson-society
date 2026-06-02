@@ -33,14 +33,18 @@ type CompactProfileCardProps = {
   notice?: ReactNode;
 };
 
-function BlackcardAccessCta({ locked = false }: { locked?: boolean }) {
+function BlackcardAccessCta({ locked = false, inline = false }: { locked?: boolean; inline?: boolean }) {
   return (
     <Link
       href="/blackcard"
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[8px] uppercase tracking-[0.14em] transition ${
-        locked
-          ? "border-[#b4141e]/25 bg-black/30 text-[#c9a0a4] hover:border-[#b4141e]/45"
-          : "border-[#b4141e]/35 bg-white/[0.03] text-[#f1c3c7] hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
+      className={`inline-flex items-center gap-1 uppercase tracking-[0.14em] transition ${
+        inline
+          ? "px-2.5 py-1 text-[8px] text-[#e87a82] hover:text-[#f1c3c7]"
+          : `rounded-full border px-2.5 py-1 text-[8px] ${
+              locked
+                ? "border-[#b4141e]/25 bg-black/30 text-[#c9a0a4] hover:border-[#b4141e]/45"
+                : "border-[#b4141e]/35 bg-white/[0.03] text-[#f1c3c7] hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
+            }`
       }`}
     >
       Blackcard Access
@@ -86,8 +90,8 @@ export function CompactProfileCard({
   }, [quote, bio, socialLinks.length, expanded]);
 
   return (
-    <section className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_20px_50px_-40px_rgba(0,0,0,0.95)]">
-      <div className="relative p-4">
+    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_20px_50px_-40px_rgba(0,0,0,0.95)]">
+      <div className="relative p-3">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.1),transparent_40%)]" />
 
         <div className="relative flex gap-3">
@@ -117,7 +121,7 @@ export function CompactProfileCard({
             <p className="mt-0.5 truncate text-xs text-zinc-400">{location}</p>
 
             {!expanded && previewText && (
-              <p className="mt-2 text-sm leading-5 text-zinc-400">
+              <p className="mt-1.5 text-sm leading-5 text-zinc-400">
                 {previewText}
                 {canExpand && (
                   <button
@@ -178,21 +182,30 @@ export function CompactProfileCard({
           </div>
         </div>
 
-        <div className="relative mt-3 flex flex-wrap items-center gap-2">
+        <div
+          className={`relative mt-2 flex items-center ${
+            blackcardMember
+              ? "rounded-full border border-[#b4141e]/35 bg-black/40"
+              : ""
+          }`}
+        >
           {blackcardMember && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#b4141e]/45 bg-[#b4141e]/10 px-2.5 py-1 text-[8px] font-medium uppercase tracking-[0.16em] text-[#e87a82]">
-              <span className="text-[10px] leading-none text-[#b4141e]">◆</span>
-              Blackcard Member
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[8px] font-medium uppercase tracking-[0.16em] text-[#e87a82]">
+                <span className="text-[10px] leading-none text-[#b4141e]">◆</span>
+                Blackcard Member
+              </span>
+              <span className="h-3.5 w-px shrink-0 bg-white/15" aria-hidden />
+            </>
           )}
-          <BlackcardAccessCta locked={!blackcardMember} />
+          <BlackcardAccessCta locked={!blackcardMember} inline={blackcardMember} />
         </div>
 
         {notice}
 
-        <div className="relative mt-3">{actions}</div>
-
         <CompactProfileStats items={stats} />
+
+        <div className="relative mt-2">{actions}</div>
       </div>
     </section>
   );

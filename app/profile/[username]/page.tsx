@@ -9,7 +9,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl } from "@/lib/media";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconShare } from "@/components/profile/ProfileIcons";
-import { ProfileTabBar } from "@/components/profile/ProfileTabBar";
+import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 
@@ -91,6 +91,16 @@ function profileDisplayName(profile: PublicProfile | null) {
 
 function profileHandle(profile: PublicProfile | null) {
   return profile?.username?.trim() ? `@${profile.username.trim().replace(/^@+/, "")}` : "@member";
+}
+
+type ConnectionRow = {
+  requester_id: string;
+  addressee_id: string;
+  status: string;
+};
+
+function connectionKeyFor(a: string, b: string) {
+  return [a, b].sort().join(":");
 }
 
 function profileLocation(profile: PublicProfile | null) {
@@ -175,7 +185,7 @@ export default function PublicProfilePage() {
   const [postsState, setPostsState] = useState<LoadState>("idle");
   const [garageState, setGarageState] = useState<LoadState>("idle");
   const [ridesState, setRidesState] = useState<LoadState>("idle");
-  const [tab, setTab] = useState<"posts" | "garage" | "rides">("posts");
+  const [tab, setTab] = useState<ProfileTab>("posts");
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlockingMe, setIsBlockingMe] = useState(false);
   const [safetyBusy, setSafetyBusy] = useState(false);
@@ -187,6 +197,9 @@ export default function PublicProfilePage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [followRelationship, setFollowRelationship] = useState<
+    "none" | "following" | "requested_out" | "requested_in"
+  >("none");
   const [postCount, setPostCount] = useState(0);
   const [overflowOpen, setOverflowOpen] = useState(false);
 
@@ -378,6 +391,7 @@ export default function PublicProfilePage() {
         { count: nextFollowerCount, error: followerError },
         { count: nextFollowingCount, error: followingError },
         followResponse,
+        connectionResponse,
       ] = await Promise.all([
         supabase
           .from("user_follows")
@@ -395,18 +409,38 @@ export default function PublicProfilePage() {
               .eq("following_id", profile.id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
+        currentUserId && currentUserId !== profile.id
+          ? supabase
+              .from("user_connections")
+              .select("requester_id, addressee_id, status")
+              .eq("connection_key", connectionKeyFor(currentUserId, profile.id))
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (!active) return;
 
-      if (followerError || followingError || followResponse.error) {
-        console.error("Failed to load follow state:", followerError || followingError || followResponse.error);
+      if (followerError || followingError || followResponse.error || connectionResponse.error) {
+        console.error(
+          "Failed to load follow state:",
+          followerError || followingError || followResponse.error || connectionResponse.error,
+        );
         return;
       }
 
       setFollowerCount(nextFollowerCount || 0);
       setFollowingCount(nextFollowingCount || 0);
-      setIsFollowing(Boolean(followResponse.data));
+      const following = Boolean(followResponse.data);
+      setIsFollowing(following);
+
+      const connection = connectionResponse.data as ConnectionRow | null;
+      if (connection?.status === "pending" && currentUserId) {
+        setFollowRelationship(
+          connection.requester_id === currentUserId ? "requested_out" : "requested_in",
+        );
+      } else {
+        setFollowRelationship(following ? "following" : "none");
+      }
 
       const { count: nextPostCount } = await supabase
         .from("Posts")
@@ -540,7 +574,7 @@ export default function PublicProfilePage() {
   };
 
   const compactButtonClass =
-    "inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+    "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
   async function toggleBlock() {
     if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
@@ -619,6 +653,21 @@ export default function PublicProfilePage() {
     setSafetyBusy(false);
   }
 
+  function followButtonLabel(variant: "default" | "hover" = "default") {
+    if (followBusy) return "Saving";
+    if (isBlocked || isBlockingMe) return "Unavailable";
+
+    switch (followRelationship) {
+      case "requested_out":
+      case "requested_in":
+        return "Requested";
+      case "following":
+        return variant === "hover" ? "Unfollow" : "Following";
+      default:
+        return "Follow";
+    }
+  }
+
   async function toggleFollow() {
     const currentUserId = session?.user?.id;
     if (!currentUserId || !profile?.id || isOwnProfile || followBusy || isBlocked || isBlockingMe) return;
@@ -626,7 +675,53 @@ export default function PublicProfilePage() {
     setFollowBusy(true);
     setSafetyMessage(null);
 
-    if (isFollowing) {
+    if (followRelationship === "requested_out") {
+      const { error } = await supabase
+        .from("user_connections")
+        .delete()
+        .eq("connection_key", connectionKeyFor(currentUserId, profile.id))
+        .eq("requester_id", currentUserId)
+        .eq("status", "pending");
+
+      if (error) {
+        setSafetyMessage(error.message || "Could not cancel request.");
+      } else {
+        setFollowRelationship("none");
+      }
+
+      setFollowBusy(false);
+      return;
+    }
+
+    if (followRelationship === "requested_in") {
+      const { error } = await supabase
+        .from("user_connections")
+        .update({ status: "accepted", accepted_at: new Date().toISOString() })
+        .eq("requester_id", profile.id)
+        .eq("addressee_id", currentUserId)
+        .eq("status", "pending");
+
+      if (error) {
+        setSafetyMessage(error.message || "Could not accept request.");
+      } else {
+        setFollowRelationship("none");
+        const { error: followError } = await supabase.from("user_follows").insert({
+          follower_id: currentUserId,
+          following_id: profile.id,
+        });
+
+        if (!followError || followError.code === "23505") {
+          setIsFollowing(true);
+          setFollowRelationship("following");
+          setFollowerCount((count) => count + (followError?.code === "23505" ? 0 : 1));
+        }
+      }
+
+      setFollowBusy(false);
+      return;
+    }
+
+    if (followRelationship === "following" || isFollowing) {
       const { error } = await supabase
         .from("user_follows")
         .delete()
@@ -637,6 +732,7 @@ export default function PublicProfilePage() {
         setSafetyMessage(error.message || "Could not unfollow this rider.");
       } else {
         setIsFollowing(false);
+        setFollowRelationship("none");
         setFollowerCount((count) => Math.max(0, count - 1));
       }
 
@@ -653,6 +749,7 @@ export default function PublicProfilePage() {
       setSafetyMessage(error.message || "Could not follow this rider.");
     } else {
       setIsFollowing(true);
+      setFollowRelationship("following");
       setFollowerCount((count) => count + (error?.code === "23505" ? 0 : 1));
     }
 
@@ -763,38 +860,44 @@ export default function PublicProfilePage() {
           }
           actions={
             !isOwnProfile && session?.user?.id ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => void toggleFollow()}
-                  disabled={followBusy || isBlocked || isBlockingMe}
-                  className={`${compactButtonClass} ${
-                    isFollowing
-                      ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
-                      : ""
-                  } disabled:opacity-60`}
-                >
-                  {followBusy
-                    ? "Saving"
-                    : isBlocked || isBlockingMe
-                      ? "Unavailable"
-                      : isFollowing
-                        ? "Following"
-                        : "Follow"}
-                </button>
-                {!interactionRestricted ? (
-                  <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
-                    Message
-                  </Link>
-                ) : (
-                  <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
-                    Message
+              <div className="grid gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void toggleFollow()}
+                    disabled={followBusy || isBlocked || isBlockingMe}
+                    className={`group/follow ${compactButtonClass} ${
+                      followRelationship === "following"
+                        ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
+                        : followRelationship === "requested_out" ||
+                            followRelationship === "requested_in"
+                          ? "border-white/20 text-zinc-300"
+                          : ""
+                    } disabled:opacity-60`}
+                  >
+                    {followRelationship === "following" && !followBusy && !isBlocked && !isBlockingMe ? (
+                      <>
+                        <span className="group-hover/follow:hidden">{followButtonLabel()}</span>
+                        <span className="hidden group-hover/follow:inline">{followButtonLabel("hover")}</span>
+                      </>
+                    ) : (
+                      followButtonLabel()
+                    )}
                   </button>
-                )}
+                  {!interactionRestricted ? (
+                    <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
+                      Message
+                    </Link>
+                  ) : (
+                    <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
+                      Message
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => void sharePublicProfile()}
-                  className={`${compactButtonClass} col-span-2 gap-1.5`}
+                  className={`${compactButtonClass} w-full`}
                 >
                   <IconShare />
                   Share Profile
@@ -804,7 +907,7 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => void sharePublicProfile()}
-                className={`${compactButtonClass} w-full gap-1.5`}
+                className={`${compactButtonClass} w-full`}
               >
                 <IconShare />
                 Share Profile
@@ -826,11 +929,12 @@ export default function PublicProfilePage() {
           </div>
         )}
 
-        <ProfileTabBar
+        <ProfileTabs
           tabs={[
-            { k: "posts" as const, label: "Posts" },
-            { k: "garage" as const, label: "Garage" },
-            { k: "rides" as const, label: "Rides" },
+            { k: "posts", label: "Posts" },
+            { k: "rides", label: "Rides" },
+            { k: "garage", label: "Garage" },
+            { k: "saved", label: "Saved" },
           ]}
           active={tab}
           onChange={setTab}
@@ -960,6 +1064,15 @@ export default function PublicProfilePage() {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {tab === "saved" && (
+          <section className="mt-3">
+            <EmptyPanel
+              title="Coming into focus."
+              body="This profile section is wired to shared state and ready for the next data layer."
+            />
           </section>
         )}
 

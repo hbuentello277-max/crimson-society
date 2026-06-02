@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { PROFILE_TAB_ICONS } from "@/components/profile/ProfileIcons";
+import { PROFILE_TAB_ICON_CLASS, PROFILE_TAB_ICONS } from "@/components/profile/ProfileIcons";
 
 export type ProfileTab = "posts" | "rides" | "garage" | "saved";
 
@@ -19,7 +19,7 @@ type Props = {
 
 export default function ProfileTabs({ tabs, active, onChange }: Props) {
   return (
-    <div className="mt-4 flex border-b border-white/10">
+    <div className="mt-2.5 flex border-b border-white/10">
       {tabs.map((item) => {
         const Icon = item.Icon || PROFILE_TAB_ICONS[item.k];
         const isActive = active === item.k;
@@ -29,16 +29,24 @@ export default function ProfileTabs({ tabs, active, onChange }: Props) {
             key={item.k}
             type="button"
             onClick={() => onChange(item.k)}
-            className={`flex min-h-9 flex-1 flex-col items-center justify-center gap-0.5 px-1 pb-2 pt-1 transition ${
+            className={`flex min-h-0 flex-1 flex-col items-center justify-end gap-0.5 px-0.5 pb-1 pt-1 transition ${
               isActive
-                ? "border-b-2 border-[#b4141e] text-[#e87a82]"
-                : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-300"
+                ? "text-[#e87a82]"
+                : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            <Icon className={isActive ? "text-[#e87a82]" : "text-zinc-500"} />
-            <span className="text-[9px] uppercase tracking-[0.16em] sm:text-[10px] sm:tracking-[0.18em]">
+            <Icon
+              className={`${PROFILE_TAB_ICON_CLASS} ${isActive ? "text-[#e87a82]" : "text-zinc-500"}`}
+            />
+            <span className="text-[9px] uppercase leading-none tracking-[0.12em]">
               {item.label}
             </span>
+            <span
+              className={`mt-0.5 h-0.5 w-5 rounded-full transition ${
+                isActive ? "bg-[#b4141e]" : "bg-transparent"
+              }`}
+              aria-hidden
+            />
           </button>
         );
       })}
