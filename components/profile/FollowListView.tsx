@@ -261,16 +261,16 @@ export default function FollowListView({
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-      <div className="relative mx-auto max-w-2xl px-5 pb-24 pt-6 sm:px-6">
+      <div className="relative mx-auto max-w-2xl px-5 pb-24 pt-[calc(env(safe-area-inset-top)+1.5rem)] sm:px-6 sm:pt-[calc(env(safe-area-inset-top)+2rem)]">
         <div className="flex items-center gap-3">
           <Link
             href={backHref}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-lg text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-lg text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
             aria-label="Go back"
           >
             ←
           </Link>
-          <div className="min-w-0">
+          <div className="min-w-0 pt-0.5">
             <p className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">{subtitle}</p>
             <h1 className="font-serif text-3xl leading-none text-white">{title}</h1>
           </div>
