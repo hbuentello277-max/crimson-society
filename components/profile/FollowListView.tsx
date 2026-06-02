@@ -139,9 +139,8 @@ export default function FollowListView({
       .map((id) => profileMap.get(id))
       .filter((profile): profile is FollowProfile => Boolean(profile));
 
-    setRows(orderedProfiles);
-
     if (!currentUserId) {
+      setRows(orderedProfiles);
       setFollowingIds(new Set());
       setBlockedByMe(new Set());
       setBlockingMe(new Set());
@@ -200,6 +199,10 @@ export default function FollowListView({
 
     setBlockedByMe(nextBlockedByMe);
     setBlockingMe(nextBlockingMe);
+
+    const blockedIds = new Set([...nextBlockedByMe, ...nextBlockingMe]);
+    setRows(orderedProfiles.filter((profile) => !blockedIds.has(profile.id)));
+
     setLoading(false);
   }, [currentUserId, kind, subjectProfileId]);
 

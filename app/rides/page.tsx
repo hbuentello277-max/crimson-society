@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
+import { isBlockedWithHost } from "@/lib/blocking";
 import { buildSnappedRoute } from "@/lib/routing";
 
 type RoutePoint = { lat: number; lng: number };
@@ -881,6 +882,19 @@ const ridesWithRoutes = await Promise.all(
   if (ride?.hostId === session.user.id) {
     setToast("You are hosting this meet.");
     window.setTimeout(() => setToast(null), 2000);
+    return;
+  }
+
+  try {
+    if (await isBlockedWithHost(session.user.id, ride?.hostId)) {
+      setToast("You cannot join this meet because of a block.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+  } catch (blockError) {
+    console.error("Failed to verify block state before joining meet:", blockError);
+    setToast("Could not verify meet access.");
+    window.setTimeout(() => setToast(null), 2500);
     return;
   }
 

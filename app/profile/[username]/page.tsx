@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl } from "@/lib/media";
+import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 
 type PublicProfile = {
@@ -226,6 +227,13 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (!profile?.id || tab !== "posts") return;
 
+    const viewerId = session?.user?.id;
+    if (viewerId && viewerId !== profile.id && (isBlocked || isBlockingMe)) {
+      setPosts([]);
+      setPostsState("loaded");
+      return;
+    }
+
     const loadPosts = async () => {
       setPostsState("loading");
 
@@ -254,10 +262,17 @@ export default function PublicProfilePage() {
     };
 
     void loadPosts();
-  }, [profile?.id, tab]);
+  }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
 
   useEffect(() => {
     if (!profile?.id || tab !== "garage") return;
+
+    const viewerId = session?.user?.id;
+    if (viewerId && viewerId !== profile.id && (isBlocked || isBlockingMe)) {
+      setMotorcycles([]);
+      setGarageState("loaded");
+      return;
+    }
 
     const loadGarage = async () => {
       setGarageState("loading");
@@ -278,10 +293,17 @@ export default function PublicProfilePage() {
     };
 
     void loadGarage();
-  }, [profile?.id, tab]);
+  }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
 
   useEffect(() => {
     if (!profile?.id || tab !== "rides") return;
+
+    const viewerId = session?.user?.id;
+    if (viewerId && viewerId !== profile.id && (isBlocked || isBlockingMe)) {
+      setRides([]);
+      setRidesState("loaded");
+      return;
+    }
 
     const loadRides = async () => {
       setRidesState("loading");
@@ -306,7 +328,7 @@ export default function PublicProfilePage() {
     };
 
     void loadRides();
-  }, [profile?.id, tab]);
+  }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
 
   useEffect(() => {
     if (!session?.user?.id || !profile?.id || session.user.id === profile.id) {
@@ -391,6 +413,9 @@ export default function PublicProfilePage() {
 
   const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
+  const interactionRestricted = Boolean(
+    session?.user?.id && profile?.id && session.user.id !== profile.id && (isBlocked || isBlockingMe),
+  );
   const ridingTags = useMemo(() => {
     if (!profile) return [] as string[];
     return [profile.riding_style, ...(profile.profile_tags || [])]
@@ -490,6 +515,17 @@ export default function PublicProfilePage() {
         setSafetyMessage(error.message || "Could not block this rider.");
       } else {
         setIsBlocked(true);
+        setIsFollowing(false);
+        if (isFollowing) {
+          setFollowerCount((count) => Math.max(0, count - 1));
+        }
+        void removeMutualFollows(session.user.id, profile.id);
+        setPosts([]);
+        setMotorcycles([]);
+        setRides([]);
+        setPostsState("loaded");
+        setGarageState("loaded");
+        setRidesState("loaded");
         setSafetyMessage("Rider blocked. They cannot message you.");
       }
     }
@@ -674,20 +710,14 @@ export default function PublicProfilePage() {
                   )}
 
                   <div className={`mt-4 grid w-full max-w-md gap-2 ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
-                    <Link
-                      href={`/profile/${encodeURIComponent(usernameParam || "")}/followers`}
-                      className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/35 hover:bg-white/[0.04]"
-                    >
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
                       <p className="text-sm text-zinc-100">{followerCount}</p>
                       <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Followers</p>
-                    </Link>
-                    <Link
-                      href={`/profile/${encodeURIComponent(usernameParam || "")}/following`}
-                      className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/35 hover:bg-white/[0.04]"
-                    >
+                    </div>
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
                       <p className="text-sm text-zinc-100">{followingCount}</p>
                       <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Following</p>
-                    </Link>
+                    </div>
                     {!isOwnProfile && session?.user?.id && (
                       <button
                         type="button"
@@ -763,7 +793,12 @@ export default function PublicProfilePage() {
 
         {tab === "posts" && (
           <section className="mt-5">
-            {postsState === "loading" && (
+            {interactionRestricted ? (
+              <EmptyPanel
+                title="Posts unavailable."
+                body="Profile content is hidden while a block is active between you and this rider."
+              />
+            ) : postsState === "loading" && (
               <EmptyPanel title="Loading posts." body="Gathering this rider's latest archive." />
             )}
 
@@ -823,7 +858,12 @@ export default function PublicProfilePage() {
 
         {tab === "garage" && (
           <section className="mt-5">
-            {garageState === "loading" && (
+            {interactionRestricted ? (
+              <EmptyPanel
+                title="Garage unavailable."
+                body="Profile content is hidden while a block is active between you and this rider."
+              />
+            ) : garageState === "loading" && (
               <EmptyPanel title="Loading garage." body="Pulling this rider's machines from Supabase." />
             )}
 
@@ -880,7 +920,12 @@ export default function PublicProfilePage() {
 
         {tab === "rides" && (
           <section className="mt-5">
-            {ridesState === "loading" && (
+            {interactionRestricted ? (
+              <EmptyPanel
+                title="Rides unavailable."
+                body="Profile content is hidden while a block is active between you and this rider."
+              />
+            ) : ridesState === "loading" && (
               <EmptyPanel title="Loading rides." body="Finding this rider's hosted meets." />
             )}
 
