@@ -10,7 +10,10 @@ import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { CrimsonSound } from "@/lib/sounds";
+
+const FEED_POST_LIMIT = 40;
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
@@ -165,69 +168,6 @@ const statusBgMap: Record<string, string> = {
   carbon: "bg-gradient-to-br from-[#1a1a1c] via-[#2a2a2e] to-[#0a0a0c]",
   ember: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
 };
-
-const seedPosts: FeedPost[] = [
-  {
-    id: "seed-1",
-    type: "photo",
-    author: {
-      name: "Marco Vélez",
-      handle: "@nightrider",
-      photo: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-    },
-    location: "Hill Country · TX",
-    caption: "Dawn patrol through the canyons. The bike sounded like a prayer.",
-    photos: ["https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200"],
-    timeLabel: "2h",
-    likes: 248,
-    comments: 31,
-  },
-  {
-    id: "seed-2",
-    type: "reel",
-    author: {
-      name: "Elena Ruiz",
-      handle: "@ironsaint",
-      photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
-    },
-    location: "Mulholland · LA",
-    caption: "Sunset run. No words.",
-    video: null,
-    photos: ["https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=1200"],
-    timeLabel: "5h",
-    likes: 612,
-    comments: 84,
-  },
-  {
-    id: "seed-3",
-    type: "status",
-    author: {
-      name: "Devin Cole",
-      handle: "@blackmass",
-      photo: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200",
-    },
-    statusText: "Two wheels, one road, no apologies.",
-    statusBg: "crimson",
-    timeLabel: "9h",
-    likes: 184,
-    comments: 22,
-  },
-  {
-    id: "seed-4",
-    type: "photo",
-    author: {
-      name: "Aiyana Cross",
-      handle: "@savagegrace",
-      photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
-    },
-    location: "Red Rocks · CO",
-    caption: "Cold morning, warm exhaust.",
-    photos: ["https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=1200"],
-    timeLabel: "1d",
-    likes: 421,
-    comments: 47,
-  },
-];
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -392,7 +332,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { session, loading, isAdmin } = useAuth();
 
-  const [posts, setPosts] = useState<FeedPost[]>(seedPosts);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
@@ -402,7 +342,7 @@ export default function DashboardPage() {
   const [commentDraft, setCommentDraft] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedLoading, setFeedLoading] = useState(true);
   const [pullY, setPullY] = useState(0);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
@@ -504,7 +444,8 @@ export default function DashboardPage() {
           )
         )
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(FEED_POST_LIMIT);
 
     if (error) {
       setToast(error.message || "Could not load posts.");
@@ -514,9 +455,8 @@ export default function DashboardPage() {
     }
 
     const livePosts = ((data || []) as RawPost[]).map(mapPostToFeed);
-const nextPosts = livePosts.length > 0 ? [...livePosts, ...seedPosts] : seedPosts;
 
-setPosts(nextPosts);
+    setPosts(livePosts);
 
 const livePostIds = livePosts.map((post) => post.id);
 
@@ -1136,9 +1076,11 @@ setFeedLoading(false);
                   ))}
 
                 {!dashboardLoading && dashboardMeets.length === 0 && (
-                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-zinc-400">
-                    No upcoming Meets are on the ledger yet.
-                  </div>
+                  <EmptyState
+                    className="rounded-xl p-6"
+                    title="No upcoming meets."
+                    body="Hosted rides will surface here once members schedule them. Open Rides to host or join the next run."
+                  />
                 )}
 
                 {!dashboardLoading &&
@@ -1204,19 +1146,31 @@ setFeedLoading(false);
           </div>
 
           <div className="space-y-6">
-            {feedLoading && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                <div className="flex animate-pulse items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-white/10" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-32 rounded-full bg-white/10" />
-                    <div className="h-2 w-44 rounded-full bg-white/10" />
+            {feedLoading &&
+              Array.from({ length: 2 }).map((_, index) => (
+                <div
+                  key={`feed-skeleton-${index}`}
+                  className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
+                >
+                  <div className="flex animate-pulse items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-white/10" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-32 rounded-full bg-white/10" />
+                      <div className="h-2 w-44 rounded-full bg-white/10" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
+
+            {!feedLoading && posts.length === 0 && (
+              <EmptyState
+                title="The feed is quiet."
+                body="When riders post photos, reels, and status updates, they will appear here. Be the first to share from the road."
+              />
             )}
 
-            {posts.map((p, postIndex) => {
+            {!feedLoading &&
+              posts.map((p, postIndex) => {
               const count = likeCounts[p.id] ?? p.likes;
               const isLiked = !!liked[p.id];
               const isBookmarked = !!bookmarked[p.id];

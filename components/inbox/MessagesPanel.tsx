@@ -670,11 +670,20 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
 
     const timer = window.setTimeout(() => {
       void loadConversations();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadConversations, userId]);
+
+  useEffect(() => {
+    if (!showNewMessage || !userId) return;
+
+    const timer = window.setTimeout(() => {
       void loadSuggestions();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadConversations, loadSuggestions, userId]);
+  }, [loadSuggestions, showNewMessage, userId]);
 
   useEffect(() => {
     if (!conversationParam || !userId) return;

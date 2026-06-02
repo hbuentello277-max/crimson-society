@@ -109,69 +109,9 @@ type RideUnreadMessageRow = {
   created_at: string;
 };
 
-const DEFAULT_COVER =
-  "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&h=900&fit=crop";
-
-const DEFAULT_HOST_PHOTO =
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=faces";
-
-const PHOTOS = {
-  marco:
-    "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=faces",
-  aiyana:
-    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=faces",
-};
-
-const UPCOMING_MEETS: Ride[] = [
-  {
-    id: "r1",
-    name: "Sunday Canyon Run",
-    date: "Sun May 24",
-    time: "5:30 AM",
-    meetPoint: "Buc-ee's, Katy",
-    destination: "Pedernales Falls State Park",
-    city: "Houston, TX",
-    type: "Canyon Run",
-    distance: "180 mi",
-    duration: "5h",
-    cover:
-      "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=1200&h=900&fit=crop",
-    host: { name: "Marco Velez", photo: PHOTOS.marco },
-    going: [],
-    description:
-      "Dawn meet, full tank, no stops till the gorge. Pace is measured and the line stays clean.",
-    privacy: "Open",
-    lat: 29.7858,
-    lng: -95.8244,
-    route: [
-      { lat: 29.7858, lng: -95.8244 },
-      { lat: 30.2667, lng: -98.1711 },
-    ],
-  },
-  {
-    id: "r2",
-    name: "Midnight on the Loop",
-    date: "Fri May 29",
-    time: "11:00 PM",
-    meetPoint: "Memorial Park",
-    destination: "Downtown Houston Loop",
-    city: "Houston, TX",
-    type: "Night Run",
-    distance: "60 mi",
-    duration: "1.5h",
-    cover: DEFAULT_COVER,
-    host: { name: "Aiyana Cross", photo: PHOTOS.aiyana },
-    going: [],
-    description: "Cold air, clean lines, no theater. Finish over coffee.",
-    privacy: "Open",
-    lat: 29.7642,
-    lng: -95.431,
-    route: [
-      { lat: 29.7642, lng: -95.431 },
-      { lat: 29.7604, lng: -95.3698 },
-    ],
-  },
-];
+const DEFAULT_COVER = "/icon-512.png";
+const DEFAULT_HOST_PHOTO = "/icon-192.png";
+const ACTIVE_MEETS_LIMIT = 50;
 
 function formatTime(time: string) {
   if (!time) return "";
@@ -737,7 +677,8 @@ function RidesPageContent() {
           .from("rides")
           .select("*")
           .eq("status", "active")
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(ACTIVE_MEETS_LIMIT),
         userId
           ? supabase
               .from("rides")
@@ -885,9 +826,18 @@ const rowsWithHosts = rows.map((row) => ({
 
 const ridesWithRoutes = await Promise.all(
   rowsWithHosts.map(async (row) => {
+    const savedRoute = parseRoute(row.route);
+    if (hasRoadGeometry(savedRoute)) {
+      return rideRowToRide(row as RideRow, savedRoute);
+    }
+
+    if (endpointRoute(row as RideRow).length < 2) {
+      return rideRowToRide(row as RideRow, []);
+    }
+
     const resolvedRoute = await resolveRouteGeometry(row as RideRow);
     return rideRowToRide(row as RideRow, resolvedRoute);
-  })
+  }),
 );
 
       if (active) {

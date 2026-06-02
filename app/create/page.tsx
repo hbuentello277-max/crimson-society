@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,8 +16,15 @@ import CrimsonSoundPicker, {
   CrimsonSoundAttribution,
 } from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type PostType = "photo" | "reel" | "status";
+type TaggableRider = {
+  id: string;
+  name: string;
+  handle: string;
+  photo: string | null;
+};
 type Audience = "public" | "close" | "group";
 
 type PreviewPhoto = {
@@ -70,51 +77,53 @@ export default function CreatePage() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const [taggableRiders, setTaggableRiders] = useState<TaggableRider[]>([]);
+  const [taggableLoading, setTaggableLoading] = useState(false);
 
-  const mockRiders = [
-    {
-      id: "1",
-      name: "Marco Vélez",
-      handle: "@nightrider",
-      photo:
-        "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200",
-    },
-    {
-      id: "2",
-      name: "Elena Ruiz",
-      handle: "@ironsaint",
-      photo:
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
-    },
-    {
-      id: "3",
-      name: "Devin Cole",
-      handle: "@blackmass",
-      photo:
-        "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200",
-    },
-    {
-      id: "4",
-      name: "Aiyana Cross",
-      handle: "@savagegrace",
-      photo:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
-    },
-    {
-      id: "5",
-      name: "Roman Petrov",
-      handle: "@longshadow",
-      photo:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
-    },
-    {
-      id: "6",
-      name: "Sofia Marín",
-      handle: "@redveil",
-      photo:
-        "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-    },
-  ];
+  const loadTaggableRiders = useCallback(async () => {
+    if (!userId) return;
+
+    setTaggableLoading(true);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+      .eq("status", "active")
+      .neq("id", userId)
+      .order("display_name", { ascending: true })
+      .limit(40);
+
+    if (error) {
+      setTaggableRiders([]);
+      setTaggableLoading(false);
+      return;
+    }
+
+    const next = (data || [])
+      .map((profile) => {
+        const username = profile.username?.trim();
+        if (!username) return null;
+
+        return {
+          id: profile.id as string,
+          name:
+            profile.display_name?.trim() ||
+            profile.full_name?.trim() ||
+            username,
+          handle: `@${username}`,
+          photo: profile.profile_image_url || profile.avatar_url || null,
+        };
+      })
+      .filter((profile): profile is TaggableRider => profile !== null);
+
+    setTaggableRiders(next);
+    setTaggableLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!showRiderPicker || !userId) return;
+    void loadTaggableRiders();
+  }, [loadTaggableRiders, showRiderPicker, userId]);
 
   useEffect(() => {
   let active = true;
@@ -857,7 +866,22 @@ export default function CreatePage() {
             </div>
 
             <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
-              {mockRiders.map((r) => {
+              {taggableLoading && (
+                <div className="rounded-xl border border-white/10 p-4 text-sm text-white/50">
+                  Loading riders from the Society...
+                </div>
+              )}
+
+              {!taggableLoading && taggableRiders.length === 0 && (
+                <EmptyState
+                  className="rounded-xl p-6"
+                  title="No riders to tag yet."
+                  body="As more members complete their profiles, you can tag them here."
+                />
+              )}
+
+              {!taggableLoading &&
+                taggableRiders.map((r) => {
                 const isTagged = taggedRiders.includes(r.handle);
                 return (
                   <button
@@ -870,12 +894,19 @@ export default function CreatePage() {
                     }`}
                   >
                     <div className="relative h-11 w-11 overflow-hidden rounded-full border border-white/10">
-                      <Image
-                        src={r.photo}
-                        alt={r.name}
-                        fill
-                        className="object-cover"
-                      />
+                      {r.photo ? (
+                        <Image
+                          src={r.photo}
+                          alt={r.name}
+                          fill
+                          sizes="44px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-[#b4141e] font-serif text-sm italic text-white">
+                          {r.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm text-white">{r.name}</p>
