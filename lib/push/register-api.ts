@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export const PUSH_REGISTER_API_VERSION = 2;
+export const PUSH_REGISTER_API_VERSION = 3;
 
 export function getDeployCommitSha() {
   return (
@@ -35,3 +35,15 @@ export function logPushRegister(event: Record<string, unknown>) {
     }),
   );
 }
+
+export type PushRegisterDebug = {
+  receivedAuthorizationHeader: boolean;
+  bearerTokenLength: number;
+  authMethod: string;
+  userFound: boolean;
+  userIdPrefix?: string;
+  tokenUpsertError?: string;
+  tokenUpsertCode?: string;
+  usedServiceRole?: boolean;
+  usedDirectFallback?: boolean;
+};

@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { getFirebasePublicConfig, getFirebaseVapidKey, isPushConfiguredOnClient } from "@/lib/push/firebase-public";
+import { savePushTokenRow, setPushNotificationsEnabled } from "@/lib/push/save-token";
 
 function detectPushPlatform(): "web" | "ios" | "android" {
   if (typeof navigator === "undefined") return "web";
@@ -13,11 +14,17 @@ function detectPushPlatform(): "web" | "ios" | "android" {
 
 async function resolveAccessToken() {
   const {
-    data: { session: initialSession },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  if (initialSession?.access_token) {
-    return initialSession.access_token;
+  if (!userError && user) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return session.access_token;
+    }
   }
 
   const {
@@ -42,23 +49,110 @@ async function pushRegisterHeaders() {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  return headers;
+  return { headers, hasBearer: Boolean(accessToken) };
 }
 
+type RegisterApiPayload = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  hint?: string;
+  authDetail?: string;
+  debug?: {
+    receivedAuthorizationHeader?: boolean;
+    bearerTokenLength?: number;
+    authMethod?: string;
+    tokenUpsertError?: string;
+  };
+};
+
 function formatRegisterFailure(
-  payload: { error?: string; code?: string; hint?: string } | null,
+  payload: RegisterApiPayload | null,
   status: number,
+  hasBearer: boolean,
 ) {
+  const parts: string[] = [];
+
+  if (payload?.code) {
+    parts.push(`[${payload.code}]`);
+  }
+
   if (payload?.error?.trim()) {
-    const hint = payload.hint ? ` ${payload.hint}` : "";
-    return `${payload.error.trim()}${hint}`;
+    parts.push(payload.error.trim());
+  } else if (status === 401) {
+    parts.push("Sign in again to save your push token.");
+  } else {
+    parts.push(`Push register failed (HTTP ${status}).`);
   }
 
-  if (status === 401) {
-    return "Sign in again to save your push token.";
+  if (payload?.authDetail?.trim()) {
+    parts.push(payload.authDetail.trim());
   }
 
-  return `Could not save push token (HTTP ${status}).`;
+  if (payload?.hint?.trim()) {
+    parts.push(payload.hint.trim());
+  }
+
+  if (payload?.debug?.tokenUpsertError) {
+    parts.push(payload.debug.tokenUpsertError);
+  }
+
+  if (!hasBearer) {
+    parts.push("No session token was sent to the server.");
+  }
+
+  return parts.join(" ");
+}
+
+async function registerPushTokenDirect(token: string) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user?.id) {
+    throw new Error(
+      userError?.message || "Sign in again to save your push token (no active session).",
+    );
+  }
+
+  const saveResult = await savePushTokenRow(supabase, {
+    userId: user.id,
+    token,
+    platform: detectPushPlatform(),
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+  });
+
+  if (!saveResult.ok) {
+    const hint = saveResult.hint ? ` ${saveResult.hint}` : "";
+    throw new Error(`[DIRECT_SAVE] ${saveResult.message}${hint}`);
+  }
+
+  const { error: profileError } = await setPushNotificationsEnabled(supabase, user.id, true);
+  if (profileError) {
+    console.warn("[push] profile flag update failed:", profileError.message);
+  }
+}
+
+async function registerPushTokenViaApi(token: string) {
+  const { headers, hasBearer } = await pushRegisterHeaders();
+
+  const response = await fetch("/api/push/register", {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: JSON.stringify({
+      token,
+      platform: detectPushPlatform(),
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as RegisterApiPayload | null;
+
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(formatRegisterFailure(payload, response.status, hasBearer));
+  }
 }
 
 export type PushPermissionState = NotificationPermission | "unsupported";
@@ -134,41 +228,36 @@ export async function obtainWebPushToken() {
 }
 
 export async function registerPushTokenWithServer(token: string) {
-  const response = await fetch("/api/push/register", {
-    method: "POST",
-    credentials: "include",
-    headers: await pushRegisterHeaders(),
-    body: JSON.stringify({
-      token,
-      platform: detectPushPlatform(),
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-    }),
-  });
+  try {
+    await registerPushTokenViaApi(token);
+    return;
+  } catch (apiError) {
+    const apiMessage = apiError instanceof Error ? apiError.message : String(apiError);
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-      code?: string;
-      hint?: string;
-    } | null;
-    throw new Error(formatRegisterFailure(payload, response.status));
+    try {
+      await registerPushTokenDirect(token);
+      return;
+    } catch (directError) {
+      const directMessage =
+        directError instanceof Error ? directError.message : String(directError);
+      throw new Error(`${apiMessage} Fallback: ${directMessage}`);
+    }
   }
 }
 
 export async function disablePushOnServer() {
+  const { headers } = await pushRegisterHeaders();
+
   const response = await fetch("/api/push/register", {
     method: "DELETE",
     credentials: "include",
-    headers: await pushRegisterHeaders(),
+    headers,
   });
 
+  const payload = (await response.json().catch(() => null)) as RegisterApiPayload | null;
+
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-      code?: string;
-      hint?: string;
-    } | null;
-    throw new Error(formatRegisterFailure(payload, response.status));
+    throw new Error(formatRegisterFailure(payload, response.status, Boolean(headers.Authorization)));
   }
 }
 
