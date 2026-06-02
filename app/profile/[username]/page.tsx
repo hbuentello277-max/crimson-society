@@ -413,6 +413,16 @@ export default function PublicProfilePage() {
 
   const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
+  const followerListRoutes = useMemo(() => {
+    const slug = profile?.username?.trim().replace(/^@+/, "") || usernameParam?.trim().replace(/^@+/, "");
+    if (!slug) return null;
+
+    const encoded = encodeURIComponent(slug);
+    return {
+      followers: `/profile/${encoded}/followers`,
+      following: `/profile/${encoded}/following`,
+    };
+  }, [profile?.username, usernameParam]);
   const interactionRestricted = Boolean(
     session?.user?.id && profile?.id && session.user.id !== profile.id && (isBlocked || isBlockingMe),
   );
@@ -710,14 +720,44 @@ export default function PublicProfilePage() {
                   )}
 
                   <div className={`mt-4 grid w-full max-w-md gap-2 ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
-                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
-                      <p className="text-sm text-zinc-100">{followerCount}</p>
-                      <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Followers</p>
-                    </div>
-                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
-                      <p className="text-sm text-zinc-100">{followingCount}</p>
-                      <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Following</p>
-                    </div>
+                    {followerListRoutes ? (
+                      <Link
+                        href={followerListRoutes.followers}
+                        prefetch
+                        className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/40 hover:bg-white/[0.04] active:bg-white/[0.06]"
+                      >
+                        <p className="text-sm text-zinc-100">{followerCount}</p>
+                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
+                          Followers
+                        </p>
+                      </Link>
+                    ) : (
+                      <div className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
+                        <p className="text-sm text-zinc-100">{followerCount}</p>
+                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
+                          Followers
+                        </p>
+                      </div>
+                    )}
+                    {followerListRoutes ? (
+                      <Link
+                        href={followerListRoutes.following}
+                        prefetch
+                        className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/40 hover:bg-white/[0.04] active:bg-white/[0.06]"
+                      >
+                        <p className="text-sm text-zinc-100">{followingCount}</p>
+                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
+                          Following
+                        </p>
+                      </Link>
+                    ) : (
+                      <div className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
+                        <p className="text-sm text-zinc-100">{followingCount}</p>
+                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
+                          Following
+                        </p>
+                      </div>
+                    )}
                     {!isOwnProfile && session?.user?.id && (
                       <button
                         type="button"

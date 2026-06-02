@@ -592,7 +592,8 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
             <Link
               key={item.label}
               href={item.href}
-              className="min-w-0 border-r border-white/10 px-2 py-4 transition hover:bg-white/[0.04] last:border-r-0"
+              prefetch
+              className="flex min-h-[48px] min-w-0 flex-col items-center justify-center border-r border-white/10 px-2 py-4 transition hover:bg-white/[0.04] active:bg-white/[0.06] last:border-r-0"
             >
               {statContent}
             </Link>
