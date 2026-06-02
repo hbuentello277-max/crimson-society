@@ -1,12 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AudioMessageBubble } from "@/components/inbox/AudioMessageBubble";
 import { IconCheck } from "@/components/inbox/inbox-icons";
 import { MessageComposer } from "@/components/inbox/MessageComposer";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { ThreadOverflowMenu } from "@/components/inbox/ThreadOverflowMenu";
+import type { DmMessageType } from "@/lib/messages/dm-message";
 
 export type ThreadConversation = {
   id: string;
@@ -21,12 +24,16 @@ export type ThreadConversation = {
 
 export type ThreadMessage = {
   id: string;
+  messageType: DmMessageType;
   text: string;
   senderId: string;
   senderName?: string;
   senderPhoto?: string | null;
   timeLabel: string;
   createdAt: string;
+  mediaUrl?: string | null;
+  mediaMimeType?: string | null;
+  mediaDurationSeconds?: number | null;
 };
 
 type MessageThreadScreenProps = {
@@ -37,9 +44,12 @@ type MessageThreadScreenProps = {
   userId: string | null;
   onDraftChange: (value: string) => void;
   onSend: () => void;
+  onImageSelected: (file: File) => void;
   onBack: () => void;
   onReportMessage: (message: ThreadMessage) => void;
   focusComposer?: boolean;
+  sending?: boolean;
+  uploadingMedia?: boolean;
 };
 
 function daySeparatorLabel(createdAt: string) {
@@ -65,12 +75,16 @@ export function MessageThreadScreen({
   userId,
   onDraftChange,
   onSend,
+  onImageSelected,
   onBack,
   onReportMessage,
   focusComposer = false,
+  sending = false,
+  uploadingMedia = false,
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const messagesWithSeparators = useMemo(() => {
     const items: Array<{ type: "separator"; label: string } | { type: "message"; message: ThreadMessage }> =
@@ -240,15 +254,38 @@ export function MessageThreadScreen({
                     </span>
                   )}
 
-                  <div
-                    className={`px-4 py-3 text-[15px] leading-relaxed ${
-                      isMe
-                        ? "rounded-[22px] rounded-br-md bg-[#b4141e] text-white"
-                        : "rounded-[22px] rounded-bl-md bg-[#262626] text-white/95"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
+                  {message.messageType === "image" && message.mediaUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImageUrl(message.mediaUrl ?? null)}
+                      className="block overflow-hidden rounded-[22px] border border-white/10"
+                    >
+                      <Image
+                        src={message.mediaUrl}
+                        alt="Shared photo"
+                        width={280}
+                        height={280}
+                        className="max-h-72 w-auto object-cover"
+                        unoptimized
+                      />
+                    </button>
+                  ) : message.messageType === "audio" && message.mediaUrl ? (
+                    <AudioMessageBubble
+                      mediaUrl={message.mediaUrl}
+                      durationSeconds={message.mediaDurationSeconds}
+                      isMe={isMe}
+                    />
+                  ) : (
+                    <div
+                      className={`px-4 py-3 text-[15px] leading-relaxed ${
+                        isMe
+                          ? "rounded-[22px] rounded-br-md bg-[#b4141e] text-white"
+                          : "rounded-[22px] rounded-bl-md bg-[#262626] text-white/95"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  )}
 
                   <div
                     className={`mt-1 flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : ""}`}
@@ -278,7 +315,39 @@ export function MessageThreadScreen({
         inputRef={composerRef}
         onDraftChange={onDraftChange}
         onSend={onSend}
+        onImageSelected={onImageSelected}
+        sending={sending}
+        uploadingMedia={uploadingMedia}
       />
+
+      {previewImageUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] text-2xl text-white/80"
+              onClick={() => setPreviewImageUrl(null)}
+              aria-label="Close preview"
+            >
+              ✕
+            </button>
+            <Image
+              src={previewImageUrl}
+              alt="Full size photo"
+              width={1200}
+              height={1200}
+              className="max-h-[85vh] max-w-full object-contain"
+              unoptimized
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>,
+          document.body,
+        )}
     </div>,
     document.body,
   );

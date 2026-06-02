@@ -17,7 +17,16 @@ import {
 import { ensureUserProfile } from "@/lib/profile";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
+import {
+  dmMessagePreview,
+  normalizeDmMessageType,
+  type DmMessageType,
+  validateDmImageFile,
+} from "@/lib/messages/dm-message";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
+
+const DM_MESSAGE_SELECT =
+  "id, conversation_id, sender_id, body, message_type, media_url, media_path, media_mime_type, media_size_bytes, media_duration_seconds, created_at";
 
 type Conversation = {
   id: string;
@@ -35,12 +44,16 @@ type Conversation = {
 
 type Message = {
   id: string;
+  messageType: DmMessageType;
   text: string;
   senderId: string;
   senderName?: string;
   senderPhoto?: string | null;
   timeLabel: string;
   createdAt: string;
+  mediaUrl?: string | null;
+  mediaMimeType?: string | null;
+  mediaDurationSeconds?: number | null;
 };
 
 type ProfileRow = {
@@ -79,6 +92,12 @@ type MessageRow = {
   conversation_id: string;
   sender_id: string;
   body: string | null;
+  message_type?: string | null;
+  media_url?: string | null;
+  media_path?: string | null;
+  media_mime_type?: string | null;
+  media_size_bytes?: number | null;
+  media_duration_seconds?: number | null;
   created_at: string;
 };
 
@@ -173,12 +192,16 @@ function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Mes
 
   return {
     id: row.id,
+    messageType: normalizeDmMessageType(row.message_type),
     text: row.body || "",
     senderId: row.sender_id,
     senderName: profileName(sender),
     senderPhoto: profilePhoto(sender),
     timeLabel: messageTime(row.created_at),
     createdAt: row.created_at,
+    mediaUrl: row.media_url,
+    mediaMimeType: row.media_mime_type,
+    mediaDurationSeconds: row.media_duration_seconds,
   };
 }
 
@@ -226,7 +249,7 @@ function buildConversations(
       handle: isGroup ? `${conversationMembers.length} riders` : profileHandle(otherProfile),
       profileHref: isGroup ? null : publicProfileHref(otherProfile),
       photo: conversation.avatar_url || profilePhoto(otherProfile),
-      lastMessage: latest?.body || "No messages yet.",
+      lastMessage: latest ? dmMessagePreview(latest) : "No messages yet.",
       timeLabel: timeLabel(latest?.created_at || conversation.updated_at),
       unread,
       isGroup,
@@ -277,6 +300,8 @@ export default function MessagesPanel({
     preview: string;
   } | null>(null);
   const [reportMessageBusy, setReportMessageBusy] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const active =
     (activeId && conversations.find((c) => c.id === activeId)) ||
@@ -376,7 +401,7 @@ export default function MessagesPanel({
         .in("conversation_id", conversationIds),
       supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, body, created_at")
+        .select(DM_MESSAGE_SELECT)
         .in("conversation_id", conversationIds)
         .order("created_at", { ascending: true })
         .limit(300),
@@ -710,8 +735,54 @@ export default function MessagesPanel({
     onThreadActiveChange?.(Boolean(active));
   }, [active, onThreadActiveChange]);
 
+  const appendLocalMessage = useCallback(
+    (row: MessageRow) => {
+      if (!activeId) return;
+
+      const senderProfileResponsePromise = supabase
+        .from("profiles")
+        .select("id, username, display_name, full_name, profile_image_url, avatar_url")
+        .eq("id", row.sender_id)
+        .maybeSingle();
+
+      void senderProfileResponsePromise.then((senderProfileResponse) => {
+        const newMessage = mapMessage(
+          row,
+          buildProfileMap(
+            senderProfileResponse.data ? [senderProfileResponse.data as ProfileRow] : [],
+          ),
+        );
+
+        setThreads((prev) => ({
+          ...prev,
+          [activeId]: [...(prev[activeId] || []), newMessage],
+        }));
+
+        setConversations((prev) => {
+          const exists = prev.some((conversation) => conversation.id === activeId);
+          if (!exists) {
+            void loadConversations();
+            return prev;
+          }
+
+          return prev.map((conversation) =>
+            conversation.id === activeId
+              ? {
+                  ...conversation,
+                  lastMessage: dmMessagePreview(row),
+                  timeLabel: "Now",
+                  unread: 0,
+                }
+              : conversation,
+          );
+        });
+      });
+    },
+    [activeId, loadConversations],
+  );
+
   const sendMessage = async () => {
-    if (!draft.trim() || !activeId) return;
+    if (!draft.trim() || !activeId || sendingMessage || uploadingMedia) return;
 
     const body = draft.trim();
     setDraft("");
@@ -722,15 +793,20 @@ export default function MessagesPanel({
       return;
     }
 
+    setSendingMessage(true);
+
     const inserted = await supabase
       .from("messages")
       .insert({
         conversation_id: activeId,
         sender_id: userId,
+        message_type: "text",
         body,
       })
-      .select("id, conversation_id, sender_id, body, created_at")
+      .select(DM_MESSAGE_SELECT)
       .single();
+
+    setSendingMessage(false);
 
     if (inserted.error || !inserted.data) {
       setErrorMsg(inserted.error?.message || "Message could not be sent.");
@@ -738,42 +814,75 @@ export default function MessagesPanel({
       return;
     }
 
-    const insertedRow = inserted.data as unknown as MessageRow;
+    appendLocalMessage(inserted.data as unknown as MessageRow);
+  };
 
-    const senderProfileResponse = await supabase
-      .from("profiles")
-      .select("id, username, display_name, full_name, profile_image_url, avatar_url")
-      .eq("id", insertedRow.sender_id)
-      .maybeSingle();
+  const sendImageMessage = async (file: File) => {
+    if (!activeId || !userId || sendingMessage || uploadingMedia) return;
 
-    const newMessage = mapMessage(
-      insertedRow,
-      buildProfileMap(senderProfileResponse.data ? [senderProfileResponse.data as ProfileRow] : []),
-    );
+    const validationError = validateDmImageFile(file);
+    if (validationError) {
+      setErrorMsg(validationError);
+      return;
+    }
 
-    setThreads((prev) => ({
-      ...prev,
-      [activeId]: [...(prev[activeId] || []), newMessage],
-    }));
+    setUploadingMedia(true);
+    setErrorMsg("");
 
-    setConversations((prev) => {
-      const exists = prev.some((conversation) => conversation.id === activeId);
-      if (!exists) {
-        void loadConversations();
-        return prev;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      const formData = new FormData();
+      formData.append("conversationId", activeId);
+      formData.append("file", file);
+
+      const uploadResponse = await fetch("/api/messages/media", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+
+      const uploadResult = (await uploadResponse.json()) as {
+        ok?: boolean;
+        error?: string;
+        messageId?: string;
+        mediaUrl?: string;
+        mediaPath?: string;
+        mediaMimeType?: string;
+        mediaSizeBytes?: number;
+      };
+
+      if (!uploadResponse.ok || !uploadResult.ok || !uploadResult.messageId) {
+        throw new Error(uploadResult.error || "Image upload failed.");
       }
 
-      return prev.map((conversation) =>
-        conversation.id === activeId
-          ? {
-              ...conversation,
-              lastMessage: body,
-              timeLabel: "Now",
-              unread: 0,
-            }
-          : conversation,
-      );
-    });
+      const inserted = await supabase
+        .from("messages")
+        .insert({
+          id: uploadResult.messageId,
+          conversation_id: activeId,
+          sender_id: userId,
+          message_type: "image",
+          body: "",
+          media_url: uploadResult.mediaUrl,
+          media_path: uploadResult.mediaPath,
+          media_mime_type: uploadResult.mediaMimeType,
+          media_size_bytes: uploadResult.mediaSizeBytes,
+        })
+        .select(DM_MESSAGE_SELECT)
+        .single();
+
+      if (inserted.error || !inserted.data) {
+        throw new Error(inserted.error?.message || "Image message could not be saved.");
+      }
+
+      appendLocalMessage(inserted.data as unknown as MessageRow);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Could not send image.");
+    } finally {
+      setUploadingMedia(false);
+    }
   };
 
   function closeConversation() {
@@ -818,6 +927,7 @@ export default function MessagesPanel({
           userId={userId}
           onDraftChange={setDraft}
           onSend={() => void sendMessage()}
+          onImageSelected={(file) => void sendImageMessage(file)}
           onBack={closeConversation}
           onReportMessage={(message) =>
             setReportMessageTarget({
@@ -825,10 +935,17 @@ export default function MessagesPanel({
               conversationId: active.id,
               senderId: message.senderId,
               senderName: message.senderName || active.name,
-              preview: message.text,
+              preview:
+                message.messageType === "image"
+                  ? "[Photo]"
+                  : message.messageType === "audio"
+                    ? "[Voice message]"
+                    : message.text,
             })
           }
           focusComposer={focusComposerOnOpen}
+          sending={sendingMessage}
+          uploadingMedia={uploadingMedia}
         />
       )}
 

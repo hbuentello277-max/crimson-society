@@ -47,14 +47,19 @@ function getAdminReportTargetType(report: AdminReport): UserReportTargetType {
   return getUserReportTargetType(report);
 }
 
-function formatAdminReportTargetRef(report: AdminReport) {
+function formatAdminReportTargetRef(
+  report: AdminReport,
+  messageTypeById?: Map<string, string>,
+) {
   const type = getAdminReportTargetType(report);
   if (type === "post" && report.post_id) {
     return `Post ${report.post_id.slice(0, 8)}`;
   }
   if (type === "message") {
     if (report.message_id) {
-      return `Message ${report.message_id.slice(0, 8)}`;
+      const messageType = messageTypeById?.get(report.message_id);
+      const label = messageType && messageType !== "text" ? ` (${messageType})` : "";
+      return `Message ${report.message_id.slice(0, 8)}${label}`;
     }
     if (report.conversation_id) {
       return `Conversation ${report.conversation_id.slice(0, 8)}`;
@@ -220,6 +225,7 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
   const [moderationProfiles, setModerationProfiles] = useState<Map<string, AdminProfile>>(new Map());
   const [reports, setReports] = useState<AdminReport[]>([]);
+  const [reportedMessageTypes, setReportedMessageTypes] = useState<Map<string, string>>(new Map());
   const [deletionRequests, setDeletionRequests] = useState<AccountDeletionRequest[]>([]);
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
@@ -306,6 +312,14 @@ export default function AdminPage() {
     }
 
     const nextReports = ((reportsResponse.data || []) as AdminReport[]) || [];
+    const messageIds = nextReports
+      .map((report) => report.message_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    const { data: reportedMessages } = messageIds.length
+      ? await supabase.from("messages").select("id, message_type").in("id", messageIds)
+      : { data: [] as { id: string; message_type: string | null }[] };
+
     const nextDeletionRequests =
       ((deletionResponse.data || []) as AccountDeletionRequest[]) || [];
     const nextPosts = ((postsResponse.data || []) as RecentPost[]) || [];
@@ -340,6 +354,11 @@ export default function AdminPage() {
     }
 
     setReports(nextReports);
+    setReportedMessageTypes(
+      new Map(
+        (reportedMessages || []).map((row) => [row.id, row.message_type || "text"]),
+      ),
+    );
     setDeletionRequests(nextDeletionRequests);
     setRecentPosts(nextPosts);
     setRecentRides(nextRides);
@@ -774,7 +793,7 @@ export default function AdminPage() {
                       <div className="space-y-3">
                         {reports.map((report) => {
                           const targetType = getAdminReportTargetType(report);
-                          const targetRef = formatAdminReportTargetRef(report);
+                          const targetRef = formatAdminReportTargetRef(report, reportedMessageTypes);
 
                           return (
                           <div key={report.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
