@@ -58,7 +58,7 @@ export async function obtainWebPushToken() {
     throw new Error("Firebase web push is not configured.");
   }
 
-  const app = initializeApp(config);
+  const app = getApps().length > 0 ? getApps()[0]! : initializeApp(config);
   const messaging = getMessaging(app);
   const registration = await navigator.serviceWorker.ready;
 
