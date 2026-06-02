@@ -4,11 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import {
-  buildBioPreview,
-  CompactProfileCard,
-} from "@/components/profile/CompactProfileCard";
+import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
+import { IconAdmin, IconEdit, IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
+import type { AppProfile } from "@/lib/profile";
 import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
@@ -81,7 +80,30 @@ return ( <div className="animate-pulse"> <div className="h-3 w-28 rounded-full b
 }
 
 const compactButtonClass =
-  "flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+
+function normalizeSocialUrl(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function profileCardDetails(profile: AppProfile) {
+  const socialLinks = [
+    ["Instagram", normalizeSocialUrl(profile.instagram_url)],
+    ["TikTok", normalizeSocialUrl(profile.tiktok_url)],
+    ["YouTube", normalizeSocialUrl(profile.youtube_url)],
+    ["Website", normalizeSocialUrl(profile.website_url)],
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([label, href]) => ({ label, href }));
+
+  return {
+    quote: profile.quote,
+    bio: profile.bio,
+    socialLinks,
+  };
+}
 
 export default function ProfilePage() {
 const { session, loading: authLoading, isAdmin, signOut } = useAuth();
@@ -486,10 +508,9 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       displayName={profileDisplayName(profile)}
       handle={profileHandle(profile)}
       location={profileLocation(profile)}
-      {...buildBioPreview(profile.quote, profile.bio)}
+      details={profileCardDetails(profile)}
       avatarUrl={profile.profile_image_url || profile.avatar_url}
       blackcardMember={blackcardAccessActive}
-      showBlackcardAccessCta
       stats={[
         { label: "Posts", value: stats.posts },
         { label: "Followers", value: stats.followers, href: "/profile/followers" },
@@ -499,9 +520,11 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         <>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/profile/edit" className={compactButtonClass}>
+              <IconEdit />
               Edit Profile
             </Link>
             <button type="button" onClick={() => void shareProfile()} className={compactButtonClass}>
+              <IconShare />
               Share Profile
             </button>
           </div>
@@ -510,6 +533,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
               href="/admin"
               className={`${compactButtonClass} mt-2 w-full border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65`}
             >
+              <IconAdmin />
               Admin
             </Link>
           )}

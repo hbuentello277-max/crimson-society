@@ -7,10 +7,8 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl } from "@/lib/media";
-import {
-  buildBioPreview,
-  CompactProfileCard,
-} from "@/components/profile/CompactProfileCard";
+import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
+import { IconShare } from "@/components/profile/ProfileIcons";
 import { ProfileTabBar } from "@/components/profile/ProfileTabBar";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
@@ -498,7 +496,19 @@ export default function PublicProfilePage() {
   const handle = profileHandle(profile);
   const location = profileLocation(profile);
   const avatarUrl = profile.profile_image_url || profile.avatar_url;
-  const { bioPreview, bioHasMore } = buildBioPreview(profile.quote, profile.bio);
+
+  const socialLinks = [
+    ["Instagram", normalizeSocialUrl(profile.instagram_url)],
+    ["TikTok", normalizeSocialUrl(profile.tiktok_url)],
+    ["YouTube", normalizeSocialUrl(profile.youtube_url)],
+    ["Website", normalizeSocialUrl(profile.website_url)],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
+
+  const profileDetails = {
+    quote: profile.quote,
+    bio: profile.bio,
+    socialLinks: socialLinks.map(([label, href]) => ({ label, href })),
+  };
 
   const sharePublicProfile = async () => {
     if (!profile?.username) return;
@@ -529,14 +539,8 @@ export default function PublicProfilePage() {
     }
   };
 
-  const socialLinks = [
-    ["Instagram", normalizeSocialUrl(profile.instagram_url)],
-    ["TikTok", normalizeSocialUrl(profile.tiktok_url)],
-    ["YouTube", normalizeSocialUrl(profile.youtube_url)],
-    ["Website", normalizeSocialUrl(profile.website_url)],
-  ].filter((item): item is [string, string] => Boolean(item[1]));
   const compactButtonClass =
-    "flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
+    "inline-flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
   async function toggleBlock() {
     if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
@@ -732,8 +736,7 @@ export default function PublicProfilePage() {
           displayName={displayName}
           handle={handle}
           location={location}
-          bioPreview={bioPreview}
-          bioHasMore={bioHasMore}
+          details={profileDetails}
           avatarUrl={avatarUrl}
           blackcardMember={blackcardAccessActive}
           stats={[
@@ -791,8 +794,9 @@ export default function PublicProfilePage() {
                 <button
                   type="button"
                   onClick={() => void sharePublicProfile()}
-                  className={`${compactButtonClass} col-span-2`}
+                  className={`${compactButtonClass} col-span-2 gap-1.5`}
                 >
+                  <IconShare />
                   Share Profile
                 </button>
               </div>
@@ -800,29 +804,14 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => void sharePublicProfile()}
-                className={`${compactButtonClass} w-full`}
+                className={`${compactButtonClass} w-full gap-1.5`}
               >
+                <IconShare />
                 Share Profile
               </button>
             )
           }
         />
-
-        {socialLinks.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {socialLinks.map(([label, href]) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        )}
 
         {ridingTags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
