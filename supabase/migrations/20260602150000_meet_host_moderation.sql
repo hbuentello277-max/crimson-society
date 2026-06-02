@@ -8,6 +8,7 @@ alter table public.notifications add constraint notifications_type_check check (
     'meet_left',
     'meet_chat_message',
     'meet_chat_photo',
+    'profile_followed',
     'meet_removed',
     'meet_canceled',
     'meet_ended'
