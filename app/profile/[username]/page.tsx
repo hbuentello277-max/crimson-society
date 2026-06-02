@@ -674,14 +674,20 @@ export default function PublicProfilePage() {
                   )}
 
                   <div className={`mt-4 grid w-full max-w-md gap-2 ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
-                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
+                    <Link
+                      href={`/profile/${encodeURIComponent(usernameParam || "")}/followers`}
+                      className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/35 hover:bg-white/[0.04]"
+                    >
                       <p className="text-sm text-zinc-100">{followerCount}</p>
                       <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Followers</p>
-                    </div>
-                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
+                    </Link>
+                    <Link
+                      href={`/profile/${encodeURIComponent(usernameParam || "")}/following`}
+                      className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/35 hover:bg-white/[0.04]"
+                    >
                       <p className="text-sm text-zinc-100">{followingCount}</p>
                       <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">Following</p>
-                    </div>
+                    </Link>
                     {!isOwnProfile && session?.user?.id && (
                       <button
                         type="button"
