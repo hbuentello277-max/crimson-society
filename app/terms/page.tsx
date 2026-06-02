@@ -53,8 +53,9 @@ export default function TermsPage() {
         {
           title: "Account Deletion Requests",
           body: [
-            "During beta, account deletion is handled as a request so shared Meet, message, tracking, and safety records can be reviewed before anything destructive happens.",
-            "Submitting a deletion request does not immediately remove all content. Some records may be retained when needed for safety, legal, fraud prevention, moderation, or shared community history.",
+            "Account deletion is submitted as a request from your private profile. The request may remain pending or under review before any access change.",
+            "When an admin completes a request, your account access is disabled immediately and your profile is marked blocked. This does not automatically delete every post, message, Meet, or moderation record.",
+            "Crimson Society may retain reports, audit history, and moderation records as described in the Privacy Policy. Full auth-user removal and content erasure may require separate manual processing.",
           ],
         },
       ]}

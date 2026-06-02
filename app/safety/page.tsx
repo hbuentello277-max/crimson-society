@@ -53,8 +53,9 @@ export default function SafetyPage() {
         {
           title: "Account Deletion Requests",
           body: [
-            "You can request account deletion from the private profile safety controls. During beta, requests are reviewed so shared Meets, messages, reports, and moderation records are handled carefully.",
-            "If you need urgent safety help, contact local emergency services first. Crimson Society tools are community safety features, not emergency response systems.",
+            "You can request account deletion from your private profile safety controls. Deletion is irreversible once an admin marks a request completed.",
+            "Immediately after completion, sign-in and app access are disabled. Your request may stay pending or under review before that step. Reports and moderation history are preserved for community safety.",
+            "Cancel a pending request from profile settings while it is still pending. If you need urgent safety help, contact local emergency services first. Crimson Society tools are community safety features, not emergency response systems.",
           ],
         },
       ]}

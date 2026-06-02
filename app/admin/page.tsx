@@ -363,7 +363,16 @@ export default function AdminPage() {
       });
 
       const result = (await response.json().catch(() => null)) as
-        | { error?: string; request?: AccountDeletionRequest }
+        | {
+            error?: string;
+            request?: AccountDeletionRequest;
+            completion?: {
+              profileDisabled?: boolean;
+              authBanned?: boolean;
+              profileError?: string | null;
+              authError?: string | null;
+            } | null;
+          }
         | null;
 
       if (!response.ok) {
@@ -376,11 +385,24 @@ export default function AdminPage() {
         );
       }
 
-      setSuccessMsg(
-        status === "completed"
-          ? "Deletion request marked completed (status only — account data not removed)."
-          : "Deletion request status updated.",
-      );
+      if (status === "completed") {
+        const completion = result?.completion;
+        const parts = [
+          "Deletion request completed.",
+          completion?.profileDisabled
+            ? "Profile status set to blocked."
+            : "Profile could not be blocked automatically.",
+          completion?.authBanned
+            ? "Sign-in disabled for this account."
+            : "Auth ban could not be applied automatically.",
+          "Posts, messages, meets, and moderation records were not automatically deleted.",
+        ];
+        if (completion?.profileError) parts.push(`Profile: ${completion.profileError}`);
+        if (completion?.authError) parts.push(`Auth: ${completion.authError}`);
+        setSuccessMsg(parts.join(" "));
+      } else {
+        setSuccessMsg("Deletion request status updated.");
+      }
     } catch (error) {
       setModerationError(
         error instanceof Error ? error.message : "Failed to update deletion request.",
@@ -650,8 +672,7 @@ export default function AdminPage() {
                   <h2 className="mt-2 text-2xl font-semibold">Moderation Dashboard</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
                     Review reports, deletion requests, recent posts, and active meet activity. Use the
-                    queue actions to update report and deletion-request status. Completing a deletion
-                    request updates status only and does not remove account data.
+                    queue actions to update report and deletion-request status. Completing a deletion request disables access immediately; full content erasure still requires manual follow-up.
                   </p>
                 </div>
                 <button
@@ -781,8 +802,7 @@ export default function AdminPage() {
                     <div className="mb-4">
                       <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
                       <p className="mt-2 text-xs leading-5 text-zinc-500">
-                        Mark completed updates request status only. It does not delete auth users or
-                        profile data.
+                        Mark completed blocks profile access, bans sign-in, and records review time. Content and moderation history are retained until a separate manual purge, if required.
                       </p>
                     </div>
 

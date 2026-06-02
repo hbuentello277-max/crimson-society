@@ -9,6 +9,12 @@ import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import {
+  type AccountDeletionRequestRow,
+  deletionStatusLabel,
+  deletionStatusUserMessage,
+  isOpenDeletionStatus,
+} from "@/lib/account-deletion";
 import { supabase } from "@/lib/supabase";
 
 type ProfilePost = {
@@ -138,6 +144,8 @@ const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
 const [deleteRequesting, setDeleteRequesting] = useState(false);
 const [deleteRequestStatus, setDeleteRequestStatus] = useState<string | null>(null);
+const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequestRow | null>(null);
+const [deletionRequestLoading, setDeletionRequestLoading] = useState(false);
 const [stats, setStats] = useState<ProfileStats>({ posts: 0, followers: 0, following: 0 });
 
 useEffect(() => {
@@ -147,6 +155,36 @@ void refresh();
 }, 0);
 return () => window.clearTimeout(timer);
 }, [authLoading, refresh, userId]);
+
+useEffect(() => {
+if (!userId) {
+setDeletionRequest(null);
+return;
+}
+
+const loadDeletionRequest = async () => {
+setDeletionRequestLoading(true);
+const { data, error } = await supabase
+.from("account_deletion_requests")
+.select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
+.eq("user_id", userId)
+.order("requested_at", { ascending: false })
+.limit(1)
+.maybeSingle();
+
+if (error) {
+console.error("Failed to load account deletion request:", error);
+setDeletionRequest(null);
+} else {
+setDeletionRequest((data as AccountDeletionRequestRow | null) ?? null);
+}
+
+setDeletionRequestLoading(false);
+};
+
+void loadDeletionRequest();
+}, [userId]);
+
 
 useEffect(() => {
 if (!userId) return;
@@ -309,11 +347,52 @@ setTimeout(() => setToast(null), 1400);
 
 };
 
+const cancelAccountDeletion = async () => {
+if (!userId || !deletionRequest || deletionRequest.status !== "pending" || deleteRequesting) return;
+
+const confirmed = window.confirm("Cancel your pending account deletion request?");
+if (!confirmed) return;
+
+setDeleteRequesting(true);
+setDeleteRequestStatus(null);
+
+const { data, error } = await supabase
+.from("account_deletion_requests")
+.update({ status: "canceled" })
+.eq("id", deletionRequest.id)
+.eq("user_id", userId)
+.select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
+.single();
+
+if (error) {
+  setDeleteRequestStatus(error.message || "Could not cancel deletion request.");
+} else {
+  setDeletionRequest((data as AccountDeletionRequestRow) ?? null);
+  setDeleteRequestStatus("Deletion request canceled.");
+}
+
+setDeleteRequesting(false);
+};
+
 const requestAccountDeletion = async () => {
 if (!userId || deleteRequesting) return;
 
+if (deletionRequest && isOpenDeletionStatus(deletionRequest.status)) {
+  setDeleteRequestStatus("You already have an open deletion request pending review.");
+  return;
+}
+
 const confirmed = window.confirm(
-  "Request account deletion? Your profile will be reviewed for safe removal. Shared ride, meet, and message history will not be deleted automatically during this beta flow."
+  [
+    "Request account deletion?",
+    "",
+    "• This process is irreversible once an admin completes your request.",
+    "• Your request will remain pending until Crimson Society reviews it.",
+    "• After completion, sign-in and app access will be disabled.",
+    "• Posts, messages, meets, reports, and moderation records may be retained for safety and legal compliance.",
+    "",
+    "Submit this deletion request?",
+  ].join("\n"),
 );
 
 if (!confirmed) return;
@@ -321,15 +400,26 @@ if (!confirmed) return;
 setDeleteRequesting(true);
 setDeleteRequestStatus(null);
 
-const { error } = await supabase.from("account_deletion_requests").insert({
+const { data, error } = await supabase
+.from("account_deletion_requests")
+.insert({
   user_id: userId,
   details: "Requested from private profile safety controls.",
-});
+})
+.select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
+.single();
 
 if (error) {
-  setDeleteRequestStatus(error.code === "23505" ? "A deletion request is already pending." : error.message);
+  setDeleteRequestStatus(
+    error.code === "23505"
+      ? "A deletion request is already pending review."
+      : error.message,
+  );
 } else {
-  setDeleteRequestStatus("Account deletion request submitted.");
+  setDeletionRequest((data as AccountDeletionRequestRow) ?? null);
+  setDeleteRequestStatus(
+    "Deletion request submitted. Your account will remain available until an admin completes review.",
+  );
 }
 
 setDeleteRequesting(false);
@@ -758,14 +848,54 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                 </Link>
               ))}
 
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Account deletion</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  Deletion is irreversible once completed. Requests are reviewed before access is disabled.
+                  Some safety and moderation records may be retained.
+                </p>
+                {deletionRequestLoading ? (
+                  <p className="mt-3 text-xs leading-5 text-zinc-600">Loading request status…</p>
+                ) : deletionRequest ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#e87a82]">
+                      Status: {deletionStatusLabel(deletionRequest.status)}
+                    </p>
+                    <p className="text-xs leading-5 text-zinc-500">
+                      {deletionStatusUserMessage(deletionRequest)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
               <button
                 type="button"
                 onClick={() => void requestAccountDeletion()}
-                disabled={deleteRequesting}
+                disabled={
+                  deleteRequesting ||
+                  deletionRequestLoading ||
+                  Boolean(deletionRequest && isOpenDeletionStatus(deletionRequest.status))
+                }
                 className="rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
               >
-                {deleteRequesting ? "Submitting Request" : "Request Account Deletion"}
+                {deleteRequesting
+                  ? "Submitting Request"
+                  : deletionRequest && isOpenDeletionStatus(deletionRequest.status)
+                    ? "Deletion Request Pending"
+                    : "Request Account Deletion"}
               </button>
+
+              {deletionRequest?.status === "pending" && (
+                <button
+                  type="button"
+                  onClick={() => void cancelAccountDeletion()}
+                  disabled={deleteRequesting}
+                  className="rounded-xl border border-white/10 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82] disabled:opacity-60"
+                >
+                  Cancel Deletion Request
+                </button>
+              )}
+
               {deleteRequestStatus && (
                 <p className="px-1 text-xs leading-5 text-zinc-500">{deleteRequestStatus}</p>
               )}

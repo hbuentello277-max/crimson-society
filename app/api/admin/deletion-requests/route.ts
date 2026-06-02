@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyDeletionCompletion } from "@/lib/account-deletion";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 
 const DELETION_STATUSES = ["reviewing", "completed", "canceled"] as const;
@@ -35,6 +36,19 @@ export async function PATCH(request: Request) {
     const adminClient = createAdminServiceClient();
     const now = new Date().toISOString();
 
+    const { data: existing, error: existingError } = await adminClient
+      .from("account_deletion_requests")
+      .select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
+      .eq("id", id)
+      .single();
+
+    if (existingError || !existing) {
+      return NextResponse.json(
+        { error: existingError?.message || "Deletion request not found." },
+        { status: 404 },
+      );
+    }
+
     const { data, error } = await adminClient
       .from("account_deletion_requests")
       .update({
@@ -50,7 +64,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ request: data });
+    let completion: Awaited<ReturnType<typeof applyDeletionCompletion>> | null = null;
+
+    if (status === "completed" && existing.user_id) {
+      completion = await applyDeletionCompletion(adminClient, existing.user_id);
+    }
+
+    return NextResponse.json({
+      request: data,
+      completion,
+      manualFollowUp:
+        status === "completed"
+          ? [
+              "Auth user is banned and profile status is blocked; sign-in is disabled.",
+              "Posts, messages, meets, reports, and moderation records are not automatically purged.",
+              "Full auth user removal and content erasure still require a separate manual admin process if required by law.",
+            ]
+          : null,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to update deletion request.";

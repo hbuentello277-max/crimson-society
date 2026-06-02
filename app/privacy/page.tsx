@@ -53,8 +53,9 @@ export default function PrivacyPage() {
         {
           title: "Deletion Requests",
           body: [
-            "You can request account deletion from your private profile. Because Crimson Society includes shared Meets, messages, reports, and safety records, deletion may require review before completion.",
-            "We may retain limited records when necessary for safety, legal compliance, fraud prevention, dispute handling, or preserving shared ride history.",
+            "You can request account deletion from your private profile safety controls. Submitting a request does not immediately erase your account.",
+            "While a request is pending or under review, your account may remain available. After an admin completes a request, sign-in and app access are disabled and your profile is marked blocked.",
+            "Posts, messages, Meets, reports, blocks, and moderation records may be retained for safety, legal compliance, fraud prevention, dispute handling, and shared community history. Full auth-user removal and content erasure may still require a separate manual review.",
           ],
         },
       ]}
