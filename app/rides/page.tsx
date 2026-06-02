@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
+import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
@@ -368,6 +369,8 @@ function RideCard({
   onCancel: () => void;
 }) {
   const isCanceled = ride.status === "canceled";
+  const inviteJoinBlocked =
+    ride.privacy === "Invite" && !canModerate && !isGoing;
 
   return (
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
@@ -495,14 +498,22 @@ function RideCard({
               <button
                 type="button"
                 onClick={onJoin}
-                disabled={canManage || isCanceled}
-                className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition ${
+                disabled={canManage || isCanceled || inviteJoinBlocked}
+                className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                   isGoing
                     ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
-                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                    : inviteJoinBlocked
+                      ? "border-white/10 bg-white/[0.02] text-zinc-600"
+                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
                 }`}
               >
-                {canManage ? "Hosting" : isGoing ? "Going" : "Join"}
+                {canManage
+                  ? "Hosting"
+                  : isGoing
+                    ? "Going"
+                    : inviteJoinBlocked
+                      ? "Invite Only"
+                      : "Join"}
               </button>
             </div>
           </div>
@@ -963,6 +974,21 @@ const ridesWithRoutes = await Promise.all(
 
   const isCurrentlyGoing = !!going[rideId];
 
+  if (
+    !isCurrentlyGoing &&
+    ride &&
+    !canSelfJoinMeet({
+      privacy: ride.privacy,
+      hostId: ride.hostId,
+      userId: session.user.id,
+      isAdmin,
+    })
+  ) {
+    setToast("Invite-only meet. Ask the host for access.");
+    window.setTimeout(() => setToast(null), 2800);
+    return;
+  }
+
   if (isCurrentlyGoing) {
     const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
       target_ride_id: rideId,
@@ -1011,7 +1037,11 @@ const ridesWithRoutes = await Promise.all(
 
   if (error) {
     console.error("Failed to join meet:", error);
-    setToast("Could not join meet.");
+    setToast(
+      ride?.privacy === "Invite"
+        ? "Invite-only meet. Ask the host for access."
+        : "Could not join meet.",
+    );
     window.setTimeout(() => setToast(null), 2500);
     return;
   }
@@ -1434,19 +1464,32 @@ let duration: string | null = newRide.duration || null;
                   onClick={() => toggleJoin(featuredRide.id)}
                   disabled={
                     featuredRide.hostId === session?.user?.id ||
-                    featuredRide.status === "canceled"
+                    featuredRide.status === "canceled" ||
+                    (featuredRide.privacy === "Invite" &&
+                      featuredRide.hostId !== session?.user?.id &&
+                      !isAdmin &&
+                      !going[featuredRide.id])
                   }
-                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition ${
+                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     going[featuredRide.id]
                       ? "border-[#7f111b]/80 bg-[#7f111b]/24 text-[#f4dadd]"
-                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
+                      : featuredRide.privacy === "Invite" &&
+                          featuredRide.hostId !== session?.user?.id &&
+                          !isAdmin &&
+                          !going[featuredRide.id]
+                        ? "border-white/10 bg-white/[0.02] text-zinc-600"
+                        : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/16"
                   }`}
                 >
                   {featuredRide.hostId === session?.user?.id
                     ? "Hosting"
                     : going[featuredRide.id]
                       ? "Going"
-                      : "JOIN MEET"}
+                      : featuredRide.privacy === "Invite" &&
+                          featuredRide.hostId !== session?.user?.id &&
+                          !isAdmin
+                        ? "Invite Only"
+                        : "JOIN MEET"}
                 </button>
               </div>
             </div>

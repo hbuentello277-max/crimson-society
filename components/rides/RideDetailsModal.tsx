@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Ride, RideTrackingStatus } from "@/app/rides/page";
 import { useAuth } from "@/components/AuthProvider";
+import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
@@ -166,6 +167,13 @@ export function RideDetailsModal({
   const isHost = ride.hostId === currentUserId;
   const canModerate = isHost || isAdmin;
   const isCanceled = ride.status === "canceled";
+  const inviteJoinBlocked =
+    !canSelfJoinMeet({
+      privacy: ride.privacy,
+      hostId: ride.hostId,
+      userId: currentUserId,
+      isAdmin,
+    }) && !isGoing;
   const isRideLive = ride.trackingStatus === "active";
   const canUseChat = (isGoing || isHost) && !isCanceled;
 
@@ -1105,6 +1113,12 @@ export function RideDetailsModal({
             Report Meet
           </button>
 
+          {inviteJoinBlocked && (
+            <p className="mb-3 text-center text-xs leading-5 text-zinc-500">
+              Invite-only meet. Ask the host for access.
+            </p>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -1117,13 +1131,15 @@ export function RideDetailsModal({
               onClick={() => {
                 onJoin();
               }}
-              disabled={isHost || isCanceled}
-              className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition ${
+              disabled={isHost || isCanceled || inviteJoinBlocked}
+              className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                 isCanceled
                   ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                  : isGoing
-                    ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
-                    : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
+                  : inviteJoinBlocked
+                    ? "border-white/10 bg-white/[0.02] text-zinc-600"
+                    : isGoing
+                      ? "border-[#7f111b]/80 bg-[#7f111b]/30 text-[#f4dadd]"
+                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#7f111b]/60 hover:bg-[#7f111b]/18"
               }`}
             >
               {isCanceled
@@ -1132,7 +1148,9 @@ export function RideDetailsModal({
                   ? "Hosting"
                   : isGoing
                     ? "✓ Going"
-                    : "JOIN RIDE"}
+                    : inviteJoinBlocked
+                      ? "Invite Only"
+                      : "JOIN RIDE"}
             </button>
           </div>
         </div>
