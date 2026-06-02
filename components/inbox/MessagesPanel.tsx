@@ -181,6 +181,10 @@ function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Mes
   };
 }
 
+function conversationHasMessages(conversationId: string, messages: MessageRow[]) {
+  return messages.some((message) => message.conversation_id === conversationId);
+}
+
 function buildConversations(
   rows: ConversationRow[],
   members: MemberRow[],
@@ -471,7 +475,9 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
       visibleMessages,
       userId,
       profilesById,
-    ).sort((a, b) => {
+    )
+      .filter((conversation) => conversationHasMessages(conversation.id, visibleMessages))
+      .sort((a, b) => {
       const aMessage = visibleMessages.filter((message) => message.conversation_id === a.id).at(-1);
       const bMessage = visibleMessages.filter((message) => message.conversation_id === b.id).at(-1);
 
@@ -769,17 +775,24 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
       [activeId]: [...(prev[activeId] || []), newMessage],
     }));
 
-    setConversations((prev) =>
-      prev.map((conversation) =>
+    setConversations((prev) => {
+      const exists = prev.some((conversation) => conversation.id === activeId);
+      if (!exists) {
+        void loadConversations();
+        return prev;
+      }
+
+      return prev.map((conversation) =>
         conversation.id === activeId
           ? {
               ...conversation,
               lastMessage: body,
               timeLabel: "Now",
+              unread: 0,
             }
           : conversation,
-      ),
-    );
+      );
+    });
   };
 
   function closeConversation() {
@@ -1142,42 +1155,6 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
             </div>
           )}
 
-          {suggestions.length > 0 && (
-            <section className="mb-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">
-                  People You May Know
-                </p>
-                <Link
-                  href="/connect"
-                  className="text-[10px] uppercase tracking-[0.22em] text-zinc-500 transition hover:text-zinc-300"
-                >
-                  Connect
-                </Link>
-              </div>
-
-              <div className="space-y-2">
-                {suggestions.slice(0, 4).map((suggestion) => (
-                  <button
-                    key={suggestion.id}
-                    type="button"
-                    onClick={() => void openDirectConversation(suggestion.id)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
-                  >
-                    <MessagesAvatar photo={suggestion.photo} name={suggestion.name} size={42} />
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-white">{suggestion.name}</p>
-                      <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                        {suggestion.handle} · {suggestion.reason}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           {loadingMessages ? (
             <div className="space-y-2">
               {[0, 1, 2].map((item) => (
@@ -1189,10 +1166,21 @@ export default function MessagesPanel({ embedded = false }: { embedded?: boolean
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 text-center">
-              <p className="font-serif text-2xl italic text-white">Silence on the line.</p>
-              <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/40">
-                No conversations match
-              </p>
+              {conversations.length === 0 ? (
+                <>
+                  <p className="font-serif text-2xl italic text-white">No messages yet.</p>
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    Start a conversation from a rider profile or the Riders page.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-serif text-2xl italic text-white">Silence on the line.</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/40">
+                    No conversations match
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
