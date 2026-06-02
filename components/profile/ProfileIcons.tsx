@@ -1,6 +1,7 @@
 type IconProps = { className?: string };
 
 const base = "shrink-0";
+export const PROFILE_TAB_ICON_CLASS = "h-2 w-2";
 
 export function IconEdit({ className = "h-3.5 w-3.5" }: IconProps) {
   return (
