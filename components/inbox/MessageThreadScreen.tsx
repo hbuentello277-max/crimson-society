@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { IconCheck } from "@/components/inbox/inbox-icons";
+import { MessageComposer } from "@/components/inbox/MessageComposer";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
+import { ThreadOverflowMenu } from "@/components/inbox/ThreadOverflowMenu";
 
 export type ThreadConversation = {
   id: string;
@@ -23,6 +26,7 @@ export type ThreadMessage = {
   senderName?: string;
   senderPhoto?: string | null;
   timeLabel: string;
+  createdAt: string;
 };
 
 type MessageThreadScreenProps = {
@@ -38,8 +42,20 @@ type MessageThreadScreenProps = {
   focusComposer?: boolean;
 };
 
-/** BottomNav clearance + home-indicator safe area (tighter Messenger-style gap). */
-const COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 2.25rem)";
+function daySeparatorLabel(createdAt: string) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfToday.getDate() - 1);
+
+  if (date >= startOfToday) return "Today";
+  if (date >= startOfYesterday) return "Yesterday";
+
+  return date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+}
 
 export function MessageThreadScreen({
   open,
@@ -55,6 +71,23 @@ export function MessageThreadScreen({
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
+
+  const messagesWithSeparators = useMemo(() => {
+    const items: Array<{ type: "separator"; label: string } | { type: "message"; message: ThreadMessage }> =
+      [];
+    let lastDay: string | null = null;
+
+    for (const message of messages) {
+      const label = daySeparatorLabel(message.createdAt);
+      if (label && label !== lastDay) {
+        items.push({ type: "separator", label });
+        lastDay = label;
+      }
+      items.push({ type: "message", message });
+    }
+
+    return items;
+  }, [messages]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +110,7 @@ export function MessageThreadScreen({
       try {
         input.setSelectionRange(input.value.length, input.value.length);
       } catch {
-        // Some browsers reject selection on type=search etc.
+        // ignore
       }
     };
 
@@ -97,26 +130,18 @@ export function MessageThreadScreen({
 
   if (!open || typeof document === "undefined") return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[#050405] text-zinc-100">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
-            radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
-            linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
-          `,
-        }}
-      />
+  const handle = conversation.handle.startsWith("@")
+    ? conversation.handle
+    : `@${conversation.handle.replace(/^@+/, "")}`;
 
-      <header className="relative z-10 shrink-0 border-b border-white/10 bg-[#050505]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.65rem)]">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-zinc-100">
+      <header className="shrink-0 border-b border-white/10 bg-black">
+        <div className="flex items-center gap-2 px-3 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
           <button
             type="button"
             onClick={onBack}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-lg text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-2xl text-white/80 hover:text-white"
             aria-label="Back to messages"
           >
             ‹
@@ -140,53 +165,55 @@ export function MessageThreadScreen({
             />
           )}
 
-          {conversation.profileHref ? (
-            <Link href={conversation.profileHref} className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{conversation.name}</p>
-              <p className="truncate text-[10px] uppercase tracking-[0.22em] text-white/40">
-                {conversation.handle}
-              </p>
-            </Link>
-          ) : (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{conversation.name}</p>
-              <p className="truncate text-[10px] uppercase tracking-[0.22em] text-white/40">
-                {conversation.isGroup
-                  ? `${conversation.members ?? 0} riders`
-                  : conversation.handle}
-              </p>
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold leading-tight text-white">
+              {conversation.name}
+            </p>
+            <p className="truncate text-xs text-zinc-500">
+              {conversation.isGroup
+                ? `${conversation.members ?? 0} riders`
+                : handle}
+            </p>
+          </div>
 
-          {conversation.profileHref ? (
-            <Link
-              href={conversation.profileHref}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-              aria-label="View profile"
-            >
-              ⋯
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70"
-              aria-label="Conversation options"
-            >
-              ⋯
-            </button>
-          )}
+          <ThreadOverflowMenu
+            profileHref={conversation.profileHref}
+            onReportConversation={
+              messages.find((m) => m.senderId !== userId)
+                ? () => {
+                    const firstOther = messages.find((m) => m.senderId !== userId);
+                    if (firstOther) onReportMessage(firstOther);
+                  }
+                : undefined
+            }
+          />
         </div>
       </header>
 
-      <div ref={scrollRef} className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-        <div className="mx-auto flex max-w-2xl flex-col gap-3">
-          {messages.length === 0 && (
-            <p className="py-8 text-center text-sm text-zinc-500">No messages yet</p>
-          )}
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
+      >
+        {messages.length === 0 && (
+          <p className="py-10 text-center text-sm text-zinc-500">No messages yet</p>
+        )}
 
-          {messages.map((message, index) => {
+        <div className="flex flex-col gap-2">
+          {messagesWithSeparators.map((item, index) => {
+            if (item.type === "separator") {
+              return (
+                <p
+                  key={`sep-${item.label}-${index}`}
+                  className="py-2 text-center text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500"
+                >
+                  {item.label}
+                </p>
+              );
+            }
+
+            const message = item.message;
             const isMe = message.senderId === userId;
-            const prev = messages[index - 1];
+            const prev = messages[messages.indexOf(message) - 1];
             const showAvatar = !isMe && (!prev || prev.senderId !== message.senderId);
 
             return (
@@ -195,7 +222,7 @@ export function MessageThreadScreen({
                 className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}
               >
                 {!isMe && (
-                  <div className="h-7 w-7 flex-shrink-0">
+                  <div className="h-7 w-7 shrink-0">
                     {showAvatar && (
                       <MessagesAvatar
                         photo={message.senderPhoto ?? null}
@@ -206,32 +233,35 @@ export function MessageThreadScreen({
                   </div>
                 )}
 
-                <div className={`flex max-w-[78%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+                <div className={`flex max-w-[70%] flex-col ${isMe ? "items-end" : "items-start"}`}>
                   {conversation.isGroup && !isMe && showAvatar && message.senderName && (
-                    <span className="mb-0.5 ml-3 text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">
+                    <span className="mb-1 ml-1 text-[11px] font-medium text-[#e87a82]">
                       {message.senderName}
                     </span>
                   )}
 
                   <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`px-4 py-3 text-[15px] leading-relaxed ${
                       isMe
-                        ? "rounded-br-md bg-gradient-to-br from-[#b4141e] to-[#8a0f17] text-white shadow-[0_0_18px_rgba(180,20,30,0.25)]"
-                        : "rounded-bl-md border border-white/10 bg-gradient-to-b from-[#141416] to-[#0a0a0c] text-white/90"
+                        ? "rounded-[22px] rounded-br-md bg-[#b4141e] text-white"
+                        : "rounded-[22px] rounded-bl-md bg-[#262626] text-white/95"
                     }`}
                   >
                     {message.text}
                   </div>
 
-                  <span className="mt-1 px-1 text-[10px] uppercase tracking-[0.2em] text-white/35">
-                    {message.timeLabel}
-                  </span>
+                  <div
+                    className={`mt-1 flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : ""}`}
+                  >
+                    <span className="text-[11px] text-zinc-500">{message.timeLabel}</span>
+                    {isMe && <IconCheck className="text-zinc-500" />}
+                  </div>
 
                   {!isMe && (
                     <button
                       type="button"
                       onClick={() => onReportMessage(message)}
-                      className="mt-1 px-1 text-[9px] uppercase tracking-[0.2em] text-zinc-500 transition hover:text-[#e87a82]"
+                      className="mt-0.5 px-1 text-[10px] text-zinc-600 hover:text-[#e87a82]"
                     >
                       Report
                     </button>
@@ -243,46 +273,12 @@ export function MessageThreadScreen({
         </div>
       </div>
 
-      <div
-        className="relative z-20 shrink-0 border-t border-white/10 bg-[#050505]/98 backdrop-blur-xl"
-        style={{ paddingBottom: COMPOSER_BOTTOM_OFFSET }}
-      >
-        <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2.5">
-            <input
-              ref={composerRef}
-              type="text"
-              enterKeyHint="send"
-              autoComplete="off"
-              autoCorrect="on"
-              value={draft}
-              onChange={(event) => onDraftChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  onSend();
-                }
-              }}
-              placeholder="Message…"
-              className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-white/35"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={!draft.trim()}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
-              draft.trim()
-                ? "bg-[#b4141e] text-white shadow-[0_0_20px_rgba(180,20,30,0.45)] hover:bg-[#d11827]"
-                : "border border-white/10 text-white/30"
-            }`}
-            aria-label="Send message"
-          >
-            ➤
-          </button>
-        </div>
-      </div>
+      <MessageComposer
+        draft={draft}
+        inputRef={composerRef}
+        onDraftChange={onDraftChange}
+        onSend={onSend}
+      />
     </div>,
     document.body,
   );

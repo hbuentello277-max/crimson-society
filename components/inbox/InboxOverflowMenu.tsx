@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "@/components/AuthProvider";
 import { PushNotificationSettings } from "@/components/push/PushNotificationSettings";
+import { supabase } from "@/lib/supabase";
 
-export function InboxOverflowMenu() {
+type InboxTab = "messages" | "notifications";
+
+type InboxOverflowMenuProps = {
+  activeTab?: InboxTab;
+};
+
+export function InboxOverflowMenu({ activeTab = "messages" }: InboxOverflowMenuProps) {
+  const { session } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,6 +49,29 @@ export function InboxOverflowMenu() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [settingsOpen]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    const userId = session?.user?.id;
+    if (!userId || markingAll) return;
+
+    setMarkingAll(true);
+    const readAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: readAt })
+      .eq("user_id", userId)
+      .is("read_at", null);
+
+    setMarkingAll(false);
+    setMenuOpen(false);
+
+    if (error) {
+      console.error("Failed to mark all notifications read:", error);
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
+  }, [markingAll, session?.user?.id]);
 
   const settingsModal =
     settingsOpen && typeof document !== "undefined"
@@ -95,17 +128,38 @@ export function InboxOverflowMenu() {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-11 z-50 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#090909] shadow-2xl">
+          <div className="absolute right-0 top-11 z-[120] min-w-[220px] overflow-hidden rounded-xl border border-white/10 bg-[#121212] shadow-2xl">
+            {activeTab === "notifications" && (
+              <button
+                type="button"
+                disabled={markingAll}
+                onClick={() => void markAllNotificationsRead()}
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-zinc-200 hover:bg-white/[0.05] disabled:opacity-50"
+              >
+                <span className="text-base" aria-hidden>
+                  ✓
+                </span>
+                Mark all as read
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
                 setMenuOpen(false);
                 setSettingsOpen(true);
               }}
-              className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-zinc-300 hover:bg-white/[0.04]"
+              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-zinc-200 hover:bg-white/[0.05]"
             >
-              Notification Settings
+              <span className="text-base" aria-hidden>
+                ⚙
+              </span>
+              Notification settings
             </button>
+            {activeTab === "messages" && (
+              <p className="border-t border-white/10 px-4 py-2 text-[10px] leading-relaxed text-zinc-600">
+                Push alerts for DMs and meets
+              </p>
+            )}
           </div>
         )}
       </div>

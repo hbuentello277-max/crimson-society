@@ -804,7 +804,7 @@ export default function MessagesPanel({
   if (!session) return null;
 
   const listShellClass = embedded
-    ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-[#050405]"
+    ? "relative flex h-full min-h-0 flex-col overflow-hidden bg-black"
     : "relative min-h-screen overflow-hidden bg-[#050405]";
 
   return (
@@ -833,77 +833,91 @@ export default function MessagesPanel({
       )}
 
       <main className={`${listShellClass} text-zinc-100 ${active ? "hidden" : ""}`}>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: `
-              radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
-              radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
-              linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
-            `,
-          }}
-        />
-
-        <header
-          className={`border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl ${
-            embedded ? "shrink-0" : "sticky top-0 z-40"
-          }`}
-        >
+        {!embedded && (
           <div
-            className={`mx-auto max-w-2xl px-5 pb-4 ${
-              embedded ? "pt-2" : "pt-[calc(1rem+env(safe-area-inset-top))]"
-            }`}
-          >
-            {!embedded && (
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: `
+                radial-gradient(ellipse 90% 48% at 50% 0%, rgba(104,0,11,0.44), transparent 58%),
+                radial-gradient(ellipse 70% 36% at 50% 18%, rgba(127,17,27,0.16), transparent 70%),
+                linear-gradient(180deg, rgba(127,17,27,0.06) 0%, rgba(0,0,0,0) 32%)
+              `,
+            }}
+          />
+        )}
+
+        {!embedded && (
+          <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
+            <div className="mx-auto max-w-2xl px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
               <div className="mt-10 text-center">
                 <div className="mx-auto flex items-center justify-center gap-4">
                   <span className="h-px w-12 bg-white/20" />
                   <span className="text-xl text-[#b4141e]">✦</span>
                   <span className="h-px w-12 bg-white/20" />
                 </div>
-
                 <h1 className="mt-6 font-serif text-7xl leading-none text-white">Messages</h1>
               </div>
-            )}
-
-            {embedded && (
-              <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Messages</p>
-            )}
-
-            <div className={embedded ? "mt-3" : "mt-10"}>
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] px-4 py-2.5">
-                <span className="text-white/40">⌕</span>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search riders, groups..."
-                  className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-                />
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5">
-                {(["all", "unread", "groups"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`rounded-xl py-2 text-[11px] uppercase tracking-[0.3em] transition ${
-                      tab === t
-                        ? "bg-[#b4141e] text-white shadow-[0_0_18px_rgba(180,20,30,0.35)]"
-                        : "text-white/55 hover:text-white"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              <div className="mt-10">
+                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5">
+                  <span className="text-white/40">⌕</span>
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search riders, groups..."
+                    className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-[#111] p-1">
+                  {(["all", "unread", "groups"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTab(t)}
+                      className={`rounded-lg py-2 text-[11px] uppercase tracking-[0.22em] transition ${
+                        tab === t ? "bg-[#b4141e] text-white" : "text-white/50"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          </header>
+        )}
+
+        {embedded && (
+          <div className="shrink-0 border-b border-white/10 bg-black px-3 pb-2 pt-1">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2">
+              <span className="text-white/40">⌕</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search riders, groups..."
+                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-[#111] p-1">
+              {(["all", "unread", "groups"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-lg py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition ${
+                    tab === t ? "bg-[#b4141e] text-white" : "text-white/50"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
-        </header>
+        )}
 
         <div
-          className={`relative mx-auto max-w-2xl px-5 ${
-            embedded ? "mt-4 flex-1 overflow-y-auto overscroll-contain pb-6" : "mt-8"
+          className={`relative flex-1 ${
+            embedded
+              ? "min-h-0 overflow-y-auto overscroll-contain"
+              : "mx-auto mt-8 max-w-2xl px-5"
           }`}
         >
           {errorMsg && (
@@ -940,33 +954,52 @@ export default function MessagesPanel({
               )}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className={embedded ? "divide-y divide-white/10" : "space-y-2"}>
               {filtered.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => {
                     void enterConversationThread(c.id);
                   }}
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 text-left transition hover:border-[#b4141e]/40 hover:shadow-[0_0_25px_rgba(180,20,30,0.15)]"
+                  className={
+                    embedded
+                      ? "flex w-full items-center gap-3 px-3 py-3.5 text-left transition active:bg-white/[0.04]"
+                      : "group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 text-left transition hover:border-[#b4141e]/40"
+                  }
                 >
-                  <MessagesAvatar photo={c.photo} name={c.name} online={c.online} isGroup={c.isGroup} />
+                  {embedded && c.unread > 0 && (
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#b4141e]" aria-hidden />
+                  )}
+                  {embedded && c.unread === 0 && <span className="w-2 shrink-0" aria-hidden />}
+
+                  <MessagesAvatar
+                    photo={c.photo}
+                    name={c.name}
+                    online={c.online}
+                    isGroup={c.isGroup}
+                    size={embedded ? 56 : 48}
+                  />
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm text-white">{c.name}</p>
-                      <span className="flex-shrink-0 text-[10px] uppercase tracking-[0.25em] text-white/40">
-                        {c.timeLabel}
-                      </span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p
+                        className={`truncate text-[15px] ${c.unread > 0 ? "font-semibold text-white" : "font-medium text-white"}`}
+                      >
+                        {c.name}
+                      </p>
+                      <span className="shrink-0 text-xs text-zinc-500">{c.timeLabel}</span>
                     </div>
 
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className={`truncate text-xs ${c.unread > 0 ? "text-white/90" : "text-white/45"}`}>
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <p
+                        className={`truncate text-sm ${c.unread > 0 ? "text-zinc-300" : "text-zinc-500"}`}
+                      >
                         {c.lastMessage}
                       </p>
 
                       {c.unread > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b4141e] px-1.5 text-[10px] font-medium text-white shadow-[0_0_12px_rgba(180,20,30,0.5)]">
-                          {c.unread}
+                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#b4141e] px-1 text-[10px] font-semibold text-white">
+                          {c.unread > 9 ? "9+" : c.unread}
                         </span>
                       )}
                     </div>
@@ -976,15 +1009,18 @@ export default function MessagesPanel({
             </div>
           )}
 
-          <div className="mt-10 flex items-center justify-center gap-3 text-white/30">
-            <div className="h-px w-12 bg-white/15" />
-            <span className="text-xs">✦</span>
-            <div className="h-px w-12 bg-white/15" />
-          </div>
-
-          <p className="mt-4 text-center text-[10px] uppercase tracking-[0.4em] text-white/30">
-            © Crimson Society · MMXXVI
-          </p>
+          {!embedded && (
+            <>
+              <div className="mt-10 flex items-center justify-center gap-3 text-white/30">
+                <div className="h-px w-12 bg-white/15" />
+                <span className="text-xs">✦</span>
+                <div className="h-px w-12 bg-white/15" />
+              </div>
+              <p className="mt-4 text-center text-[10px] uppercase tracking-[0.4em] text-white/30">
+                © Crimson Society · MMXXVI
+              </p>
+            </>
+          )}
         </div>
       </main>
 

@@ -19,6 +19,7 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
+import { NotificationTypeIcon } from "@/components/inbox/notification-type-icon";
 import { supabase } from "@/lib/supabase";
 
 type NotificationRow = NotificationItem & {
@@ -105,10 +106,6 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
   const [actorsById, setActorsById] = useState<Record<string, NotificationActor>>({});
   const [loading, setLoading] = useState(true);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read_at).length,
-    [notifications]
-  );
   const notificationGroups = useMemo(() => groupNotifications(notifications), [notifications]);
 
   useEffect(() => {
@@ -252,31 +249,137 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
     };
   }, [authLoading, session?.user?.id]);
 
-  async function markAllRead() {
-    const userId = session?.user?.id;
-    if (!userId) return;
+  useEffect(() => {
+    const onMarkedRead = () => {
+      const readAt = new Date().toISOString();
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          read_at: notification.read_at || readAt,
+        })),
+      );
+    };
 
-    const readAt = new Date().toISOString();
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read_at: readAt })
-      .eq("user_id", userId)
-      .is("read_at", null);
-
-    if (error) {
-      console.error("Failed to mark all notifications read:", error);
-      return;
-    }
-
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, read_at: notification.read_at || readAt }))
-    );
-    window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
-  }
+    window.addEventListener("crimson-notifications-read", onMarkedRead);
+    return () => window.removeEventListener("crimson-notifications-read", onMarkedRead);
+  }, []);
 
   const topPadding = embedded
     ? "pt-4"
     : "pt-[calc(env(safe-area-inset-top)+28px)]";
+
+  const notificationList = (
+    <>
+      {loading ? (
+        <div className="px-4 py-6 text-sm text-zinc-500">Loading notifications...</div>
+      ) : notifications.length === 0 ? (
+        <div className="px-4 py-10 text-center">
+          <p className="text-lg font-medium text-white">No notifications yet.</p>
+          <p className="mt-2 text-sm text-zinc-500">
+            Follows, meets, and messages will appear here.
+          </p>
+          <Link
+            href="/rides"
+            className="mt-5 inline-flex rounded-full bg-[#b4141e] px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-white"
+          >
+            View Meets
+          </Link>
+        </div>
+      ) : (
+        <div className={embedded ? "divide-y divide-white/10" : "grid gap-7 px-4 sm:px-6"}>
+          {notificationGroups.map((group) => (
+            <div key={group.label}>
+              <h2
+                className={`text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 ${
+                  embedded ? "px-3 pb-1 pt-3" : "mb-3"
+                }`}
+              >
+                {group.label}
+              </h2>
+
+              <div className={embedded ? "" : "grid gap-3"}>
+                {group.notifications.map((notification) => {
+                  const actor = notification.actor_id
+                    ? actorsById[notification.actor_id]
+                    : null;
+                  const summary = notificationSummary(notification, actor);
+                  const href = notificationDestination(notification, actor);
+                  const isUnread = !notification.read_at;
+
+                  return (
+                    <Link
+                      key={notification.id}
+                      href={href}
+                      className={
+                        embedded
+                          ? `flex items-center gap-3 px-3 py-3.5 transition active:bg-white/[0.04] ${
+                              isUnread ? "bg-white/[0.02]" : ""
+                            }`
+                          : `flex items-center gap-3 rounded-lg border p-3 transition ${
+                              isUnread
+                                ? "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
+                                : "border-white/10 bg-white/[0.025] hover:border-white/20"
+                            }`
+                      }
+                    >
+                      {embedded ? (
+                        <NotificationTypeIcon type={notification.type} />
+                      ) : (
+                        <NotificationAvatar actor={actor} fallback={notification.title} />
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            className={`text-[15px] leading-snug ${
+                              isUnread ? "font-semibold text-white" : "font-medium text-zinc-200"
+                            }`}
+                          >
+                            {summary}
+                          </p>
+                          <span className="shrink-0 text-xs text-zinc-500">
+                            {formatRelativeNotificationTime(notification.created_at)}
+                          </span>
+                        </div>
+
+                        {!embedded && (
+                          <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-[#d85f6c]">
+                            {notificationTypeLabel(notification.type)}
+                          </p>
+                        )}
+
+                        {notification.body && notification.body.trim() !== summary.trim() && (
+                          <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500">
+                            {notification.body}
+                          </p>
+                        )}
+                      </div>
+
+                      {isUnread && (
+                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#b4141e] px-1 text-[10px] font-semibold text-white">
+                          1
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <main className="relative flex h-full min-h-0 flex-col overflow-hidden bg-black text-zinc-100">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+          {notificationList}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative min-h-full overflow-hidden bg-[#050405] text-zinc-100">
@@ -290,22 +393,9 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
       />
 
       <div
-        className={`relative mx-auto max-w-[760px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] ${topPadding} sm:px-6`}
+        className={`relative mx-auto max-w-[760px] pb-[calc(env(safe-area-inset-bottom)+112px)] ${topPadding} sm:px-6`}
       >
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">Notifications</p>
-
-          <button
-            type="button"
-            onClick={() => void markAllRead()}
-            disabled={unreadCount === 0}
-            className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100 disabled:border-white/8 disabled:text-zinc-700"
-          >
-            Mark Read
-          </button>
-        </div>
-
-        <header className="mt-8">
+        <header className="px-4 sm:px-0">
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Activity</p>
           <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">
             Notifications
@@ -313,96 +403,12 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
             Follows, meet joins, removals, cancellations, ride endings, and meet chat in one ledger.
           </p>
+          <p className="mt-2 text-xs text-zinc-600">
+            Use the ⋯ menu to mark all as read or open notification settings.
+          </p>
         </header>
 
-        <section className="mt-7">
-          {loading ? (
-            <div className="rounded-lg border border-white/10 bg-white/[0.025] p-5 text-sm text-zinc-500">
-              Loading notifications...
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="rounded-lg border border-white/10 bg-white/[0.025] p-6 text-center">
-              <p className="font-serif text-[30px] leading-none text-[#f4f0ea]">No notifications yet.</p>
-              <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Profile and meet activity will appear here when riders follow, join, leave, or chat.
-              </p>
-              <Link
-                href="/rides"
-                className="mt-5 inline-flex rounded-lg border border-[#7f111b]/70 bg-[#7f111b]/25 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#7f111b]/40"
-              >
-                View Meets
-              </Link>
-            </div>
-          ) : (
-            <div className="grid gap-7">
-              {notificationGroups.map((group) => (
-                <div key={group.label}>
-                  <h2 className="mb-3 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                    {group.label}
-                  </h2>
-
-                  <div className="grid gap-3">
-                    {group.notifications.map((notification) => {
-                      const actor = notification.actor_id
-                        ? actorsById[notification.actor_id]
-                        : null;
-                      const summary = notificationSummary(notification, actor);
-                      const href = notificationDestination(notification, actor);
-                      const isUnread = !notification.read_at;
-
-                      return (
-                        <Link
-                          key={notification.id}
-                          href={href}
-                          className={`flex items-center gap-3 rounded-lg border p-3 transition ${
-                            isUnread
-                              ? "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
-                              : "border-white/10 bg-white/[0.025] hover:border-white/20"
-                          }`}
-                        >
-                          <NotificationAvatar actor={actor} fallback={notification.title} />
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-[9px] uppercase tracking-[0.18em] text-[#d85f6c]">
-                                  {notificationTypeLabel(notification.type)}
-                                </p>
-                                <h3
-                                  className={`mt-1 text-sm leading-5 ${
-                                    isUnread ? "font-semibold text-zinc-50" : "font-medium text-zinc-200"
-                                  }`}
-                                >
-                                  {summary}
-                                </h3>
-                              </div>
-                              <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                                {formatRelativeNotificationTime(notification.created_at)}
-                              </span>
-                            </div>
-
-                            {notification.body &&
-                              notification.body.trim() !== summary.trim() && (
-                                <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-500">
-                                  {notification.body}
-                                </p>
-                              )}
-
-                            {isUnread && (
-                              <span className="mt-2 inline-flex rounded-full border border-[#7f111b]/50 bg-[#7f111b]/20 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce]">
-                                New
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <section className="mt-7">{notificationList}</section>
       </div>
     </main>
   );
