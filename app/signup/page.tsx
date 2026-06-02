@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
+import {
+  getPasswordRequirementChecks,
+  getPasswordValidationErrorKey,
+  isPasswordValid,
+} from "@/lib/password";
 import { supabase } from "@/lib/supabase";
 
 type Language = "en" | "es";
@@ -29,7 +34,12 @@ const copy = {
     backToSignup: "Back to Signup",
     fillAllFields: "Please fill in all fields.",
     passwordsNoMatch: "Passwords do not match.",
-    passwordTooShort: "Password must be at least 6 characters.",
+    passwordInvalid: "Password does not meet all requirements below.",
+    passwordRequirements: "Password must include:",
+    reqMinLength: "At least 8 characters",
+    reqUppercase: "At least one uppercase letter (A–Z)",
+    reqLowercase: "At least one lowercase letter (a–z)",
+    reqNumber: "At least one number (0–9)",
     accountCreated: "Account created. Check your email to confirm your account.",
     enterEmailToResend: "Enter your email to resend confirmation.",
     confirmationResent: "Confirmation email resent.",
@@ -63,7 +73,12 @@ const copy = {
     backToSignup: "Volver al registro",
     fillAllFields: "Completa todos los campos.",
     passwordsNoMatch: "Las contraseñas no coinciden.",
-    passwordTooShort: "La contraseña debe tener al menos 6 caracteres.",
+    passwordInvalid: "La contraseña no cumple todos los requisitos indicados.",
+    passwordRequirements: "La contraseña debe incluir:",
+    reqMinLength: "Al menos 8 caracteres",
+    reqUppercase: "Al menos una letra mayúscula (A–Z)",
+    reqLowercase: "Al menos una letra minúscula (a–z)",
+    reqNumber: "Al menos un número (0–9)",
     accountCreated: "Cuenta creada. Revisa tu correo para confirmar tu cuenta.",
     enterEmailToResend: "Ingresa tu correo para reenviar la confirmación.",
     confirmationResent: "Correo de confirmación reenviado.",
@@ -98,6 +113,14 @@ export default function SignUpPage() {
   const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
 
   const complianceComplete = ageConfirmed && termsAccepted && guidelinesAccepted;
+  const passwordChecks = getPasswordRequirementChecks(password);
+  const passwordMeetsPolicy = isPasswordValid(password);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const canCreateAccount =
+    complianceComplete &&
+    passwordMeetsPolicy &&
+    passwordsMatch &&
+    email.trim().length > 0;
 
   const changeLanguage = (next: Language) => {
     setLanguage(next);
@@ -108,6 +131,13 @@ export default function SignUpPage() {
   };
 
   const t = copy[language];
+
+  const requirementLabels: Record<keyof typeof passwordChecks, string> = {
+    minLength: t.reqMinLength,
+    uppercase: t.reqUppercase,
+    lowercase: t.reqLowercase,
+    number: t.reqNumber,
+  };
 
   const emailRedirectTo = useMemo(() => {
     if (typeof window === "undefined") return undefined;
@@ -131,13 +161,14 @@ export default function SignUpPage() {
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError(t.passwordsNoMatch);
+    if (!passwordMeetsPolicy) {
+      const failedKey = getPasswordValidationErrorKey(password);
+      setError(failedKey ? requirementLabels[failedKey] : t.passwordInvalid);
       return;
     }
 
-    if (password.length < 6) {
-      setError(t.passwordTooShort);
+    if (password !== confirmPassword) {
+      setError(t.passwordsNoMatch);
       return;
     }
 
@@ -240,11 +271,34 @@ export default function SignUpPage() {
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError("");
+                    }}
                     autoComplete="new-password"
                     className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
                     placeholder={t.password}
                   />
+                  <div className="mt-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                      {t.passwordRequirements}
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {(Object.keys(passwordChecks) as Array<keyof typeof passwordChecks>).map(
+                        (key) => (
+                          <li
+                            key={key}
+                            className={`text-xs leading-5 ${
+                              passwordChecks[key] ? "text-emerald-300/90" : "text-zinc-500"
+                            }`}
+                          >
+                            {passwordChecks[key] ? "✓ " : "○ "}
+                            {requirementLabels[key]}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
                 </div>
 
                 <div>
@@ -254,11 +308,17 @@ export default function SignUpPage() {
                   <input
                     type="password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (error) setError("");
+                    }}
                     autoComplete="new-password"
                     className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
                     placeholder={t.confirmPassword}
                   />
+                  {confirmPassword.length > 0 && !passwordsMatch && (
+                    <p className="mt-2 text-xs text-red-300/90">{t.passwordsNoMatch}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2.5 rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
@@ -340,7 +400,7 @@ export default function SignUpPage() {
 
                 <button
                   type="submit"
-                  disabled={loading === "signup" || !complianceComplete}
+                  disabled={loading === "signup" || !canCreateAccount}
                   className="h-12 w-full rounded-2xl border border-red-700/60 bg-red-700 text-sm font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {loading === "signup" ? t.creating : t.createAccount}
