@@ -277,7 +277,7 @@ function MessagesAvatar({
   );
 }
 
-export default function MessagesPanel() {
+export default function MessagesPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationParam = searchParams.get("conversation");
@@ -1076,7 +1076,11 @@ export default function MessagesPanel() {
         />
 
         <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
-          <div className="mx-auto max-w-2xl px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
+          <div
+            className={`mx-auto max-w-2xl px-5 pb-4 ${
+              embedded ? "pt-4" : "pt-[calc(1rem+env(safe-area-inset-top))]"
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div className="w-[72px]" />
 

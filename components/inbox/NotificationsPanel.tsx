@@ -6,52 +6,29 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
+import {
+  actorDisplayName,
+  actorPhotoUrl,
+  actorProfileHref,
+  formatRelativeNotificationTime,
+  isKnownNotificationType,
+  notificationDestination,
+  notificationSummary,
+  notificationTypeLabel,
+  type NotificationActor,
+  type NotificationItem,
+  type NotificationType,
+} from "@/lib/notifications";
 import { supabase } from "@/lib/supabase";
 
-type NotificationType =
-  | "meet_joined"
-  | "meet_left"
-  | "meet_chat_message"
-  | "meet_chat_photo"
-  | "profile_followed";
-
-type NotificationRow = {
-  id: string;
+type NotificationRow = NotificationItem & {
   user_id: string;
-  type: NotificationType;
-  title: string;
-  body: string;
-  ride_id: string | null;
-  actor_id: string | null;
-  read_at: string | null;
-  created_at: string;
-};
-
-type NotificationActor = {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  full_name: string | null;
-  profile_image_url: string | null;
-  avatar_url: string | null;
 };
 
 type NotificationGroup = {
   label: "Today" | "Yesterday" | "Earlier";
   notifications: NotificationRow[];
 };
-
-function formatNotificationTime(createdAt: string) {
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 function notificationDateLabel(createdAt: string): NotificationGroup["label"] {
   const date = new Date(createdAt);
@@ -83,56 +60,23 @@ function groupNotifications(notifications: NotificationRow[]): NotificationGroup
   return groups.filter((group) => group.notifications.length > 0);
 }
 
-function typeLabel(type: NotificationType) {
-  switch (type) {
-    case "meet_joined":
-      return "Meet joined";
-    case "meet_left":
-      return "Meet left";
-    case "meet_chat_photo":
-      return "Meet photo";
-    case "profile_followed":
-      return "New follower";
-    case "meet_chat_message":
-    default:
-      return "Meet chat";
-  }
-}
-
-function actorName(actor: NotificationActor | null | undefined) {
-  return (
-    actor?.display_name?.trim() ||
-    actor?.full_name?.trim() ||
-    actor?.username?.trim() ||
-    "Crimson"
-  );
-}
-
-function actorPhoto(actor: NotificationActor | null | undefined) {
-  return actor?.profile_image_url || actor?.avatar_url || null;
-}
-
-function actorInitials(actor: NotificationActor | null | undefined, title: string) {
-  const name = actorName(actor) || title || "Crimson";
+function actorInitials(actor: NotificationActor | null | undefined, fallback: string) {
+  const name = actorDisplayName(actor) || fallback || "Crimson";
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("");
 
   return initials || "C";
 }
 
-function notificationHref(notification: NotificationRow) {
-  return notification.ride_id ? "/rides" : "/inbox?tab=notifications";
-}
-
 function NotificationAvatar({
   actor,
-  title,
+  fallback,
 }: {
   actor: NotificationActor | null | undefined;
-  title: string;
+  fallback: string;
 }) {
-  const photo = actorPhoto(actor);
-  const name = actorName(actor);
+  const photo = actorPhotoUrl(actor);
+  const name = actorDisplayName(actor);
 
   return (
     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#7f111b]/80">
@@ -147,14 +91,14 @@ function NotificationAvatar({
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#f4dadd]">
-          {actorInitials(actor, title)}
+          {actorInitials(actor, fallback)}
         </div>
       )}
     </div>
   );
 }
 
-export default function NotificationsPanel() {
+export default function NotificationsPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
@@ -216,7 +160,13 @@ export default function NotificationsPanel() {
         return;
       }
 
-      const rows = (data || []) as NotificationRow[];
+      const rows = (data || [])
+        .filter((row) => isKnownNotificationType(String(row.type)))
+        .map((row) => ({
+          ...(row as NotificationRow),
+          type: row.type as NotificationType,
+        }));
+
       const actorIds = Array.from(
         new Set(rows.map((notification) => notification.actor_id).filter(Boolean))
       ) as string[];
@@ -322,8 +272,12 @@ export default function NotificationsPanel() {
     window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
   }
 
+  const topPadding = embedded
+    ? "pt-4"
+    : "pt-[calc(env(safe-area-inset-top)+28px)]";
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+    <main className="relative min-h-full overflow-hidden bg-[#050405] text-zinc-100">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -333,11 +287,11 @@ export default function NotificationsPanel() {
         }}
       />
 
-      <div className="relative mx-auto max-w-[760px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+      <div
+        className={`relative mx-auto max-w-[760px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] ${topPadding} sm:px-6`}
+      >
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-            Notifications
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">Notifications</p>
 
           <button
             type="button"
@@ -350,14 +304,12 @@ export default function NotificationsPanel() {
         </div>
 
         <header className="mt-8">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">
-            Meet Activity
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Activity</p>
           <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">
             Notifications
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-            Follows, meet joins, leaves, chat messages, and shared photos in one quiet ledger.
+            Follows, meet joins, removals, cancellations, ride endings, and meet chat in one ledger.
           </p>
         </header>
 
@@ -368,11 +320,9 @@ export default function NotificationsPanel() {
             </div>
           ) : notifications.length === 0 ? (
             <div className="rounded-lg border border-white/10 bg-white/[0.025] p-6 text-center">
-              <p className="font-serif text-[30px] leading-none text-[#f4f0ea]">
-                No notifications yet.
-              </p>
+              <p className="font-serif text-[30px] leading-none text-[#f4f0ea]">No notifications yet.</p>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Profile and meet activity will appear here when riders follow, join, leave, chat, or share photos.
+                Profile and meet activity will appear here when riders follow, join, leave, or chat.
               </p>
               <Link
                 href="/rides"
@@ -394,37 +344,53 @@ export default function NotificationsPanel() {
                       const actor = notification.actor_id
                         ? actorsById[notification.actor_id]
                         : null;
+                      const summary = notificationSummary(notification, actor);
+                      const href = notificationDestination(notification, actor);
+                      const isUnread = !notification.read_at;
 
                       return (
                         <Link
                           key={notification.id}
-                          href={notificationHref(notification)}
+                          href={href}
                           className={`flex items-center gap-3 rounded-lg border p-3 transition ${
-                            notification.read_at
-                              ? "border-white/10 bg-white/[0.025] hover:border-white/20"
-                              : "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
+                            isUnread
+                              ? "border-[#7f111b]/60 bg-[#7f111b]/12 hover:bg-[#7f111b]/18"
+                              : "border-white/10 bg-white/[0.025] hover:border-white/20"
                           }`}
                         >
-                          <NotificationAvatar actor={actor} title={notification.title} />
+                          <NotificationAvatar actor={actor} fallback={notification.title} />
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="text-[9px] uppercase tracking-[0.18em] text-[#d85f6c]">
-                                  {typeLabel(notification.type)}
+                                  {notificationTypeLabel(notification.type)}
                                 </p>
-                                <h3 className="mt-1 text-sm font-semibold leading-5 text-zinc-100">
-                                  {notification.title}
+                                <h3
+                                  className={`mt-1 text-sm leading-5 ${
+                                    isUnread ? "font-semibold text-zinc-50" : "font-medium text-zinc-200"
+                                  }`}
+                                >
+                                  {summary}
                                 </h3>
                               </div>
                               <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                                {formatNotificationTime(notification.created_at)}
+                                {formatRelativeNotificationTime(notification.created_at)}
                               </span>
                             </div>
 
-                            <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
-                              {notification.body}
-                            </p>
+                            {notification.body &&
+                              notification.body.trim() !== summary.trim() && (
+                                <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-500">
+                                  {notification.body}
+                                </p>
+                              )}
+
+                            {isUnread && (
+                              <span className="mt-2 inline-flex rounded-full border border-[#7f111b]/50 bg-[#7f111b]/20 px-2 py-0.5 text-[9px] uppercase tracking-[0.14em] text-[#f0c9ce]">
+                                New
+                              </span>
+                            )}
                           </div>
                         </Link>
                       );
