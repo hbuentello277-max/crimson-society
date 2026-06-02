@@ -1,6 +1,31 @@
 "use client";
 
+import { supabase } from "@/lib/supabase";
 import { getFirebasePublicConfig, getFirebaseVapidKey, isPushConfiguredOnClient } from "@/lib/push/firebase-public";
+
+function detectPushPlatform(): "web" | "ios" | "android" {
+  if (typeof navigator === "undefined") return "web";
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "web";
+}
+
+async function pushRegisterHeaders() {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  return headers;
+}
 
 export type PushPermissionState = NotificationPermission | "unsupported";
 
@@ -78,17 +103,22 @@ export async function registerPushTokenWithServer(token: string) {
   const response = await fetch("/api/push/register", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: await pushRegisterHeaders(),
     body: JSON.stringify({
       token,
-      platform: "web",
+      platform: detectPushPlatform(),
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     }),
   });
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error || "Could not save push token.");
+    const detail =
+      payload?.error?.trim() ||
+      (response.status === 401
+        ? "Sign in again to save your push token."
+        : `Could not save push token (HTTP ${response.status}).`);
+    throw new Error(detail);
   }
 }
 
@@ -96,11 +126,17 @@ export async function disablePushOnServer() {
   const response = await fetch("/api/push/register", {
     method: "DELETE",
     credentials: "include",
+    headers: await pushRegisterHeaders(),
   });
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error || "Could not disable push notifications.");
+    const detail =
+      payload?.error?.trim() ||
+      (response.status === 401
+        ? "Sign in again to update push settings."
+        : `Could not disable push notifications (HTTP ${response.status}).`);
+    throw new Error(detail);
   }
 }
 

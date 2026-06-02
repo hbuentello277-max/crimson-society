@@ -1,105 +1,103 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
-
-async function getUserIdFromRequest() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user?.id) {
-    return null;
-  }
-
-  return user.id;
-}
-
-function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Missing Supabase admin credentials.");
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey);
-}
+import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 export async function POST(request: Request) {
-  const userId = await getUserIdFromRequest();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const auth = await getAuthedSupabaseFromRequest(request);
+    if (!("userId" in auth) || !auth.userId || !auth.supabase) {
+      const message = "error" in auth ? auth.error : "Unauthorized";
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    const { supabase, userId } = auth;
+
+    let body: { token?: string; platform?: string; userAgent?: string | null };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    if (!body.token?.trim()) {
+      return NextResponse.json({ error: "Missing push token." }, { status: 400 });
+    }
+
+    const now = new Date().toISOString();
+    const platform =
+      body.platform === "ios" || body.platform === "android" || body.platform === "web"
+        ? body.platform
+        : "web";
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ push_notifications_enabled: true })
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("[push/register] profile update failed:", profileError.message);
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+
+    const { error: tokenError } = await supabase.from("user_push_tokens").upsert(
+      {
+        user_id: userId,
+        token: body.token.trim(),
+        platform,
+        user_agent: body.userAgent || null,
+        enabled: true,
+        updated_at: now,
+      },
+      { onConflict: "user_id,token" },
+    );
+
+    if (tokenError) {
+      console.error("[push/register] token upsert failed:", tokenError.message);
+      return NextResponse.json({ error: tokenError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to register push token.";
+    console.error("[push/register] unexpected error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const body = (await request.json()) as {
-    token?: string;
-    platform?: string;
-    userAgent?: string | null;
-  };
-
-  if (!body.token?.trim()) {
-    return NextResponse.json({ error: "Missing push token." }, { status: 400 });
-  }
-
-  const supabaseAdmin = getSupabaseAdmin();
-  const now = new Date().toISOString();
-
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({ push_notifications_enabled: true })
-    .eq("id", userId);
-
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
-  }
-
-  const { error } = await supabaseAdmin.from("user_push_tokens").upsert(
-    {
-      user_id: userId,
-      token: body.token.trim(),
-      platform: body.platform === "ios" || body.platform === "android" ? body.platform : "web",
-      user_agent: body.userAgent || null,
-      enabled: true,
-      updated_at: now,
-    },
-    { onConflict: "user_id,token" },
-  );
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
 }
 
-export async function DELETE() {
-  const userId = await getUserIdFromRequest();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function DELETE(request: Request) {
+  try {
+    const auth = await getAuthedSupabaseFromRequest(request);
+    if (!("userId" in auth) || !auth.userId || !auth.supabase) {
+      const message = "error" in auth ? auth.error : "Unauthorized";
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    const { supabase, userId } = auth;
+    const now = new Date().toISOString();
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ push_notifications_enabled: false })
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("[push/register] profile disable failed:", profileError.message);
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+
+    const { error: tokenError } = await supabase
+      .from("user_push_tokens")
+      .update({ enabled: false, updated_at: now })
+      .eq("user_id", userId);
+
+    if (tokenError) {
+      console.error("[push/register] token disable failed:", tokenError.message);
+      return NextResponse.json({ error: tokenError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to disable push token.";
+    console.error("[push/register] unexpected error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const supabaseAdmin = getSupabaseAdmin();
-  const now = new Date().toISOString();
-
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({ push_notifications_enabled: false })
-    .eq("id", userId);
-
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
-  }
-
-  const { error } = await supabaseAdmin
-    .from("user_push_tokens")
-    .update({ enabled: false, updated_at: now })
-    .eq("user_id", userId);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
 }
