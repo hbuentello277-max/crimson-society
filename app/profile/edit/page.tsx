@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChangeEvent, useEffect, useState } from "react";
 import EditProfileForm from "@/components/profile/EditProfileForm";
+import PrivacySettingsSection from "@/components/profile/PrivacySettingsSection";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -79,7 +80,8 @@ function storageExtension(file: File) {
 
 export default function ProfileEditPage() {
   const { session, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, error, updateIdentity, updateAvatar, refresh } = useProfile();
+  const { profile, loading: profileLoading, error, updateIdentity, updatePrivacy, updateAvatar, refresh } =
+    useProfile();
   const userId = session?.user?.id ?? null;
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingGarage, setSavingGarage] = useState(false);
@@ -429,6 +431,14 @@ export default function ProfileEditPage() {
         </section>
 
         <EditProfileForm profile={profile} saving={savingProfile} message={profileMsg} onSubmit={saveProfileDetails} />
+
+        {userId && (
+          <PrivacySettingsSection
+            profile={profile}
+            userId={userId}
+            onUpdatePrivacy={updatePrivacy}
+          />
+        )}
 
         <section className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

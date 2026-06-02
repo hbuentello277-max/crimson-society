@@ -6,8 +6,10 @@ import {
   fetchProfile,
   updateProfileAvatar,
   updateProfileIdentity,
+  updateProfilePrivacy,
   type AppProfile,
   type ProfileIdentityInput,
+  type ProfilePrivacyInput,
 } from "@/lib/profile";
 
 type UseProfileResult = {
@@ -16,6 +18,7 @@ type UseProfileResult = {
   error: string;
   refresh: () => Promise<AppProfile | null>;
   updateIdentity: (input: ProfileIdentityInput) => Promise<AppProfile>;
+  updatePrivacy: (input: ProfilePrivacyInput) => Promise<AppProfile>;
   updateAvatar: (profileImageUrl: string) => Promise<AppProfile>;
 };
 
@@ -93,6 +96,21 @@ export function useProfile(): UseProfileResult {
     [refreshProfile, userId],
   );
 
+  const updatePrivacy = useCallback(
+    async (input: ProfilePrivacyInput) => {
+      if (!userId) throw new Error("You need to be logged in to update your profile.");
+
+      const nextProfile = await updateProfilePrivacy(userId, input);
+      setProfile(nextProfile);
+      window.dispatchEvent(
+        new CustomEvent("crimson-profile-updated", { detail: nextProfile }),
+      );
+      await refreshProfile();
+      return nextProfile;
+    },
+    [refreshProfile, userId],
+  );
+
   const updateAvatar = useCallback(
     async (profileImageUrl: string) => {
       if (!userId) throw new Error("You need to be logged in to update your profile.");
@@ -108,5 +126,13 @@ export function useProfile(): UseProfileResult {
     [refreshProfile, userId],
   );
 
-  return { profile, loading: authLoading || loading, error, refresh, updateIdentity, updateAvatar };
+  return {
+    profile,
+    loading: authLoading || loading,
+    error,
+    refresh,
+    updateIdentity,
+    updatePrivacy,
+    updateAvatar,
+  };
 }

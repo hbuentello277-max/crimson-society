@@ -40,6 +40,11 @@ export type ProfileIdentityInput = {
   website_url: string;
 };
 
+export type ProfilePrivacyInput = {
+  hide_from_suggestions: boolean;
+  hide_location_from_suggestions: boolean;
+};
+
 export type ProfileSaveOperation = "select" | "update" | "upsert" | "avatar-update" | "avatar-upsert";
 
 export type ProfileSaveErrorDetails = {
@@ -234,6 +239,26 @@ export async function updateProfileIdentity(
 
     if (upserted.error) throw new ProfileSaveError("upsert", upserted.error);
     return upserted.data as AppProfile;
+  }
+
+  return data as AppProfile;
+}
+
+export async function updateProfilePrivacy(
+  userId: string,
+  input: ProfilePrivacyInput,
+): Promise<AppProfile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(input)
+    .eq("id", userId)
+    .select(PROFILE_SELECT)
+    .maybeSingle();
+
+  if (error) throw new ProfileSaveError("update", error);
+
+  if (!data) {
+    throw new ProfileSaveError("update", new Error("Profile not found."));
   }
 
   return data as AppProfile;
