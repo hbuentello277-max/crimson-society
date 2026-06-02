@@ -4,8 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import ProfileHeader from "@/components/profile/ProfileHeader";
+import {
+  buildBioPreview,
+  CompactProfileCard,
+} from "@/components/profile/CompactProfileCard";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
+import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
@@ -76,57 +80,8 @@ return ( <div className="animate-pulse"> <div className="h-3 w-28 rounded-full b
 );
 }
 
-function HeaderActionLink({
-href,
-children,
-variant = "default",
-}: {
-href: string;
-children: React.ReactNode;
-variant?: "admin" | "premium" | "default";
-}) {
-const styles = {
-admin:
-"border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65 hover:bg-[#b4141e]/18",
-premium:
-"border-[#b4141e]/40 bg-[linear-gradient(180deg,rgba(180,20,30,0.18),rgba(255,255,255,0.03))] text-[#f1c3c7] shadow-[0_0_28px_-22px_rgba(180,20,30,0.9)] hover:border-[#b4141e]/70",
-default:
-"border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/25 hover:text-white",
-};
-
-return (
-<Link
-href={href}
-className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
->
-{children} </Link>
-);
-}
-
-function HeaderActionButton({
-onClick,
-children,
-variant = "default",
-}: {
-onClick: () => void;
-children: React.ReactNode;
-variant?: "premium" | "default";
-}) {
-const styles = {
-premium:
-"border-[#b4141e]/40 bg-[linear-gradient(180deg,rgba(180,20,30,0.18),rgba(255,255,255,0.03))] text-[#f1c3c7] shadow-[0_0_28px_-22px_rgba(180,20,30,0.9)] hover:border-[#b4141e]/70",
-default:
-"border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/25 hover:text-white",
-};
-
-return ( <button
-   type="button"
-   onClick={onClick}
-   className={`rounded-full border px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] transition ${styles[variant]}`}
- >
-{children} </button>
-);
-}
+const compactButtonClass =
+  "flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
 export default function ProfilePage() {
 const { session, loading: authLoading, isAdmin, signOut } = useAuth();
@@ -510,111 +465,62 @@ Your account cannot use app features right now. </p> </div> </main>
 
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-  <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex items-start justify-between gap-4 sm:block">
-        <div>
+  <div className="relative mx-auto max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+96px)] pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8">
+    <div className="flex items-start justify-between gap-3">
+      <div>
         <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
-        <h1 className="mt-2 font-serif text-3xl leading-none text-white sm:text-4xl">
-          Identity
-        </h1>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:hidden"
-          aria-label="Open profile menu"
-        >
-          ⋯
-        </button>
+        <h1 className="mt-1 font-serif text-2xl leading-none text-white sm:text-3xl">Profile</h1>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="hidden h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:flex"
-          aria-label="Open profile menu"
-        >
-          ⋯
-        </button>
-
-        {isAdmin && (
-          <HeaderActionLink href="/admin" variant="admin">
-            Admin
-          </HeaderActionLink>
-        )}
-
-        <HeaderActionLink href="/blackcard" variant="premium">
-          Blackcard Access
-        </HeaderActionLink>
-
-        <HeaderActionLink href="/profile/edit">Edit Identity</HeaderActionLink>
-
-        <HeaderActionButton onClick={() => void shareProfile()}>Share Profile</HeaderActionButton>
-      </div>
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+        aria-label="Open profile menu"
+      >
+        ⋯
+      </button>
     </div>
 
-    <ProfileHeader profile={profile} />
-
-    {blackcardAccessActive && (
-      <div className="mt-4 rounded-[20px] border border-[#b4141e]/25 bg-[#090909]/90 px-5 py-4 shadow-[0_0_42px_-28px_rgba(180,20,30,0.9)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">BLACKCARD ACCESS</p>
-            <h2 className="mt-1 font-serif text-xl text-white">Blackcard Member</h2>
-          </div>
-          <span className="text-xl text-[#b4141e]">✦</span>
-        </div>
-      </div>
-    )}
-
-    <section className="mt-4 grid grid-cols-3 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.025] text-center">
-      {[
-        { label: "Posts", value: stats.posts, href: null as string | null },
+    <CompactProfileCard
+      displayName={profileDisplayName(profile)}
+      handle={profileHandle(profile)}
+      location={profileLocation(profile)}
+      {...buildBioPreview(profile.quote, profile.bio)}
+      avatarUrl={profile.profile_image_url || profile.avatar_url}
+      blackcardMember={blackcardAccessActive}
+      showBlackcardAccessCta
+      stats={[
+        { label: "Posts", value: stats.posts },
         { label: "Followers", value: stats.followers, href: "/profile/followers" },
         { label: "Following", value: stats.following, href: "/profile/following" },
-      ].map((item) => {
-        const statContent = (
-          <>
-            <p className="truncate text-xl font-semibold leading-none text-white sm:text-2xl">
-              {item.value}
-            </p>
-            <p className="mt-2 truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500 sm:tracking-[0.22em]">
-              {item.label}
-            </p>
-          </>
-        );
-
-        if (item.href) {
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              prefetch
-              className="flex min-h-[48px] min-w-0 flex-col items-center justify-center border-r border-white/10 px-2 py-4 transition hover:bg-white/[0.04] active:bg-white/[0.06] last:border-r-0"
-            >
-              {statContent}
+      ]}
+      actions={
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <Link href="/profile/edit" className={compactButtonClass}>
+              Edit Profile
             </Link>
-          );
-        }
-
-        return (
-          <div
-            key={item.label}
-            className="min-w-0 border-r border-white/10 px-2 py-4 last:border-r-0"
-          >
-            {statContent}
+            <button type="button" onClick={() => void shareProfile()} className={compactButtonClass}>
+              Share Profile
+            </button>
           </div>
-        );
-      })}
-    </section>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`${compactButtonClass} mt-2 w-full border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65`}
+            >
+              Admin
+            </Link>
+          )}
+        </>
+      }
+    />
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 
     {tab === "posts" && (
-      <section className="mt-5">
+      <section className="mt-3">
         {postsState === "loading" && (
           <EmptyPanel title="Loading posts." body="Gathering your latest ride archive." />
         )}
@@ -703,7 +609,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
 
     {tab === "garage" && (
-      <section className="mt-5">
+      <section className="mt-3">
         {garageState === "loading" && (
           <EmptyPanel title="Loading garage." body="Pulling your machines from Supabase." />
         )}
@@ -763,7 +669,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
 
     {tab !== "posts" && tab !== "garage" && (
-      <section className="mt-5">
+      <section className="mt-3">
         <EmptyPanel
           title="Coming into focus."
           body="This profile section is wired to shared state and ready for the next data layer."

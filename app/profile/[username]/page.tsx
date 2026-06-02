@@ -7,6 +7,11 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { getBestImageUrl } from "@/lib/media";
+import {
+  buildBioPreview,
+  CompactProfileCard,
+} from "@/components/profile/CompactProfileCard";
+import { ProfileTabBar } from "@/components/profile/ProfileTabBar";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 
@@ -184,6 +189,8 @@ export default function PublicProfilePage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [postCount, setPostCount] = useState(0);
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
   useEffect(() => {
     if (!usernameParam) return;
@@ -402,6 +409,15 @@ export default function PublicProfilePage() {
       setFollowerCount(nextFollowerCount || 0);
       setFollowingCount(nextFollowingCount || 0);
       setIsFollowing(Boolean(followResponse.data));
+
+      const { count: nextPostCount } = await supabase
+        .from("Posts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.id);
+
+      if (active) {
+        setPostCount(nextPostCount || 0);
+      }
     };
 
     void loadFollowState();
@@ -479,18 +495,48 @@ export default function PublicProfilePage() {
   }
 
   const displayName = profileDisplayName(profile);
+  const handle = profileHandle(profile);
+  const location = profileLocation(profile);
   const avatarUrl = profile.profile_image_url || profile.avatar_url;
+  const { bioPreview, bioHasMore } = buildBioPreview(profile.quote, profile.bio);
+
+  const sharePublicProfile = async () => {
+    if (!profile?.username) return;
+
+    const profileUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/profile/${encodeURIComponent(profile.username)}`
+        : `/profile/${profile.username}`;
+    try {
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        await navigator.share({
+          title: displayName,
+          text: `View ${displayName} on Crimson Society`,
+          url: profileUrl,
+        });
+        return;
+      }
+
+      if (typeof window !== "undefined" && window.navigator.clipboard) {
+        await window.navigator.clipboard.writeText(profileUrl);
+        setSafetyMessage("Profile link copied.");
+        window.setTimeout(() => setSafetyMessage(null), 2600);
+      }
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === "AbortError") return;
+      setSafetyMessage("Could not share profile.");
+      window.setTimeout(() => setSafetyMessage(null), 2600);
+    }
+  };
+
   const socialLinks = [
     ["Instagram", normalizeSocialUrl(profile.instagram_url)],
     ["TikTok", normalizeSocialUrl(profile.tiktok_url)],
     ["YouTube", normalizeSocialUrl(profile.youtube_url)],
     ["Website", normalizeSocialUrl(profile.website_url)],
   ].filter((item): item is [string, string] => Boolean(item[1]));
-  const badges = [
-    blackcardAccessActive ? "Blackcard" : null,
-    profile.membership_status === "active" ? "Member" : null,
-    profile.bike_type ? profile.bike_type : null,
-  ].filter(Boolean) as string[];
+  const compactButtonClass =
+    "flex min-h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
   async function toggleBlock() {
     if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
@@ -613,226 +659,196 @@ export default function PublicProfilePage() {
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-      <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <div className="relative mx-auto max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+96px)] pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Public Profile</span>
-            <h1 className="mt-2 font-serif text-3xl leading-none text-white sm:text-4xl">
+            <h1 className="mt-1 truncate font-serif text-2xl leading-none text-white sm:text-3xl">
               {displayName}
             </h1>
+            <p className="mt-1 truncate text-[11px] uppercase tracking-[0.14em] text-zinc-500">{handle}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:max-w-[70%] sm:justify-end">
+          <div className="relative flex shrink-0 items-center gap-2">
             {isOwnProfile && (
               <Link
                 href="/profile"
-                className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/65"
+                className="hidden rounded-lg border border-[#b4141e]/35 bg-[#b4141e]/12 px-2.5 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#e87a82] sm:inline-flex"
               >
-                Private Profile
+                Private
               </Link>
             )}
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-white"
-            >
-              Back to Feed
-            </Link>
+
             {!isOwnProfile && session?.user?.id && (
-              <>
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setReportOpen(true)}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  onClick={() => setOverflowOpen((open) => !open)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                  aria-label="Profile options"
                 >
-                  Report
+                  ⋯
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void toggleBlock()}
-                  disabled={safetyBusy}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82] disabled:opacity-60"
-                >
-                  {isBlocked ? "Unblock" : "Block"}
-                </button>
-              </>
+
+                {overflowOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Close profile options"
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={() => setOverflowOpen(false)}
+                    />
+                    <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#090909] shadow-2xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          setReportOpen(true);
+                        }}
+                        className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-zinc-300 hover:bg-white/[0.04]"
+                      >
+                        Report
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          void toggleBlock();
+                        }}
+                        disabled={safetyBusy}
+                        className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-[#e87a82] hover:bg-[#b4141e]/10 disabled:opacity-60"
+                      >
+                        {isBlocked ? "Unblock" : "Block"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        <section className="mt-5 overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707] shadow-[0_30px_90px_-45px_rgba(0,0,0,0.95)]">
-          <div className="relative px-5 py-6 sm:px-7">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_32%)]" />
-            <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 bg-black shadow-[0_0_40px_-10px_rgba(180,20,30,0.8)] sm:h-28 sm:w-28">
-                  {avatarUrl ? (
-                    <Image
-                      src={avatarUrl}
-                      alt={`${displayName} profile picture`}
-                      fill
-                      sizes="112px"
-                      priority
-                      className="object-cover"
-                      unoptimized={avatarUrl.includes("supabase")}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-3xl text-[#f0c8cb]">
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 pt-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-serif text-[32px] leading-none text-white sm:text-[42px]">
-                      {displayName}
-                    </h2>
-                    {badges.map((badge) => (
-                      <span
-                        key={badge}
-                        className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#e87a82]"
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p className="mt-2 break-words text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-                    {profileHandle(profile)} · {profileLocation(profile)}
-                  </p>
-
-                  {profile.quote?.trim() && (
-                    <p className="mt-3 max-w-xl font-serif text-lg italic leading-7 text-zinc-300">
-                      “{profile.quote.trim()}”
-                    </p>
-                  )}
-
-                  {profile.bio?.trim() && (
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">{profile.bio.trim()}</p>
-                  )}
-
-                  {(isBlocked || isBlockingMe) && (
-                    <div className="mt-4 rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/10 px-4 py-3 text-sm text-[#f1c3c7]">
-                      {isBlocked
-                        ? "You blocked this rider. Direct interaction is disabled."
-                        : "This rider is not available for direct interaction."}
-                    </div>
-                  )}
-
-                  <div className={`mt-4 grid w-full max-w-md gap-2 ${isOwnProfile || !session?.user?.id ? "grid-cols-2" : "grid-cols-3"}`}>
-                    {followerListRoutes ? (
-                      <Link
-                        href={followerListRoutes.followers}
-                        prefetch
-                        className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/40 hover:bg-white/[0.04] active:bg-white/[0.06]"
-                      >
-                        <p className="text-sm text-zinc-100">{followerCount}</p>
-                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
-                          Followers
-                        </p>
-                      </Link>
-                    ) : (
-                      <div className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
-                        <p className="text-sm text-zinc-100">{followerCount}</p>
-                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
-                          Followers
-                        </p>
-                      </div>
-                    )}
-                    {followerListRoutes ? (
-                      <Link
-                        href={followerListRoutes.following}
-                        prefetch
-                        className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center transition hover:border-[#b4141e]/40 hover:bg-white/[0.04] active:bg-white/[0.06]"
-                      >
-                        <p className="text-sm text-zinc-100">{followingCount}</p>
-                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
-                          Following
-                        </p>
-                      </Link>
-                    ) : (
-                      <div className="flex min-h-[44px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-2 py-2 text-center">
-                        <p className="text-sm text-zinc-100">{followingCount}</p>
-                        <p className="mt-1 truncate text-[8px] uppercase tracking-[0.04em] text-zinc-600">
-                          Following
-                        </p>
-                      </div>
-                    )}
-                    {!isOwnProfile && session?.user?.id && (
-                      <button
-                        type="button"
-                        onClick={() => void toggleFollow()}
-                        disabled={followBusy || isBlocked || isBlockingMe}
-                        className={`min-w-0 rounded-2xl border px-2 py-2 text-[8px] uppercase tracking-[0.04em] transition disabled:opacity-60 ${
-                          isFollowing
-                            ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82] hover:border-[#b4141e]/65"
-                            : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                        }`}
-                      >
-                        <span className="block truncate">
-                          {followBusy
-                            ? "Saving"
-                            : isBlocked || isBlockingMe
-                              ? "Unavailable"
-                              : isFollowing
-                                ? "Following"
-                                : "Follow"}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-
-                  {socialLinks.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {socialLinks.map(([label, href]) => (
-                        <a
-                          key={label}
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                        >
-                          {label}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {ridingTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-zinc-500"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+        <CompactProfileCard
+          displayName={displayName}
+          handle={handle}
+          location={location}
+          bioPreview={bioPreview}
+          bioHasMore={bioHasMore}
+          avatarUrl={avatarUrl}
+          blackcardMember={blackcardAccessActive}
+          stats={[
+            { label: "Posts", value: postCount },
+            {
+              label: "Followers",
+              value: followerCount,
+              href: followerListRoutes?.followers ?? null,
+            },
+            {
+              label: "Following",
+              value: followingCount,
+              href: followerListRoutes?.following ?? null,
+            },
+          ]}
+          notice={
+            isBlocked || isBlockingMe ? (
+              <div className="mt-3 rounded-xl border border-[#b4141e]/35 bg-[#b4141e]/10 px-3 py-2 text-xs leading-5 text-[#f1c3c7]">
+                {isBlocked
+                  ? "You blocked this rider. Direct interaction is disabled."
+                  : "This rider is not available for direct interaction."}
               </div>
-            </div>
-          </div>
-        </section>
+            ) : null
+          }
+          actions={
+            !isOwnProfile && session?.user?.id ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void toggleFollow()}
+                  disabled={followBusy || isBlocked || isBlockingMe}
+                  className={`${compactButtonClass} ${
+                    isFollowing
+                      ? "border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
+                      : ""
+                  } disabled:opacity-60`}
+                >
+                  {followBusy
+                    ? "Saving"
+                    : isBlocked || isBlockingMe
+                      ? "Unavailable"
+                      : isFollowing
+                        ? "Following"
+                        : "Follow"}
+                </button>
+                {!interactionRestricted ? (
+                  <Link href={`/inbox?conversation=${profile.id}`} className={compactButtonClass}>
+                    Message
+                  </Link>
+                ) : (
+                  <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
+                    Message
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void sharePublicProfile()}
+                  className={`${compactButtonClass} col-span-2`}
+                >
+                  Share Profile
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void sharePublicProfile()}
+                className={`${compactButtonClass} w-full`}
+              >
+                Share Profile
+              </button>
+            )
+          }
+        />
 
-        <div className="mt-5 flex gap-2 border-b border-white/10 pb-3">
-          {(["posts", "garage", "rides"] as const).map((nextTab) => (
-            <button
-              key={nextTab}
-              type="button"
-              onClick={() => setTab(nextTab)}
-              className={`rounded-full px-4 py-2 text-[10px] uppercase tracking-[0.24em] transition ${
-                tab === nextTab
-                  ? "border border-[#b4141e]/35 bg-[#b4141e]/12 text-[#e87a82]"
-                  : "border border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200"
-              }`}
-            >
-              {nextTab === "garage" ? "Garage" : nextTab === "rides" ? "Rides" : "Posts"}
-            </button>
-          ))}
-        </div>
+        {socialLinks.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {socialLinks.map(([label, href]) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {ridingTags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {ridingTags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-zinc-500"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <ProfileTabBar
+          tabs={[
+            { k: "posts" as const, label: "Posts" },
+            { k: "garage" as const, label: "Garage" },
+            { k: "rides" as const, label: "Rides" },
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
 
         {tab === "posts" && (
-          <section className="mt-5">
+          <section className="mt-3">
             {interactionRestricted ? (
               <EmptyPanel
                 title="Posts unavailable."
@@ -897,7 +913,7 @@ export default function PublicProfilePage() {
         )}
 
         {tab === "garage" && (
-          <section className="mt-5">
+          <section className="mt-3">
             {interactionRestricted ? (
               <EmptyPanel
                 title="Garage unavailable."
@@ -959,7 +975,7 @@ export default function PublicProfilePage() {
         )}
 
         {tab === "rides" && (
-          <section className="mt-5">
+          <section className="mt-3">
             {interactionRestricted ? (
               <EmptyPanel
                 title="Rides unavailable."

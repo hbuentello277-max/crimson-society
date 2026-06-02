@@ -1,16 +1,16 @@
 "use client";
 
-export type ProfileTab = "posts" | "rides" | "garage" | "saved";
+export type PublicProfileTab = "posts" | "garage" | "rides";
 
-type Tab = { k: ProfileTab; label: string };
+type TabItem<T extends string> = { k: T; label: string };
 
-type Props = {
-  tabs: Tab[];
-  active: ProfileTab;
-  onChange: (tab: ProfileTab) => void;
+type Props<T extends string> = {
+  tabs: TabItem<T>[];
+  active: T;
+  onChange: (tab: T) => void;
 };
 
-export default function ProfileTabs({ tabs, active, onChange }: Props) {
+export function ProfileTabBar<T extends string>({ tabs, active, onChange }: Props<T>) {
   return (
     <div className="mt-4 flex border-b border-white/10">
       {tabs.map((item) => (
