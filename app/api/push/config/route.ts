@@ -17,7 +17,8 @@ export async function GET() {
     dispatch: {
       endpoint: "/api/push/dispatch",
       cronEndpoint: "/api/cron/push-dispatch",
-      cronSchedule: "*/2 * * * *",
+      cronSchedule: "0 14 * * *",
+      cronNote: "Once daily (14:00 UTC) for Vercel Hobby. Use Supabase webhook for near-real-time dispatch.",
     },
   });
 }
