@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { redirectAfterAuth } from "@/lib/auth/redirect-after-auth";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deletionRequested = searchParams.get("deletion") === "requested";
   const { session, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -163,6 +165,12 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {deletionRequested && (
+            <p className="mt-6 rounded-xl border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-3 text-center text-sm leading-6 text-[#f0c9ce]">
+              Your account deletion request was submitted and is pending admin approval.
+            </p>
+          )}
+
           <form
             className="mt-10 flex flex-col gap-5"
             onSubmit={(e) => {
@@ -259,5 +267,13 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -479,13 +479,27 @@ function RidesPageContent() {
   const completed: Ride[] = [];
 
   for (const ride of allMeets) {
+    const isCanceled = ride.status === "canceled";
     const dateTime = getRideDateTime(ride);
-    if (!dateTime || dateTime.getTime() >= now) {
-      upcoming.push(ride);
-    } else {
+
+    if (isCanceled || (dateTime && dateTime.getTime() < now)) {
       completed.push(ride);
+    } else {
+      upcoming.push(ride);
     }
   }
+
+  upcoming.sort((a, b) => {
+    const aTime = getRideDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const bTime = getRideDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return aTime - bTime;
+  });
+
+  completed.sort((a, b) => {
+    const aTime = getRideDateTime(a)?.getTime() ?? 0;
+    const bTime = getRideDateTime(b)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
 
   return { upcomingMeets: upcoming, completedMeets: completed };
 }, [allMeets, getRideDateTime]);

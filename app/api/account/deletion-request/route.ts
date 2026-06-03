@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { createAdminServiceClient } from "@/lib/admin-api";
+import { notifyAdminsAccountDeletion } from "@/lib/account-deletion/notify-admins";
 import { isOpenDeletionStatus } from "@/lib/account-deletion/types";
+import { createAdminServiceClient } from "@/lib/admin-api";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 export async function POST(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return NextResponse.json(
+      { error: auth.error, authDetail: auth.authDetail },
+      { status: 401 },
+    );
   }
 
   let body: { confirmation?: string };
@@ -24,11 +28,18 @@ export async function POST(request: Request) {
   }
 
   const userId = auth.userId;
-  const adminClient = createAdminServiceClient();
+
+  let adminClient;
+  try {
+    adminClient = createAdminServiceClient();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Server configuration error.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const { data: profile, error: profileError } = await adminClient
     .from("profiles")
-    .select("id, status, role, is_admin")
+    .select("id, status, role, is_admin, username")
     .eq("id", userId)
     .maybeSingle();
 
@@ -97,23 +108,34 @@ export async function POST(request: Request) {
     .eq("id", userId);
 
   if (profileUpdateError) {
+    await adminClient.from("account_deletion_requests").delete().eq("id", deletionRequest.id);
     return NextResponse.json(
       { error: profileUpdateError.message || "Could not update profile status." },
       { status: 500 },
     );
   }
 
-  await adminClient.auth.admin.updateUserById(userId, {
+  const { error: authMetaError } = await adminClient.auth.admin.updateUserById(userId, {
     app_metadata: {
       deletion_pending: true,
       deletion_requested_at: now,
     },
   });
 
+  if (authMetaError) {
+    console.error("Failed to update auth metadata for deletion request:", authMetaError);
+  }
+
+  await notifyAdminsAccountDeletion(adminClient, {
+    actorUserId: userId,
+    username: profile.username,
+    kind: "account_deletion_requested",
+    requestId: deletionRequest.id,
+  });
+
   return NextResponse.json({
     ok: true,
     request: deletionRequest,
-    message:
-      "Account deletion requested. Sign out on this device to finish. Your account is pending admin approval.",
+    message: "Account deletion requested. You will be signed out now.",
   });
 }

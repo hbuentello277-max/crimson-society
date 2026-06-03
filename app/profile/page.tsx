@@ -20,6 +20,7 @@ import {
   isOpenDeletionStatus,
 } from "@/lib/account-deletion";
 import { supabase } from "@/lib/supabase";
+import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
 type ProfilePost = {
@@ -349,25 +350,28 @@ setDeleteRequesting(true);
 setDeleteRequestStatus(null);
 
 try {
-  const response = await fetch("/api/account/deletion-request", {
+  const response = await authedFetch("/api/account/deletion-request", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ confirmation: deleteConfirmText.trim() }),
   });
 
   const result = (await response.json().catch(() => null)) as {
     error?: string;
     message?: string;
+    authDetail?: string;
   } | null;
 
   if (!response.ok) {
-    throw new Error(result?.error || "Could not submit deletion request.");
+    const detail = result?.authDetail ? ` (${result.authDetail})` : "";
+    throw new Error((result?.error || "Could not submit deletion request.") + detail);
   }
 
   setDeleteModalOpen(false);
   setDeleteConfirmText("");
+  setDeleteRequestStatus(null);
+  setToast(result?.message || "Account deletion requested. Signing you out…");
   await signOut();
-  router.replace("/account-deletion?requested=1");
+  router.replace("/login?deletion=requested");
 } catch (error) {
   setDeleteRequestStatus(
     error instanceof Error ? error.message : "Could not submit deletion request.",
@@ -850,6 +854,11 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           placeholder="DELETE"
           className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 font-mono text-sm text-white outline-none focus:border-[#b4141e]/50"
         />
+        {deleteRequestStatus && (
+          <p className="mt-4 rounded-xl border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-3 text-sm leading-6 text-[#f0c9ce]">
+            {deleteRequestStatus}
+          </p>
+        )}
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button
             type="button"

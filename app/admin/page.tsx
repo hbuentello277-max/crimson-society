@@ -9,6 +9,8 @@ import {
   userReportTargetLabel,
   type UserReportTargetType,
 } from "@/lib/user-reports";
+import { AdminDeletionQueueSection } from "@/components/admin/AdminDeletionQueueSection";
+import { AdminRecentMeetsSection } from "@/components/admin/AdminRecentMeetsSection";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked";
@@ -858,78 +860,7 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="mb-4">
-                      <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
-                      <p className="mt-2 text-xs leading-5 text-zinc-500">
-                        Approve deletion cancels active Stripe subscriptions, deletes user content and media, removes the auth account, and writes a compliance audit entry. Moderation records are retained.
-                      </p>
-                    </div>
-
-                    {deletionRequests.length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
-                        No account deletion requests are waiting.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {deletionRequests.map((request) => (
-                          <div key={request.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-white">
-                                {getProfileLabel(request.user_id, moderationProfiles)}
-                              </p>
-                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-400">
-                                {request.status || "pending"}
-                              </span>
-                            </div>
-                            {request.details && (
-                              <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                                {request.details}
-                              </p>
-                            )}
-                            <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                              Requested {formatAdminDate(request.requested_at)}
-                            </p>
-                            {!isDeletionClosed(request.status) && (
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  disabled={moderationSavingId === request.id}
-                                  onClick={() =>
-                                    void updateDeletionRequestStatus(request.id, "reviewing")
-                                  }
-                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  {moderationSavingId === request.id ? "Saving" : "Mark reviewed"}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={moderationSavingId === request.id}
-                                  onClick={() =>
-                                    void updateDeletionRequestStatus(request.id, "completed")
-                                  }
-                                  title="Updates request status only; does not delete account data"
-                                  className="rounded-full border border-emerald-500/30 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-200/90 transition hover:border-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Approve deletion
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={moderationSavingId === request.id}
-                                  onClick={() =>
-                                    void updateDeletionRequestStatus(request.id, "canceled")
-                                  }
-                                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <AdminDeletionQueueSection enabled={isAdmin && !moderationLoading} />
 
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                     <h3 className="mb-4 font-serif text-2xl text-white">Recent Posts</h3>
@@ -961,35 +892,13 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <h3 className="mb-4 font-serif text-2xl text-white">Recent Meets</h3>
-                    {recentRides.length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
-                        No meets are available for review.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentRides.map((ride) => (
-                          <div key={ride.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-white">
-                                {ride.name || "Untitled meet"}
-                              </p>
-                              <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                                {ride.status || "active"} • {ride.tracking_status || "not_started"}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xs leading-5 text-zinc-500">
-                              Host {getProfileLabel(ride.host_id, moderationProfiles)} • {formatRideSchedule(ride.date, ride.time)}
-                            </p>
-                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                              {[ride.meet_point, ride.city].filter(Boolean).join(" • ") || "No meet point"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <AdminRecentMeetsSection
+                    rides={recentRides}
+                    profiles={moderationProfiles}
+                    onRideDeleted={(rideId) =>
+                      setRecentRides((current) => current.filter((ride) => ride.id !== rideId))
+                    }
+                  />
                 </div>
               )}
             </section>

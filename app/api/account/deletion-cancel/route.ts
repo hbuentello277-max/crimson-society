@@ -1,19 +1,30 @@
 import { NextResponse } from "next/server";
+import { notifyAdminsAccountDeletion } from "@/lib/account-deletion/notify-admins";
 import { createAdminServiceClient } from "@/lib/admin-api";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 export async function POST(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return NextResponse.json(
+      { error: auth.error, authDetail: auth.authDetail },
+      { status: 401 },
+    );
   }
 
   const userId = auth.userId;
-  const adminClient = createAdminServiceClient();
+
+  let adminClient;
+  try {
+    adminClient = createAdminServiceClient();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Server configuration error.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const { data: profile } = await adminClient
     .from("profiles")
-    .select("id, status")
+    .select("id, status, username")
     .eq("id", userId)
     .maybeSingle();
 
@@ -65,7 +76,11 @@ export async function POST(request: Request) {
 
   const { error: profileError } = await adminClient
     .from("profiles")
-    .update({ status: restoreStatus })
+    .update({
+      status: restoreStatus,
+      hide_from_suggestions: false,
+      hide_location_from_suggestions: false,
+    })
     .eq("id", userId);
 
   if (profileError) {
@@ -74,6 +89,13 @@ export async function POST(request: Request) {
 
   await adminClient.auth.admin.updateUserById(userId, {
     app_metadata: { deletion_pending: false },
+  });
+
+  await notifyAdminsAccountDeletion(adminClient, {
+    actorUserId: userId,
+    username: profile?.username ?? null,
+    kind: "account_deletion_canceled",
+    requestId: openRequest.id,
   });
 
   return NextResponse.json({

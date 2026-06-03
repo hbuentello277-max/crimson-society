@@ -7,7 +7,10 @@ export type NotificationType =
   | "meet_removed"
   | "meet_canceled"
   | "meet_ended"
-  | "direct_message";
+  | "direct_message"
+  | "account_deletion_requested"
+  | "account_deletion_canceled"
+  | "account_deletion_approved";
 
 export type NotificationActor = {
   id: string;
@@ -85,6 +88,12 @@ export function notificationTypeLabel(type: NotificationType) {
       return "New follower";
     case "direct_message":
       return "Message";
+    case "account_deletion_requested":
+      return "Deletion request";
+    case "account_deletion_canceled":
+      return "Deletion canceled";
+    case "account_deletion_approved":
+      return "Deletion approved";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -155,6 +164,9 @@ export function isKnownNotificationType(value: string): value is NotificationTyp
     value === "meet_removed" ||
     value === "meet_canceled" ||
     value === "meet_ended" ||
-    value === "direct_message"
+    value === "direct_message" ||
+    value === "account_deletion_requested" ||
+    value === "account_deletion_canceled" ||
+    value === "account_deletion_approved"
   );
 }

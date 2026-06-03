@@ -50,6 +50,8 @@ export function deletionStatusLabel(status: string | null | undefined) {
       return "Completed — account deleted";
     case "canceled":
       return "Canceled";
+    case "rejected":
+      return "Rejected";
     default:
       return status || "Unknown";
   }
