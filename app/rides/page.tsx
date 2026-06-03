@@ -12,6 +12,7 @@ import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
 import { buildSnappedRoute } from "@/lib/routing";
+import { CS_HOST_MEET_BTN } from "@/lib/crimson-accent";
 
 type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
@@ -1269,7 +1270,7 @@ let duration: string | null = newRide.duration || null;
               setEditingRide(null);
               setShowHostModal(true);
             }}
-            className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
+            className={CS_HOST_MEET_BTN}
           >
             + Host Meet
           </button>

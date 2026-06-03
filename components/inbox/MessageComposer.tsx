@@ -353,7 +353,7 @@ export function MessageComposer({
               className={canSend ? CS_SEND_BTN : CS_SEND_BTN_DISABLED}
               aria-label="Send message"
             >
-              <IconSend />
+              <IconSend className="h-5 w-5 text-current" />
             </button>
           </div>
         )}

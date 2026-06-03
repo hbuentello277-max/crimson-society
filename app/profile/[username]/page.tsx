@@ -14,6 +14,7 @@ import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
+import { CS_BTN_PRIMARY_COMPACT, CS_BTN_SECONDARY } from "@/lib/crimson-accent";
 
 type PublicProfile = {
   id: string;
@@ -579,8 +580,6 @@ export default function PublicProfilePage() {
     }
   };
 
-  const compactButtonClass =
-    "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-[#b4141e]/45 hover:text-[#f1c3c7]";
 
   async function toggleBlock() {
     if (!session?.user?.id || !profile?.id || isOwnProfile || safetyBusy) return;
@@ -872,13 +871,10 @@ export default function PublicProfilePage() {
                     type="button"
                     onClick={() => void toggleFollow()}
                     disabled={followBusy || isBlocked || isBlockingMe}
-                    className={`group/follow ${compactButtonClass} ${
-                      followRelationship === "following"
-                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                        : followRelationship === "requested_out" ||
-                            followRelationship === "requested_in"
-                          ? "border-white/20 text-zinc-300"
-                          : ""
+                    className={`group/follow ${
+                      followRelationship === "none" && !isFollowing
+                        ? CS_BTN_PRIMARY_COMPACT
+                        : CS_BTN_SECONDARY
                     } disabled:opacity-60`}
                   >
                     {followRelationship === "following" && !followBusy && !isBlocked && !isBlockingMe ? (
@@ -891,11 +887,11 @@ export default function PublicProfilePage() {
                     )}
                   </button>
                   {!interactionRestricted ? (
-                    <Link href={`/inbox?peer=${profile.id}`} className={compactButtonClass}>
+                    <Link href={`/inbox?peer=${profile.id}`} className={CS_BTN_SECONDARY}>
                       Message
                     </Link>
                   ) : (
-                    <button type="button" disabled className={`${compactButtonClass} opacity-50`}>
+                    <button type="button" disabled className={`${CS_BTN_SECONDARY} opacity-50`}>
                       Message
                     </button>
                   )}
@@ -903,7 +899,7 @@ export default function PublicProfilePage() {
                 <button
                   type="button"
                   onClick={() => void sharePublicProfile()}
-                  className={`${compactButtonClass} w-full`}
+                  className={`${CS_BTN_SECONDARY} w-full`}
                 >
                   <IconShare />
                   Share Profile
@@ -913,7 +909,7 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => void sharePublicProfile()}
-                className={`${compactButtonClass} w-full`}
+                className={`${CS_BTN_SECONDARY} w-full`}
               >
                 <IconShare />
                 Share Profile

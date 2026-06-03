@@ -91,3 +91,18 @@ export function csPill(active: boolean, size: "sm" | "md" = "sm") {
   const base = size === "md" ? CS_PILL_MD : CS_PILL_SM;
   return `${base} ${active ? CS_PILL_ACTIVE : CS_PILL_INACTIVE}`;
 }
+
+/** Connect / list avatar rings and letter fallbacks */
+export const CS_AVATAR_RING =
+  "overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#0a0405] shadow-[0_0_20px_-8px_rgba(180,20,30,0.45)]";
+
+export const CS_AVATAR_FALLBACK =
+  "flex h-full w-full items-center justify-center bg-[#b4141e]/20 font-serif italic text-[#e87a82]";
+
+/** Shop header bag control — Connect ALL pill language */
+export const CS_SHOP_BAG_BTN = `${CS_CTA_PRIMARY} relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.25em]`;
+
+export const CS_SHOP_BAG_COUNT = `${CS_BADGE} absolute -right-1 -top-1 h-4 w-4 min-w-4 px-0 text-[9px]`;
+
+/** Meets host CTA */
+export const CS_HOST_MEET_BTN = CS_CTA_PRIMARY_SM;
