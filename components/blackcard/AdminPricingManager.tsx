@@ -19,6 +19,7 @@ function emptyPlan(planType: "monthly" | "yearly"): MembershipPlan {
         ? "Flexible entry for Blackcard Access"
         : "Preferred value with priority standing",
     price: 0,
+    stripe_price_id: null,
     active: false,
     perks: [],
     created_at: null,
@@ -73,6 +74,7 @@ export default function AdminPricingManager({ plans, onRefresh }: Props) {
         title: plan.title.trim(),
         description: plan.description.trim(),
         price: Number(plan.price),
+        stripe_price_id: plan.stripe_price_id?.trim() || null,
         active: plan.active,
         perks: plan.perks.map((item) => item.trim()).filter(Boolean),
       };
@@ -163,6 +165,23 @@ export default function AdminPricingManager({ plans, onRefresh }: Props) {
                     }
                     className="w-full rounded-[16px] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
                   />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+                    Stripe Price ID
+                  </label>
+                  <input
+                    value={plan.stripe_price_id ?? ""}
+                    onChange={(e) =>
+                      updatePlan(planType, "stripe_price_id", e.target.value)
+                    }
+                    placeholder="price_..."
+                    className="w-full rounded-[16px] border border-white/10 bg-black/30 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#b4141e]/60"
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Recurring Stripe Price ID for checkout. Leave blank to use env fallback.
+                  </p>
                 </div>
 
                 <div>

@@ -68,6 +68,7 @@ export async function executeAccountDeletion(
     .update({
       membership_status: "inactive",
       membership_tier: null,
+      blackcard_public: false,
     })
     .eq("id", userId);
 

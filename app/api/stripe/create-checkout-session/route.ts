@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { normalizeMembershipPlanType } from "@/lib/membership";
+import { userHasActiveSubscription } from "@/lib/stripe/has-active-subscription";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -87,6 +88,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: existingCustomerError.message },
         { status: 500 }
+      );
+    }
+
+    const alreadySubscribed = await userHasActiveSubscription(
+      supabase,
+      user.id,
+      existingCustomer?.stripe_customer_id ?? null,
+    );
+
+    if (alreadySubscribed) {
+      return NextResponse.json(
+        {
+          error:
+            "You already have an active Blackcard membership. Use Manage Subscription to update billing or cancel.",
+          code: "already_subscribed",
+        },
+        { status: 409 },
       );
     }
 

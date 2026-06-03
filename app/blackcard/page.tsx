@@ -28,6 +28,51 @@ const lockedPerks = [
   "Coming soon rewards",
 ];
 
+
+function BillingPortalButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleOpenPortal() {
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/stripe/billing-portal", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Unable to open billing portal.");
+        return;
+      }
+
+      if (!data.url) {
+        alert("Billing portal URL was not returned.");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong opening billing management.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpenPortal}
+      disabled={loading}
+      className="rounded-full border border-white/15 px-6 py-3 text-xs uppercase tracking-[0.28em] text-zinc-200 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? "Opening..." : "Manage Subscription"}
+    </button>
+  );
+}
+
 function CheckoutButton({
   planType,
   label,
@@ -52,6 +97,22 @@ function CheckoutButton({
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.code === "already_subscribed") {
+          const openPortal = window.confirm(
+            `${data.error}\n\nOpen billing management now?`,
+          );
+          if (openPortal) {
+            const portalRes = await fetch("/api/stripe/billing-portal", {
+              method: "POST",
+            });
+            const portalData = await portalRes.json();
+            if (portalRes.ok && portalData.url) {
+              window.location.href = portalData.url;
+            }
+          }
+          return;
+        }
+
         alert(data.error || "Unable to start checkout.");
         return;
       }
@@ -239,6 +300,12 @@ export default function BlackcardPage() {
                 </p>
               </div>
             </div>
+
+            {!isAdmin && (
+              <div className="mt-8">
+                <BillingPortalButton />
+              </div>
+            )}
           </div>
         </div>
       </main>

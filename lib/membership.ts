@@ -32,14 +32,30 @@ export function checkoutPlanType(planType: MembershipPlanType) {
   return planType;
 }
 
+export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const;
+
 export function hasActiveMembership(membership: MembershipRow | null) {
   if (!membership) return false;
-  if (membership.status !== "active" && membership.status !== "trialing") {
+  if (
+    membership.status !== "active" &&
+    membership.status !== "trialing"
+  ) {
     return false;
   }
   if (!membership.current_period_end) return true;
 
   return new Date(membership.current_period_end).getTime() >= Date.now();
+}
+
+export function isActiveSubscriptionRecord(
+  status: string | null | undefined,
+  currentPeriodEnd: string | null | undefined,
+) {
+  return hasActiveMembership({
+    status: (status as SubscriptionStatus) ?? null,
+    plan_type: null,
+    current_period_end: currentPeriodEnd ?? null,
+  });
 }
 
 export function hasBlackcardAccess(
