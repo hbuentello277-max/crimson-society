@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
+import {
+  getBlackcardStripePriceEnvKey,
+  resolveBlackcardStripePriceId,
+} from "@/lib/stripe/blackcard-price-ids";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { normalizeMembershipPlanType } from "@/lib/membership";
-import { userHasActiveSubscription } from "@/lib/stripe/has-active-subscription";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-const PLAN_TYPE_TO_FALLBACK_PRICE_ID: Record<string, string | undefined> = {
-  monthly: process.env.STRIPE_APEX_MONTHLY_PRICE_ID,
-  yearly: process.env.STRIPE_APEX_YEARLY_PRICE_ID,
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!planType) {
       return NextResponse.json(
         { error: "Missing or invalid planType" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (!profile || profile.status !== "active") {
       return NextResponse.json(
         { error: "Your account is not eligible for checkout." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -65,18 +63,40 @@ export async function POST(req: NextRequest) {
     if (!plan?.active) {
       return NextResponse.json(
         { error: "This membership plan is not active." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const priceId = plan.stripe_price_id || PLAN_TYPE_TO_FALLBACK_PRICE_ID[planType];
+    const { priceId, source } = resolveBlackcardStripePriceId(
+      planType,
+      plan.stripe_price_id,
+    );
 
     if (!priceId) {
+      const envKey = getBlackcardStripePriceEnvKey(planType);
+      console.error("[create-checkout-session] Missing Stripe price ID", {
+        planType,
+        envKey,
+        hasDbStripePriceId: Boolean(plan.stripe_price_id),
+        userId: user.id,
+      });
+
       return NextResponse.json(
-        { error: `No Stripe price configured for ${planType}` },
-        { status: 400 }
+        {
+          error: `No Stripe price configured for ${planType}. Set ${envKey} in the server environment.`,
+          code: "missing_stripe_price_id",
+        },
+        { status: 400 },
       );
     }
+
+    console.info("[create-checkout-session] Resolved Stripe price", {
+      planType,
+      source,
+      envKey: getBlackcardStripePriceEnvKey(planType),
+      priceIdPrefix: priceId.slice(0, 16),
+      userId: user.id,
+    });
 
     const { data: existingCustomer, error: existingCustomerError } = await supabase
       .from("stripe_customers")
@@ -87,24 +107,7 @@ export async function POST(req: NextRequest) {
     if (existingCustomerError) {
       return NextResponse.json(
         { error: existingCustomerError.message },
-        { status: 500 }
-      );
-    }
-
-    const alreadySubscribed = await userHasActiveSubscription(
-      supabase,
-      user.id,
-      existingCustomer?.stripe_customer_id ?? null,
-    );
-
-    if (alreadySubscribed) {
-      return NextResponse.json(
-        {
-          error:
-            "You already have an active Blackcard membership. Use Manage Subscription to update billing or cancel.",
-          code: "already_subscribed",
-        },
-        { status: 409 },
+        { status: 500 },
       );
     }
 
@@ -130,7 +133,7 @@ export async function POST(req: NextRequest) {
       if (insertCustomerError) {
         return NextResponse.json(
           { error: insertCustomerError.message },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -166,8 +169,11 @@ export async function POST(req: NextRequest) {
     console.error("create-checkout-session error:", error);
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create checkout session" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to create checkout session",
+      },
+      { status: 500 },
     );
   }
 }

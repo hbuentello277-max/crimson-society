@@ -16,6 +16,7 @@ import {
   type MembershipPlan,
   type MembershipPlanRow,
 } from "@/components/blackcard/types";
+import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
 
 const lockedPerks = [
   "Crimson Credits",
@@ -27,51 +28,6 @@ const lockedPerks = [
   "Exclusive drops/giveaways",
   "Coming soon rewards",
 ];
-
-
-function BillingPortalButton() {
-  const [loading, setLoading] = useState(false);
-
-  async function handleOpenPortal() {
-    try {
-      setLoading(true);
-
-      const res = await fetch("/api/stripe/billing-portal", {
-        method: "POST",
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Unable to open billing portal.");
-        return;
-      }
-
-      if (!data.url) {
-        alert("Billing portal URL was not returned.");
-        return;
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      console.error(error);
-      alert("Something went wrong opening billing management.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleOpenPortal}
-      disabled={loading}
-      className="rounded-full border border-white/15 px-6 py-3 text-xs uppercase tracking-[0.28em] text-zinc-200 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      {loading ? "Opening..." : "Manage Subscription"}
-    </button>
-  );
-}
 
 function CheckoutButton({
   planType,
@@ -97,22 +53,6 @@ function CheckoutButton({
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.code === "already_subscribed") {
-          const openPortal = window.confirm(
-            `${data.error}\n\nOpen billing management now?`,
-          );
-          if (openPortal) {
-            const portalRes = await fetch("/api/stripe/billing-portal", {
-              method: "POST",
-            });
-            const portalData = await portalRes.json();
-            if (portalRes.ok && portalData.url) {
-              window.location.href = portalData.url;
-            }
-          }
-          return;
-        }
-
         alert(data.error || "Unable to start checkout.");
         return;
       }
@@ -133,9 +73,10 @@ function CheckoutButton({
 
   return (
     <button
+      type="button"
       onClick={handleCheckout}
       disabled={loading}
-      className="w-full rounded-full bg-red-600 px-6 py-4 text-xs font-semibold uppercase tracking-[0.28em] text-black transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+      className={`w-full text-center disabled:cursor-not-allowed disabled:opacity-50 ${CS_CTA_PRIMARY_LG}`}
     >
       {loading ? "Redirecting..." : label}
     </button>
@@ -300,12 +241,6 @@ export default function BlackcardPage() {
                 </p>
               </div>
             </div>
-
-            {!isAdmin && (
-              <div className="mt-8">
-                <BillingPortalButton />
-              </div>
-            )}
           </div>
         </div>
       </main>
@@ -334,10 +269,14 @@ export default function BlackcardPage() {
           )}
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
-            {plans.filter((plan) => plan.active).map((plan) => (
+            {plans.filter((plan) => plan.active).map((plan, index) => (
               <div
                 key={plan.id || plan.plan_type}
-                className="group rounded-[24px] border border-white/10 bg-white/[0.03] p-6 transition duration-200 hover:border-red-900/25 hover:shadow-[0_0_28px_rgba(120,0,0,0.12)]"
+                className={`rounded-[24px] border p-6 ${
+                  index === 0
+                    ? "border-red-900/30 bg-[#120707]"
+                    : "border-white/10 bg-white/[0.03]"
+                }`}
               >
                 <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
                   {plan.plan_type === "monthly" ? "Monthly" : "Annual"}

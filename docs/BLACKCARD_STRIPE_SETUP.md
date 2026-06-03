@@ -88,8 +88,8 @@ WHERE plan_type = 'yearly';
 Set in Vercel if DB `stripe_price_id` is null:
 
 ```
-STRIPE_APEX_MONTHLY_PRICE_ID=price_...
-STRIPE_APEX_YEARLY_PRICE_ID=price_...
+STRIPE_BLACKCARD_MONTHLY_PRICE_ID=price_...
+STRIPE_BLACKCARD_YEARLY_PRICE_ID=price_...
 ```
 
 ---
@@ -132,8 +132,8 @@ Members open the portal via **Manage Subscription** on `/blackcard`.
 |----------|----------|---------|
 | `STRIPE_SECRET_KEY` | Yes | Server Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Webhook signature verification |
-| `STRIPE_APEX_MONTHLY_PRICE_ID` | Fallback | If DB price ID unset |
-| `STRIPE_APEX_YEARLY_PRICE_ID` | Fallback | If DB price ID unset |
+| `STRIPE_BLACKCARD_MONTHLY_PRICE_ID` | Fallback | If DB price ID unset |
+| `STRIPE_BLACKCARD_YEARLY_PRICE_ID` | Fallback | If DB price ID unset |
 | `NEXT_PUBLIC_APP_URL` | Yes | Checkout + portal return URLs |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Webhook admin client |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Webhook writes + badge sync |
