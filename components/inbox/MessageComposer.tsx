@@ -269,62 +269,58 @@ export function MessageComposer({
           <p className="mb-2 text-center text-[12px] text-[#e87a82]">{errorMsgLocal}</p>
         ) : null}
 
-        {!recording ? (
-          <div className="mb-2 flex items-center justify-between gap-1 rounded-full border border-white/10 bg-[#0c0c0c]/90 px-1 py-1">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => cameraRef.current?.click()}
-              className={imageToolbarActive ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
-              aria-label="Take photo"
-            >
-              <IconCamera />
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => galleryRef.current?.click()}
-              className={imageToolbarActive ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
-              aria-label="Choose from gallery"
-            >
-              <IconGallery />
-            </button>
-            <VoiceMicButton
-              active={recording}
-              disabled={busy}
-              title={
-                voiceSupported
-                  ? "Tap or hold to record a voice message"
-                  : VOICE_UNSUPPORTED_MESSAGE
-              }
-              onPointerDown={handleMicPointerDown}
-              onPointerUp={handleMicPointerUp}
-              onPointerLeave={handleMicPointerUp}
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setEmojiOpen((open) => !open)}
-              className={emojiOpen ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
-              aria-label="Insert emoji"
-              aria-expanded={emojiOpen}
-            >
-              <span className="text-lg leading-none">☺</span>
-            </button>
-          </div>
-        ) : null}
-
         {recording ? (
-          <div className="mb-2">
-            <VoiceRecordingBar
-              elapsedSeconds={elapsedSeconds}
-              onCancel={cancelRecording}
-              onSend={() => void finishRecording()}
-              sending={finishingVoice}
-            />
-          </div>
+          <VoiceRecordingBar
+            elapsedSeconds={elapsedSeconds}
+            onCancel={cancelRecording}
+            onSend={() => void finishRecording()}
+            sending={finishingVoice}
+          />
         ) : (
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-1.5">
+            <div className="flex shrink-0 items-end gap-0.5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => cameraRef.current?.click()}
+                className={imageToolbarActive ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+                aria-label="Take photo"
+              >
+                <IconCamera />
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => galleryRef.current?.click()}
+                className={imageToolbarActive ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+                aria-label="Choose from gallery"
+              >
+                <IconGallery />
+              </button>
+              <VoiceMicButton
+                active={recording}
+                disabled={busy}
+                title={
+                  voiceSupported
+                    ? "Tap or hold to record a voice message"
+                    : VOICE_UNSUPPORTED_MESSAGE
+                }
+                onPointerDown={handleMicPointerDown}
+                onPointerUp={handleMicPointerUp}
+                onPointerLeave={handleMicPointerUp}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setEmojiOpen((open) => !open)}
+                className={emojiOpen ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+                aria-label="Insert emoji"
+                aria-expanded={emojiOpen}
+              >
+                <span className="text-lg leading-none">☺</span>
+              </button>
+            </div>
+
             <div className="flex min-w-0 flex-1 items-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5 focus-within:border-[#b4141e]/50 focus-within:ring-1 focus-within:ring-[#b4141e]/15">
               <input
                 ref={inputRef}

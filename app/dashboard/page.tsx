@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
-import { CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_CHIP_PILL } from "@/lib/crimson-accent";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -1020,13 +1020,15 @@ setFeedLoading(false);
                     />
                   </div>
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                  <div className={`pointer-events-none absolute left-4 top-4 max-w-[calc(100%-130px)] truncate backdrop-blur ${CS_CHIP_PILL}`}>
-                    Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
+                  <div className="pointer-events-none absolute left-3 top-3 max-w-[58%] sm:max-w-[calc(100%-8.5rem)]">
+                    <p className="truncate rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md">
+                      Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
+                    </p>
                   </div>
 
                   <Link
                     href={openMapHref}
-                    className={`absolute right-4 top-4 backdrop-blur transition hover:bg-[#b4141e]/30 ${CS_CHIP_PILL} py-1.5`}
+                    className="absolute right-3 top-3 rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 hover:text-[#e87a82]"
                   >
                     View Map
                   </Link>
