@@ -11,7 +11,7 @@ export default function AccountDeletionPage() {
         {
           title: "How to request deletion",
           body: [
-            "Open your private profile, tap the settings menu, and go to Safety → Request Account Deletion.",
+            "Open your private profile, open the profile menu (Settings), scroll to Safety, and choose Request Account Deletion.",
             "You must type DELETE to confirm. Your request is submitted to our admin review queue.",
             "You are signed out immediately and your profile enters deletion_pending status.",
           ],

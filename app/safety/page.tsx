@@ -5,8 +5,8 @@ export default function SafetyPage() {
     <PolicyPage
       eyebrow="Crimson Society"
       title="Safety Center"
-      updated="June 1, 2026"
-      intro="Safety in Crimson Society means clear boundaries, thoughtful Meet planning, optional location sharing, and practical tools for reports, blocks, and account deletion requests."
+      updated="June 8, 2026"
+      intro="Safety in Crimson Society means clear boundaries, thoughtful Meet planning, optional location sharing, and practical tools for reports, blocks, and account deletion."
       sections={[
         {
           title: "Before a Meet",
@@ -32,14 +32,14 @@ export default function SafetyPage() {
         {
           title: "Messages and Boundaries",
           body: [
-            "If a rider makes you uncomfortable in messages or through a public profile, use block and report. Blocking is intended to limit direct interaction, including messaging where supported.",
+            "If a rider makes you uncomfortable in messages (including voice or media messages) or through a public profile, use block and report. Blocking is intended to limit direct interaction, including messaging where supported.",
             "Do not share private message content outside the app to harass, shame, threaten, or coordinate retaliation against another rider.",
           ],
         },
         {
           title: "Reporting",
           body: [
-            "Report profiles, users, or Meets when you see harassment, threats, impersonation, scams, unsafe ride planning, privacy violations, or misuse of garage photos or live tracking.",
+            "Report profiles, users, posts, messages, or Meets when you see harassment, threats, impersonation, scams, unsafe ride planning, privacy violations, or misuse of garage photos or live tracking.",
             "Include a clear reason and helpful details. Reports may be reviewed by admins or owners and may result in content removal, account limits, or other safety action.",
           ],
         },
@@ -51,11 +51,12 @@ export default function SafetyPage() {
           ],
         },
         {
-          title: "Account Deletion Requests",
+          title: "Account Deletion",
           body: [
-            "You can request account deletion from your private profile safety controls. Deletion is irreversible once an admin marks a request completed.",
-            "Immediately after completion, sign-in and app access are disabled. Your request may stay pending or under review before that step. Reports and moderation history are preserved for community safety.",
-            "Cancel a pending request from profile settings while it is still pending. If you need urgent safety help, contact local emergency services first. Crimson Society tools are community safety features, not emergency response systems.",
+            "You can request account deletion from your private profile: open the profile menu, go to Safety, and choose Request Account Deletion. You must type DELETE to confirm.",
+            "While a request is pending, you may sign in only to view deletion status, cancel the request, or read /account-deletion and /privacy. Other app features are unavailable until deletion is canceled or completed.",
+            "When an administrator approves deletion, we cancel Blackcard subscriptions, delete your content and authentication account, and retain moderation records only as described at /account-deletion. Deletion is irreversible once completed.",
+            "If you need urgent safety help, contact local emergency services first. Crimson Society tools are community safety features, not emergency response systems.",
           ],
         },
       ]}

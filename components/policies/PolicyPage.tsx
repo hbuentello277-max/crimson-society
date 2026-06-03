@@ -84,13 +84,6 @@ export default function PolicyPage({
             <SupportContactSection />
           </div>
         )}
-
-        <footer className="mt-10 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-5">
-          <p className="text-sm leading-7 text-[#f1c3c7]">
-            These draft launch policies are written for Crimson Society beta readiness and should be
-            reviewed by counsel before broad public launch or App Store submission.
-          </p>
-        </footer>
       </div>
     </main>
   );
