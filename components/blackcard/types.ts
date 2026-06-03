@@ -40,7 +40,7 @@ export function sanitizePlan(row: MembershipPlanRow): MembershipPlan {
       row.description ??
       (row.plan_type === "monthly"
         ? "Flexible entry for Blackcard Access"
-        : "Preferred value with priority standing"),
+        : "Save $30/year · 3 months free"),
     price: Number(row.price ?? 0),
     stripe_price_id: row.stripe_price_id ?? null,
     active: row.active ?? true,

@@ -30,8 +30,9 @@ Create **one product** with **two recurring prices** (or two products — the ap
 | Field | Recommended value |
 |-------|-------------------|
 | **Pricing model** | Standard, recurring |
-| **Amount** | **$79.00–$99.00 USD** / year (recommended: **$79.00** ≈ 34% off vs $120/yr at $10/mo) |
+| **Amount** | **$90.00 USD** / year |
 | **Billing period** | Yearly |
+| **Marketing** | Save $30/year · 3 months free (vs $10/mo × 12 = $120/yr) |
 | **Price ID** | Copy `price_...` after creation |
 
 ### Exact products to create (copy-paste checklist)
@@ -39,7 +40,8 @@ Create **one product** with **two recurring prices** (or two products — the ap
 ```
 Product 1: Blackcard Access
   └── Price A: $10.00 / month   → price_________________
-  └── Price B: $79.00 / year    → price_________________
+  └── Price B: $90.00 / year    → price_________________
+      (Save $30/year · 3 months free)
 ```
 
 ---
@@ -52,7 +54,9 @@ Choose **one or both** methods:
 
 1. Sign in as admin → `/admin/blackcard`
 2. Paste each **Stripe Price ID** into the **Stripe Price ID** field for Monthly and Yearly
-3. Save Pricing
+3. Set display prices: **$10** monthly, **$90** yearly
+4. Set yearly description: **Save $30/year · 3 months free**
+5. Save Pricing
 
 ### Option B — Database
 
@@ -66,8 +70,17 @@ SET stripe_price_id = 'price_YOUR_YEARLY_ID'
 WHERE plan_type = 'yearly';
 
 -- Align display prices with Stripe (cosmetic in app UI)
-UPDATE public.membership_plans SET price = 10 WHERE plan_type = 'monthly';
-UPDATE public.membership_plans SET price = 79 WHERE plan_type = 'yearly';
+UPDATE public.membership_plans
+SET price = 10,
+    title = 'Monthly Plan',
+    description = 'Flexible entry for Blackcard Access'
+WHERE plan_type = 'monthly';
+
+UPDATE public.membership_plans
+SET price = 90,
+    title = 'Yearly Plan',
+    description = 'Save $30/year · 3 months free'
+WHERE plan_type = 'yearly';
 ```
 
 ### Option C — Environment fallbacks
@@ -141,6 +154,12 @@ This adds:
 - `stripe_webhook_events` (webhook idempotency)
 - Backfill of `blackcard_public` from existing active subscriptions
 
+Also apply display pricing alignment (cosmetic UI only):
+
+```bash
+supabase/migrations/20260609130000_blackcard_pricing_display.sql
+```
+
 ---
 
 ## 7. Smoke Test (Test Mode)
@@ -162,7 +181,7 @@ This adds:
 ## 8. Go-Live
 
 1. Switch Stripe to **Live mode**
-2. Create live Product + Prices (same structure as test)
+2. Create live Product + Prices: **$10/mo** and **$90/yr**
 3. Update `stripe_price_id` in DB or env with **live** price IDs
 4. Create live webhook endpoint with live signing secret
 5. Update `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to live values
