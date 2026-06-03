@@ -7,6 +7,7 @@ import {
   CompactProfileStats,
   type ProfileStatItem,
 } from "@/components/profile/CompactProfileStats";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
 const BIO_PREVIEW_MAX = 88;
 
@@ -91,7 +92,7 @@ export function CompactProfileCard({
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.1),transparent_40%)]" />
 
         <div className="relative flex gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-black shadow-[0_0_24px_-8px_rgba(180,20,30,0.75)]">
+          <div className={`relative h-[72px] w-[72px] shrink-0 ${CS_AVATAR_RING}`}>
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
@@ -103,7 +104,7 @@ export function CompactProfileCard({
                 unoptimized={avatarUrl.includes("supabase")}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-2xl text-[#f0c8cb]">
+              <div className={`${CS_AVATAR_FALLBACK} text-2xl`}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}

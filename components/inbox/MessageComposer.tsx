@@ -14,6 +14,7 @@ import {
   CS_SEND_BTN_DISABLED,
   CS_TOOLBAR_BTN_ACTIVE,
   CS_TOOLBAR_BTN_INACTIVE,
+  MOBILE_BOTTOM_SAFE_INSET,
 } from "@/lib/crimson-accent";
 import {
   DM_VOICE_MAX_SECONDS,
@@ -24,8 +25,8 @@ import {
   VOICE_UNSUPPORTED_MESSAGE,
 } from "@/lib/messages/voice-recorder";
 
-/** Dock at the home indicator — safe area with 8px minimum on devices without inset. */
-export const MESSAGE_COMPOSER_BOTTOM_OFFSET = "max(8px, env(safe-area-inset-bottom))";
+/** Dock at the home indicator — tucked inside full safe-area on notched iPhones. */
+export const MESSAGE_COMPOSER_BOTTOM_OFFSET = MOBILE_BOTTOM_SAFE_INSET;
 
 const HOLD_RELEASE_MS = 300;
 

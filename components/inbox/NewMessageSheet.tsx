@@ -53,7 +53,7 @@ export function NewMessageSheet({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[300] flex flex-col justify-end bg-black/80 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      className="fixed inset-0 z-[300] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >
@@ -62,17 +62,17 @@ export function NewMessageSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-message-title"
-        className="flex max-h-[min(88dvh,720px)] w-full flex-col rounded-t-3xl border border-white/10 bg-[#0b0b0d] shadow-[0_0_50px_rgba(180,20,30,0.18)] sm:max-w-md sm:rounded-3xl"
+        className="flex h-[min(76dvh,660px)] w-full max-w-full flex-col rounded-t-3xl border border-white/10 bg-[#0b0b0d] shadow-[0_0_50px_rgba(180,20,30,0.18)] sm:h-auto sm:max-h-[min(88dvh,720px)] sm:max-w-md sm:rounded-3xl"
         style={{
-          paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
+          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 justify-center pt-3 sm:hidden">
+        <div className="flex shrink-0 justify-center pt-2 sm:hidden">
           <span className="h-1 w-10 rounded-full bg-white/20" aria-hidden />
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5">
           <div className="min-w-0">
             <h2 id="new-message-title" className="text-lg font-semibold text-white">
               New Message
@@ -92,7 +92,7 @@ export function NewMessageSheet({
           </button>
         </div>
 
-        <div className="shrink-0 px-4 py-3">
+        <div className="shrink-0 px-4 py-2.5">
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
             <span className="text-white/40">⌕</span>
             <input

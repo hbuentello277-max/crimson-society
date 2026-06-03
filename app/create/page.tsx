@@ -17,6 +17,7 @@ import CrimsonSoundPicker, {
 } from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
 type PostType = "photo" | "reel" | "status";
 type TaggableRider = {
@@ -765,8 +766,8 @@ export default function CreatePage() {
 
             <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
               <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#b4141e] font-serif italic text-white">
-                  CS
+                <div className={`relative h-10 w-10 ${CS_AVATAR_RING}`}>
+                  <div className={`${CS_AVATAR_FALLBACK} text-sm`}>CS</div>
                 </div>
                 <div>
                   <p className="text-sm text-white">Hector Buentello</p>
@@ -893,7 +894,7 @@ export default function CreatePage() {
                         : "border-white/10 hover:bg-white/5"
                     }`}
                   >
-                    <div className="relative h-11 w-11 overflow-hidden rounded-full border border-white/10">
+                    <div className={`relative h-11 w-11 ${CS_AVATAR_RING}`}>
                       {r.photo ? (
                         <Image
                           src={r.photo}
@@ -903,7 +904,7 @@ export default function CreatePage() {
                           className="object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[#b4141e] font-serif text-sm italic text-white">
+                        <div className={`${CS_AVATAR_FALLBACK} text-sm`}>
                           {r.name.charAt(0).toUpperCase()}
                         </div>
                       )}

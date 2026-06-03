@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 
 export type FollowListKind = "followers" | "following";
@@ -317,7 +318,7 @@ export default function FollowListView({
 
               const rowContent = (
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/40 bg-black">
+                  <div className={`relative h-12 w-12 shrink-0 ${CS_AVATAR_RING}`}>
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
@@ -328,7 +329,7 @@ export default function FollowListView({
                         unoptimized={avatarUrl.includes("supabase")}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-lg text-[#f0c8cb]">
+                      <div className={`${CS_AVATAR_FALLBACK} text-lg`}>
                         {displayName(person).charAt(0).toUpperCase()}
                       </div>
                     )}

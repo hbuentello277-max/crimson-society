@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import {
   actorDisplayName,
@@ -80,7 +81,7 @@ function NotificationAvatar({
   const name = actorDisplayName(actor);
 
   return (
-    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#0a0405]">
+    <div className={`relative h-11 w-11 shrink-0 ${CS_AVATAR_RING}`}>
       {photo ? (
         <Image
           src={photo}
@@ -91,7 +92,7 @@ function NotificationAvatar({
           unoptimized={photo.includes("supabase")}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#f4dadd]">
+        <div className={`${CS_AVATAR_FALLBACK} text-xs font-semibold not-italic`}>
           {actorInitials(actor, fallback)}
         </div>
       )}

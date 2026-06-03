@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { AppProfile } from "@/lib/profile";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 
 type Props = {
@@ -20,7 +21,7 @@ export default function ProfileHeader({ profile }: Props) {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(180,20,30,0.12),transparent_32%)]" />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/60 bg-black shadow-[0_0_40px_-10px_rgba(180,20,30,0.8)] sm:h-28 sm:w-28">
+            <div className={`relative h-24 w-24 shrink-0 sm:h-28 sm:w-28 ${CS_AVATAR_RING}`}>
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
@@ -32,7 +33,7 @@ export default function ProfileHeader({ profile }: Props) {
                   unoptimized={avatarUrl.includes("supabase")}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.24),transparent_58%)] font-serif text-3xl text-[#f0c8cb]">
+                <div className={`${CS_AVATAR_FALLBACK} text-3xl`}>
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
