@@ -51,7 +51,7 @@ export function deletionStatusLabel(status: string | null | undefined) {
     case "canceled":
       return "Canceled";
     case "rejected":
-      return "Rejected";
+      return "Rejected by admin";
     default:
       return status || "Unknown";
   }

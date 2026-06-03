@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getMissingSupabaseAdminEnvVars,
+  getSupabaseProjectUrl,
+  getSupabaseServiceRoleKey,
+} from "@/lib/supabase-admin-env";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = getSupabaseProjectUrl();
+const serviceRoleKey = getSupabaseServiceRoleKey();
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient();
@@ -26,7 +31,10 @@ export async function POST(request: Request) {
   }
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json({ error: "Missing Supabase env vars" }, { status: 500 });
+    return NextResponse.json(
+      { error: `Missing Supabase env var(s): ${getMissingSupabaseAdminEnvVars().join(", ")}` },
+      { status: 500 },
+    );
   }
 
   let body: Record<string, unknown>;

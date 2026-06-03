@@ -1,5 +1,6 @@
 import { getFirebasePublicConfig, getFirebaseVapidKey } from "@/lib/push/firebase-public";
 import { isFcmServerConfigured } from "@/lib/push/fcm-server";
+import { getSupabaseProjectUrl, getSupabaseServiceRoleKey } from "@/lib/supabase-admin-env";
 
 export type PushProductionReadiness = {
   clientConfigured: boolean;
@@ -29,9 +30,7 @@ export function getPushProductionReadiness(): PushProductionReadiness {
     missing.push("PUSH_DISPATCH_SECRET (and optional CRON_SECRET for Vercel Cron)");
   }
 
-  const supabaseAdminConfigured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  const supabaseAdminConfigured = Boolean(getSupabaseProjectUrl() && getSupabaseServiceRoleKey());
   if (!supabaseAdminConfigured) {
     missing.push("SUPABASE_SERVICE_ROLE_KEY");
   }

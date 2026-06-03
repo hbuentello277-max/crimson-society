@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getMissingSupabaseAdminEnvVars,
+  getSupabaseProjectUrl,
+  getSupabaseServiceRoleKey,
+} from "@/lib/supabase-admin-env";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export async function POST(request: Request) {
@@ -23,11 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = getSupabaseServiceRoleKey();
+  const supabaseUrl = getSupabaseProjectUrl();
 
   if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: "Missing Supabase env vars" }, { status: 500 });
+    return NextResponse.json(
+      { error: `Missing Supabase env var(s): ${getMissingSupabaseAdminEnvVars().join(", ")}` },
+      { status: 500 },
+    );
   }
 
   let body: { profileId?: string; membership?: "regular" | "blackcard" };

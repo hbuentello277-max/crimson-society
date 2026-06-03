@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getMissingSupabaseAdminEnvVars, getSupabaseProjectUrl, getSupabaseServiceRoleKey } from "@/lib/supabase-admin-env";
 
 export async function POST(req: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = getSupabaseProjectUrl();
+  const serviceRoleKey = getSupabaseServiceRoleKey();
 
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
-      { error: "Missing Supabase env vars" },
-      { status: 500 }
+      { error: `Missing Supabase env var(s): ${getMissingSupabaseAdminEnvVars().join(", ")}` },
+      { status: 500 },
     );
   }
 

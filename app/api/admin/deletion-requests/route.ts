@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { executeAccountDeletion } from "@/lib/account-deletion/execute";
 import { notifyAdminsAccountDeletion } from "@/lib/account-deletion/notify-admins";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
+import { getMissingSupabaseAdminEnvVars } from "@/lib/supabase-admin-env";
 
 const DELETION_STATUSES = ["reviewing", "completed", "rejected"] as const;
 type DeletionStatus = (typeof DELETION_STATUSES)[number];
@@ -10,50 +11,58 @@ function isDeletionStatus(value: unknown): value is DeletionStatus {
   return typeof value === "string" && DELETION_STATUSES.includes(value as DeletionStatus);
 }
 
+function serviceRoleConfigError(error: unknown) {
+  const missing = getMissingSupabaseAdminEnvVars();
+  const message =
+    error instanceof Error
+      ? error.message
+      : `Missing Supabase env var(s): ${missing.join(", ")}`;
+  return NextResponse.json(
+    {
+      error: `${message}. Admin approval requires SUPABASE_SERVICE_ROLE_KEY on the server.`,
+    },
+    { status: 500 },
+  );
+}
+
 export async function GET() {
   const auth = await requireAdminSession();
   if ("error" in auth) {
     return auth.error;
   }
 
-  try {
-    const adminClient = createAdminServiceClient();
-    const { data, error } = await adminClient
-      .from("account_deletion_requests")
-      .select(
-        "id, user_id, status, details, requested_at, reviewed_at, reviewed_by, previous_status, completed_at",
-      )
-      .order("requested_at", { ascending: false })
-      .limit(50);
+  const adminClient = auth.session.supabase;
+  const { data, error } = await adminClient
+    .from("account_deletion_requests")
+    .select(
+      "id, user_id, status, details, requested_at, reviewed_at, reviewed_by, previous_status, completed_at",
+    )
+    .order("requested_at", { ascending: false })
+    .limit(50);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    const userIds = Array.from(
-      new Set(
-        (data || [])
-          .flatMap((row) => [row.user_id, row.reviewed_by])
-          .filter((id): id is string => typeof id === "string" && id.length > 0),
-      ),
-    );
-
-    const { data: profiles } = userIds.length
-      ? await adminClient
-          .from("profiles")
-          .select("id, username, email, display_name, role, status")
-          .in("id", userIds)
-      : { data: [] as Record<string, unknown>[] };
-
-    return NextResponse.json({
-      requests: data || [],
-      profiles: profiles || [],
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to load deletion requests.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  const userIds = Array.from(
+    new Set(
+      (data || [])
+        .flatMap((row) => [row.user_id, row.reviewed_by])
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  );
+
+  const { data: profiles } = userIds.length
+    ? await adminClient
+        .from("profiles")
+        .select("id, username, email, display_name, role, status")
+        .in("id", userIds)
+    : { data: [] as Record<string, unknown>[] };
+
+  return NextResponse.json({
+    requests: data || [],
+    profiles: profiles || [],
+  });
 }
 
 export async function PATCH(request: Request) {
@@ -80,7 +89,13 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const adminClient = createAdminServiceClient();
+    let adminClient;
+    try {
+      adminClient = createAdminServiceClient();
+    } catch (error) {
+      return serviceRoleConfigError(error);
+    }
+
     const now = new Date().toISOString();
 
     const { data: existing, error: existingError } = await adminClient

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
+import { requireAdminSession } from "@/lib/admin-api";
 
 export async function DELETE(request: Request) {
   const auth = await requireAdminSession();
@@ -19,36 +19,21 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Meet id is required." }, { status: 400 });
   }
 
-  try {
-    const adminClient = createAdminServiceClient();
+  const { data, error } = await auth.session.supabase.rpc("admin_delete_ride", {
+    p_ride_id: rideId,
+  });
 
-    const { data: ride, error: rideError } = await adminClient
-      .from("rides")
-      .select("id, name")
-      .eq("id", rideId)
-      .maybeSingle();
-
-    if (rideError) {
-      return NextResponse.json({ error: rideError.message }, { status: 400 });
-    }
-
-    if (!ride) {
-      return NextResponse.json({ error: "Meet not found." }, { status: 404 });
-    }
-
-    const { error: deleteError } = await adminClient.from("rides").delete().eq("id", rideId);
-
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      id: rideId,
-      message: `Meet "${ride.name || "Untitled"}" was permanently deleted.`,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete meet.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (error) {
+    const message = error.message || "Failed to delete meet.";
+    const status = message.includes("not found") ? 404 : message.includes("Admins only") ? 403 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
+
+  const result = (data || {}) as { ok?: boolean; id?: string; name?: string };
+
+  return NextResponse.json({
+    ok: true,
+    id: result.id || rideId,
+    message: `Meet "${result.name || "Untitled"}" was permanently deleted.`,
+  });
 }

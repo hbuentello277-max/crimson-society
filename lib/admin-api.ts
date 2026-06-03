@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { assertSupabaseAdminEnv } from "@/lib/supabase-admin-env";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export type AdminSession = {
@@ -36,14 +37,9 @@ export async function requireAdminSession():
 }
 
 export function createAdminServiceClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, serviceRoleKey } = assertSupabaseAdminEnv();
 
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error("Missing Supabase env vars");
-  }
-
-  return createClient(supabaseUrl, serviceKey, {
+  return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

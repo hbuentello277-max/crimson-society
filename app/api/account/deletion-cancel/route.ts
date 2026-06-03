@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { notifyAdminsAccountDeletion } from "@/lib/account-deletion/notify-admins";
 import { createAdminServiceClient } from "@/lib/admin-api";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
@@ -12,95 +11,37 @@ export async function POST(request: Request) {
     );
   }
 
-  const userId = auth.userId;
+  const { data, error: rpcError } = await auth.supabase.rpc("cancel_account_deletion_request");
 
-  let adminClient;
+  if (rpcError) {
+    const message = rpcError.message || "Could not cancel deletion request.";
+    const status =
+      message.includes("No pending") || message.includes("No open")
+        ? message.includes("No open")
+          ? 404
+          : 400
+        : 400;
+
+    return NextResponse.json({ error: message }, { status });
+  }
+
+  const result = (data || {}) as { status?: string; request_id?: string };
+
   try {
-    adminClient = createAdminServiceClient();
+    const adminClient = createAdminServiceClient();
+    await adminClient.auth.admin.updateUserById(auth.userId, {
+      app_metadata: { deletion_pending: false },
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Server configuration error.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  const { data: profile } = await adminClient
-    .from("profiles")
-    .select("id, status, username")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profile?.status !== "deletion_pending") {
-    return NextResponse.json(
-      { error: "No pending account deletion to cancel." },
-      { status: 400 },
+    console.error(
+      "Service role unavailable for auth metadata update:",
+      error instanceof Error ? error.message : error,
     );
   }
-
-  const { data: openRequest } = await adminClient
-    .from("account_deletion_requests")
-    .select("id, status, previous_status")
-    .eq("user_id", userId)
-    .in("status", ["pending", "reviewing"])
-    .order("requested_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!openRequest) {
-    return NextResponse.json(
-      { error: "No open deletion request found." },
-      { status: 404 },
-    );
-  }
-
-  if (openRequest.status !== "pending") {
-    return NextResponse.json(
-      { error: "Only pending requests can be canceled by the account owner." },
-      { status: 400 },
-    );
-  }
-
-  const restoreStatus =
-    typeof openRequest.previous_status === "string" && openRequest.previous_status.length > 0
-      ? openRequest.previous_status
-      : "active";
-
-  const now = new Date().toISOString();
-
-  const { error: requestError } = await adminClient
-    .from("account_deletion_requests")
-    .update({ status: "canceled", reviewed_at: now })
-    .eq("id", openRequest.id);
-
-  if (requestError) {
-    return NextResponse.json({ error: requestError.message }, { status: 400 });
-  }
-
-  const { error: profileError } = await adminClient
-    .from("profiles")
-    .update({
-      status: restoreStatus,
-      hide_from_suggestions: false,
-      hide_location_from_suggestions: false,
-    })
-    .eq("id", userId);
-
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 400 });
-  }
-
-  await adminClient.auth.admin.updateUserById(userId, {
-    app_metadata: { deletion_pending: false },
-  });
-
-  await notifyAdminsAccountDeletion(adminClient, {
-    actorUserId: userId,
-    username: profile?.username ?? null,
-    kind: "account_deletion_canceled",
-    requestId: openRequest.id,
-  });
 
   return NextResponse.json({
     ok: true,
     message: "Deletion request canceled. Your account is active again.",
-    status: restoreStatus,
+    status: result.status || "active",
   });
 }
