@@ -12,7 +12,7 @@ import type { AppProfile } from "@/lib/profile";
 import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 import { useProfile } from "@/hooks/useProfile";
 import { getBestImageUrl } from "@/lib/media";
-import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
 import {
   type AccountDeletionRequestRow,
   deletionStatusLabel,
@@ -435,7 +435,7 @@ return [
 ];
 }, []);
 
-const blackcardAccessActive = hasBlackcardAccess(membership, isAdmin);
+const membershipTier = resolveMembershipTier({ membership, isAdmin, profile: profile ?? undefined });
 
 if (authLoading || profileLoading) {
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8"> <ProfileSkeleton /> </div> </main>
@@ -493,7 +493,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       location={profileLocation(profile)}
       details={profileCardDetails(profile)}
       avatarUrl={profile.profile_image_url || profile.avatar_url}
-      blackcardMember={blackcardAccessActive}
+      membershipTier={membershipTier}
       stats={[
         { label: "Posts", value: stats.posts },
         { label: "Followers", value: stats.followers, href: "/profile/followers" },

@@ -19,7 +19,7 @@ type MembershipRequestBody = {
 };
 
 const PROFILE_SELECT =
-  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at";
+  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier";
 
 function addDays(from: Date, days: number) {
   const next = new Date(from);
@@ -117,7 +117,23 @@ export async function POST(request: Request) {
       premium_expires_at: expiresAt,
     };
   } else if (action === "grant_founding") {
+    const { data: grantsOpen, error: grantsError } = await adminClient.rpc(
+      "founding_blackcard_grants_open",
+    );
+
+    if (grantsError) {
+      return NextResponse.json({ error: grantsError.message }, { status: 400 });
+    }
+
+    if (grantsOpen !== true) {
+      return NextResponse.json(
+        { error: "Founding Blackcard grants are closed. Existing founding members keep lifetime benefits." },
+        { status: 403 },
+      );
+    }
+
     updatePayload = {
+
       is_founding_blackcard: true,
       founding_blackcard_granted_at: new Date().toISOString(),
       is_premium: true,
@@ -145,6 +161,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
 
+  const { data: syncedTier, error: tierSyncError } = await adminClient.rpc(
+    "sync_profile_membership_tier",
+    { target_user_id: profileId },
+  );
+
+  if (tierSyncError) {
+    return NextResponse.json({ error: tierSyncError.message }, { status: 400 });
+  }
+
   const blackcardPublic = await syncBlackcardPublicForUser(adminClient, profileId);
 
   const { data: subscription } = await adminClient
@@ -155,8 +180,18 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
 
+  const { data: refreshedProfile } = await adminClient
+    .from("profiles")
+    .select(PROFILE_SELECT)
+    .eq("id", profileId)
+    .single();
+
   return NextResponse.json({
-    profile: { ...updatedProfile, blackcard_public: blackcardPublic },
+    profile: {
+      ...(refreshedProfile ?? updatedProfile),
+      blackcard_public: blackcardPublic,
+      membership_tier: syncedTier ?? refreshedProfile?.membership_tier ?? updatedProfile.membership_tier,
+    },
     subscription,
   });
 }

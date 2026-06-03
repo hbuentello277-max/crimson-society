@@ -45,5 +45,7 @@ export async function syncBlackcardPublicForUser(
     throw updateError;
   }
 
+  await adminClient.rpc("sync_profile_membership_tier", { target_user_id: userId });
+
   return isActive;
 }

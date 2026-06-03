@@ -17,7 +17,7 @@ import type { MembershipRow } from "@/lib/membership";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked";
-type MembershipTier = "regular" | "blackcard";
+type MembershipTier = "regular" | "blackcard" | "founding";
 
 type AdminProfile = {
   id: string;
@@ -30,6 +30,10 @@ type AdminProfile = {
   premium_tier?: string | null;
   premium_since?: string | null;
   premium_expires_at?: string | null;
+  is_founding_blackcard?: boolean | null;
+  founding_blackcard_granted_at?: string | null;
+  membership_tier?: string | null;
+  blackcard_public?: boolean | null;
   created_at?: string | null;
 };
 
@@ -166,10 +170,12 @@ function getProfileLabel(id: string | null | undefined, profileMap: Map<string, 
 }
 
 function getMembershipTier(item: AdminProfile): MembershipTier {
+  if (item.is_founding_blackcard) return "founding";
   if (item.is_premium && (item.premium_tier || "").toLowerCase() === "blackcard") {
     return "blackcard";
   }
-
+  if ((item.membership_tier || "").toLowerCase() === "founding") return "founding";
+  if ((item.membership_tier || "").toLowerCase() === "blackcard") return "blackcard";
   return "regular";
 }
 
@@ -1053,11 +1059,12 @@ function AdminPageContent() {
                     Role, status, and Blackcard membership controls are available in the Profiles table below.
                   </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     { label: "Admins", value: profiles.filter((item) => item.role === "admin").length },
                     { label: "Moderators", value: profiles.filter((item) => item.role === "moderator").length },
                     { label: "Blackcard", value: profiles.filter((item) => getMembershipTier(item) === "blackcard").length },
+                    { label: "Founding", value: profiles.filter((item) => getMembershipTier(item) === "founding").length },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-white/10 bg-black/25 p-4">
                       <p className="text-2xl font-semibold text-white">{item.value}</p>
@@ -1104,7 +1111,11 @@ function AdminPageContent() {
 
                   const membershipControl = isAdminAccount ? (
                     <div className="flex min-h-10 items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm uppercase tracking-[0.18em] text-zinc-200">
-                      BLACKCARD
+                      ADMIN
+                    </div>
+                  ) : membership === "founding" ? (
+                    <div className="flex min-h-10 items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm uppercase tracking-[0.18em] text-amber-100">
+                      🏆 founding
                     </div>
                   ) : (
                     <select

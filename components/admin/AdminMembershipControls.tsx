@@ -59,16 +59,20 @@ export function AdminMembershipControls({
   onAction,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [tierFilter, setTierFilter] = useState<"all" | "founding" | "blackcard">("all");
   const [customExpiryById, setCustomExpiryById] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return profiles;
     return profiles.filter((profile) => {
+      if (tierFilter === "founding" && !profile.is_founding_blackcard) return false;
+      if (tierFilter === "blackcard" && profile.is_founding_blackcard) return false;
+      if (tierFilter === "blackcard" && !profile.is_premium && !subscriptionsByUserId[profile.id]) return false;
+      if (!q) return true;
       const label = profileLabel(profile).toLowerCase();
       return label.includes(q) || profile.id.toLowerCase().includes(q);
     });
-  }, [profiles, query]);
+  }, [profiles, query, tierFilter, subscriptionsByUserId]);
 
   return (
     <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
@@ -85,13 +89,22 @@ export function AdminMembershipControls({
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search by username"
           className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
         />
+        <select
+          value={tierFilter}
+          onChange={(event) => setTierFilter(event.target.value as "all" | "founding" | "blackcard")}
+          className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
+        >
+          <option value="all" className="bg-black">All members</option>
+          <option value="founding" className="bg-black">Founding only</option>
+          <option value="blackcard" className="bg-black">Blackcard (non-founding)</option>
+        </select>
       </div>
 
       <div className="mt-5 space-y-3">
@@ -117,11 +130,16 @@ export function AdminMembershipControls({
                     ) : null}
                   </div>
                   <p className="mt-2 text-sm text-zinc-400">
-                    Membership: {membershipStatusLabel({ membership: subscription, adminOverride: profile, isAdmin: isAdminAccount })}
+                    Membership: {membershipStatusLabel({ membership: subscription, profile, isAdmin: isAdminAccount })}
                   </p>
                   <p className="mt-1 text-sm text-zinc-500">
                     Subscription: {subscriptionStatusLabel(subscription)}
                   </p>
+                  {profile.founding_blackcard_granted_at ? (
+                    <p className="mt-1 text-sm text-amber-200/80">
+                      Founding granted: {formatDate(profile.founding_blackcard_granted_at)}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-sm text-zinc-500">
                     Override expiration: {formatDate(profile.premium_expires_at)}
                   </p>

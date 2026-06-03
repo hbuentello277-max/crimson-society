@@ -15,7 +15,7 @@ import { PostActionSheet, type PostActionTarget } from "@/components/social/Post
 import { ProfileActionSheet } from "@/components/social/ProfileActionSheet";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { removeMutualFollows } from "@/lib/blocking";
-import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
@@ -43,6 +43,10 @@ type PublicProfile = {
   tiktok_url: string | null;
   youtube_url: string | null;
   website_url: string | null;
+  blackcard_public?: boolean | null;
+  is_founding_blackcard?: boolean | null;
+  founding_blackcard_granted_at?: string | null;
+  membership_tier?: string | null;
 };
 
 type ProfilePost = {
@@ -223,7 +227,7 @@ export default function PublicProfilePage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, instagram_url, tiktok_url, youtube_url, website_url",
+          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, instagram_url, tiktok_url, youtube_url, website_url",
         )
         .eq("username", usernameParam)
         .maybeSingle();
@@ -471,7 +475,7 @@ export default function PublicProfilePage() {
     };
   }, [profile?.id, session?.user?.id]);
 
-  const blackcardAccessActive = hasBlackcardAccess(membership, false);
+  const membershipTier = resolveMembershipTier({ membership, profile: profile ?? undefined, blackcardPublic: profile?.blackcard_public });
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
   const followerListRoutes = useMemo(() => {
     const slug = profile?.username?.trim().replace(/^@+/, "") || usernameParam?.trim().replace(/^@+/, "");
@@ -809,7 +813,7 @@ export default function PublicProfilePage() {
           location={location}
           details={profileDetails}
           avatarUrl={avatarUrl}
-          blackcardMember={blackcardAccessActive}
+          membershipTier={membershipTier}
           stats={[
             { label: "Posts", value: postCount },
             {

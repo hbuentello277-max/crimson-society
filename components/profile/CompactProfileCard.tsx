@@ -7,7 +7,9 @@ import {
   CompactProfileStats,
   type ProfileStatItem,
 } from "@/components/profile/CompactProfileStats";
+import { MembershipTierBadge } from "@/components/profile/MembershipTierBadge";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import type { CrimsonMembershipTier } from "@/lib/membership";
 
 const BIO_PREVIEW_MAX = 88;
 
@@ -27,37 +29,19 @@ type CompactProfileCardProps = {
   handle: string;
   location: string;
   avatarUrl: string | null;
-  blackcardMember: boolean;
+  membershipTier?: CrimsonMembershipTier;
   stats: ProfileStatItem[];
   actions: ReactNode;
   details?: ProfileCardDetails;
   notice?: ReactNode;
 };
 
-function BlackcardAccessCta({ locked = false }: { locked?: boolean }) {
-  return (
-    <Link
-      href="/blackcard"
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[8px] uppercase tracking-[0.14em] transition ${
-        locked
-          ? "border-[#b4141e]/25 bg-black/30 text-[#c9a0a4] hover:border-[#b4141e]/45"
-          : "border-[#b4141e]/35 bg-white/[0.03] text-[#f1c3c7] hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
-      }`}
-    >
-      Blackcard Access
-      <span aria-hidden className="text-[#e87a82]">
-        ›
-      </span>
-    </Link>
-  );
-}
-
 export function CompactProfileCard({
   displayName,
   handle,
   location,
   avatarUrl,
-  blackcardMember,
+  membershipTier = "free",
   stats,
   actions,
   details,
@@ -179,14 +163,8 @@ export function CompactProfileCard({
           </div>
         </div>
 
-        <div className="relative mt-2 flex flex-wrap items-center gap-1.5">
-          {blackcardMember && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#b4141e]/45 bg-[#b4141e]/10 px-2.5 py-1 text-[8px] font-medium uppercase tracking-[0.16em] text-[#e87a82]">
-              <span className="text-[10px] leading-none text-[#b4141e]">◆</span>
-              Blackcard Member
-            </span>
-          )}
-          <BlackcardAccessCta locked={!blackcardMember} />
+        <div className="relative mt-2">
+          <MembershipTierBadge tier={membershipTier} />
         </div>
 
         {notice}

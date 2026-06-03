@@ -1307,7 +1307,7 @@ let duration: string | null = newRide.duration || null;
           .maybeSingle(),
         supabase
           .from("profiles")
-          .select("is_premium, premium_tier, premium_expires_at, blackcard_public")
+          .select("is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public")
           .eq("id", userId)
           .maybeSingle(),
         supabase.from("user_follows").select("following_id").eq("follower_id", userId),
@@ -1318,7 +1318,7 @@ let duration: string | null = newRide.duration || null;
 
       setViewerHasBlackcard(
         hasBlackcardAccess((membershipResponse.data as MembershipRow | null) ?? null, isAdmin, {
-          adminOverride: profileResponse.data,
+          profile: profileResponse.data,
           blackcardPublic: profileResponse.data?.blackcard_public,
         }),
       );
