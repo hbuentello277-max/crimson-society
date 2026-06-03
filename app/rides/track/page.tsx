@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import {
+  activeRideFromSessionPayload,
+  bootstrapActiveRideFromDb,
+} from "@/lib/rides/bootstrap-active-ride";
+import {
+  readActiveRideSession,
+  writeActiveRideSession,
+} from "@/lib/rides/active-ride-session";
+import { hasRoadGeometry, parseRoute } from "@/lib/rides/route-geometry";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), {
   ssr: false,
@@ -127,12 +136,6 @@ function isRoutePoint(value: unknown): value is RoutePoint {
   );
 }
 
-function parseRoute(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  const route = value.filter(isRoutePoint);
-  return route.length > 2 ? route : [];
-}
-
 function parseWaypoints(value: unknown) {
   if (!Array.isArray(value)) return [];
 
@@ -151,42 +154,24 @@ function parseTrackingStatus(value: unknown): RideTrackingStatus {
   return value === "active" || value === "ended" ? value : "not_started";
 }
 
-function parseStoredRide(stored: string | null): ActiveRide | null {
-  if (!stored) return null;
+function sessionPayloadToActiveRide(payload: ReturnType<typeof readActiveRideSession>): ActiveRide | null {
+  if (!payload) return null;
 
-  try {
-    const rideData = JSON.parse(stored) as StoredRideData;
-    const route = parseRoute(rideData.route);
+  const normalized = activeRideFromSessionPayload(payload);
+  if (!normalized) return null;
 
-    if (route.length === 0) return null;
-
-    return {
-      id: typeof rideData.id === "string" && rideData.id.trim() ? rideData.id : null,
-      hostId:
-        typeof rideData.hostId === "string" && rideData.hostId.trim() ? rideData.hostId : null,
-      route,
-      waypoints: parseWaypoints(rideData.waypoints),
-      name: typeof rideData.name === "string" && rideData.name.trim() ? rideData.name : "Active ride",
-      meetPoint:
-        typeof rideData.meetPoint === "string" && rideData.meetPoint.trim()
-          ? rideData.meetPoint
-          : "Meet point",
-      destination:
-        typeof rideData.destination === "string" && rideData.destination.trim()
-          ? rideData.destination
-          : "Destination",
-      trackingStatus: parseTrackingStatus(rideData.trackingStatus),
-      startedAt:
-        typeof rideData.startedAt === "string" && rideData.startedAt.trim()
-          ? rideData.startedAt
-          : null,
-      endedAt:
-        typeof rideData.endedAt === "string" && rideData.endedAt.trim() ? rideData.endedAt : null,
-    };
-  } catch (error) {
-    console.error("Failed to load active ride:", error);
-    return null;
-  }
+  return {
+    id: normalized.id,
+    hostId: normalized.hostId,
+    route: normalized.route,
+    waypoints: parseWaypoints(normalized.waypoints),
+    name: normalized.name,
+    meetPoint: normalized.meetPoint,
+    destination: normalized.destination,
+    trackingStatus: normalized.trackingStatus,
+    startedAt: normalized.startedAt,
+    endedAt: normalized.endedAt,
+  };
 }
 
 function riderName(profile: ProfileRow | null | undefined) {
@@ -282,7 +267,7 @@ export default function RideTrackingPage() {
 
   const userId = session?.user?.id ?? null;
   const origin = activeRide?.route[0] ?? null;
-  const hasRoute = !!activeRide && !!origin && activeRide.route.length > 0;
+  const hasRoute = !!activeRide && !!origin && hasRoadGeometry(activeRide.route);
   const trackingStatus = activeRide?.trackingStatus ?? "not_started";
   const isRideLive = trackingStatus === "active";
   const isRideEnded = trackingStatus === "ended";
@@ -372,10 +357,40 @@ export default function RideTrackingPage() {
       return;
     }
 
-    const stored = window.sessionStorage.getItem("crimson-active-ride");
-    setActiveRide(parseStoredRide(stored));
-    setLoaded(true);
-  }, []);
+    if (authLoading) return;
+
+    let cancelled = false;
+
+    async function bootstrap() {
+      const sessionRide = sessionPayloadToActiveRide(readActiveRideSession());
+      if (sessionRide) {
+        if (!cancelled) {
+          setActiveRide(sessionRide);
+          setLoaded(true);
+        }
+        return;
+      }
+
+      if (!userId) {
+        if (!cancelled) setLoaded(true);
+        return;
+      }
+
+      const fromDb = await bootstrapActiveRideFromDb(userId);
+      if (cancelled) return;
+
+      if (fromDb) {
+        setActiveRide(sessionPayloadToActiveRide(fromDb));
+      }
+      setLoaded(true);
+    }
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, userId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10000);
@@ -540,11 +555,24 @@ export default function RideTrackingPage() {
 
     void loadLiveShareRide();
 
-    const refresh = window.setInterval(() => {
-      void loadLiveShareRide();
-    }, 30000);
+    const channel = supabase
+      .channel("live-share-ride-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rides",
+        },
+        () => {
+          void loadLiveShareRide();
+        }
+      )
+      .subscribe();
 
-    return () => window.clearInterval(refresh);
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [authLoading, liveMapMode, loadLiveShareRide, session]);
 
   const applyRideLifecycle = useCallback((row: RideLifecycleRow) => {
@@ -605,23 +633,20 @@ export default function RideTrackingPage() {
   }, [activeRide?.id, loadRideLifecycle]);
 
   useEffect(() => {
-    if (!activeRide) return;
+    if (!activeRide?.id || !hasRoadGeometry(activeRide.route)) return;
 
-    window.sessionStorage.setItem(
-      "crimson-active-ride",
-      JSON.stringify({
-        id: activeRide.id,
-        hostId: activeRide.hostId,
-        route: activeRide.route,
-        waypoints: activeRide.waypoints,
-        name: activeRide.name,
-        meetPoint: activeRide.meetPoint,
-        destination: activeRide.destination,
-        trackingStatus: activeRide.trackingStatus,
-        startedAt: activeRide.startedAt,
-        endedAt: activeRide.endedAt,
-      })
-    );
+    writeActiveRideSession({
+      id: activeRide.id,
+      hostId: activeRide.hostId,
+      route: activeRide.route,
+      waypoints: activeRide.waypoints,
+      name: activeRide.name,
+      meetPoint: activeRide.meetPoint,
+      destination: activeRide.destination,
+      trackingStatus: activeRide.trackingStatus,
+      startedAt: activeRide.startedAt,
+      endedAt: activeRide.endedAt,
+    });
   }, [activeRide]);
 
   const stopSharingLocation = useCallback(async (rideIdOverride?: string | null) => {
@@ -997,12 +1022,7 @@ export default function RideTrackingPage() {
       )
       .subscribe();
 
-    const refresh = window.setInterval(() => {
-      void loadLiveLocations();
-    }, 30000);
-
     return () => {
-      window.clearInterval(refresh);
       void supabase.removeChannel(channel);
     };
   }, [activeRide?.id, liveMapMode, loadLiveLocations]);
@@ -1027,12 +1047,7 @@ export default function RideTrackingPage() {
       )
       .subscribe();
 
-    const refresh = window.setInterval(() => {
-      void loadGlobalLiveLocations();
-    }, 30000);
-
     return () => {
-      window.clearInterval(refresh);
       void supabase.removeChannel(channel);
     };
   }, [authLoading, liveMapMode, loadGlobalLiveLocations, session]);
@@ -1245,7 +1260,8 @@ export default function RideTrackingPage() {
                 No active ride selected.
               </h1>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Open a meet and start ride tracking from its route details.
+                Open a meet with a saved route from the meets page, or join a hosted meet with
+                valid meet and destination coordinates.
               </p>
               <Link
                 href="/rides"

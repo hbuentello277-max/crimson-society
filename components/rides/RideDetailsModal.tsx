@@ -8,6 +8,7 @@ import type { ChangeEvent } from "react";
 import type { Ride, RideTrackingStatus } from "@/app/rides/page";
 import { useAuth } from "@/components/AuthProvider";
 import { canSelfJoinMeet, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
+import { writeActiveRideSession } from "@/lib/rides/active-ride-session";
 import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
@@ -393,6 +394,47 @@ export function RideDetailsModal({
     setModerationBusy(null);
   }
 
+  async function startActiveRide() {
+    if (!canModerate || isRideLive || isCanceled || moderationBusy) return;
+
+    const confirmed = window.confirm("Start live tracking for this meet?");
+    if (!confirmed) return;
+
+    setModerationBusy("start");
+
+    const startedAt = new Date().toISOString();
+    let query = supabase
+      .from("rides")
+      .update({
+        tracking_status: "active",
+        started_at: startedAt,
+        ended_at: null,
+      })
+      .eq("id", ride.id);
+
+    if (!isAdmin) {
+      query = query.eq("host_id", session?.user?.id ?? "");
+    }
+
+    const { error } = await query;
+
+    if (error) {
+      console.error("Failed to start ride:", error);
+      setSafetyMessage(error.message || "Could not start ride.");
+      setModerationBusy(null);
+      return;
+    }
+
+    onRideUpdated({
+      trackingStatus: "active" as RideTrackingStatus,
+      startedAt,
+      endedAt: null,
+    });
+    setSafetyMessage("Ride started.");
+    window.setTimeout(() => setSafetyMessage(null), 2400);
+    setModerationBusy(null);
+  }
+
   async function endActiveRide() {
     if (!canModerate || !isRideLive || moderationBusy) return;
 
@@ -761,6 +803,17 @@ export function RideDetailsModal({
                   </button>
                 )}
 
+                {!isCanceled && !isRideLive && (
+                  <button
+                    type="button"
+                    onClick={() => void startActiveRide()}
+                    disabled={!!moderationBusy}
+                    className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#b4141e]/32 disabled:opacity-50"
+                  >
+                    {moderationBusy === "start" ? "Starting" : "Start Ride"}
+                  </button>
+                )}
+
                 {isRideLive && !isCanceled && (
                   <button
                     type="button"
@@ -1089,29 +1142,33 @@ export function RideDetailsModal({
         </div>
 
         <div className="shrink-0 border-t border-white/8 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4">
-          <Link
-            href="/rides/track"
-            onClick={() => {
-              sessionStorage.setItem(
-                "crimson-active-ride",
-                JSON.stringify({
+          {hasRoute ? (
+            <Link
+              href="/rides/track"
+              onClick={() => {
+                writeActiveRideSession({
                   id: ride.id,
-                  hostId: ride.hostId,
-                  route: ride.route,
-                  waypoints: ride.waypoints,
+                  hostId: ride.hostId ?? null,
+                  route: safeRoute,
+                  waypoints: ride.waypoints ?? [],
                   name: ride.name,
                   meetPoint: ride.meetPoint,
                   destination: ride.destination,
-                  trackingStatus: ride.trackingStatus,
-                  startedAt: ride.startedAt,
-                  endedAt: ride.endedAt,
-                })
-              );
-            }}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-          >
-            Start Ride Tracking
-          </Link>
+                  trackingStatus: ride.trackingStatus ?? "not_started",
+                  startedAt: ride.startedAt ?? null,
+                  endedAt: ride.endedAt ?? null,
+                });
+              }}
+              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+            >
+              Start Ride Tracking
+            </Link>
+          ) : (
+            <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs leading-5 text-zinc-500">
+              Route geometry is unavailable. Edit this meet and select meet point and destination
+              from search results to enable tracking.
+            </p>
+          )}
 
           <button
             type="button"

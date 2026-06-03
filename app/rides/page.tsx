@@ -13,10 +13,16 @@ import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
 import { buildSnappedRoute } from "@/lib/routing";
+import {
+  ensureRouteGeometry,
+  hasRoadGeometry,
+  isRoutePoint,
+  parseRoute,
+  type RoutePoint,
+} from "@/lib/rides/route-geometry";
 import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
 import { CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 
-type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
 
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
@@ -141,60 +147,6 @@ function formatTime(time: string) {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function isRoutePoint(value: unknown): value is RoutePoint {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "lat" in value &&
-    "lng" in value &&
-    typeof (value as RoutePoint).lat === "number" &&
-    typeof (value as RoutePoint).lng === "number" &&
-    Number.isFinite((value as RoutePoint).lat) &&
-    Number.isFinite((value as RoutePoint).lng)
-  );
-}
-
-function parseRoute(value: unknown): RoutePoint[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRoutePoint);
-}
-
-function hasRoadGeometry(route: RoutePoint[]) {
-  return route.length > 2;
-}
-
-function endpointRoute(row: RideRow): RoutePoint[] {
-  return row.meet_point_lat !== null &&
-    row.meet_point_lng !== null &&
-    row.destination_lat !== null &&
-    row.destination_lng !== null
-    ? [
-        { lat: row.meet_point_lat, lng: row.meet_point_lng },
-        { lat: row.destination_lat, lng: row.destination_lng },
-      ]
-    : [];
-}
-
-async function resolveRouteGeometry(row: RideRow): Promise<RoutePoint[]> {
-  const savedRoute = parseRoute(row.route);
-  if (hasRoadGeometry(savedRoute)) return savedRoute;
-
-  const endpoints = endpointRoute(row);
-  if (endpoints.length < 2) return [];
-
-  try {
-    const snapped = await buildSnappedRoute({
-      origin: endpoints[0],
-      destination: endpoints[1],
-    });
-
-    return hasRoadGeometry(snapped.geometry) ? snapped.geometry : [];
-  } catch (error) {
-    console.error("Failed to hydrate meet route geometry:", error);
-    return [];
-  }
 }
 
 function parseWaypoints(value: unknown): RideWaypoint[] {
@@ -867,16 +819,9 @@ const rowsWithHosts = rows.map((row) => ({
 
 const ridesWithRoutes = await Promise.all(
   rowsWithHosts.map(async (row) => {
-    const savedRoute = parseRoute(row.route);
-    if (hasRoadGeometry(savedRoute)) {
-      return rideRowToRide(row as RideRow, savedRoute);
-    }
-
-    if (endpointRoute(row as RideRow).length < 2) {
-      return rideRowToRide(row as RideRow, []);
-    }
-
-    const resolvedRoute = await resolveRouteGeometry(row as RideRow);
+    const resolvedRoute = await ensureRouteGeometry(row as RideRow, {
+      persistForHostId: userId,
+    });
     return rideRowToRide(row as RideRow, resolvedRoute);
   }),
 );
