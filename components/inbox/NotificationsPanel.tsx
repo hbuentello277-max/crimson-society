@@ -292,7 +292,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
             <div key={group.label}>
               <h2
                 className={`text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 ${
-                  embedded ? "px-3 pb-1 pt-3" : "mb-3"
+                  embedded ? "px-3 pb-1 pt-4" : "mb-3"
                 }`}
               >
                 {group.label}
@@ -375,7 +375,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
   if (embedded) {
     return (
       <main className="relative flex h-full min-h-0 flex-col overflow-hidden bg-black text-zinc-100">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4 pt-2">
           {notificationList}
         </div>
       </main>

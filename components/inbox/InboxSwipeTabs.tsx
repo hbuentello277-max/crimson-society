@@ -202,7 +202,7 @@ export default function InboxSwipeTabs() {
     ? "top-0"
     : activeTab === "messages"
       ? "top-[calc(env(safe-area-inset-top)+14.25rem)]"
-      : "top-[calc(env(safe-area-inset-top)+5.75rem)]";
+      : "top-[calc(env(safe-area-inset-top)+6.75rem)]";
 
   return (
     <>

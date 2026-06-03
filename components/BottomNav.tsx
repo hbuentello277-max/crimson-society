@@ -404,7 +404,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505]/90 pb-[max(2px,calc(env(safe-area-inset-bottom)-12px))] backdrop-blur-xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505]/90 pb-[max(0px,calc(env(safe-area-inset-bottom)-18px))] backdrop-blur-xl">
       <ul className="mx-auto flex w-full max-w-full items-stretch justify-between gap-0 overflow-x-hidden pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-0 sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
