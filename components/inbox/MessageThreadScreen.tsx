@@ -46,11 +46,13 @@ type MessageThreadScreenProps = {
   onDraftChange: (value: string) => void;
   onSend: () => void;
   onImageSelected: (file: File) => void;
+  onAudioRecorded: (file: File, durationSeconds: number) => void;
   onBack: () => void;
   onReportMessage: (message: ThreadMessage) => void;
   focusComposer?: boolean;
   sending?: boolean;
   uploadingMedia?: boolean;
+  mediaUploadKind?: "image" | "audio" | null;
 };
 
 function daySeparatorLabel(createdAt: string) {
@@ -77,11 +79,13 @@ export function MessageThreadScreen({
   onDraftChange,
   onSend,
   onImageSelected,
+  onAudioRecorded,
   onBack,
   onReportMessage,
   focusComposer = false,
   sending = false,
   uploadingMedia = false,
+  mediaUploadKind = null,
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
@@ -317,8 +321,10 @@ export function MessageThreadScreen({
         onDraftChange={onDraftChange}
         onSend={onSend}
         onImageSelected={onImageSelected}
+        onAudioRecorded={onAudioRecorded}
         sending={sending}
         uploadingMedia={uploadingMedia}
+        mediaUploadKind={mediaUploadKind}
       />
 
       {previewImageUrl &&

@@ -3,8 +3,12 @@ import { NextResponse } from "next/server";
 import {
   buildDmMediaPath,
   DM_MESSAGE_MEDIA_BUCKET,
+  isDmAudioMime,
+  isDmImageMime,
+  validateDmAudioFile,
   validateDmImageFile,
 } from "@/lib/messages/dm-message";
+import { DM_VOICE_MAX_SECONDS } from "@/lib/messages/voice-recorder";
 import { isUuid } from "@/lib/messages/direct-conversation";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
@@ -15,6 +19,13 @@ function getServiceRoleClient() {
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+function parseDurationSeconds(raw: FormDataEntryValue | null) {
+  if (raw == null || raw === "") return null;
+  const value = Number(String(raw));
+  if (!Number.isFinite(value) || value < 0) return null;
+  return Math.min(Math.round(value), DM_VOICE_MAX_SECONDS);
 }
 
 export async function POST(request: Request) {
@@ -38,13 +49,26 @@ export async function POST(request: Request) {
   }
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "Image file is required." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Media file is required." }, { status: 400 });
   }
 
-  const validationError = validateDmImageFile(file);
+  const mime = file.type?.trim().toLowerCase() || "";
+  const isImage = isDmImageMime(mime);
+  const isAudio = isDmAudioMime(mime);
+
+  if (!isImage && !isAudio) {
+    return NextResponse.json(
+      { ok: false, error: "Unsupported file type. Send an image or voice message." },
+      { status: 400 },
+    );
+  }
+
+  const validationError = isImage ? validateDmImageFile(file) : validateDmAudioFile(file);
   if (validationError) {
     return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
   }
+
+  const mediaDurationSeconds = isAudio ? parseDurationSeconds(formData.get("durationSeconds")) : null;
 
   const { data: membership, error: membershipError } = await auth.supabase
     .from("conversation_members")
@@ -89,6 +113,8 @@ export async function POST(request: Request) {
 
   const { data: publicUrlData } = service.storage.from(DM_MESSAGE_MEDIA_BUCKET).getPublicUrl(mediaPath);
 
+  const messageType = isAudio ? ("audio" as const) : ("image" as const);
+
   return NextResponse.json({
     ok: true,
     messageId,
@@ -96,6 +122,7 @@ export async function POST(request: Request) {
     mediaUrl: publicUrlData.publicUrl,
     mediaMimeType: file.type,
     mediaSizeBytes: file.size,
-    messageType: "image" as const,
+    mediaDurationSeconds,
+    messageType,
   });
 }

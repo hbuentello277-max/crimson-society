@@ -116,3 +116,25 @@ export function validateDmImageFile(file: File) {
   }
   return null;
 }
+
+export function validateDmAudioFile(file: File) {
+  const mime = file.type?.trim().toLowerCase();
+  if (!mime || !DM_AUDIO_MIME_TYPES.has(mime)) {
+    return "Unsupported audio format.";
+  }
+  if (file.size > DM_AUDIO_MAX_BYTES) {
+    return "Voice messages must be 10 MB or smaller.";
+  }
+  if (file.size === 0) {
+    return "Recording is empty.";
+  }
+  return null;
+}
+
+export function isDmAudioMime(mime: string) {
+  return DM_AUDIO_MIME_TYPES.has(mime.trim().toLowerCase());
+}
+
+export function isDmImageMime(mime: string) {
+  return DM_IMAGE_MIME_TYPES.has(mime.trim().toLowerCase());
+}

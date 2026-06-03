@@ -19,6 +19,16 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+    setPlaying(false);
+    setProgress(0);
+    setDuration(durationSeconds ?? 0);
+  }, [mediaUrl, durationSeconds]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -29,27 +39,41 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
       setProgress(audio.currentTime / audio.duration);
     };
     const onLoadedMetadata = () => {
+      setLoading(false);
       if (Number.isFinite(audio.duration)) setDuration(audio.duration);
     };
+    const onCanPlay = () => setLoading(false);
+    const onWaiting = () => setLoading(true);
     const onEnded = () => {
       setPlaying(false);
       setProgress(0);
     };
+    const onError = () => {
+      setLoading(false);
+      setError(true);
+      setPlaying(false);
+    };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("canplay", onCanPlay);
+    audio.addEventListener("waiting", onWaiting);
     audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("canplay", onCanPlay);
+      audio.removeEventListener("waiting", onWaiting);
       audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
     };
   }, [mediaUrl]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || error) return;
 
     if (playing) {
       audio.pause();
@@ -57,13 +81,27 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
       return;
     }
 
+    setLoading(true);
     try {
       await audio.play();
       setPlaying(true);
+      setError(false);
     } catch {
       setPlaying(false);
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const durationLabel =
+    error
+      ? "Unavailable"
+      : duration > 0
+        ? formatDuration(duration)
+        : loading
+          ? "Loading…"
+          : "Voice message";
 
   return (
     <div
@@ -76,12 +114,27 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
       <button
         type="button"
         onClick={() => void togglePlay()}
+        disabled={error}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
           isMe ? "bg-white/20" : "bg-white/10"
-        }`}
-        aria-label={playing ? "Pause voice message" : "Play voice message"}
+        } disabled:opacity-40`}
+        aria-label={
+          error
+            ? "Voice message unavailable"
+            : playing
+              ? "Pause voice message"
+              : "Play voice message"
+        }
       >
-        {playing ? "❚❚" : "▶"}
+        {loading && !error ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : playing ? (
+          "❚❚"
+        ) : error ? (
+          "!"
+        ) : (
+          "▶"
+        )}
       </button>
 
       <div className="min-w-0 flex-1">
@@ -91,9 +144,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
             style={{ width: `${Math.min(100, progress * 100)}%` }}
           />
         </div>
-        <p className="mt-1 text-[11px] opacity-80">
-          {duration > 0 ? formatDuration(duration) : "Voice message"}
-        </p>
+        <p className="mt-1 text-[11px] opacity-80">{durationLabel}</p>
       </div>
 
       <audio ref={audioRef} src={mediaUrl} preload="metadata" className="hidden" />

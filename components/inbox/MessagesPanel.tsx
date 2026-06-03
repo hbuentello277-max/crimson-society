@@ -21,8 +21,10 @@ import {
   dmMessagePreview,
   normalizeDmMessageType,
   type DmMessageType,
+  validateDmAudioFile,
   validateDmImageFile,
 } from "@/lib/messages/dm-message";
+import { DM_VOICE_MAX_SECONDS, DM_VOICE_MIN_SECONDS } from "@/lib/messages/voice-recorder";
 import { CS_BADGE_SM } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
@@ -303,6 +305,7 @@ export default function MessagesPanel({
   const [reportMessageBusy, setReportMessageBusy] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [mediaUploadKind, setMediaUploadKind] = useState<"image" | "audio" | null>(null);
 
   const active =
     (activeId && conversations.find((c) => c.id === activeId)) ||
@@ -828,6 +831,7 @@ export default function MessagesPanel({
     }
 
     setUploadingMedia(true);
+    setMediaUploadKind("image");
     setErrorMsg("");
 
     try {
@@ -883,6 +887,87 @@ export default function MessagesPanel({
       setErrorMsg(error instanceof Error ? error.message : "Could not send image.");
     } finally {
       setUploadingMedia(false);
+      setMediaUploadKind(null);
+    }
+  };
+
+  const sendAudioMessage = async (file: File, durationSeconds: number) => {
+    if (!activeId || !userId || sendingMessage || uploadingMedia) return;
+
+    const validationError = validateDmAudioFile(file);
+    if (validationError) {
+      setErrorMsg(validationError);
+      return;
+    }
+
+    const clampedDuration = Math.min(
+      DM_VOICE_MAX_SECONDS,
+      Math.max(DM_VOICE_MIN_SECONDS, Math.round(durationSeconds)),
+    );
+
+    setUploadingMedia(true);
+    setMediaUploadKind("audio");
+    setErrorMsg("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      const formData = new FormData();
+      formData.append("conversationId", activeId);
+      formData.append("file", file);
+      formData.append("durationSeconds", String(clampedDuration));
+
+      const uploadResponse = await fetch("/api/messages/media", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+
+      const uploadResult = (await uploadResponse.json()) as {
+        ok?: boolean;
+        error?: string;
+        messageId?: string;
+        mediaUrl?: string;
+        mediaPath?: string;
+        mediaMimeType?: string;
+        mediaSizeBytes?: number;
+        mediaDurationSeconds?: number | null;
+        messageType?: string;
+      };
+
+      if (!uploadResponse.ok || !uploadResult.ok || !uploadResult.messageId) {
+        throw new Error(uploadResult.error || "Voice message upload failed.");
+      }
+
+      const inserted = await supabase
+        .from("messages")
+        .insert({
+          id: uploadResult.messageId,
+          conversation_id: activeId,
+          sender_id: userId,
+          message_type: "audio",
+          body: "",
+          media_url: uploadResult.mediaUrl,
+          media_path: uploadResult.mediaPath,
+          media_mime_type: uploadResult.mediaMimeType,
+          media_size_bytes: uploadResult.mediaSizeBytes,
+          media_duration_seconds:
+            uploadResult.mediaDurationSeconds ?? clampedDuration,
+        })
+        .select(DM_MESSAGE_SELECT)
+        .single();
+
+      if (inserted.error || !inserted.data) {
+        throw new Error(inserted.error?.message || "Voice message could not be saved.");
+      }
+
+      appendLocalMessage(inserted.data as unknown as MessageRow);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Could not send voice message.");
+    } finally {
+      setUploadingMedia(false);
+      setMediaUploadKind(null);
     }
   };
 
@@ -929,6 +1014,7 @@ export default function MessagesPanel({
           onDraftChange={setDraft}
           onSend={() => void sendMessage()}
           onImageSelected={(file) => void sendImageMessage(file)}
+          onAudioRecorded={(file, duration) => void sendAudioMessage(file, duration)}
           onBack={closeConversation}
           onReportMessage={(message) =>
             setReportMessageTarget({
@@ -947,6 +1033,7 @@ export default function MessagesPanel({
           focusComposer={focusComposerOnOpen}
           sending={sendingMessage}
           uploadingMedia={uploadingMedia}
+          mediaUploadKind={mediaUploadKind}
         />
       )}
 
