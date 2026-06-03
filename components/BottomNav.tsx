@@ -404,8 +404,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-      <ul className="mx-auto flex w-full max-w-full items-stretch justify-between gap-0 overflow-x-hidden pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-3 sm:max-w-3xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full min-h-[calc(56px+env(safe-area-inset-bottom))] overflow-x-hidden border-t border-white/10 bg-[#050505]/90 backdrop-blur-xl">
+      <ul className="mx-auto flex h-full w-full max-w-full items-stretch justify-between gap-0 overflow-x-hidden pb-[max(8px,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-2 sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (

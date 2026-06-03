@@ -24,8 +24,8 @@ import {
   VOICE_UNSUPPORTED_MESSAGE,
 } from "@/lib/messages/voice-recorder";
 
-/** Dock just above the home indicator — safe area + minimal breathing room. */
-export const MESSAGE_COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 0.25rem)";
+/** Dock at the home indicator — safe area with 8px minimum on devices without inset. */
+export const MESSAGE_COMPOSER_BOTTOM_OFFSET = "max(8px, env(safe-area-inset-bottom))";
 
 const HOLD_RELEASE_MS = 300;
 
@@ -260,7 +260,7 @@ export function MessageComposer({
         onChange={handleImageChange}
       />
 
-      <div className="box-border w-full max-w-full px-4 pb-1 pt-2">
+      <div className="box-border w-full max-w-full px-4 pt-2">
         {showVoiceUnsupported ? (
           <VoiceUnsupportedNotice onDismiss={() => setShowVoiceUnsupported(false)} />
         ) : null}
