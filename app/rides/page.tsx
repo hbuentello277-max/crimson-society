@@ -6,7 +6,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
-import { canSelfJoinMeet } from "@/lib/meet-privacy";
+import { canSelfJoinMeet, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
+import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
 import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
@@ -19,7 +20,8 @@ type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
 
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
-export type RidePrivacy = "Open" | "Invite";
+export type RidePrivacy = "Open" | "Invite" | "Blackcard";
+export type MeetScope = "all" | "blackcard";
 export type RideTrackingStatus = "not_started" | "active" | "ended";
 export type RideStatus = "active" | "canceled";
 
@@ -295,6 +297,9 @@ function RideCard({
   canManage,
   canModerate,
   unreadCount,
+  hasBlackcardAccess,
+  isAdmin,
+  userId,
   onJoin,
   onViewDetails,
   onEdit,
@@ -305,14 +310,23 @@ function RideCard({
   canManage: boolean;
   canModerate: boolean;
   unreadCount: number;
+  hasBlackcardAccess: boolean;
+  isAdmin: boolean;
+  userId: string | null | undefined;
   onJoin: () => void;
   onViewDetails: () => void;
   onEdit: () => void;
   onCancel: () => void;
 }) {
   const isCanceled = ride.status === "canceled";
-  const inviteJoinBlocked =
-    ride.privacy === "Invite" && !canModerate && !isGoing;
+  const joinBlocked =
+    !canSelfJoinMeet({
+      privacy: ride.privacy,
+      hostId: ride.hostId,
+      userId,
+      isAdmin,
+      hasBlackcardAccess,
+    }) && !isGoing;
 
   return (
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
@@ -353,6 +367,12 @@ function RideCard({
               {ride.privacy === "Invite" && (
                 <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
                   Invite
+                </span>
+              )}
+
+              {ride.privacy === "Blackcard" && (
+                <span className="rounded-md border border-[#b4141e]/55 bg-[#b4141e]/22 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
+                  Blackcard
                 </span>
               )}
 
@@ -440,11 +460,11 @@ function RideCard({
               <button
                 type="button"
                 onClick={onJoin}
-                disabled={canManage || isCanceled || inviteJoinBlocked}
+                disabled={canManage || isCanceled || joinBlocked}
                 className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                   isGoing
                     ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                    : inviteJoinBlocked
+                    : joinBlocked
                       ? "border-white/10 bg-white/[0.02] text-zinc-600"
                       : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
                 }`}
@@ -453,8 +473,10 @@ function RideCard({
                   ? "Hosting"
                   : isGoing
                     ? "Going"
-                    : inviteJoinBlocked
-                      ? "Invite Only"
+                    : joinBlocked
+                      ? ride.privacy === "Blackcard"
+                        ? "Members Only"
+                        : "Invite Only"
                       : "Join"}
               </button>
             </div>
@@ -469,6 +491,7 @@ function RidesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading: authLoading, isAdmin } = useAuth();
+  const { hasAccess: hasBlackcardAccess } = useBlackcardAccess();
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -482,6 +505,7 @@ function RidesPageContent() {
   const meetParam = searchParams.get("meet");
 
   const [meetTab, setMeetTab] = useState<"upcoming" | "completed">("upcoming");
+  const [meetScope, setMeetScope] = useState<MeetScope>("all");
 
   const allMeets = realMeets;
 
@@ -513,6 +537,29 @@ function RidesPageContent() {
 
   return { upcomingMeets: upcoming, completedMeets: completed };
 }, [allMeets, getRideDateTime]);
+
+  const filterByScope = useCallback(
+    (rides: Ride[]) => {
+      if (meetScope === "all") return rides;
+      return rides.filter((ride) => ride.privacy === "Blackcard");
+    },
+    [meetScope],
+  );
+
+  const scopedUpcomingMeets = useMemo(
+    () => filterByScope(upcomingMeets),
+    [filterByScope, upcomingMeets],
+  );
+
+  const scopedCompletedMeets = useMemo(
+    () => filterByScope(completedMeets),
+    [filterByScope, completedMeets],
+  );
+
+  const blackcardMeetCount = useMemo(
+    () => allMeets.filter((ride) => ride.privacy === "Blackcard").length,
+    [allMeets],
+  );
 
   useEffect(() => {
     selectedRideRef.current = selectedRide;
@@ -926,9 +973,10 @@ const ridesWithRoutes = await Promise.all(
       hostId: ride.hostId,
       userId: session.user.id,
       isAdmin,
+      hasBlackcardAccess,
     })
   ) {
-    setToast("Invite-only meet. Ask the host for access.");
+    setToast(getMeetJoinBlockMessage(ride.privacy));
     window.setTimeout(() => setToast(null), 2800);
     return;
   }
@@ -984,7 +1032,9 @@ const ridesWithRoutes = await Promise.all(
     setToast(
       ride?.privacy === "Invite"
         ? "Invite-only meet. Ask the host for access."
-        : "Could not join meet.",
+        : ride?.privacy === "Blackcard"
+          ? "Blackcard members only. Subscribe to join this meet."
+          : "Could not join meet.",
     );
     window.setTimeout(() => setToast(null), 2500);
     return;
@@ -1068,6 +1118,12 @@ const ridesWithRoutes = await Promise.all(
 
   async function saveMeet(newRide: HostRideForm) {
     if (!session?.user?.id) return;
+
+    if (newRide.privacy === "Blackcard" && !hasBlackcardAccess && !isAdmin) {
+      setToast("Blackcard membership is required to host member-only meets.");
+      window.setTimeout(() => setToast(null), 3000);
+      return;
+    }
 
     const meetLat =
       typeof newRide.meetPointLat === "number" && Number.isFinite(newRide.meetPointLat)
@@ -1262,6 +1318,26 @@ let duration: string | null = newRide.duration || null;
           </section>
         )}
 
+        {!loadingMeets && meets.length === 0 && (
+          <section className="mt-7 rounded-lg border border-white/10 bg-white/[0.025] p-6 text-center">
+            <p className="text-sm text-zinc-400">
+              {meetScope === "blackcard"
+                ? hasBlackcardAccess
+                  ? "No Blackcard meets scheduled yet."
+                  : "Blackcard meets are reserved for members. Subscribe to unlock access and join member-only runs."
+                : "No meets in this view yet."}
+            </p>
+            {meetScope === "blackcard" && !hasBlackcardAccess && (
+              <Link
+                href="/blackcard"
+                className="mt-4 inline-flex rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-5 py-2 text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/60"
+              >
+                View Blackcard Plans
+              </Link>
+            )}
+          </section>
+        )}
+
         {!loadingMeets && panelFeatured && (
           <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
             <div className="relative h-[280px] sm:h-[360px]">
@@ -1345,18 +1421,25 @@ let duration: string | null = newRide.duration || null;
                   disabled={
                     panelFeatured.hostId === session?.user?.id ||
                     panelFeatured.status === "canceled" ||
-                    (panelFeatured.privacy === "Invite" &&
-                      panelFeatured.hostId !== session?.user?.id &&
-                      !isAdmin &&
+                    (!canSelfJoinMeet({
+                      privacy: panelFeatured.privacy,
+                      hostId: panelFeatured.hostId,
+                      userId: session?.user?.id,
+                      isAdmin,
+                      hasBlackcardAccess,
+                    }) &&
                       !going[panelFeatured.id])
                   }
                   className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     going[panelFeatured.id]
                       ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : panelFeatured.privacy === "Invite" &&
-                          panelFeatured.hostId !== session?.user?.id &&
-                          !isAdmin &&
-                          !going[panelFeatured.id]
+                      : !canSelfJoinMeet({
+                            privacy: panelFeatured.privacy,
+                            hostId: panelFeatured.hostId,
+                            userId: session?.user?.id,
+                            isAdmin,
+                            hasBlackcardAccess,
+                          }) && !going[panelFeatured.id]
                         ? "border-white/10 bg-white/[0.02] text-zinc-600"
                         : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
                   }`}
@@ -1365,10 +1448,16 @@ let duration: string | null = newRide.duration || null;
                     ? "Hosting"
                     : going[panelFeatured.id]
                       ? "Going"
-                      : panelFeatured.privacy === "Invite" &&
-                          panelFeatured.hostId !== session?.user?.id &&
-                          !isAdmin
-                        ? "Invite Only"
+                      : !canSelfJoinMeet({
+                            privacy: panelFeatured.privacy,
+                            hostId: panelFeatured.hostId,
+                            userId: session?.user?.id,
+                            isAdmin,
+                            hasBlackcardAccess,
+                          })
+                        ? panelFeatured.privacy === "Blackcard"
+                          ? "Members Only"
+                          : "Invite Only"
                         : "JOIN MEET"}
                 </button>
               </div>
@@ -1404,6 +1493,9 @@ let duration: string | null = newRide.duration || null;
                 canManage={ride.hostId === session?.user?.id}
                 canModerate={ride.hostId === session?.user?.id || isAdmin}
                 unreadCount={unreadCounts[ride.id] || 0}
+                hasBlackcardAccess={hasBlackcardAccess}
+                isAdmin={isAdmin}
+                userId={session?.user?.id}
                 onEdit={() => setEditingRide(ride)}
                 isGoing={!!going[ride.id]}
                 onCancel={() => void cancelMeet(ride.id)}
@@ -1466,24 +1558,55 @@ let duration: string | null = newRide.duration || null;
             onClick={() => setMeetTab("upcoming")}
             className={`flex-1 ${csPill(meetTab === "upcoming", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
           >
-            Upcoming ({upcomingMeets.length})
+            Upcoming ({scopedUpcomingMeets.length})
           </button>
           <button
             type="button"
             onClick={() => setMeetTab("completed")}
             className={`flex-1 ${csPill(meetTab === "completed", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
           >
-            Past ({completedMeets.length})
+            Past ({scopedCompletedMeets.length})
           </button>
         </div>
+
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMeetScope("all")}
+            className={`flex-1 ${csPill(meetScope === "all", "sm")} py-2 text-[10px] tracking-[0.16em]`}
+          >
+            All Meets
+          </button>
+          <button
+            type="button"
+            onClick={() => setMeetScope("blackcard")}
+            className={`flex-1 ${csPill(meetScope === "blackcard", "sm")} py-2 text-[10px] tracking-[0.16em]`}
+          >
+            Blackcard ({blackcardMeetCount})
+          </button>
+        </div>
+
+        {meetScope === "blackcard" && !hasBlackcardAccess && (
+          <div className="mt-4 rounded-lg border border-[#b4141e]/25 bg-[#b4141e]/[0.06] px-4 py-3">
+            <p className="text-sm leading-6 text-zinc-300">
+              Blackcard meets are visible here, but joining requires an active membership.
+            </p>
+            <Link
+              href="/blackcard"
+              className="mt-2 inline-flex text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:text-[#f4dadd]"
+            >
+              Subscribe to Blackcard →
+            </Link>
+          </div>
+        )}
 
         <SwipeTabPanels
           activeIndex={meetTabIndex}
           onIndexChange={(index) => setMeetTab(index === 0 ? "upcoming" : "completed")}
           className="mt-1"
         >
-          {renderMeetPanel(upcomingMeets, "Upcoming Meets", true)}
-          {renderMeetPanel(completedMeets, "Past Meets", false)}
+          {renderMeetPanel(scopedUpcomingMeets, "Upcoming Meets", true)}
+          {renderMeetPanel(scopedCompletedMeets, "Past Meets", false)}
         </SwipeTabPanels>
       </div>
 
@@ -1492,6 +1615,7 @@ let duration: string | null = newRide.duration || null;
           ride={selectedRide}
           isGoing={!!going[selectedRide.id]}
           isAdmin={isAdmin}
+          hasBlackcardAccess={hasBlackcardAccess}
           onJoin={() => toggleJoin(selectedRide.id)}
           onRead={markRideRead}
           onClose={() => setSelectedRide(null)}
@@ -1514,6 +1638,7 @@ let duration: string | null = newRide.duration || null;
         <HostRideModal
           mode={editingRide ? "edit" : "create"}
           initialForm={editingRide ? rideToForm(editingRide) : undefined}
+          canHostBlackcard={hasBlackcardAccess || isAdmin}
           onClose={() => {
             setShowHostModal(false);
             setEditingRide(null);

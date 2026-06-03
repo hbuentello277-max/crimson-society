@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/components/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import {
   checkoutPlanType,
   formatMembershipPlanType,
-  hasBlackcardAccess,
   type MembershipPlanType,
-  type MembershipRow,
 } from "@/lib/membership";
 import {
   formatPrice,
@@ -16,18 +12,11 @@ import {
   type MembershipPlan,
   type MembershipPlanRow,
 } from "@/components/blackcard/types";
+import { BillingPortalButton } from "@/components/blackcard/BillingPortalButton";
+import { BlackcardPerksPreview } from "@/components/blackcard/BlackcardPerksPreview";
+import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
+import { supabase } from "@/lib/supabase";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
-
-const lockedPerks = [
-  "Crimson Credits",
-  "Early merch access",
-  "Member-only rides",
-  "Private Blackcard chat",
-  "Priority ride access",
-  "Limited merch reservations",
-  "Exclusive drops/giveaways",
-  "Coming soon rewards",
-];
 
 function CheckoutButton({
   planType,
@@ -53,6 +42,22 @@ function CheckoutButton({
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.code === "already_subscribed") {
+          const openPortal = window.confirm(
+            `${data.error}\n\nOpen billing management now?`,
+          );
+          if (openPortal) {
+            const portalRes = await fetch("/api/stripe/billing-portal", {
+              method: "POST",
+            });
+            const portalData = await portalRes.json();
+            if (portalRes.ok && portalData.url) {
+              window.location.href = portalData.url;
+            }
+          }
+          return;
+        }
+
         alert(data.error || "Unable to start checkout.");
         return;
       }
@@ -73,10 +78,9 @@ function CheckoutButton({
 
   return (
     <button
-      type="button"
       onClick={handleCheckout}
       disabled={loading}
-      className={`w-full text-center disabled:cursor-not-allowed disabled:opacity-50 ${CS_CTA_PRIMARY_LG}`}
+      className={`w-full ${CS_CTA_PRIMARY_LG} disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {loading ? "Redirecting..." : label}
     </button>
@@ -84,81 +88,51 @@ function CheckoutButton({
 }
 
 export default function BlackcardPage() {
-  const { loading: authLoading, isAdmin } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [membership, setMembership] = useState<MembershipRow | null>(null);
+  const {
+    loading: accessLoading,
+    membership,
+    hasAccess: isPremium,
+    isAdmin,
+    error: accessError,
+  } = useBlackcardAccess();
+  const [plansLoading, setPlansLoading] = useState(true);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [plansError, setPlansError] = useState("");
 
   useEffect(() => {
-    if (authLoading) return;
-
-    async function loadMembership() {
+    async function loadPlans() {
       try {
-        setLoading(true);
-        setErrorMsg("");
+        setPlansLoading(true);
+        setPlansError("");
 
         const { data: planData, error: planError } = await supabase
           .from("membership_plans")
           .select(
-            "id, plan_type, title, description, price, stripe_price_id, active, perks, created_at, updated_at"
+            "id, plan_type, title, description, price, stripe_price_id, active, perks, created_at, updated_at",
           )
           .order("price", { ascending: true });
 
         if (planError) {
-          setErrorMsg(planError.message);
+          setPlansError(planError.message);
         } else {
           setPlans(((planData ?? []) as MembershipPlanRow[]).map(sanitizePlan));
         }
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          setErrorMsg(userError.message);
-          setLoading(false);
-          return;
-        }
-
-        if (!user) {
-          setMembership(null);
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("subscriptions")
-          .select("status, plan_type, current_period_end")
-          .eq("user_id", user.id)
-          .in("status", ["active", "trialing"])
-          .or(`current_period_end.is.null,current_period_end.gte.${new Date().toISOString()}`)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
-          setErrorMsg(error.message);
-          setLoading(false);
-          return;
-        }
-
-        setMembership((data as MembershipRow | null) ?? null);
-        setLoading(false);
       } catch (error: unknown) {
         console.error(error);
-        setErrorMsg(error instanceof Error ? error.message : "Unable to load Blackcard.");
-        setLoading(false);
+        setPlansError(
+          error instanceof Error ? error.message : "Unable to load Blackcard plans.",
+        );
+      } finally {
+        setPlansLoading(false);
       }
     }
 
-    loadMembership();
-  }, [authLoading]);
+    void loadPlans();
+  }, []);
 
-  const isPremium = hasBlackcardAccess(membership, isAdmin);
+  const errorMsg = accessError || plansError;
 
-  if (loading || authLoading) {
+  if (accessLoading || plansLoading) {
     return (
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
@@ -182,21 +156,20 @@ export default function BlackcardPage() {
               Blackcard access is active.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
-              You are inside the premium layer of Crimson Society. This space is reserved
-              for active members with elevated access across rides, future private spaces,
-              early collections, and premium identity inside the app.
+              You are inside the premium layer of Crimson Society. Member-only rides,
+              early collections, and elevated identity are unlocked across the app.
             </p>
 
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                  Access
+                  Rides
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Reserved ride placements
+                  Member-only meets
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Priority member visibility for premium ride drops and future private runs.
+                  Filter Blackcard meets on the rides page and host private runs for members.
                 </p>
               </div>
 
@@ -220,7 +193,7 @@ export default function BlackcardPage() {
                   Elevated member presence
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Premium profile positioning, future badges, and a stronger inner-circle identity.
+                  Your Blackcard badge is visible on your profile and member cards.
                 </p>
               </div>
 
@@ -241,6 +214,14 @@ export default function BlackcardPage() {
                 </p>
               </div>
             </div>
+
+            <BlackcardPerksPreview unlocked />
+
+            {!isAdmin && (
+              <div className="mt-8">
+                <BillingPortalButton />
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -269,14 +250,10 @@ export default function BlackcardPage() {
           )}
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
-            {plans.filter((plan) => plan.active).map((plan, index) => (
+            {plans.filter((plan) => plan.active).map((plan) => (
               <div
                 key={plan.id || plan.plan_type}
-                className={`rounded-[24px] border p-6 ${
-                  index === 0
-                    ? "border-red-900/30 bg-[#120707]"
-                    : "border-white/10 bg-white/[0.03]"
-                }`}
+                className="group rounded-[24px] border border-white/10 bg-white/[0.03] p-6 transition duration-200 hover:border-red-900/25 hover:shadow-[0_0_28px_rgba(120,0,0,0.12)]"
               >
                 <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
                   {plan.plan_type === "monthly" ? "Monthly" : "Annual"}
@@ -317,26 +294,9 @@ export default function BlackcardPage() {
             </div>
           )}
 
-          <section className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.025] p-5">
-            <p className="text-xs uppercase tracking-[0.28em] text-red-400/80">
-              Locked Blackcard Preview
-            </p>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {lockedPerks.map((perk) => (
-                <div
-                  key={perk}
-                  className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-black/20 px-4 py-3"
-                >
-                  <span className="text-sm text-zinc-300">{perk}</span>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-                    Locked
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <BlackcardPerksPreview unlocked={false} />
         </div>
       </div>
-      </main>
+    </main>
   );
 }

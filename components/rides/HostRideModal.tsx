@@ -52,6 +52,7 @@ const EMPTY_FORM: HostRideForm = {
 interface Props {
   initialForm?: HostRideForm;
   mode?: "create" | "edit";
+  canHostBlackcard?: boolean;
   onClose: () => void;
   onCreate: (form: HostRideForm) => void;
 }
@@ -59,6 +60,7 @@ interface Props {
 export function HostRideModal({
   initialForm,
   mode = "create",
+  canHostBlackcard = false,
   onClose,
   onCreate,
 }: Props) {
@@ -255,9 +257,18 @@ export function HostRideModal({
                   >
                     <option value="Open">Open</option>
                     <option value="Invite">Invite Only</option>
+                    {canHostBlackcard && (
+                      <option value="Blackcard">Blackcard Members Only</option>
+                    )}
                   </select>
                 </Field>
               </div>
+
+              {!canHostBlackcard && (
+                <p className="text-[10px] leading-5 text-zinc-500">
+                  Blackcard membership unlocks hosting member-only meets.
+                </p>
+              )}
 
               <Field label="Meet Cover Image">
   <input

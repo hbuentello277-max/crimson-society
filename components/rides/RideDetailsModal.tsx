@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Ride, RideTrackingStatus } from "@/app/rides/page";
 import { useAuth } from "@/components/AuthProvider";
-import { canSelfJoinMeet } from "@/lib/meet-privacy";
+import { canSelfJoinMeet, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
 import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
@@ -23,6 +23,7 @@ interface Props {
   ride: Ride;
   isGoing: boolean;
   isAdmin: boolean;
+  hasBlackcardAccess: boolean;
   onJoin: () => void;
   onRead: (rideId: string) => void;
   onClose: () => void;
@@ -137,6 +138,7 @@ export function RideDetailsModal({
   ride,
   isGoing,
   isAdmin,
+  hasBlackcardAccess,
   onJoin,
   onRead,
   onClose,
@@ -167,12 +169,13 @@ export function RideDetailsModal({
   const isHost = ride.hostId === currentUserId;
   const canModerate = isHost || isAdmin;
   const isCanceled = ride.status === "canceled";
-  const inviteJoinBlocked =
+  const joinBlocked =
     !canSelfJoinMeet({
       privacy: ride.privacy,
       hostId: ride.hostId,
       userId: currentUserId,
       isAdmin,
+      hasBlackcardAccess,
     }) && !isGoing;
   const isRideLive = ride.trackingStatus === "active";
   const canUseChat = (isGoing || isHost) && !isCanceled;
@@ -624,6 +627,12 @@ export function RideDetailsModal({
             {ride.privacy === "Invite" && (
               <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
                 Invite Only
+              </span>
+            )}
+
+            {ride.privacy === "Blackcard" && (
+              <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
+                Blackcard Only
               </span>
             )}
           </div>
@@ -1113,9 +1122,17 @@ export function RideDetailsModal({
             Report Meet
           </button>
 
-          {inviteJoinBlocked && (
+          {joinBlocked && (
             <p className="mb-3 text-center text-xs leading-5 text-zinc-500">
-              Invite-only meet. Ask the host for access.
+              {getMeetJoinBlockMessage(ride.privacy)}
+              {ride.privacy === "Blackcard" && (
+                <>
+                  {" "}
+                  <Link href="/blackcard" className="text-[#d85f6c] hover:text-[#e87a82]">
+                    View Blackcard
+                  </Link>
+                </>
+              )}
             </p>
           )}
 
@@ -1131,11 +1148,11 @@ export function RideDetailsModal({
               onClick={() => {
                 onJoin();
               }}
-              disabled={isHost || isCanceled || inviteJoinBlocked}
+              disabled={isHost || isCanceled || joinBlocked}
               className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                 isCanceled
                   ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                  : inviteJoinBlocked
+                  : joinBlocked
                     ? "border-white/10 bg-white/[0.02] text-zinc-600"
                     : isGoing
                       ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
@@ -1148,8 +1165,10 @@ export function RideDetailsModal({
                   ? "Hosting"
                   : isGoing
                     ? "✓ Going"
-                    : inviteJoinBlocked
-                      ? "Invite Only"
+                    : joinBlocked
+                      ? ride.privacy === "Blackcard"
+                        ? "Members Only"
+                        : "Invite Only"
                       : "JOIN RIDE"}
             </button>
           </div>

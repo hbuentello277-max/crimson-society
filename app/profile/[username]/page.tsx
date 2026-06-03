@@ -12,6 +12,7 @@ import { IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { removeMutualFollows } from "@/lib/blocking";
+import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
@@ -33,7 +34,6 @@ type PublicProfile = {
   profile_tags: string[] | null;
   status: string | null;
   membership_status: string | null;
-  blackcard_public: boolean | null;
   hide_location_from_suggestions: boolean | null;
   hide_from_suggestions: boolean | null;
   instagram_url: string | null;
@@ -183,6 +183,7 @@ export default function PublicProfilePage() {
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [rides, setRides] = useState<ProfileRide[]>([]);
+  const [membership, setMembership] = useState<MembershipRow | null>(null);
   const [profileState, setProfileState] = useState<LoadState>("idle");
   const [postsState, setPostsState] = useState<LoadState>("idle");
   const [garageState, setGarageState] = useState<LoadState>("idle");
@@ -218,7 +219,7 @@ export default function PublicProfilePage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, blackcard_public, hide_location_from_suggestions, hide_from_suggestions, instagram_url, tiktok_url, youtube_url, website_url",
+          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, instagram_url, tiktok_url, youtube_url, website_url",
         )
         .eq("username", usernameParam)
         .maybeSingle();
@@ -231,6 +232,18 @@ export default function PublicProfilePage() {
       const nextProfile = data as PublicProfile;
       setProfile(nextProfile);
       setProfileState("loaded");
+
+      const { data: membershipData } = await supabase
+        .from("subscriptions")
+        .select("status, plan_type, current_period_end, created_at")
+        .eq("user_id", nextProfile.id)
+        .in("status", ["active", "trialing"])
+        .or(`current_period_end.is.null,current_period_end.gte.${new Date().toISOString()}`)
+        .order("current_period_end", { ascending: false, nullsFirst: true })
+        .limit(1)
+        .maybeSingle();
+
+      setMembership((membershipData as MembershipRow | null) ?? null);
     };
 
     void loadProfile();
@@ -453,7 +466,7 @@ export default function PublicProfilePage() {
     };
   }, [profile?.id, session?.user?.id]);
 
-  const blackcardAccessActive = profile?.blackcard_public === true;
+  const blackcardAccessActive = hasBlackcardAccess(membership, false);
   const isOwnProfile = Boolean(session?.user?.id && profile?.id === session.user.id);
   const followerListRoutes = useMemo(() => {
     const slug = profile?.username?.trim().replace(/^@+/, "") || usernameParam?.trim().replace(/^@+/, "");
