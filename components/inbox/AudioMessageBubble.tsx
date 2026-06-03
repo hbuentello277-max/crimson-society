@@ -105,7 +105,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
 
   return (
     <div
-      className={`flex min-w-[200px] max-w-full items-center gap-3 rounded-[22px] px-4 py-3 ${
+      className={`flex w-full min-w-0 max-w-[min(100%,240px)] items-center gap-3 rounded-[22px] px-4 py-3 ${
         isMe
           ? "rounded-br-md border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
           : "rounded-bl-md bg-[#262626] text-white/95"

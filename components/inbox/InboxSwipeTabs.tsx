@@ -362,7 +362,7 @@ export default function InboxSwipeTabs() {
 
       <div
         ref={viewportRef}
-        className={`fixed inset-x-0 bottom-0 overflow-hidden touch-pan-y ${viewportTopClass} ${threadOpen ? "pointer-events-none" : ""}`}
+        className={`fixed inset-x-0 bottom-0 w-full max-w-full overflow-hidden touch-pan-y ${viewportTopClass} ${threadOpen ? "pointer-events-none invisible" : ""}`}
         onTouchStart={threadOpen ? undefined : onTouchStart}
         onTouchMove={threadOpen ? undefined : onTouchMove}
         onTouchEnd={threadOpen ? undefined : onTouchEnd}
@@ -372,8 +372,11 @@ export default function InboxSwipeTabs() {
         onPointerCancel={threadOpen ? undefined : onPointerUp}
       >
         <div
-          className={`flex h-full w-[200%] ${isDragging ? "" : "transition-transform duration-300 ease-out"}`}
-          style={{ transform: `translateX(${translateX}%)` }}
+          className={`flex h-full max-w-none ${isDragging ? "" : "transition-transform duration-300 ease-out"}`}
+          style={{
+            width: "200%",
+            transform: `translateX(${translateX}%)`,
+          }}
         >
           <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
             <MessagesPanel

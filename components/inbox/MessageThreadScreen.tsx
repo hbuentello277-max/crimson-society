@@ -111,11 +111,35 @@ export function MessageThreadScreen({
   useEffect(() => {
     if (!open) return;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyWidth = body.style.width;
+    const previousBodyMaxWidth = body.style.maxWidth;
+    const previousBodyPosition = body.style.position;
+    const previousBodyTop = body.style.top;
+    const previousBodyLeft = body.style.left;
+    const previousBodyRight = body.style.right;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.width = "100%";
+    body.style.maxWidth = "100%";
+    body.style.position = "fixed";
+    body.style.top = "0";
+    body.style.left = "0";
+    body.style.right = "0";
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.width = previousBodyWidth;
+      body.style.maxWidth = previousBodyMaxWidth;
+      body.style.position = previousBodyPosition;
+      body.style.top = previousBodyTop;
+      body.style.left = previousBodyLeft;
+      body.style.right = previousBodyRight;
     };
   }, [open]);
 
@@ -154,9 +178,9 @@ export function MessageThreadScreen({
     : `@${conversation.handle.replace(/^@+/, "")}`;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-zinc-100">
-      <header className="shrink-0 border-b border-white/10 bg-black">
-        <div className="flex items-center gap-2 px-3 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+    <div className="fixed inset-0 z-[100] box-border flex w-full max-w-full flex-col overflow-x-hidden bg-black text-zinc-100">
+      <header className="w-full max-w-full shrink-0 border-b border-white/10 bg-black">
+        <div className="box-border flex w-full max-w-full items-center gap-2 px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
           <button
             type="button"
             onClick={onBack}
@@ -211,7 +235,7 @@ export function MessageThreadScreen({
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
+        className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3"
       >
         {messages.length === 0 && (
           <p className="py-10 text-center text-sm text-zinc-500">No messages yet</p>
@@ -252,7 +276,7 @@ export function MessageThreadScreen({
                   </div>
                 )}
 
-                <div className={`flex max-w-[70%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+                <div className={`flex min-w-0 max-w-[min(100%,70%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
                   {conversation.isGroup && !isMe && showAvatar && message.senderName && (
                     <span className="mb-1 ml-1 text-[11px] font-medium text-[#e87a82]">
                       {message.senderName}
@@ -270,7 +294,7 @@ export function MessageThreadScreen({
                         alt="Shared photo"
                         width={280}
                         height={280}
-                        className="max-h-72 w-auto object-cover"
+                        className="max-h-72 max-w-full w-auto object-cover"
                         unoptimized
                       />
                     </button>

@@ -40,6 +40,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 
@@ -49,8 +51,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable}`}>
-      <body className="bg-[#050505] font-sans text-white antialiased">
+    <html lang="en" className={`${serif.variable} ${sans.variable} h-full w-full overflow-x-hidden`}>
+      <body className="h-full w-full max-w-full overflow-x-hidden bg-[#050505] font-sans text-white antialiased">
         <AuthProvider>
           {children}
           <BottomNav />

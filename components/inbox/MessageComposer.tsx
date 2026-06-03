@@ -239,7 +239,7 @@ export function MessageComposer({
 
   return (
     <div
-      className="shrink-0 border-t border-[#b4141e]/25 bg-[#050505]"
+      className="box-border w-full max-w-full shrink-0 overflow-x-hidden border-t border-[#b4141e]/25 bg-[#050505]"
       style={{ paddingBottom: MESSAGE_COMPOSER_BOTTOM_OFFSET }}
     >
       <EmojiTray open={emojiOpen} onPick={insertEmoji} />
@@ -260,7 +260,7 @@ export function MessageComposer({
         onChange={handleImageChange}
       />
 
-      <div className="px-3 pb-1 pt-2">
+      <div className="box-border w-full max-w-full px-4 pb-1 pt-2">
         {showVoiceUnsupported ? (
           <VoiceUnsupportedNotice onDismiss={() => setShowVoiceUnsupported(false)} />
         ) : null}
@@ -277,7 +277,7 @@ export function MessageComposer({
             sending={finishingVoice}
           />
         ) : (
-          <div className="flex items-end gap-1.5">
+          <div className="flex w-full min-w-0 max-w-full items-end gap-1">
             <div className="flex shrink-0 items-end gap-0.5">
               <button
                 type="button"

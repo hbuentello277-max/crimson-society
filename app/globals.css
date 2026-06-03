@@ -26,11 +26,22 @@
   --color-cs-accent-text: var(--cs-accent-text);
 }
 
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
 }
 
 @keyframes fadeIn {
