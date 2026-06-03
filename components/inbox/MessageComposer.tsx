@@ -260,7 +260,7 @@ export function MessageComposer({
         onChange={handleImageChange}
       />
 
-      <div className="box-border w-full max-w-full px-4 pt-2">
+      <div className="box-border w-full max-w-full px-4">
         {showVoiceUnsupported ? (
           <VoiceUnsupportedNotice onDismiss={() => setShowVoiceUnsupported(false)} />
         ) : null}
@@ -321,7 +321,7 @@ export function MessageComposer({
               </button>
             </div>
 
-            <div className="flex min-w-0 flex-1 items-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5 focus-within:border-[#b4141e]/50 focus-within:ring-1 focus-within:ring-[#b4141e]/15">
+            <div className="flex min-w-0 flex-1 items-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2 focus-within:border-[#b4141e]/50 focus-within:ring-1 focus-within:ring-[#b4141e]/15">
               <input
                 ref={inputRef}
                 type="text"

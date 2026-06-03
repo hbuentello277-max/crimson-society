@@ -121,6 +121,8 @@ export function MessageThreadScreen({
     const previousBodyTop = body.style.top;
     const previousBodyLeft = body.style.left;
     const previousBodyRight = body.style.right;
+    const previousBodyBottom = body.style.bottom;
+    const previousBodyHeight = body.style.height;
 
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
@@ -130,6 +132,8 @@ export function MessageThreadScreen({
     body.style.top = "0";
     body.style.left = "0";
     body.style.right = "0";
+    body.style.bottom = "0";
+    body.style.height = "100dvh";
 
     return () => {
       html.style.overflow = previousHtmlOverflow;
@@ -140,6 +144,8 @@ export function MessageThreadScreen({
       body.style.top = previousBodyTop;
       body.style.left = previousBodyLeft;
       body.style.right = previousBodyRight;
+      body.style.bottom = previousBodyBottom;
+      body.style.height = previousBodyHeight;
     };
   }, [open]);
 

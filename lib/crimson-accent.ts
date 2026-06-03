@@ -32,10 +32,10 @@ export const CS_ICON_BTN_DISABLED =
 
 /** DM send — same tokens as Connect ALL pill */
 export const CS_SEND_BTN =
-  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:pointer-events-none disabled:opacity-40";
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:pointer-events-none disabled:opacity-40";
 
 export const CS_SEND_BTN_DISABLED =
-  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
 
 /** DM composer toolbar icon buttons */
 export const CS_TOOLBAR_BTN =
