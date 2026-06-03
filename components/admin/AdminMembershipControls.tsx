@@ -18,6 +18,8 @@ type AdminProfile = {
   premium_since?: string | null;
   premium_expires_at?: string | null;
   blackcard_public?: boolean | null;
+  is_founding_blackcard?: boolean | null;
+  founding_blackcard_granted_at?: string | null;
 };
 
 type SubscriptionRow = MembershipRow & { user_id?: string };
@@ -28,7 +30,7 @@ type Props = {
   savingId: string | null;
   onAction: (
     profileId: string,
-    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration",
+    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration" | "grant_founding" | "revoke_founding",
     expiresAt?: string,
   ) => Promise<void>;
 };
@@ -106,7 +108,14 @@ export function AdminMembershipControls({
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-white">@{profileLabel(profile)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-base font-semibold text-white">@{profileLabel(profile)}</p>
+                    {profile.is_founding_blackcard ? (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-amber-200">
+                        🏆 Founding
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-2 text-sm text-zinc-400">
                     Membership: {membershipStatusLabel({ membership: subscription, adminOverride: profile, isAdmin: isAdminAccount })}
                   </p>
@@ -125,6 +134,25 @@ export function AdminMembershipControls({
 
                 {!isAdminAccount ? (
                   <div className="flex flex-col gap-2 sm:min-w-[280px]">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || Boolean(profile.is_founding_blackcard)}
+                        onClick={() => void onAction(profile.id, "grant_founding")}
+                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-500/20 disabled:opacity-50"
+                      >
+                        Grant Founding
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || !profile.is_founding_blackcard}
+                        onClick={() => void onAction(profile.id, "revoke_founding")}
+                        className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/25 disabled:opacity-50"
+                      >
+                        Revoke Founding
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"

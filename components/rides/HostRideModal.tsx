@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import type { RideType, RidePrivacy } from "@/app/rides/page";
 import {
   MEET_VISIBILITY_OPTIONS,
-  type MeetPriorityAccess,
   type MeetVisibility,
 } from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
@@ -24,8 +23,6 @@ export interface HostRideForm {
   type: RideType;
   privacy: RidePrivacy;
   visibility: MeetVisibility;
-  priorityAccess: MeetPriorityAccess;
-  priorityDelayMinutes: number;
   description: string;
   cover?: string;
 }
@@ -54,8 +51,6 @@ const EMPTY_FORM: HostRideForm = {
   type: "Group Ride",
   privacy: "Open",
   visibility: "public",
-  priorityAccess: "off",
-  priorityDelayMinutes: 60,
   description: "",
   cover: "",
 };
@@ -292,44 +287,10 @@ export function HostRideModal({
 
               {!canHostBlackcard && (
                 <p className="text-[10px] leading-5 text-zinc-500">
-                  Blackcard membership unlocks exclusive meet visibility and priority access.
+                  Blackcard membership unlocks exclusive meet visibility.
                 </p>
               )}
 
-              {canHostBlackcard && (
-                <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                  <Field label="Priority Access">
-                    <select
-                      value={form.priorityAccess}
-                      onChange={(e) =>
-                        set("priorityAccess", e.target.value as MeetPriorityAccess)
-                      }
-                      className={inputCls(false)}
-                    >
-                      <option value="off">Off</option>
-                      <option value="blackcard_first">Blackcard First</option>
-                    </select>
-                  </Field>
-
-                  {form.priorityAccess === "blackcard_first" && (
-                    <Field label="Open To Everyone After (minutes)">
-                      <input
-                        type="number"
-                        min={5}
-                        max={1440}
-                        value={form.priorityDelayMinutes}
-                        onChange={(e) =>
-                          set(
-                            "priorityDelayMinutes",
-                            Math.max(5, Number(e.target.value) || 60),
-                          )
-                        }
-                        className={inputCls(false)}
-                      />
-                    </Field>
-                  )}
-                </div>
-              )}
 
               <Field label="Meet Cover Image">
   <input

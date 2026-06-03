@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { hasActiveMembership, hasAdminBlackcardOverride, type MembershipRow } from "@/lib/membership";
+import { hasActiveMembership, hasAdminBlackcardOverride, isFoundingBlackcardMember, type MembershipRow } from "@/lib/membership";
 
 /**
  * Recomputes profiles.blackcard_public from Stripe subscriptions and admin overrides.
@@ -13,7 +13,7 @@ export async function syncBlackcardPublicForUser(
     await Promise.all([
       adminClient
         .from("profiles")
-        .select("is_premium, premium_tier, premium_expires_at")
+        .select("is_premium, premium_tier, premium_expires_at, is_founding_blackcard")
         .eq("id", userId)
         .maybeSingle(),
       adminClient
@@ -32,6 +32,7 @@ export async function syncBlackcardPublicForUser(
   }
 
   const isActive =
+    isFoundingBlackcardMember(profile) ||
     hasAdminBlackcardOverride(profile) ||
     (rows ?? []).some((row) => hasActiveMembership(row as MembershipRow));
 

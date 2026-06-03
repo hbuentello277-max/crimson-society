@@ -23,6 +23,7 @@ export type AdminBlackcardOverride = {
   is_premium?: boolean | null;
   premium_tier?: string | null;
   premium_expires_at?: string | null;
+  is_founding_blackcard?: boolean | null;
 };
 
 export type BlackcardAccessOptions = {
@@ -30,6 +31,7 @@ export type BlackcardAccessOptions = {
   isAdmin?: boolean;
   adminOverride?: AdminBlackcardOverride | null;
   blackcardPublic?: boolean | null;
+  isFoundingBlackcard?: boolean | null;
 };
 
 export function normalizeMembershipPlanType(
@@ -69,8 +71,13 @@ export function hasAdminBlackcardOverride(
   return true;
 }
 
+export function isFoundingBlackcardMember(profile?: AdminBlackcardOverride | null) {
+  return profile?.is_founding_blackcard === true;
+}
+
 export function resolveBlackcardAccess(options: BlackcardAccessOptions) {
   if (options.isAdmin === true) return true;
+  if (options.isFoundingBlackcard === true || isFoundingBlackcardMember(options.adminOverride)) return true;
   if (options.blackcardPublic === true) return true;
   if (hasAdminBlackcardOverride(options.adminOverride)) return true;
   return hasActiveMembership(options.membership ?? null);
@@ -102,6 +109,7 @@ export function membershipStatusLabel(options: {
   isAdmin?: boolean;
 }) {
   if (options.isAdmin) return "Admin";
+  if (isFoundingBlackcardMember(options.adminOverride)) return "Founding Blackcard · lifetime";
   if (hasAdminBlackcardOverride(options.adminOverride)) {
     if (options.adminOverride?.premium_expires_at) {
       return `Admin override · expires ${new Date(options.adminOverride.premium_expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;

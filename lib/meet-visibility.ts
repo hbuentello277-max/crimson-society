@@ -1,6 +1,5 @@
 export type MeetVisibility = "public" | "followers" | "favorites" | "blackcard" | "invite";
 
-export type MeetPriorityAccess = "off" | "blackcard_first";
 
 export const MEET_VISIBILITY_OPTIONS: {
   value: MeetVisibility;
@@ -53,8 +52,6 @@ export type MeetAccessContext = {
   viewerHasBlackcard?: boolean;
   viewerFollowsHost?: boolean;
   viewerFavoritedHost?: boolean;
-  priorityAccess?: MeetPriorityAccess | string | null;
-  priorityOpenAt?: string | null;
 };
 
 export function canViewMeet(options: MeetAccessContext) {
@@ -92,18 +89,11 @@ export function canJoinMeet(options: MeetAccessContext & { isGoing?: boolean }) 
 
   if (visibility === "invite") return false;
 
-  if (options.priorityAccess === "blackcard_first") {
-    const openAt = options.priorityOpenAt ? new Date(options.priorityOpenAt).getTime() : null;
-    if (openAt && Date.now() < openAt && viewerHasBlackcard !== true) {
-      return false;
-    }
-  }
-
-  return true;
+return true;
 }
 
 export function meetAccessLockMessage(
-  options: Pick<MeetAccessContext, "visibility" | "legacyPrivacy" | "priorityAccess" | "priorityOpenAt">,
+  options: Pick<MeetAccessContext, "visibility" | "legacyPrivacy">,
 ) {
   const visibility = normalizeMeetVisibility(options.visibility, options.legacyPrivacy);
 
@@ -116,16 +106,7 @@ export function meetAccessLockMessage(
   if (visibility === "favorites") {
     return "This meet is visible to riders who favorited the host.";
   }
-  if (options.priorityAccess === "blackcard_first") {
-    const openAt = options.priorityOpenAt ? new Date(options.priorityOpenAt) : null;
-    if (openAt && Date.now() < openAt.getTime()) {
-      return `Priority access for Blackcard members until ${openAt.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      })}.`;
-    }
-  }
-  if (visibility === "invite") {
+if (visibility === "invite") {
     return "Invite-only meet. Ask the host to add you.";
   }
   return null;

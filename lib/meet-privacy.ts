@@ -33,8 +33,6 @@ export function canSelfJoinMeet(options: {
   hasBlackcardAccess?: boolean;
   viewerFollowsHost?: boolean;
   viewerFavoritedHost?: boolean;
-  priorityAccess?: string | null;
-  priorityOpenAt?: string | null;
   isGoing?: boolean;
 }) {
   const context: MeetAccessContext & { isGoing?: boolean } = {
@@ -46,8 +44,6 @@ export function canSelfJoinMeet(options: {
     viewerHasBlackcard: options.hasBlackcardAccess,
     viewerFollowsHost: options.viewerFollowsHost,
     viewerFavoritedHost: options.viewerFavoritedHost,
-    priorityAccess: options.priorityAccess,
-    priorityOpenAt: options.priorityOpenAt,
     isGoing: options.isGoing,
   };
 
@@ -60,14 +56,10 @@ export function getMeetJoinBlockMessage(options: {
   hasBlackcardAccess?: boolean;
   viewerFollowsHost?: boolean;
   viewerFavoritedHost?: boolean;
-  priorityAccess?: string | null;
-  priorityOpenAt?: string | null;
 }) {
   const lockMessage = meetAccessLockMessage({
     visibility: options.visibility,
     legacyPrivacy: options.privacy,
-    priorityAccess: options.priorityAccess,
-    priorityOpenAt: options.priorityOpenAt,
   });
 
   if (lockMessage) return lockMessage;

@@ -277,7 +277,7 @@ function AdminPageContent() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, created_at",
+        "id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, created_at",
       )
       .order("created_at", { ascending: true });
 
@@ -399,7 +399,7 @@ function AdminPageContent() {
     const { data: profileRows, error: profileError } = profileIds.length
       ? await supabase
           .from("profiles")
-          .select("id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, created_at")
+          .select("id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, created_at")
           .in("id", profileIds)
       : { data: [], error: null };
 
@@ -674,7 +674,7 @@ function AdminPageContent() {
 
   async function runMembershipAction(
     profileId: string,
-    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration",
+    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration" | "grant_founding" | "revoke_founding",
     expiresAt?: string,
   ) {
     setSavingId(profileId);

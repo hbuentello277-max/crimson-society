@@ -18,10 +18,10 @@ const TYPE_STYLES: Record<
   account_deletion_requested: { bg: "bg-amber-500/90", label: "Admin", glyph: "⚠" },
   account_deletion_canceled: { bg: "bg-amber-500/90", label: "Admin", glyph: "↩" },
   account_deletion_approved: { bg: "bg-emerald-500/85", label: "Admin", glyph: "✓" },
-  favorite_rider_meet: { bg: "bg-[#b4141e]/85", label: "Favorites", glyph: "⭐" },
-  favorite_rider_post: { bg: "bg-rose-500/85", label: "Favorites", glyph: "⭐" },
-  favorite_rider_ride_started: { bg: "bg-orange-500/85", label: "Favorites", glyph: "🏍" },
   host_meet_created: { bg: "bg-[#b4141e]/70 border border-[#b4141e]", label: "Meets", glyph: "🔔" },
+  favorite_rider_meet: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
+  favorite_rider_post: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
+  favorite_rider_ride_started: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

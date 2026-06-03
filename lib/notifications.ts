@@ -136,17 +136,8 @@ export function notificationDestination(
   }
 
 
-  if (
-    (notification.type === "favorite_rider_meet" ||
-      notification.type === "favorite_rider_ride_started" ||
-      notification.type === "host_meet_created") &&
-    notification.ride_id
-  ) {
+  if (notification.type === "host_meet_created" && notification.ride_id) {
     return `/rides?meet=${notification.ride_id}`;
-  }
-
-  if (notification.type === "favorite_rider_post" && notification.post_id) {
-    return `/dashboard?post=${notification.post_id}`;
   }
 
   if (notification.type === "profile_followed") {

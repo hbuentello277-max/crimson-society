@@ -11,7 +11,6 @@ import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import {
   meetVisibilityLabel,
   normalizeMeetVisibility,
-  type MeetPriorityAccess,
   type MeetVisibility,
 } from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
@@ -54,8 +53,6 @@ export type Ride = {
   description: string;
   privacy: RidePrivacy;
   visibility: MeetVisibility;
-  priorityAccess: MeetPriorityAccess;
-  priorityOpenAt: string | null;
   lat: number;
   lng: number;
   destinationLat?: number | null;
@@ -270,8 +267,6 @@ function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
     description: row.description || "Meet details coming soon.",
     privacy: row.privacy,
     visibility: normalizeMeetVisibility(row.visibility, row.privacy),
-    priorityAccess: row.priority_access === "blackcard_first" ? "blackcard_first" : "off",
-    priorityOpenAt: row.priority_open_at ?? null,
     lat: row.meet_point_lat || 29.4241,
     lng: row.meet_point_lng || -98.4936,
     destinationLat: row.destination_lat,
@@ -302,17 +297,6 @@ function rideToForm(ride: Ride): HostRideForm {
     type: ride.type,
     privacy: ride.privacy,
     visibility: ride.visibility,
-    priorityAccess: ride.priorityAccess,
-    priorityDelayMinutes: ride.priorityOpenAt
-      ? Math.max(
-          5,
-          Math.round(
-            (new Date(ride.priorityOpenAt).getTime() -
-              new Date(`${ride.date}T${ride.time || "00:00"}`).getTime()) /
-              60_000,
-          ) || 60,
-        )
-      : 60,
     description: ride.description === "Meet details coming soon." ? "" : ride.description,
   };
 }
@@ -984,8 +968,6 @@ const ridesWithRoutes = await Promise.all(
         hasBlackcardAccess: viewerHasBlackcard,
         viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
         viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
-        priorityAccess: ride.priorityAccess,
-        priorityOpenAt: ride.priorityOpenAt,
       }),
     );
     window.setTimeout(() => setToast(null), 2800);
@@ -1207,13 +1189,8 @@ let duration: string | null = newRide.duration || null;
       type: newRide.type,
       privacy: newRide.privacy,
       visibility: newRide.visibility,
-      priority_access: newRide.priorityAccess,
-      priority_open_at:
-        newRide.priorityAccess === "blackcard_first"
-          ? new Date(
-              Date.now() + Math.max(5, newRide.priorityDelayMinutes || 60) * 60_000,
-            ).toISOString()
-          : null,
+      priority_access: "off",
+      priority_open_at: null,
       distance,
       duration,
       description: newRide.description || null,
@@ -1366,8 +1343,6 @@ let duration: string | null = newRide.duration || null;
       viewerHasBlackcard,
       viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
       viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
-      priorityAccess: ride.priorityAccess,
-      priorityOpenAt: ride.priorityOpenAt,
     };
   }
 
@@ -1381,8 +1356,6 @@ let duration: string | null = newRide.duration || null;
       hasBlackcardAccess: viewerHasBlackcard,
       viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
       viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
-      priorityAccess: ride.priorityAccess,
-      priorityOpenAt: ride.priorityOpenAt,
       isGoing,
     });
   }
@@ -1558,8 +1531,6 @@ let duration: string | null = newRide.duration || null;
                       ? getMeetJoinBlockMessage({
                           privacy: ride.privacy,
                           visibility: ride.visibility,
-                          priorityAccess: ride.priorityAccess,
-                          priorityOpenAt: ride.priorityOpenAt,
                         })
                       : null
                   }

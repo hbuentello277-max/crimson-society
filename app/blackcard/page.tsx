@@ -6,6 +6,7 @@ import {
   formatMembershipPlanType,
   type MembershipPlanType,
 } from "@/lib/membership";
+import { BLACKCARD_ACTIVE_PERKS, BLACKCARD_PAYWALL_PERKS } from "@/lib/blackcard/perks";
 import {
   formatPrice,
   sanitizePlan,
@@ -160,6 +161,15 @@ export default function BlackcardPage() {
               early collections, and elevated identity are unlocked across the app.
             </p>
 
+            <div className="mt-8 grid gap-2 md:grid-cols-2">
+              {BLACKCARD_ACTIVE_PERKS.map((perk) => (
+                <div key={perk} className="rounded-[18px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+                  <span className="mr-2 text-[#b4141e]">✦</span>
+                  {perk}
+                </div>
+              ))}
+            </div>
+
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
@@ -239,8 +249,8 @@ export default function BlackcardPage() {
             Enter the inner circle.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
-            Blackcard is the premium layer of Crimson Society: reserved ride access,
-            future private spaces, early collections, and elevated identity across the platform.
+            Blackcard is the premium membership for riders who show up: exclusive meets,
+            Crimson Credits bonuses, early merch access, member pricing, and merch voting.
           </p>
 
           {errorMsg && (

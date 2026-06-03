@@ -7,7 +7,9 @@ type MembershipAction =
   | "revoke"
   | "extend_30"
   | "extend_90"
-  | "set_expiration";
+  | "set_expiration"
+  | "grant_founding"
+  | "revoke_founding";
 
 type MembershipRequestBody = {
   profileId?: string;
@@ -17,7 +19,7 @@ type MembershipRequestBody = {
 };
 
 const PROFILE_SELECT =
-  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public";
+  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at";
 
 function addDays(from: Date, days: number) {
   const next = new Date(from);
@@ -113,6 +115,20 @@ export async function POST(request: Request) {
       premium_tier: "blackcard",
       premium_since: existingProfile.premium_since || new Date().toISOString(),
       premium_expires_at: expiresAt,
+    };
+  } else if (action === "grant_founding") {
+    updatePayload = {
+      is_founding_blackcard: true,
+      founding_blackcard_granted_at: new Date().toISOString(),
+      is_premium: true,
+      premium_tier: "blackcard",
+      premium_since: existingProfile.premium_since || new Date().toISOString(),
+      premium_expires_at: null,
+    };
+  } else if (action === "revoke_founding") {
+    updatePayload = {
+      is_founding_blackcard: false,
+      founding_blackcard_granted_at: null,
     };
   } else {
     return NextResponse.json({ error: "Invalid membership action" }, { status: 400 });
