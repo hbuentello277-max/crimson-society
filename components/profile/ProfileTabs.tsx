@@ -43,7 +43,7 @@ export default function ProfileTabs({ tabs, active, onChange }: Props) {
             </span>
             <span
               className={`mt-0.5 h-0.5 w-5 rounded-full transition ${
-                isActive ? "bg-[#b4141e]" : "bg-transparent"
+                isActive ? "bg-[#e87a82]" : "bg-transparent"
               }`}
               aria-hidden
             />

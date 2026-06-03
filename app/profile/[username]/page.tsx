@@ -14,7 +14,7 @@ import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
-import { CS_BTN_PRIMARY_COMPACT, CS_BTN_SECONDARY } from "@/lib/crimson-accent";
+import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
 type PublicProfile = {
   id: string;
@@ -873,8 +873,8 @@ export default function PublicProfilePage() {
                     disabled={followBusy || isBlocked || isBlockingMe}
                     className={`group/follow ${
                       followRelationship === "none" && !isFollowing
-                        ? CS_BTN_PRIMARY_COMPACT
-                        : CS_BTN_SECONDARY
+                        ? CS_PROFILE_BTN_PRIMARY
+                        : CS_PROFILE_BTN_SOFT
                     } disabled:opacity-60`}
                   >
                     {followRelationship === "following" && !followBusy && !isBlocked && !isBlockingMe ? (
@@ -887,11 +887,11 @@ export default function PublicProfilePage() {
                     )}
                   </button>
                   {!interactionRestricted ? (
-                    <Link href={`/inbox?peer=${profile.id}`} className={CS_BTN_SECONDARY}>
+                    <Link href={`/inbox?peer=${profile.id}`} className={CS_PROFILE_BTN_SOFT}>
                       Message
                     </Link>
                   ) : (
-                    <button type="button" disabled className={`${CS_BTN_SECONDARY} opacity-50`}>
+                    <button type="button" disabled className={`${CS_PROFILE_BTN_SOFT} opacity-50`}>
                       Message
                     </button>
                   )}
@@ -899,7 +899,7 @@ export default function PublicProfilePage() {
                 <button
                   type="button"
                   onClick={() => void sharePublicProfile()}
-                  className={`${CS_BTN_SECONDARY} w-full`}
+                  className={`${CS_PROFILE_BTN_SOFT} w-full`}
                 >
                   <IconShare />
                   Share Profile
@@ -909,7 +909,7 @@ export default function PublicProfilePage() {
               <button
                 type="button"
                 onClick={() => void sharePublicProfile()}
-                className={`${CS_BTN_SECONDARY} w-full`}
+                className={`${CS_PROFILE_BTN_SOFT} w-full`}
               >
                 <IconShare />
                 Share Profile

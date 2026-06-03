@@ -13,7 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import MessagesPanel from "@/components/inbox/MessagesPanel";
 import NotificationsPanel from "@/components/inbox/NotificationsPanel";
-import { CS_CTA_PRIMARY_MD, CS_PILL_ACTIVE, CS_PILL_INACTIVE } from "@/lib/crimson-accent";
+import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 
 type InboxTab = "messages" | "notifications";
@@ -316,7 +316,7 @@ export default function InboxSwipeTabs() {
   const viewportTopClass = threadOpen
     ? "top-0"
     : activeTab === "messages"
-      ? "top-[calc(env(safe-area-inset-top)+9.5rem)]"
+      ? "top-[calc(env(safe-area-inset-top)+14.25rem)]"
       : "top-[calc(env(safe-area-inset-top)+5.75rem)]";
 
   return (
@@ -327,13 +327,11 @@ export default function InboxSwipeTabs() {
           <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
           <InboxOverflowMenu activeTab={activeTab} />
         </div>
-        <div className="mx-auto grid max-w-sm grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="mx-auto flex max-w-sm gap-2">
           <button
             type="button"
             onClick={() => setTab("messages")}
-            className={`rounded-full border px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
-              activeTab === "messages" ? CS_PILL_ACTIVE : CS_PILL_INACTIVE
-            }`}
+            className={`flex-1 text-center ${csPill(activeTab === "messages", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
           >
             Messages
             <TabBadge count={messageUnreadCount} />
@@ -341,9 +339,7 @@ export default function InboxSwipeTabs() {
           <button
             type="button"
             onClick={() => setTab("notifications")}
-            className={`rounded-full border px-4 py-2.5 text-center text-[10px] uppercase tracking-[0.18em] transition ${
-              activeTab === "notifications" ? CS_PILL_ACTIVE : CS_PILL_INACTIVE
-            }`}
+            className={`flex-1 text-center ${csPill(activeTab === "notifications", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
           >
             Notifications
             <TabBadge count={notificationUnreadCount} />

@@ -19,7 +19,7 @@ import {
   isOpenDeletionStatus,
 } from "@/lib/account-deletion";
 import { supabase } from "@/lib/supabase";
-import { CS_BTN_PRIMARY_COMPACT, CS_BTN_SECONDARY } from "@/lib/crimson-accent";
+import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
 type ProfilePost = {
 id: string;
@@ -517,11 +517,11 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       actions={
         <div className="grid gap-1.5">
           <div className="grid grid-cols-2 gap-1.5">
-            <Link href="/profile/edit" className={CS_BTN_PRIMARY_COMPACT}>
+            <Link href="/profile/edit" className={CS_PROFILE_BTN_PRIMARY}>
               <IconEdit />
               Edit Profile
             </Link>
-            <button type="button" onClick={() => void shareProfile()} className={CS_BTN_SECONDARY}>
+            <button type="button" onClick={() => void shareProfile()} className={CS_PROFILE_BTN_SOFT}>
               <IconShare />
               Share Profile
             </button>
@@ -529,7 +529,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           {isAdmin && (
             <Link
               href="/admin"
-              className={`${CS_BTN_PRIMARY_COMPACT} w-full`}
+              className={`${CS_PROFILE_BTN_PRIMARY} w-full`}
             >
               <IconAdmin />
               Admin

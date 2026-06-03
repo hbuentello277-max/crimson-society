@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_CHIP_PILL } from "@/lib/crimson-accent";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -1019,13 +1020,13 @@ setFeedLoading(false);
                     />
                   </div>
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                  <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-130px)] truncate rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur">
+                  <div className={`pointer-events-none absolute left-4 top-4 max-w-[calc(100%-130px)] truncate backdrop-blur ${CS_CHIP_PILL}`}>
                     Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
                   </div>
 
                   <Link
                     href={openMapHref}
-                    className="absolute right-4 top-4 rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur transition hover:bg-[#b4141e]/25"
+                    className={`absolute right-4 top-4 backdrop-blur transition hover:bg-[#b4141e]/30 ${CS_CHIP_PILL} py-1.5`}
                   >
                     View Map
                   </Link>
@@ -1193,7 +1194,7 @@ setFeedLoading(false);
               const profileHref = getProfileHref(p.author.handle);
 
               const avatar = (
-                <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/10">
+                <div className={`relative h-10 w-10 ${CS_AVATAR_RING}`}>
                   {p.author.photo ? (
                     <Image
                       src={p.author.photo}
@@ -1203,8 +1204,8 @@ setFeedLoading(false);
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[#b4141e] font-serif italic text-white">
-                      CS
+                    <div className={`${CS_AVATAR_FALLBACK} text-sm`}>
+                      {(p.author.name || "C").charAt(0)}
                     </div>
                   )}
                 </div>

@@ -80,7 +80,7 @@ function NotificationAvatar({
   const name = actorDisplayName(actor);
 
   return (
-    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#b4141e]/80">
+    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#0a0405]">
       {photo ? (
         <Image
           src={photo}

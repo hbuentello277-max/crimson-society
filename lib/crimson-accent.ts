@@ -57,6 +57,15 @@ export const CS_BTN_SECONDARY =
 export const CS_BTN_PRIMARY_COMPACT =
   "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-[#b4141e] bg-[#b4141e]/20 px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#e87a82] transition hover:bg-[#b4141e]/30";
 
+/** Profile header actions — rounded-full pill family */
+export const CS_PROFILE_BTN_PRIMARY = `${CS_CTA_PRIMARY} inline-flex min-h-8 items-center justify-center gap-1.5 px-3 py-2 text-[10px] uppercase tracking-[0.14em]`;
+
+export const CS_PROFILE_BTN_SOFT =
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/12 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#e87a82] transition hover:bg-[#b4141e]/22 hover:border-[#b4141e]/70";
+
+/** Small overlay chips (map, feed) */
+export const CS_CHIP_PILL = `${CS_PILL_SM} ${CS_PILL_ACTIVE}`;
+
 /** Unread / count badges */
 export const CS_BADGE =
   "inline-flex items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] font-semibold leading-none";

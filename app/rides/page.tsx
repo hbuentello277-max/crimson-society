@@ -12,7 +12,8 @@ import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
 import type { HostRideForm } from "@/components/rides/HostRideModal";
 import { buildSnappedRoute } from "@/lib/routing";
-import { CS_HOST_MEET_BTN } from "@/lib/crimson-accent";
+import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
+import { CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 
 type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
@@ -512,14 +513,6 @@ function RidesPageContent() {
 
   return { upcomingMeets: upcoming, completedMeets: completed };
 }, [allMeets, getRideDateTime]);
-
-   const visibleMeets = useMemo(
-  () => (meetTab === "upcoming" ? upcomingMeets : completedMeets),
-  [completedMeets, meetTab, upcomingMeets],
-);
-
-   const featuredRide = visibleMeets[0];
-   const compactRides = useMemo(() => visibleMeets.slice(1), [visibleMeets]);
 
   useEffect(() => {
     selectedRideRef.current = selectedRide;
@@ -1247,6 +1240,183 @@ let duration: string | null = newRide.duration || null;
     window.setTimeout(() => setToast(null), 2500);
   }
 
+  const meetTabIndex = meetTab === "upcoming" ? 0 : 1;
+
+  const renderMeetPanel = (meets: Ride[], listLabel: string, isPrimaryPanel: boolean) => {
+    const panelFeatured = meets[0];
+    const panelCompact = meets.slice(1);
+
+    return (
+      <>
+        {loadingMeets && (
+          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
+            <div className="h-[280px] animate-pulse bg-white/10 sm:h-[360px]" />
+            <div className="space-y-4 p-5 sm:p-6">
+              <div className="h-4 w-2/3 rounded-full bg-white/10" />
+              <div className="h-3 w-1/2 rounded-full bg-white/10" />
+              <div className="flex flex-wrap gap-2">
+                <div className="h-10 w-36 rounded-lg bg-white/10" />
+                <div className="h-10 w-24 rounded-lg bg-white/10" />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!loadingMeets && panelFeatured && (
+          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
+            <div className="relative h-[280px] sm:h-[360px]">
+              <Image
+                src={panelFeatured.cover}
+                alt={panelFeatured.name}
+                fill
+                priority={isPrimaryPanel}
+                sizes="(max-width: 768px) 100vw, 1080px"
+                className="object-cover"
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
+
+              <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
+                  {panelFeatured.type}
+                </span>
+
+                <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
+                  Featured
+                </span>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">
+                  {panelFeatured.name}
+                </h2>
+
+                <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
+                  {panelFeatured.date} / {formatTime(panelFeatured.time)}
+                </p>
+
+                <p className="mt-2 text-sm text-zinc-400">
+                  {panelFeatured.distance} / {panelFeatured.duration} / {panelFeatured.meetPoint}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <p className="max-w-2xl text-sm leading-6 text-zinc-300">{panelFeatured.description}</p>
+
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openRideDetails(panelFeatured)}
+                  className="relative rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                >
+                  View Route / Details
+                  {(unreadCounts[panelFeatured.id] || 0) > 0 && (
+                    <span className={`absolute -right-2 -top-2 ${CS_BADGE_SM} uppercase tracking-[0.12em]`}>
+                      {unreadCounts[panelFeatured.id]} new
+                    </span>
+                  )}
+                </button>
+
+                {panelFeatured.hostId === session?.user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingRide(panelFeatured)}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
+                  >
+                    Edit
+                  </button>
+                )}
+
+                {(panelFeatured.hostId === session?.user?.id || isAdmin) &&
+                  panelFeatured.status !== "canceled" && (
+                    <button
+                      type="button"
+                      onClick={() => void cancelMeet(panelFeatured.id)}
+                      className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#b4141e]/28"
+                    >
+                      Cancel
+                    </button>
+                  )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleJoin(panelFeatured.id)}
+                  disabled={
+                    panelFeatured.hostId === session?.user?.id ||
+                    panelFeatured.status === "canceled" ||
+                    (panelFeatured.privacy === "Invite" &&
+                      panelFeatured.hostId !== session?.user?.id &&
+                      !isAdmin &&
+                      !going[panelFeatured.id])
+                  }
+                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                    going[panelFeatured.id]
+                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                      : panelFeatured.privacy === "Invite" &&
+                          panelFeatured.hostId !== session?.user?.id &&
+                          !isAdmin &&
+                          !going[panelFeatured.id]
+                        ? "border-white/10 bg-white/[0.02] text-zinc-600"
+                        : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
+                  }`}
+                >
+                  {panelFeatured.hostId === session?.user?.id
+                    ? "Hosting"
+                    : going[panelFeatured.id]
+                      ? "Going"
+                      : panelFeatured.privacy === "Invite" &&
+                          panelFeatured.hostId !== session?.user?.id &&
+                          !isAdmin
+                        ? "Invite Only"
+                        : "JOIN MEET"}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section className="mt-7">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">{listLabel}</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">{meets.length} listed</p>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {loadingMeets &&
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
+                  <div className="flex animate-pulse gap-4">
+                    <div className="h-24 w-28 shrink-0 rounded-lg bg-white/10" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 w-2/3 rounded-full bg-white/10" />
+                      <div className="h-3 w-1/2 rounded-full bg-white/10" />
+                      <div className="h-3 w-4/5 rounded-full bg-white/10" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {!loadingMeets && panelCompact.map((ride) => (
+              <RideCard
+                key={ride.id}
+                ride={ride}
+                canManage={ride.hostId === session?.user?.id}
+                canModerate={ride.hostId === session?.user?.id || isAdmin}
+                unreadCount={unreadCounts[ride.id] || 0}
+                onEdit={() => setEditingRide(ride)}
+                isGoing={!!going[ride.id]}
+                onCancel={() => void cancelMeet(ride.id)}
+                onJoin={() => toggleJoin(ride.id)}
+                onViewDetails={() => openRideDetails(ride)}
+              />
+            ))}
+          </div>
+        </section>
+      </>
+    );
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
       <div
@@ -1290,205 +1460,31 @@ let duration: string | null = newRide.duration || null;
           </p>
         </header>
 
-        <div className="mt-7 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-  <button
-    type="button"
-    onClick={() => setMeetTab("upcoming")}
-    className={`rounded-full border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition ${
-      meetTab === "upcoming"
-        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
-    }`}
-  >
-    Upcoming ({upcomingMeets.length})
-  </button>
+        <div className="mt-7 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMeetTab("upcoming")}
+            className={`flex-1 ${csPill(meetTab === "upcoming", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
+          >
+            Upcoming ({upcomingMeets.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMeetTab("completed")}
+            className={`flex-1 ${csPill(meetTab === "completed", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
+          >
+            Past ({completedMeets.length})
+          </button>
+        </div>
 
-  <button
-    type="button"
-    onClick={() => setMeetTab("completed")}
-    className={`rounded-full border px-4 py-2.5 text-[10px] uppercase tracking-[0.18em] transition ${
-      meetTab === "completed"
-        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-        : "border-white/10 text-zinc-500 hover:border-white/30 hover:text-zinc-300"
-    }`}
-  >
-    Past ({completedMeets.length})
-  </button>
-</div>       
-
-        {loadingMeets && (
-          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
-            <div className="h-[280px] animate-pulse bg-white/10 sm:h-[360px]" />
-            <div className="space-y-4 p-5 sm:p-6">
-              <div className="h-4 w-2/3 rounded-full bg-white/10" />
-              <div className="h-3 w-1/2 rounded-full bg-white/10" />
-              <div className="flex flex-wrap gap-2">
-                <div className="h-10 w-36 rounded-lg bg-white/10" />
-                <div className="h-10 w-24 rounded-lg bg-white/10" />
-              </div>
-            </div>
-          </section>
-        )}
-
-        {!loadingMeets && featuredRide && (
-          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
-            <div className="relative h-[280px] sm:h-[360px]">
-              <Image
-                src={featuredRide.cover}
-                alt={featuredRide.name}
-                fill
-                priority
-                sizes="(max-width: 768px) 100vw, 1080px"
-                className="object-cover"
-              />
-
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
-
-              <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
-                  {featuredRide.type}
-                </span>
-
-                <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f0c9ce] backdrop-blur-md">
-                  Featured
-                </span>
-              </div>
-
-              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">
-                  {featuredRide.name}
-                </h2>
-
-                <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
-                  {featuredRide.date} / {formatTime(featuredRide.time)}
-                </p>
-
-                <p className="mt-2 text-sm text-zinc-400">
-                  {featuredRide.distance} / {featuredRide.duration} /{" "}
-                  {featuredRide.meetPoint}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <p className="max-w-2xl text-sm leading-6 text-zinc-300">
-                {featuredRide.description}
-              </p>
-
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openRideDetails(featuredRide)}
-                  className="relative rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-                >
-                  View Route / Details
-                  {(unreadCounts[featuredRide.id] || 0) > 0 && (
-                    <span className="absolute -right-2 -top-2 rounded-full border border-[#120608] bg-[#b4141e] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[#f4dadd]">
-                      {unreadCounts[featuredRide.id]} new
-                    </span>
-                  )}
-                </button>
-
-                {featuredRide.hostId === session?.user?.id && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingRide(featuredRide)}
-                    className="rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
-                  >
-                    Edit
-                  </button>
-                )}
-
-                {(featuredRide.hostId === session?.user?.id || isAdmin) &&
-                  featuredRide.status !== "canceled" && (
-                    <button
-                      type="button"
-                      onClick={() => void cancelMeet(featuredRide.id)}
-                      className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/18 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce] transition hover:bg-[#b4141e]/28"
-                    >
-                      Cancel
-                    </button>
-                  )}
-
-                <button
-                  type="button"
-                  onClick={() => toggleJoin(featuredRide.id)}
-                  disabled={
-                    featuredRide.hostId === session?.user?.id ||
-                    featuredRide.status === "canceled" ||
-                    (featuredRide.privacy === "Invite" &&
-                      featuredRide.hostId !== session?.user?.id &&
-                      !isAdmin &&
-                      !going[featuredRide.id])
-                  }
-                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                    going[featuredRide.id]
-                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : featuredRide.privacy === "Invite" &&
-                          featuredRide.hostId !== session?.user?.id &&
-                          !isAdmin &&
-                          !going[featuredRide.id]
-                        ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                        : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
-                  }`}
-                >
-                  {featuredRide.hostId === session?.user?.id
-                    ? "Hosting"
-                    : going[featuredRide.id]
-                      ? "Going"
-                      : featuredRide.privacy === "Invite" &&
-                          featuredRide.hostId !== session?.user?.id &&
-                          !isAdmin
-                        ? "Invite Only"
-                        : "JOIN MEET"}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="mt-7">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Upcoming Meets
-            </p>
-
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-600">
-              {allMeets.length} listed
-            </p>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            {loadingMeets &&
-              Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
-                  <div className="flex animate-pulse gap-4">
-                    <div className="h-24 w-28 shrink-0 rounded-lg bg-white/10" />
-                    <div className="flex-1 space-y-3">
-                      <div className="h-5 w-2/3 rounded-full bg-white/10" />
-                      <div className="h-3 w-1/2 rounded-full bg-white/10" />
-                      <div className="h-3 w-4/5 rounded-full bg-white/10" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-            {!loadingMeets && compactRides.map((ride) => (
-              <RideCard
-                key={ride.id}
-                ride={ride}
-                canManage={ride.hostId === session?.user?.id}
-                canModerate={ride.hostId === session?.user?.id || isAdmin}
-                unreadCount={unreadCounts[ride.id] || 0}
-                onEdit={() => setEditingRide(ride)}
-                isGoing={!!going[ride.id]}
-                onCancel={() => void cancelMeet(ride.id)}
-                onJoin={() => toggleJoin(ride.id)}
-                onViewDetails={() => openRideDetails(ride)}
-              />
-            ))}
-          </div>
-        </section>
+        <SwipeTabPanels
+          activeIndex={meetTabIndex}
+          onIndexChange={(index) => setMeetTab(index === 0 ? "upcoming" : "completed")}
+          className="mt-1"
+        >
+          {renderMeetPanel(upcomingMeets, "Upcoming Meets", true)}
+          {renderMeetPanel(completedMeets, "Past Meets", false)}
+        </SwipeTabPanels>
       </div>
 
       {selectedRide && (

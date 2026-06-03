@@ -25,7 +25,7 @@ import {
   validateDmImageFile,
 } from "@/lib/messages/dm-message";
 import { DM_VOICE_MAX_SECONDS, DM_VOICE_MIN_SECONDS } from "@/lib/messages/voice-recorder";
-import { CS_BADGE_SM } from "@/lib/crimson-accent";
+import { CS_BADGE_SM, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
 const DM_MESSAGE_SELECT =
@@ -1073,16 +1073,13 @@ export default function MessagesPanel({
                     className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
                   />
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-[#111] p-1">
+                <div className="mt-3 flex gap-2">
                   {(["all", "unread", "groups"] as const).map((t) => (
                     <button
                       key={t}
+                      type="button"
                       onClick={() => setTab(t)}
-                    className={`rounded-full border py-2 text-[11px] uppercase tracking-[0.22em] transition ${
-                      tab === t
-                        ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                        : "border-transparent text-white/50"
-                    }`}
+                      className={`flex-1 ${csPill(tab === t)} py-2 text-[11px] tracking-[0.22em]`}
                     >
                       {t}
                     </button>
@@ -1094,8 +1091,8 @@ export default function MessagesPanel({
         )}
 
         {embedded && (
-          <div className="shrink-0 border-b border-white/10 bg-black px-3 pb-2 pt-1">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2">
+          <div className="shrink-0 border-b border-white/10 bg-black px-3 pb-3 pt-2">
+            <div className={`flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5 ${CS_FOCUS_RING}`}>
               <span className="text-white/40">⌕</span>
               <input
                 value={search}
@@ -1104,16 +1101,13 @@ export default function MessagesPanel({
                 className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
               />
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-[#111] p-1">
+            <div className="mt-2.5 flex gap-1.5">
               {(["all", "unread", "groups"] as const).map((t) => (
                 <button
                   key={t}
+                  type="button"
                   onClick={() => setTab(t)}
-                  className={`rounded-lg py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition ${
-                    tab === t
-                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : "border-transparent text-white/50"
-                  }`}
+                  className={`flex-1 ${csPill(tab === t, "sm")} py-1.5 text-[10px] tracking-[0.18em]`}
                 >
                   {t}
                 </button>
