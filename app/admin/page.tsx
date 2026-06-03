@@ -438,19 +438,17 @@ export default function AdminPage() {
       }
 
       if (status === "completed") {
-        const completion = result?.completion;
+        const execution = result as { execution?: { ok?: boolean; steps?: Record<string, unknown> } };
+        const stripe = execution?.execution?.steps?.stripe as
+          | { canceledIds?: string[] }
+          | undefined;
         const parts = [
-          "Deletion request completed.",
-          completion?.profileDisabled
-            ? "Profile status set to blocked."
-            : "Profile could not be blocked automatically.",
-          completion?.authBanned
-            ? "Sign-in disabled for this account."
-            : "Auth ban could not be applied automatically.",
-          "Posts, messages, meets, and moderation records were not automatically deleted.",
+          "Account deletion approved and executed.",
+          stripe?.canceledIds?.length
+            ? `Stripe subscriptions canceled (${stripe.canceledIds.length}).`
+            : "No active Stripe subscriptions were found.",
+          "User content removed and auth account deleted. Moderation audit retained.",
         ];
-        if (completion?.profileError) parts.push(`Profile: ${completion.profileError}`);
-        if (completion?.authError) parts.push(`Auth: ${completion.authError}`);
         setSuccessMsg(parts.join(" "));
       } else {
         setSuccessMsg("Deletion request status updated.");
@@ -724,7 +722,7 @@ export default function AdminPage() {
                   <h2 className="mt-2 text-2xl font-semibold">Moderation Dashboard</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
                     Review reports, deletion requests, recent posts, and active meet activity. Use the
-                    queue actions to update report and deletion-request status. Completing a deletion request disables access immediately; full content erasure still requires manual follow-up.
+                    queue actions to update report and deletion-request status. Approving deletion cancels Stripe, removes user content, deletes the auth account, and retains moderation audit records.
                   </p>
                 </div>
                 <button
@@ -864,7 +862,7 @@ export default function AdminPage() {
                     <div className="mb-4">
                       <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
                       <p className="mt-2 text-xs leading-5 text-zinc-500">
-                        Mark completed blocks profile access, bans sign-in, and records review time. Content and moderation history are retained until a separate manual purge, if required.
+                        Approve deletion cancels active Stripe subscriptions, deletes user content and media, removes the auth account, and writes a compliance audit entry. Moderation records are retained.
                       </p>
                     </div>
 
@@ -913,7 +911,7 @@ export default function AdminPage() {
                                   title="Updates request status only; does not delete account data"
                                   className="rounded-full border border-emerald-500/30 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-emerald-200/90 transition hover:border-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  Mark completed
+                                  Approve deletion
                                 </button>
                                 <button
                                   type="button"

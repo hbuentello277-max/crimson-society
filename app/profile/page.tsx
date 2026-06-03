@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
@@ -104,7 +105,7 @@ function profileCardDetails(profile: AppProfile) {
 }
 
 export default function ProfilePage() {
-const { session, loading: authLoading, isAdmin, signOut } = useAuth();
+const { session, loading: authLoading, isAdmin, signOut, status: profileStatus } = useAuth();
 const { profile, loading: profileLoading, error, refresh } = useProfile();
 const userId = session?.user?.id ?? null;
 const [tab, setTab] = useState<ProfileTab>("posts");
@@ -119,6 +120,9 @@ const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
 const [deleteRequesting, setDeleteRequesting] = useState(false);
 const [deleteRequestStatus, setDeleteRequestStatus] = useState<string | null>(null);
+const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+const [deleteConfirmText, setDeleteConfirmText] = useState("");
+const router = useRouter();
 const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequestRow | null>(null);
 const [deletionRequestLoading, setDeletionRequestLoading] = useState(false);
 const [stats, setStats] = useState<ProfileStats>({ posts: 0, followers: 0, following: 0 });
@@ -159,6 +163,12 @@ setDeletionRequestLoading(false);
 
 void loadDeletionRequest();
 }, [userId]);
+
+useEffect(() => {
+  if (!authLoading && profileStatus === "deletion_pending") {
+    router.replace("/deletion-pending");
+  }
+}, [authLoading, profileStatus, router]);
 
 
 useEffect(() => {
@@ -322,33 +332,6 @@ setTimeout(() => setToast(null), 1400);
 
 };
 
-const cancelAccountDeletion = async () => {
-if (!userId || !deletionRequest || deletionRequest.status !== "pending" || deleteRequesting) return;
-
-const confirmed = window.confirm("Cancel your pending account deletion request?");
-if (!confirmed) return;
-
-setDeleteRequesting(true);
-setDeleteRequestStatus(null);
-
-const { data, error } = await supabase
-.from("account_deletion_requests")
-.update({ status: "canceled" })
-.eq("id", deletionRequest.id)
-.eq("user_id", userId)
-.select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
-.single();
-
-if (error) {
-  setDeleteRequestStatus(error.message || "Could not cancel deletion request.");
-} else {
-  setDeletionRequest((data as AccountDeletionRequestRow) ?? null);
-  setDeleteRequestStatus("Deletion request canceled.");
-}
-
-setDeleteRequesting(false);
-};
-
 const requestAccountDeletion = async () => {
 if (!userId || deleteRequesting) return;
 
@@ -357,43 +340,37 @@ if (deletionRequest && isOpenDeletionStatus(deletionRequest.status)) {
   return;
 }
 
-const confirmed = window.confirm(
-  [
-    "Request account deletion?",
-    "",
-    "• This process is irreversible once an admin completes your request.",
-    "• Your request will remain pending until Crimson Society reviews it.",
-    "• After completion, sign-in and app access will be disabled.",
-    "• Posts, messages, meets, reports, and moderation records may be retained for safety and legal compliance.",
-    "",
-    "Submit this deletion request?",
-  ].join("\n"),
-);
-
-if (!confirmed) return;
+if (deleteConfirmText.trim() !== "DELETE") {
+  setDeleteRequestStatus('Type DELETE in the confirmation field.');
+  return;
+}
 
 setDeleteRequesting(true);
 setDeleteRequestStatus(null);
 
-const { data, error } = await supabase
-.from("account_deletion_requests")
-.insert({
-  user_id: userId,
-  details: "Requested from private profile safety controls.",
-})
-.select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
-.single();
+try {
+  const response = await fetch("/api/account/deletion-request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation: deleteConfirmText.trim() }),
+  });
 
-if (error) {
+  const result = (await response.json().catch(() => null)) as {
+    error?: string;
+    message?: string;
+  } | null;
+
+  if (!response.ok) {
+    throw new Error(result?.error || "Could not submit deletion request.");
+  }
+
+  setDeleteModalOpen(false);
+  setDeleteConfirmText("");
+  await signOut();
+  router.replace("/account-deletion?requested=1");
+} catch (error) {
   setDeleteRequestStatus(
-    error.code === "23505"
-      ? "A deletion request is already pending review."
-      : error.message,
-  );
-} else {
-  setDeletionRequest((data as AccountDeletionRequestRow) ?? null);
-  setDeleteRequestStatus(
-    "Deletion request submitted. Your account will remain available until an admin completes review.",
+    error instanceof Error ? error.message : "Could not submit deletion request.",
   );
 }
 
@@ -781,9 +758,17 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
               <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Account deletion</p>
                 <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  Deletion is irreversible once completed. Requests are reviewed before access is disabled.
-                  Some safety and moderation records may be retained.
+                  You will be signed out immediately. Your account enters deletion_pending until an admin
+                  approves. You can sign back in only to check status or cancel while pending.
                 </p>
+                <Link
+                  href="/account-deletion"
+                  prefetch
+                  onClick={() => setSettingsOpen(false)}
+                  className="mt-2 inline-block text-[10px] uppercase tracking-[0.16em] text-[#e87a82] hover:underline"
+                >
+                  How account deletion works
+                </Link>
                 {deletionRequestLoading ? (
                   <p className="mt-3 text-xs leading-5 text-zinc-600">Loading request status…</p>
                 ) : deletionRequest ? (
@@ -800,30 +785,33 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
               <button
                 type="button"
-                onClick={() => void requestAccountDeletion()}
+                onClick={() => {
+                  setDeleteConfirmText("");
+                  setDeleteRequestStatus(null);
+                  setDeleteModalOpen(true);
+                }}
                 disabled={
                   deleteRequesting ||
                   deletionRequestLoading ||
+                  profileStatus === "deletion_pending" ||
                   Boolean(deletionRequest && isOpenDeletionStatus(deletionRequest.status))
                 }
                 className="rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
               >
-                {deleteRequesting
-                  ? "Submitting Request"
-                  : deletionRequest && isOpenDeletionStatus(deletionRequest.status)
-                    ? "Deletion Request Pending"
-                    : "Request Account Deletion"}
+                {deletionRequest && isOpenDeletionStatus(deletionRequest.status)
+                  ? "Deletion Request Pending"
+                  : "Request Account Deletion"}
               </button>
 
-              {deletionRequest?.status === "pending" && (
-                <button
-                  type="button"
-                  onClick={() => void cancelAccountDeletion()}
-                  disabled={deleteRequesting}
-                  className="rounded-xl border border-white/10 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82] disabled:opacity-60"
+              {deletionRequest && isOpenDeletionStatus(deletionRequest.status) && (
+                <Link
+                  href="/deletion-pending"
+                  prefetch
+                  onClick={() => setSettingsOpen(false)}
+                  className="rounded-xl border border-white/10 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
                 >
-                  Cancel Deletion Request
-                </button>
+                  Manage deletion status
+                </Link>
               )}
 
               {deleteRequestStatus && (
@@ -841,6 +829,49 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           </button>
         </div>
       </section>
+    </div>
+  )}
+
+  {deleteModalOpen && (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+        <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Confirm deletion</p>
+        <h2 className="mt-2 font-serif text-2xl text-white">Delete your account?</h2>
+        <p className="mt-3 text-sm leading-6 text-zinc-400">
+          This cannot be undone after admin approval. You will be signed out immediately. Type{" "}
+          <span className="font-mono text-zinc-200">DELETE</span> below to continue.
+        </p>
+        <input
+          type="text"
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="DELETE"
+          className="mt-4 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 font-mono text-sm text-white outline-none focus:border-[#b4141e]/50"
+        />
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={deleteRequesting}
+            onClick={() => {
+              setDeleteModalOpen(false);
+              setDeleteConfirmText("");
+            }}
+            className="rounded-xl border border-white/10 px-4 py-3 text-xs uppercase tracking-[0.16em] text-zinc-400"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={deleteRequesting || deleteConfirmText.trim() !== "DELETE"}
+            onClick={() => void requestAccountDeletion()}
+            className="rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/20 px-4 py-3 text-xs uppercase tracking-[0.16em] text-[#f1c3c7] disabled:opacity-50"
+          >
+            {deleteRequesting ? "Submitting…" : "Submit request"}
+          </button>
+        </div>
+      </div>
     </div>
   )}
 

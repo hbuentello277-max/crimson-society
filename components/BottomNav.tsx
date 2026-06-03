@@ -102,7 +102,7 @@ const NAV = [
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { session, loading } = useAuth();
+  const { session, loading, status: profileStatus } = useAuth();
   const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
@@ -394,6 +394,7 @@ export default function BottomNav() {
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;
   if (pathname.startsWith("/messages/")) return null;
+  if (profileStatus === "deletion_pending") return null;
 
   const isActive = (href: string) => {
     if (href === "/inbox") {

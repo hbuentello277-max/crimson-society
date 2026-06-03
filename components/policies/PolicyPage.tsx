@@ -18,6 +18,7 @@ type PolicyPageProps = {
 const policyLinks = [
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
+  { href: "/account-deletion", label: "Deletion" },
   { href: "/community-guidelines", label: "Guidelines" },
   { href: "/safety", label: "Safety" },
   { href: "/support", label: "Support" },

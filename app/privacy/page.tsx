@@ -53,9 +53,9 @@ export default function PrivacyPage() {
         {
           title: "Deletion Requests",
           body: [
-            "You can request account deletion from your private profile safety controls. Submitting a request does not immediately erase your account.",
-            "While a request is pending or under review, your account may remain available. After an admin completes a request, sign-in and app access are disabled and your profile is marked blocked.",
-            "Posts, messages, Meets, reports, blocks, and moderation records may be retained for safety, legal compliance, fraud prevention, dispute handling, and shared community history. Full auth-user removal and content erasure may still require a separate manual review.",
+            "You can request account deletion from your private profile safety controls. You must type DELETE to confirm. You are signed out immediately and your account enters deletion_pending status until an admin approves the request.",
+            "While pending, you may sign in only to view deletion status, cancel the request, or read this policy and our Account Deletion page at /account-deletion.",
+            "When an admin approves deletion, we cancel active Blackcard subscriptions, delete your posts and uploaded media, remove profile personal data, and delete your authentication account. Moderation and safety records may be retained as required by law. See /account-deletion for details.",
           ],
         },
       ]}

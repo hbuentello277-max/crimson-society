@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { applyDeletionCompletion } from "@/lib/account-deletion";
+import { executeAccountDeletion } from "@/lib/account-deletion/execute";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 
 const DELETION_STATUSES = ["reviewing", "completed", "canceled"] as const;
@@ -38,7 +38,9 @@ export async function PATCH(request: Request) {
 
     const { data: existing, error: existingError } = await adminClient
       .from("account_deletion_requests")
-      .select("id, user_id, status, details, requested_at, reviewed_at, reviewed_by")
+      .select(
+        "id, user_id, status, details, requested_at, reviewed_at, reviewed_by, previous_status",
+      )
       .eq("id", id)
       .single();
 
@@ -47,6 +49,83 @@ export async function PATCH(request: Request) {
         { error: existingError?.message || "Deletion request not found." },
         { status: 404 },
       );
+    }
+
+    if (status === "completed") {
+      if (!existing.user_id) {
+        return NextResponse.json(
+          { error: "Deletion request has no associated user." },
+          { status: 400 },
+        );
+      }
+
+      if (existing.status === "completed") {
+        return NextResponse.json({ error: "Request is already completed." }, { status: 409 });
+      }
+
+      const execution = await executeAccountDeletion(
+        adminClient,
+        existing.user_id,
+        auth.session.userId,
+        existing.id,
+      );
+
+      if (!execution.ok) {
+        await adminClient
+          .from("account_deletion_requests")
+          .update({
+            status: "reviewing",
+            completion_log: execution.steps,
+            reviewed_at: now,
+            reviewed_by: auth.session.userId,
+          })
+          .eq("id", id);
+
+        return NextResponse.json(
+          {
+            error: execution.error || "Account deletion failed.",
+            steps: execution.steps,
+          },
+          { status: 500 },
+        );
+      }
+
+      const { data, error } = await adminClient
+        .from("account_deletion_requests")
+        .update({
+          status: "completed",
+          reviewed_at: now,
+          reviewed_by: auth.session.userId,
+          completed_at: now,
+          completion_log: execution.steps,
+        })
+        .eq("id", id)
+        .select(
+          "id, user_id, status, details, requested_at, reviewed_at, reviewed_by, completed_at, completion_log",
+        )
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        request: data,
+        execution,
+      });
+    }
+
+    if (status === "canceled" && existing.user_id) {
+      const restoreStatus =
+        typeof existing.previous_status === "string" && existing.previous_status.length > 0
+          ? existing.previous_status
+          : "active";
+
+      await adminClient
+        .from("profiles")
+        .update({ status: restoreStatus })
+        .eq("id", existing.user_id)
+        .eq("status", "deletion_pending");
     }
 
     const { data, error } = await adminClient
@@ -64,24 +143,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    let completion: Awaited<ReturnType<typeof applyDeletionCompletion>> | null = null;
-
-    if (status === "completed" && existing.user_id) {
-      completion = await applyDeletionCompletion(adminClient, existing.user_id);
-    }
-
-    return NextResponse.json({
-      request: data,
-      completion,
-      manualFollowUp:
-        status === "completed"
-          ? [
-              "Auth user is banned and profile status is blocked; sign-in is disabled.",
-              "Posts, messages, meets, reports, and moderation records are not automatically purged.",
-              "Full auth user removal and content erasure still require a separate manual admin process if required by law.",
-            ]
-          : null,
-    });
+    return NextResponse.json({ request: data });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to update deletion request.";

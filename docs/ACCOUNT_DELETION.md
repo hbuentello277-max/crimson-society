@@ -3,38 +3,37 @@
 ## User request
 
 1. Rider opens **Profile → Settings → Safety → Request Account Deletion**.
-2. App shows irreversibility warning and pending-review notice.
-3. Insert into `account_deletion_requests` with `status = pending` (unique open request per user).
-4. User may **cancel** while status is `pending`.
+2. Rider types **DELETE** to confirm.
+3. `POST /api/account/deletion-request` creates `account_deletion_requests` (`pending`), sets `profiles.status = deletion_pending`, and updates auth app metadata.
+4. Client signs out and redirects to `/account-deletion`.
+5. User may sign in again only for **deletion management** (`/deletion-pending`, `/account-deletion`, `/privacy`, `/support`).
 
-## Admin review
+## Cancel (user)
+
+- While request is `pending`, user opens `/deletion-pending` and calls `POST /api/account/deletion-cancel`.
+- Profile status restores from `previous_status` on the request row.
+
+## Admin approval
 
 Statuses: `pending` → `reviewing` | `completed` | `canceled`
 
-### Mark completed (automated)
+### Approve (`completed`)
 
-- `account_deletion_requests.status = completed`
-- `reviewed_at` / `reviewed_by` recorded
-- `profiles.status = blocked` (disables in-app features)
-- Supabase Auth user **banned** (`ban_duration` long-term) — sign-in disabled
+`PATCH /api/admin/deletion-requests` runs `executeAccountDeletion`:
 
-### Not automated
+1. Cancel active Stripe subscriptions (fails entire job if Stripe errors).
+2. Hard-delete posts, media, garage, avatars, DMs, meet participation, social graph, push tokens.
+3. Snapshot moderation reports; write `account_deletion_audit`.
+4. `auth.admin.deleteUser` — removes Supabase Auth user (profile cascades).
 
-- Auth user row **not** deleted
-- Posts, messages, meets, garage, follows, reports, notifications **not** purged
-- Storage media **not** bulk-deleted
+### Admin cancel
 
-## Manual follow-up (if required)
+Restores `profiles.status` from `previous_status` when still `deletion_pending`.
 
-- Permanent auth user deletion via Supabase dashboard or admin script
-- Content erasure subject to legal/safety retention policy
-- Stripe/subscription cancellation if applicable
+## Retention
 
-## App Store compliance summary
+- `user_reports` (with optional `reporter_snapshot`), `account_deletion_audit`, and completed `account_deletion_requests` rows.
 
-| Stage | User experience |
-|-------|-----------------|
-| Submit | Request queued; account may remain usable |
-| Pending / reviewing | Status visible in profile settings |
-| Completed | Sign-in blocked; profile blocked; records may remain |
-| Canceled | User may submit again |
+## Public documentation
+
+- `/account-deletion`
