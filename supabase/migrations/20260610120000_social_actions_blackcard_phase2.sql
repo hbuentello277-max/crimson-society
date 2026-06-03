@@ -1,5 +1,12 @@
 -- Social action menus, favorites, saved/hidden posts, mutes, Blackcard Phase 2 meet perks.
 
+-- Admin-granted Blackcard override (works alongside Stripe subscriptions)
+alter table public.profiles
+  add column if not exists is_premium boolean not null default false,
+  add column if not exists premium_tier text,
+  add column if not exists premium_since timestamptz,
+  add column if not exists premium_expires_at timestamptz;
+
 -- ---------------------------------------------------------------------------
 -- Favorite riders
 -- ---------------------------------------------------------------------------
@@ -167,7 +174,8 @@ alter table public.notifications
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
-create or replace function public.user_has_blackcard_access(target_user_id uuid)
+-- Phase 1 signature MUST be preserved (default auth.uid()). Postgres rejects removing defaults via CREATE OR REPLACE.
+create or replace function public.profile_has_admin_blackcard_override(target_user_id uuid)
 returns boolean
 language sql
 stable
@@ -178,16 +186,63 @@ as $$
     select 1
     from public.profiles p
     where p.id = target_user_id
-      and (p.is_admin = true or p.role = 'admin')
-  )
-  or exists (
-    select 1
-    from public.subscriptions s
-    where s.user_id = target_user_id
-      and s.status in ('active', 'trialing')
-      and (s.current_period_end is null or s.current_period_end >= now())
+      and p.is_premium = true
+      and lower(coalesce(p.premium_tier, '')) = 'blackcard'
+      and (p.premium_expires_at is null or p.premium_expires_at >= now())
   );
 $$;
+
+revoke all on function public.profile_has_admin_blackcard_override(uuid) from public;
+grant execute on function public.profile_has_admin_blackcard_override(uuid) to authenticated;
+
+create or replace function public.user_has_blackcard_access(target_user_id uuid default auth.uid())
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.is_profile_admin(coalesce(target_user_id, auth.uid()))
+    or public.profile_has_admin_blackcard_override(coalesce(target_user_id, auth.uid()))
+    or exists (
+      select 1
+      from public.subscriptions s
+      where s.user_id = coalesce(target_user_id, auth.uid())
+        and s.status in ('active', 'trialing')
+        and (s.current_period_end is null or s.current_period_end >= now())
+    );
+$$;
+
+revoke all on function public.user_has_blackcard_access(uuid) from public;
+grant execute on function public.user_has_blackcard_access(uuid) to authenticated;
+
+create or replace function public.sync_profile_blackcard_public(target_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_value boolean;
+begin
+  next_value := public.user_has_blackcard_access(target_user_id);
+
+  update public.profiles p
+  set blackcard_public = next_value
+  where p.id = target_user_id
+    and p.blackcard_public is distinct from next_value;
+
+  return next_value;
+end;
+$$;
+
+revoke all on function public.sync_profile_blackcard_public(uuid) from public;
+grant execute on function public.sync_profile_blackcard_public(uuid) to authenticated;
+
+update public.profiles p
+set blackcard_public = public.user_has_blackcard_access(p.id)
+where p.blackcard_public is distinct from public.user_has_blackcard_access(p.id);
 
 create or replace function public.notify_favorite_riders(
   p_actor_user_id uuid,
@@ -372,6 +427,89 @@ create trigger create_favorite_rider_ride_started_after_update
 after update of tracking_status on public.rides
 for each row
 execute function public.create_favorite_rider_ride_started_notification();
+
+-- Meet join RLS respects visibility + Blackcard access (Stripe OR admin override)
+create or replace function public.user_follows_ride_host(viewer_id uuid, host_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_follows uf
+    where uf.follower_id = viewer_id
+      and uf.following_id = host_id
+  );
+$$;
+
+create or replace function public.user_favorited_ride_host(viewer_id uuid, host_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.favorite_riders fr
+    where fr.user_id = viewer_id
+      and fr.favorite_user_id = host_id
+  );
+$$;
+
+revoke all on function public.user_follows_ride_host(uuid, uuid) from public;
+grant execute on function public.user_follows_ride_host(uuid, uuid) to authenticated;
+revoke all on function public.user_favorited_ride_host(uuid, uuid) from public;
+grant execute on function public.user_favorited_ride_host(uuid, uuid) to authenticated;
+
+drop policy if exists "Users can join rides" on public.ride_attendees;
+
+create policy "Users can join rides"
+on public.ride_attendees
+for insert
+to authenticated
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from public.rides r
+    where r.id = ride_id
+      and r.status = 'active'
+      and (
+        r.host_id = auth.uid()
+        or public.is_profile_admin(auth.uid())
+        or coalesce(r.visibility, case
+          when coalesce(r.privacy, 'Open') = 'Invite' then 'invite'
+          when coalesce(r.privacy, 'Open') = 'Blackcard' then 'blackcard'
+          else 'public'
+        end) = 'public'
+        or (
+          coalesce(r.visibility, case
+            when coalesce(r.privacy, 'Open') = 'Invite' then 'invite'
+            when coalesce(r.privacy, 'Open') = 'Blackcard' then 'blackcard'
+            else 'public'
+          end) = 'blackcard'
+          and public.user_has_blackcard_access(auth.uid())
+        )
+        or (
+          coalesce(r.visibility, 'public') = 'followers'
+          and public.user_follows_ride_host(auth.uid(), r.host_id)
+        )
+        or (
+          coalesce(r.visibility, 'public') = 'favorites'
+          and public.user_favorited_ride_host(auth.uid(), r.host_id)
+        )
+      )
+  )
+  and not exists (
+    select 1
+    from public.rides r
+    where r.id = ride_id
+      and public.users_are_blocked(auth.uid(), r.host_id)
+  )
+);
 
 notify pgrst, 'reload schema';
 

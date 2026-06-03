@@ -1320,13 +1320,18 @@ let duration: string | null = newRide.duration || null;
     const userId = session.user.id;
 
     void (async () => {
-      const [membershipResponse, followsResponse, favoritesResponse] = await Promise.all([
+      const [membershipResponse, profileResponse, followsResponse, favoritesResponse] = await Promise.all([
         supabase
           .from("subscriptions")
           .select("status, current_period_end")
           .eq("user_id", userId)
           .order("current_period_end", { ascending: false, nullsFirst: true })
           .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("is_premium, premium_tier, premium_expires_at, blackcard_public")
+          .eq("id", userId)
           .maybeSingle(),
         supabase.from("user_follows").select("following_id").eq("follower_id", userId),
         supabase.from("favorite_riders").select("favorite_user_id").eq("user_id", userId),
@@ -1335,7 +1340,10 @@ let duration: string | null = newRide.duration || null;
       if (!active) return;
 
       setViewerHasBlackcard(
-        hasBlackcardAccess((membershipResponse.data as MembershipRow | null) ?? null, isAdmin),
+        hasBlackcardAccess((membershipResponse.data as MembershipRow | null) ?? null, isAdmin, {
+          adminOverride: profileResponse.data,
+          blackcardPublic: profileResponse.data?.blackcard_public,
+        }),
       );
       setFollowingHostIds(new Set((followsResponse.data || []).map((row) => row.following_id)));
       setFavoritedHostIds(

@@ -12,6 +12,8 @@ import {
 } from "@/lib/user-reports";
 import { AdminDeletionQueueSection } from "@/components/admin/AdminDeletionQueueSection";
 import { AdminRecentMeetsSection } from "@/components/admin/AdminRecentMeetsSection";
+import { AdminMembershipControls } from "@/components/admin/AdminMembershipControls";
+import type { MembershipRow } from "@/lib/membership";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked";
@@ -252,6 +254,7 @@ function AdminPageContent() {
   const [moderationError, setModerationError] = useState("");
   const [moderationSavingId, setModerationSavingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [subscriptionsByUserId, setSubscriptionsByUserId] = useState<Record<string, MembershipRow | null>>({});
 
   const myUserId = session?.user?.id ?? null;
 
@@ -283,7 +286,27 @@ function AdminPageContent() {
       return;
     }
 
-    setProfiles((data as AdminProfile[]) || []);
+    const nextProfiles = (data as AdminProfile[]) || [];
+    setProfiles(nextProfiles);
+
+    if (nextProfiles.length > 0) {
+      const { data: subscriptionRows } = await supabase
+        .from("subscriptions")
+        .select("user_id, status, plan_type, current_period_end, created_at")
+        .in(
+          "user_id",
+          nextProfiles.map((item) => item.id),
+        )
+        .order("current_period_end", { ascending: false, nullsFirst: true });
+
+      const map: Record<string, MembershipRow | null> = {};
+      for (const row of subscriptionRows || []) {
+        const userId = String((row as { user_id?: string }).user_id || "");
+        if (!userId || map[userId]) continue;
+        map[userId] = row as MembershipRow;
+      }
+      setSubscriptionsByUserId(map);
+    }
   }
 
   async function fetchModerationData() {
@@ -648,6 +671,54 @@ function AdminPageContent() {
     }
   }
 
+
+  async function runMembershipAction(
+    profileId: string,
+    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration",
+    expiresAt?: string,
+  ) {
+    setSavingId(profileId);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const response = await fetch("/api/admin/profiles/membership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId, action, expiresAt }),
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            profile?: AdminProfile;
+            subscription?: MembershipRow | null;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Membership action failed.");
+      }
+
+      if (result?.profile) {
+        setProfiles((current) =>
+          current.map((item) => (item.id === profileId ? { ...item, ...result.profile } : item)),
+        );
+      }
+
+      setSubscriptionsByUserId((current) => ({
+        ...current,
+        [profileId]: result?.subscription ?? current[profileId] ?? null,
+      }));
+
+      setSuccessMsg("Membership updated.");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Membership action failed.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-black text-white">
@@ -963,6 +1034,13 @@ function AdminPageContent() {
                 </div>
               )}
             </section>
+
+            <AdminMembershipControls
+              profiles={profiles}
+              subscriptionsByUserId={subscriptionsByUserId}
+              savingId={savingId}
+              onAction={runMembershipAction}
+            />
 
             <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
               <div className="grid gap-4 md:grid-cols-[1fr_1.2fr] md:items-center">

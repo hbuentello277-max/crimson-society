@@ -19,8 +19,21 @@ export type MembershipRow = {
   created_at?: string | null;
 };
 
+export type AdminBlackcardOverride = {
+  is_premium?: boolean | null;
+  premium_tier?: string | null;
+  premium_expires_at?: string | null;
+};
+
+export type BlackcardAccessOptions = {
+  membership?: MembershipRow | null;
+  isAdmin?: boolean;
+  adminOverride?: AdminBlackcardOverride | null;
+  blackcardPublic?: boolean | null;
+};
+
 export function normalizeMembershipPlanType(
-  planType: string | null | undefined
+  planType: string | null | undefined,
 ): MembershipPlanType | null {
   if (!planType) return null;
   if (planType === "monthly" || planType === "apex_monthly") return "monthly";
@@ -32,14 +45,9 @@ export function checkoutPlanType(planType: MembershipPlanType) {
   return planType;
 }
 
-export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const;
-
 export function hasActiveMembership(membership: MembershipRow | null) {
   if (!membership) return false;
-  if (
-    membership.status !== "active" &&
-    membership.status !== "trialing"
-  ) {
+  if (membership.status !== "active" && membership.status !== "trialing") {
     return false;
   }
   if (!membership.current_period_end) return true;
@@ -47,22 +55,38 @@ export function hasActiveMembership(membership: MembershipRow | null) {
   return new Date(membership.current_period_end).getTime() >= Date.now();
 }
 
-export function isActiveSubscriptionRecord(
-  status: string | null | undefined,
-  currentPeriodEnd: string | null | undefined,
+export function hasAdminBlackcardOverride(
+  override: AdminBlackcardOverride | null | undefined,
 ) {
-  return hasActiveMembership({
-    status: (status as SubscriptionStatus) ?? null,
-    plan_type: null,
-    current_period_end: currentPeriodEnd ?? null,
-  });
+  if (!override?.is_premium) return false;
+  if ((override.premium_tier || "").toLowerCase() !== "blackcard") return false;
+  if (
+    override.premium_expires_at &&
+    new Date(override.premium_expires_at).getTime() < Date.now()
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function resolveBlackcardAccess(options: BlackcardAccessOptions) {
+  if (options.isAdmin === true) return true;
+  if (options.blackcardPublic === true) return true;
+  if (hasAdminBlackcardOverride(options.adminOverride)) return true;
+  return hasActiveMembership(options.membership ?? null);
 }
 
 export function hasBlackcardAccess(
   membership: MembershipRow | null,
   isAdmin?: boolean,
+  options?: Omit<BlackcardAccessOptions, "membership" | "isAdmin">,
 ) {
-  return isAdmin === true || hasActiveMembership(membership);
+  return resolveBlackcardAccess({
+    membership,
+    isAdmin,
+    adminOverride: options?.adminOverride,
+    blackcardPublic: options?.blackcardPublic,
+  });
 }
 
 export function formatMembershipPlanType(planType?: string | null) {
@@ -70,4 +94,31 @@ export function formatMembershipPlanType(planType?: string | null) {
   if (normalized === "yearly") return "Yearly";
   if (normalized === "monthly") return "Monthly";
   return "Blackcard";
+}
+
+export function membershipStatusLabel(options: {
+  membership?: MembershipRow | null;
+  adminOverride?: AdminBlackcardOverride | null;
+  isAdmin?: boolean;
+}) {
+  if (options.isAdmin) return "Admin";
+  if (hasAdminBlackcardOverride(options.adminOverride)) {
+    if (options.adminOverride?.premium_expires_at) {
+      return `Admin override · expires ${new Date(options.adminOverride.premium_expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    }
+    return "Admin override · active";
+  }
+  if (hasActiveMembership(options.membership ?? null)) {
+    const plan = formatMembershipPlanType(options.membership?.plan_type);
+    if (options.membership?.current_period_end) {
+      return `Stripe ${plan} · renews ${new Date(options.membership.current_period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    }
+    return `Stripe ${plan} · active`;
+  }
+  return "Regular";
+}
+
+export function subscriptionStatusLabel(membership: MembershipRow | null | undefined) {
+  if (!membership?.status) return "None";
+  return membership.status.replace(/_/g, " ");
 }

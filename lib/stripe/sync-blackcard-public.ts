@@ -1,27 +1,39 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { hasActiveMembership, type MembershipRow } from "@/lib/membership";
+import { hasActiveMembership, hasAdminBlackcardOverride, type MembershipRow } from "@/lib/membership";
 
 /**
- * Recomputes profiles.blackcard_public from the user's subscription rows.
- * Called after Stripe webhook subscription upserts/deletes.
+ * Recomputes profiles.blackcard_public from Stripe subscriptions and admin overrides.
+ * Called after Stripe webhook subscription upserts/deletes and admin membership actions.
  */
 export async function syncBlackcardPublicForUser(
   adminClient: SupabaseClient,
   userId: string,
 ): Promise<boolean> {
-  const { data: rows, error: loadError } = await adminClient
-    .from("subscriptions")
-    .select("status, plan_type, current_period_end")
-    .eq("user_id", userId)
-    .in("status", ["active", "trialing"]);
+  const [{ data: profile, error: profileError }, { data: rows, error: loadError }] =
+    await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("is_premium, premium_tier, premium_expires_at")
+        .eq("id", userId)
+        .maybeSingle(),
+      adminClient
+        .from("subscriptions")
+        .select("status, plan_type, current_period_end")
+        .eq("user_id", userId)
+        .in("status", ["active", "trialing"]),
+    ]);
+
+  if (profileError) {
+    throw profileError;
+  }
 
   if (loadError) {
     throw loadError;
   }
 
-  const isActive = (rows ?? []).some((row) =>
-    hasActiveMembership(row as MembershipRow),
-  );
+  const isActive =
+    hasAdminBlackcardOverride(profile) ||
+    (rows ?? []).some((row) => hasActiveMembership(row as MembershipRow));
 
   const { error: updateError } = await adminClient
     .from("profiles")

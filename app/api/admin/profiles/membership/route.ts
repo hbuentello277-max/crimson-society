@@ -1,44 +1,43 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import {
-  getMissingSupabaseAdminEnvVars,
-  getSupabaseProjectUrl,
-  getSupabaseServiceRoleKey,
-} from "@/lib/supabase-admin-env";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
+import { syncBlackcardPublicForUser } from "@/lib/stripe/sync-blackcard-public";
+
+type MembershipAction =
+  | "grant"
+  | "revoke"
+  | "extend_30"
+  | "extend_90"
+  | "set_expiration";
+
+type MembershipRequestBody = {
+  profileId?: string;
+  action?: MembershipAction;
+  expiresAt?: string | null;
+  membership?: "regular" | "blackcard";
+};
+
+const PROFILE_SELECT =
+  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public";
+
+function addDays(from: Date, days: number) {
+  const next = new Date(from);
+  next.setDate(next.getDate() + days);
+  return next.toISOString();
+}
+
+function resolveExpiration(base: string | null | undefined, days: number) {
+  const anchor =
+    base && new Date(base).getTime() > Date.now() ? new Date(base) : new Date();
+  return addDays(anchor, days);
+}
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAdminSession();
+  if ("error" in auth) {
+    return auth.error;
   }
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, status")
-    .eq("id", user.id)
-    .single();
-
-  if (me?.role !== "admin" || me?.status !== "active") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const serviceKey = getSupabaseServiceRoleKey();
-  const supabaseUrl = getSupabaseProjectUrl();
-
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json(
-      { error: `Missing Supabase env var(s): ${getMissingSupabaseAdminEnvVars().join(", ")}` },
-      { status: 500 },
-    );
-  }
-
-  let body: { profileId?: string; membership?: "regular" | "blackcard" };
+  let body: MembershipRequestBody;
 
   try {
     body = await request.json();
@@ -46,19 +45,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { profileId, membership } = body;
+  const { profileId, action, expiresAt, membership } = body;
 
-  if (!profileId || (membership !== "regular" && membership !== "blackcard")) {
-    return NextResponse.json({ error: "Invalid membership payload" }, { status: 400 });
+  if (!profileId) {
+    return NextResponse.json({ error: "profileId is required" }, { status: 400 });
   }
 
-  const adminClient = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const adminClient = createAdminServiceClient();
 
   const { data: existingProfile, error: existingError } = await adminClient
     .from("profiles")
-    .select("id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at")
+    .select(PROFILE_SELECT)
     .eq("id", profileId)
     .single();
 
@@ -69,29 +66,81 @@ export async function POST(request: Request) {
     );
   }
 
-  const updatePayload =
-    membership === "blackcard"
-      ? {
-          is_premium: true,
-          premium_tier: "blackcard",
-          premium_since: existingProfile.premium_since || new Date().toISOString(),
-        }
-      : {
-          is_premium: false,
-          premium_tier: null,
-          premium_expires_at: null,
-        };
+  let updatePayload: Record<string, unknown> | null = null;
+
+  if (membership === "regular" || membership === "blackcard") {
+    updatePayload =
+      membership === "blackcard"
+        ? {
+            is_premium: true,
+            premium_tier: "blackcard",
+            premium_since: existingProfile.premium_since || new Date().toISOString(),
+            premium_expires_at: existingProfile.premium_expires_at ?? null,
+          }
+        : {
+            is_premium: false,
+            premium_tier: null,
+            premium_expires_at: null,
+          };
+  } else if (action === "grant") {
+    updatePayload = {
+      is_premium: true,
+      premium_tier: "blackcard",
+      premium_since: existingProfile.premium_since || new Date().toISOString(),
+      premium_expires_at: expiresAt ?? null,
+    };
+  } else if (action === "revoke") {
+    updatePayload = {
+      is_premium: false,
+      premium_tier: null,
+      premium_expires_at: null,
+    };
+  } else if (action === "extend_30" || action === "extend_90") {
+    const days = action === "extend_30" ? 30 : 90;
+    updatePayload = {
+      is_premium: true,
+      premium_tier: "blackcard",
+      premium_since: existingProfile.premium_since || new Date().toISOString(),
+      premium_expires_at: resolveExpiration(existingProfile.premium_expires_at, days),
+    };
+  } else if (action === "set_expiration") {
+    if (!expiresAt) {
+      return NextResponse.json({ error: "expiresAt is required" }, { status: 400 });
+    }
+
+    updatePayload = {
+      is_premium: true,
+      premium_tier: "blackcard",
+      premium_since: existingProfile.premium_since || new Date().toISOString(),
+      premium_expires_at: expiresAt,
+    };
+  } else {
+    return NextResponse.json({ error: "Invalid membership action" }, { status: 400 });
+  }
 
   const { data: updatedProfile, error: updateError } = await adminClient
     .from("profiles")
     .update(updatePayload)
     .eq("id", profileId)
-    .select("id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at")
+    .select(PROFILE_SELECT)
     .single();
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
 
-  return NextResponse.json({ profile: updatedProfile });
+  const blackcardPublic = await syncBlackcardPublicForUser(adminClient, profileId);
+
+  const { data: subscription } = await adminClient
+    .from("subscriptions")
+    .select("status, plan_type, current_period_end, created_at")
+    .eq("user_id", profileId)
+    .order("current_period_end", { ascending: false, nullsFirst: true })
+    .limit(1)
+    .maybeSingle();
+
+  return NextResponse.json({
+    profile: { ...updatedProfile, blackcard_public: blackcardPublic },
+    subscription,
+  });
 }
