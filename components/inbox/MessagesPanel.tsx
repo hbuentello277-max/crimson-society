@@ -987,6 +987,14 @@ export default function MessagesPanel({
   }, []);
 
   if (authLoading || (!session && !authLoading)) {
+    if (embedded) {
+      return (
+        <div className="flex h-full min-h-0 items-center justify-center bg-black text-white">
+          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Opening messages</p>
+        </div>
+      );
+    }
+
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#050405] text-white">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">

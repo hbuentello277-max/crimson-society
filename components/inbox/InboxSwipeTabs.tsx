@@ -1,18 +1,12 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type TouchEvent as ReactTouchEvent,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import MessagesPanel from "@/components/inbox/MessagesPanel";
 import NotificationsPanel from "@/components/inbox/NotificationsPanel";
+import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 
@@ -28,9 +22,6 @@ type MessageBadgeRow = {
   sender_id: string;
   created_at: string;
 };
-
-const SWIPE_THRESHOLD_PX = 56;
-const SWIPE_COMMIT_RATIO = 0.18;
 
 function badgeLabel(count: number) {
   return count > 9 ? "9+" : String(count);
@@ -52,31 +43,29 @@ export default function InboxSwipeTabs() {
   const { session, loading } = useAuth();
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [newMessageRequestId, setNewMessageRequestId] = useState(0);
   const [threadOpen, setThreadOpen] = useState(false);
-
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const dragStartX = useRef(0);
-  const dragStartY = useRef(0);
-  const dragAxis = useRef<"horizontal" | "vertical" | null>(null);
-  const viewportWidth = useRef(0);
 
   const activeTab: InboxTab =
     searchParams.get("tab") === "notifications" ? "notifications" : "messages";
   const activeIndex = activeTab === "messages" ? 0 : 1;
+  const swipeEnabled = !threadOpen;
 
   const setTab = useCallback(
     (tab: InboxTab) => {
       const nextUrl = tab === "notifications" ? "/inbox?tab=notifications" : "/inbox";
       router.replace(nextUrl, { scroll: false });
-      setDragOffset(0);
-      setIsDragging(false);
-      dragAxis.current = null;
     },
-    [router]
+    [router],
   );
+
+  const { viewportRef, swipeHandlers, translateX, isDragging, panelWidthPercent } =
+    useHorizontalSwipe({
+      activeIndex,
+      panelCount: 2,
+      enabled: swipeEnabled,
+      onIndexChange: (index) => setTab(index === 0 ? "messages" : "notifications"),
+    });
 
   const loadNotificationUnreadCount = useCallback(async () => {
     const userId = session?.user?.id;
@@ -137,7 +126,7 @@ export default function InboxSwipeTabs() {
     }
 
     const readMap = new Map(
-      memberRows.map((membership) => [membership.conversation_id, membership.last_read_at])
+      memberRows.map((membership) => [membership.conversation_id, membership.last_read_at]),
     );
 
     const nextCount = ((messages || []) as MessageBadgeRow[]).reduce((total, message) => {
@@ -169,14 +158,14 @@ export default function InboxSwipeTabs() {
         { event: "*", schema: "public", table: "messages" },
         () => {
           void loadMessageUnreadCount();
-        }
+        },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversation_members" },
         () => {
           void loadMessageUnreadCount();
-        }
+        },
       )
       .subscribe();
 
@@ -184,10 +173,15 @@ export default function InboxSwipeTabs() {
       .channel(`inbox-tabs-notifications-${userId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
         () => {
           void loadNotificationUnreadCount();
-        }
+        },
       )
       .subscribe();
 
@@ -204,115 +198,6 @@ export default function InboxSwipeTabs() {
     };
   }, [loadMessageUnreadCount, loadNotificationUnreadCount, loading, session?.user?.id]);
 
-  useEffect(() => {
-    setDragOffset(0);
-    setIsDragging(false);
-    dragAxis.current = null;
-  }, [activeTab]);
-
-  useEffect(() => {
-    const node = viewportRef.current;
-    if (!node) return;
-
-    const updateWidth = () => {
-      viewportWidth.current = node.clientWidth;
-    };
-
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, []);
-
-  function commitSwipe(deltaX: number) {
-    const width = viewportWidth.current || 1;
-
-    if (deltaX <= -SWIPE_THRESHOLD_PX || deltaX / width <= -SWIPE_COMMIT_RATIO) {
-      if (activeIndex < 1) setTab("notifications");
-      return;
-    }
-
-    if (deltaX >= SWIPE_THRESHOLD_PX || deltaX / width >= SWIPE_COMMIT_RATIO) {
-      if (activeIndex > 0) setTab("messages");
-    }
-  }
-
-  function beginDrag(clientX: number, clientY: number) {
-    dragStartX.current = clientX;
-    dragStartY.current = clientY;
-    dragAxis.current = null;
-    setIsDragging(true);
-  }
-
-  function moveDrag(clientX: number, clientY: number) {
-    const deltaX = clientX - dragStartX.current;
-    const deltaY = clientY - dragStartY.current;
-
-    if (!dragAxis.current) {
-      if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
-      dragAxis.current = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
-    }
-
-    if (dragAxis.current !== "horizontal") return;
-
-    const width = viewportWidth.current || 1;
-    const atStart = activeIndex === 0 && deltaX > 0;
-    const atEnd = activeIndex === 1 && deltaX < 0;
-    const resistedDelta = atStart || atEnd ? deltaX * 0.35 : deltaX;
-
-    setDragOffset(Math.max(-width, Math.min(width, resistedDelta)));
-  }
-
-  function endDrag(clientX: number, clientY: number) {
-    const deltaX = clientX - dragStartX.current;
-    if (dragAxis.current === "horizontal") {
-      commitSwipe(deltaX);
-    }
-    setDragOffset(0);
-    setIsDragging(false);
-    dragAxis.current = null;
-  }
-
-  function onTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
-    if (event.touches.length !== 1) return;
-    beginDrag(event.touches[0].clientX, event.touches[0].clientY);
-  }
-
-  function onTouchMove(event: ReactTouchEvent<HTMLDivElement>) {
-    if (event.touches.length !== 1) return;
-    moveDrag(event.touches[0].clientX, event.touches[0].clientY);
-    if (dragAxis.current === "horizontal") event.preventDefault();
-  }
-
-  function onTouchEnd(event: ReactTouchEvent<HTMLDivElement>) {
-    const touch = event.changedTouches[0];
-    if (!touch) return;
-    endDrag(touch.clientX, touch.clientY);
-  }
-
-  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType === "touch") return;
-    beginDrag(event.clientX, event.clientY);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType === "touch" || !isDragging) return;
-    moveDrag(event.clientX, event.clientY);
-  }
-
-  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType === "touch") return;
-    endDrag(event.clientX, event.clientY);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  const translateX =
-    -activeIndex * 50 + (viewportWidth.current ? (dragOffset / viewportWidth.current) * 50 : 0);
-
   const viewportTopClass = threadOpen
     ? "top-0"
     : activeTab === "messages"
@@ -322,54 +207,48 @@ export default function InboxSwipeTabs() {
   return (
     <>
       {!threadOpen && (
-      <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-black px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-        <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
-          <InboxOverflowMenu activeTab={activeTab} />
-        </div>
-        <div className="mx-auto flex max-w-sm gap-2">
-          <button
-            type="button"
-            onClick={() => setTab("messages")}
-            className={`flex-1 text-center ${csPill(activeTab === "messages", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
-          >
-            Messages
-            <TabBadge count={messageUnreadCount} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("notifications")}
-            className={`flex-1 text-center ${csPill(activeTab === "notifications", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
-          >
-            Notifications
-            <TabBadge count={notificationUnreadCount} />
-          </button>
-        </div>
-
-        {activeTab === "messages" && (
-          <div className="mx-auto mt-3 max-w-sm">
+        <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-black px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
+            <InboxOverflowMenu activeTab={activeTab} />
+          </div>
+          <div className="mx-auto flex max-w-sm gap-2">
             <button
               type="button"
-              onClick={() => setNewMessageRequestId((current) => current + 1)}
-              className={`w-full ${CS_CTA_PRIMARY_MD}`}
+              onClick={() => setTab("messages")}
+              className={`flex-1 text-center ${csPill(activeTab === "messages", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
             >
-              + New Message
+              Messages
+              <TabBadge count={messageUnreadCount} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("notifications")}
+              className={`flex-1 text-center ${csPill(activeTab === "notifications", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
+            >
+              Notifications
+              <TabBadge count={notificationUnreadCount} />
             </button>
           </div>
-        )}
-      </div>
+
+          {activeTab === "messages" && (
+            <div className="mx-auto mt-3 max-w-sm">
+              <button
+                type="button"
+                onClick={() => setNewMessageRequestId((current) => current + 1)}
+                className={`w-full ${CS_CTA_PRIMARY_MD}`}
+              >
+                + New Message
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <div
         ref={viewportRef}
-        className={`fixed inset-x-0 bottom-0 w-full max-w-full overflow-hidden touch-pan-y ${viewportTopClass} ${threadOpen ? "pointer-events-none invisible" : ""}`}
-        onTouchStart={threadOpen ? undefined : onTouchStart}
-        onTouchMove={threadOpen ? undefined : onTouchMove}
-        onTouchEnd={threadOpen ? undefined : onTouchEnd}
-        onPointerDown={threadOpen ? undefined : onPointerDown}
-        onPointerMove={threadOpen ? undefined : onPointerMove}
-        onPointerUp={threadOpen ? undefined : onPointerUp}
-        onPointerCancel={threadOpen ? undefined : onPointerUp}
+        className={`fixed inset-x-0 bottom-0 w-full max-w-full touch-none overflow-hidden ${viewportTopClass} ${threadOpen ? "pointer-events-none invisible" : ""}`}
+        {...swipeHandlers}
       >
         <div
           className={`flex h-full max-w-none ${isDragging ? "" : "transition-transform duration-300 ease-out"}`}
@@ -378,14 +257,14 @@ export default function InboxSwipeTabs() {
             transform: `translateX(${translateX}%)`,
           }}
         >
-          <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
+          <div className="h-full shrink-0 touch-pan-y overflow-y-auto overscroll-contain" style={{ width: `${panelWidthPercent}%` }}>
             <MessagesPanel
               embedded
               newMessageRequestId={newMessageRequestId}
               onThreadActiveChange={setThreadOpen}
             />
           </div>
-          <div className="h-full w-1/2 shrink-0 overflow-y-auto overscroll-contain">
+          <div className="h-full shrink-0 touch-pan-y overflow-y-auto overscroll-contain" style={{ width: `${panelWidthPercent}%` }}>
             <NotificationsPanel embedded />
           </div>
         </div>
