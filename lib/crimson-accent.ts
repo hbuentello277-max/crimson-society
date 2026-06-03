@@ -23,12 +23,39 @@ export const CS_CTA_PRIMARY_SM = `${CS_CTA_PRIMARY} px-4 py-2 text-[10px] upperc
 export const CS_CTA_PRIMARY_MD = `${CS_CTA_PRIMARY} px-5 py-2.5 text-xs uppercase tracking-[0.22em]`;
 export const CS_CTA_PRIMARY_LG = `${CS_CTA_PRIMARY} px-5 py-3.5 text-sm uppercase tracking-[0.3em]`;
 
-/** Icon-only circular actions (send arrow, etc.) */
+/** Icon-only circular actions (send arrow, toolbar, etc.) */
 export const CS_ICON_BTN_ACTIVE =
   "flex items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30";
 
 export const CS_ICON_BTN_DISABLED =
-  "flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-600";
+  "flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
+
+/** DM send — same tokens as Connect ALL pill */
+export const CS_SEND_BTN =
+  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:pointer-events-none disabled:opacity-40";
+
+export const CS_SEND_BTN_DISABLED =
+  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
+
+/** DM composer toolbar icon buttons */
+export const CS_TOOLBAR_BTN =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition";
+
+export const CS_TOOLBAR_BTN_ACTIVE =
+  `${CS_TOOLBAR_BTN} border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30`;
+
+export const CS_TOOLBAR_BTN_INACTIVE =
+  `${CS_TOOLBAR_BTN} border-transparent text-zinc-500 hover:border-white/20 hover:bg-white/[0.04] hover:text-zinc-300`;
+
+export const CS_TOOLBAR_BTN_DISABLED =
+  `${CS_TOOLBAR_BTN} border-transparent text-zinc-600 opacity-45 cursor-not-allowed`;
+
+/** Compact profile / card actions */
+export const CS_BTN_SECONDARY =
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-white/30 hover:text-zinc-300";
+
+export const CS_BTN_PRIMARY_COMPACT =
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-[#b4141e] bg-[#b4141e]/20 px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#e87a82] transition hover:bg-[#b4141e]/30";
 
 /** Unread / count badges */
 export const CS_BADGE =

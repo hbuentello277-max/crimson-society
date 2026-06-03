@@ -4,7 +4,13 @@ import type { ChangeEvent, RefObject } from "react";
 import { useRef, useState } from "react";
 import { EmojiTray } from "@/components/inbox/EmojiTray";
 import { IconCamera, IconGallery, IconMicrophone, IconSend } from "@/components/inbox/inbox-icons";
-import { CS_ICON_BTN_ACTIVE, CS_ICON_BTN_DISABLED } from "@/lib/crimson-accent";
+import {
+  CS_SEND_BTN,
+  CS_SEND_BTN_DISABLED,
+  CS_TOOLBAR_BTN_ACTIVE,
+  CS_TOOLBAR_BTN_DISABLED,
+  CS_TOOLBAR_BTN_INACTIVE,
+} from "@/lib/crimson-accent";
 
 /** Minimal gap above BottomNav + home indicator (Messaging V3 mockup). */
 export const MESSAGE_COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 0.75rem)";
@@ -32,6 +38,7 @@ export function MessageComposer({
   const cameraRef = useRef<HTMLInputElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const busy = sending || uploadingMedia;
+  const canSend = Boolean(draft.trim()) && !busy;
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -60,7 +67,7 @@ export function MessageComposer({
 
   return (
     <div
-      className="shrink-0 border-t border-white/10 bg-black"
+      className="shrink-0 border-t border-[#b4141e]/25 bg-[#050505]"
       style={{ paddingBottom: MESSAGE_COMPOSER_BOTTOM_OFFSET }}
     >
       <EmojiTray open={emojiOpen} onPick={insertEmoji} />
@@ -81,78 +88,78 @@ export function MessageComposer({
         onChange={handleImageChange}
       />
 
-      <div className="flex items-end gap-1.5 px-3 pb-2 pt-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => cameraRef.current?.click()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:text-white disabled:opacity-40"
-          aria-label="Take photo"
-        >
-          <IconCamera />
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => galleryRef.current?.click()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:text-white disabled:opacity-40"
-          aria-label="Choose from gallery"
-        >
-          <IconGallery />
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Voice notes coming soon"
-          aria-label="Voice notes coming soon"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/35"
-        >
-          <IconMicrophone />
-        </button>
-        <button
-          type="button"
-          onClick={() => setEmojiOpen((open) => !open)}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg transition ${
-            emojiOpen ? "bg-white/10 text-white" : "text-white/70 hover:text-white"
-          }`}
-          aria-label="Insert emoji"
-          aria-expanded={emojiOpen}
-        >
-          ☺
-        </button>
-
-        <div className="flex min-w-0 flex-1 items-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5">
-          <input
-            ref={inputRef}
-            type="text"
-            enterKeyHint="send"
-            autoComplete="off"
-            autoCorrect="on"
-            value={draft}
+      <div className="px-3 pb-2 pt-2">
+        <div className="mb-2 flex items-center justify-between gap-1 rounded-full border border-white/10 bg-[#0c0c0c]/90 px-1 py-1">
+          <button
+            type="button"
             disabled={busy}
-            onChange={(event) => onDraftChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                onSend();
-              }
-            }}
-            placeholder={uploadingMedia ? "Uploading photo…" : "Message..."}
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/40 disabled:opacity-60"
-          />
+            onClick={() => cameraRef.current?.click()}
+            className={uploadingMedia ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+            aria-label="Take photo"
+          >
+            <IconCamera />
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => galleryRef.current?.click()}
+            className={uploadingMedia ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+            aria-label="Choose from gallery"
+          >
+            <IconGallery />
+          </button>
+          <button
+            type="button"
+            disabled
+            title="Voice notes coming soon"
+            aria-label="Voice notes coming soon"
+            className={CS_TOOLBAR_BTN_DISABLED}
+          >
+            <IconMicrophone />
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmojiOpen((open) => !open)}
+            className={emojiOpen ? CS_TOOLBAR_BTN_ACTIVE : CS_TOOLBAR_BTN_INACTIVE}
+            aria-label="Insert emoji"
+            aria-expanded={emojiOpen}
+          >
+            <span className="text-lg leading-none">☺</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!draft.trim() || busy}
-          className={`mb-0.5 h-11 w-11 shrink-0 ${
-            draft.trim() && !busy ? CS_ICON_BTN_ACTIVE : CS_ICON_BTN_DISABLED
-          }`}
-          aria-label="Send message"
-        >
-          <IconSend />
-        </button>
+        <div className="flex items-end gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5 focus-within:border-[#b4141e]/50 focus-within:ring-1 focus-within:ring-[#b4141e]/15">
+            <input
+              ref={inputRef}
+              type="text"
+              enterKeyHint="send"
+              autoComplete="off"
+              autoCorrect="on"
+              value={draft}
+              disabled={busy}
+              onChange={(event) => onDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  onSend();
+                }
+              }}
+              placeholder={uploadingMedia ? "Uploading photo…" : "Message..."}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/40 disabled:opacity-60"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!canSend}
+            className={canSend ? CS_SEND_BTN : CS_SEND_BTN_DISABLED}
+            aria-label="Send message"
+          >
+            <IconSend />
+          </button>
+        </div>
       </div>
     </div>
   );
