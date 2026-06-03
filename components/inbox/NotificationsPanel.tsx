@@ -265,6 +265,30 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
     return () => window.removeEventListener("crimson-notifications-read", onMarkedRead);
   }, []);
 
+  const markNotificationRead = async (notificationId: string) => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const readAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: readAt })
+      .eq("user_id", userId)
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("Failed to mark notification read:", error);
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.id === notificationId ? { ...notification, read_at: readAt } : notification,
+      ),
+    );
+    window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
+  };
+
   const topPadding = embedded
     ? "pt-4"
     : "pt-[calc(env(safe-area-inset-top)+28px)]";

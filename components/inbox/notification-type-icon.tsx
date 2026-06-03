@@ -13,9 +13,11 @@ const TYPE_STYLES: Record<
   meet_canceled: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   meet_ended: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   direct_message: { bg: "bg-[#b4141e]/20 border border-[#b4141e]", label: "Messages", glyph: "✉" },
-  account_deletion_requested: { bg: "bg-amber-600/85", label: "Admin", glyph: "!" },
-  account_deletion_canceled: { bg: "bg-zinc-600/85", label: "Admin", glyph: "↩" },
-  account_deletion_approved: { bg: "bg-emerald-700/85", label: "Admin", glyph: "✓" },
+  post_liked: { bg: "bg-rose-500/85", label: "Posts", glyph: "♥" },
+  post_commented: { bg: "bg-violet-500/85", label: "Posts", glyph: "💬" },
+  account_deletion_requested: { bg: "bg-amber-500/90", label: "Admin", glyph: "⚠" },
+  account_deletion_canceled: { bg: "bg-amber-500/90", label: "Admin", glyph: "↩" },
+  account_deletion_approved: { bg: "bg-emerald-500/85", label: "Admin", glyph: "✓" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

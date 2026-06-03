@@ -7,8 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Ride, RideTrackingStatus } from "@/app/rides/page";
 import { useAuth } from "@/components/AuthProvider";
-import { canSelfJoinMeet, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
-import { writeActiveRideSession } from "@/lib/rides/active-ride-session";
+import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { supabase } from "@/lib/supabase";
 
 const RideMap = dynamic(() => import("@/components/RideMap"), { ssr: false });
@@ -24,7 +23,7 @@ interface Props {
   ride: Ride;
   isGoing: boolean;
   isAdmin: boolean;
-  hasBlackcardAccess: boolean;
+  scrollToChat?: boolean;
   onJoin: () => void;
   onRead: (rideId: string) => void;
   onClose: () => void;
@@ -139,7 +138,7 @@ export function RideDetailsModal({
   ride,
   isGoing,
   isAdmin,
-  hasBlackcardAccess,
+  scrollToChat = false,
   onJoin,
   onRead,
   onClose,
@@ -165,18 +164,18 @@ export function RideDetailsModal({
   const [showRidersPanel, setShowRidersPanel] = useState(false);
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatSectionRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isHost = ride.hostId === currentUserId;
   const canModerate = isHost || isAdmin;
   const isCanceled = ride.status === "canceled";
-  const joinBlocked =
+  const inviteJoinBlocked =
     !canSelfJoinMeet({
       privacy: ride.privacy,
       hostId: ride.hostId,
       userId: currentUserId,
       isAdmin,
-      hasBlackcardAccess,
     }) && !isGoing;
   const isRideLive = ride.trackingStatus === "active";
   const canUseChat = (isGoing || isHost) && !isCanceled;
@@ -274,6 +273,11 @@ export function RideDetailsModal({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!scrollToChat) return;
+    chatSectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [scrollToChat, messages.length]);
 
   useEffect(() => {
     if (!selectedImage) {
@@ -390,47 +394,6 @@ export function RideDetailsModal({
     );
 
     setSafetyMessage("Rider removed.");
-    window.setTimeout(() => setSafetyMessage(null), 2400);
-    setModerationBusy(null);
-  }
-
-  async function startActiveRide() {
-    if (!canModerate || isRideLive || isCanceled || moderationBusy) return;
-
-    const confirmed = window.confirm("Start live tracking for this meet?");
-    if (!confirmed) return;
-
-    setModerationBusy("start");
-
-    const startedAt = new Date().toISOString();
-    let query = supabase
-      .from("rides")
-      .update({
-        tracking_status: "active",
-        started_at: startedAt,
-        ended_at: null,
-      })
-      .eq("id", ride.id);
-
-    if (!isAdmin) {
-      query = query.eq("host_id", session?.user?.id ?? "");
-    }
-
-    const { error } = await query;
-
-    if (error) {
-      console.error("Failed to start ride:", error);
-      setSafetyMessage(error.message || "Could not start ride.");
-      setModerationBusy(null);
-      return;
-    }
-
-    onRideUpdated({
-      trackingStatus: "active" as RideTrackingStatus,
-      startedAt,
-      endedAt: null,
-    });
-    setSafetyMessage("Ride started.");
     window.setTimeout(() => setSafetyMessage(null), 2400);
     setModerationBusy(null);
   }
@@ -671,12 +634,6 @@ export function RideDetailsModal({
                 Invite Only
               </span>
             )}
-
-            {ride.privacy === "Blackcard" && (
-              <span className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#f4dadd]">
-                Blackcard Only
-              </span>
-            )}
           </div>
 
           <div className="absolute bottom-3 left-4 right-12">
@@ -803,17 +760,6 @@ export function RideDetailsModal({
                   </button>
                 )}
 
-                {!isCanceled && !isRideLive && (
-                  <button
-                    type="button"
-                    onClick={() => void startActiveRide()}
-                    disabled={!!moderationBusy}
-                    className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#b4141e]/32 disabled:opacity-50"
-                  >
-                    {moderationBusy === "start" ? "Starting" : "Start Ride"}
-                  </button>
-                )}
-
                 {isRideLive && !isCanceled && (
                   <button
                     type="button"
@@ -935,7 +881,10 @@ export function RideDetailsModal({
             </div>
           </div>
 
-          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-4">
+          <div
+            ref={chatSectionRef}
+            className="mt-6 rounded-lg border border-white/10 bg-white/[0.025] p-4"
+          >
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
                 Meet Chat
@@ -1142,33 +1091,29 @@ export function RideDetailsModal({
         </div>
 
         <div className="shrink-0 border-t border-white/8 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4">
-          {hasRoute ? (
-            <Link
-              href="/rides/track"
-              onClick={() => {
-                writeActiveRideSession({
+          <Link
+            href="/rides/track"
+            onClick={() => {
+              sessionStorage.setItem(
+                "crimson-active-ride",
+                JSON.stringify({
                   id: ride.id,
-                  hostId: ride.hostId ?? null,
-                  route: safeRoute,
-                  waypoints: ride.waypoints ?? [],
+                  hostId: ride.hostId,
+                  route: ride.route,
+                  waypoints: ride.waypoints,
                   name: ride.name,
                   meetPoint: ride.meetPoint,
                   destination: ride.destination,
-                  trackingStatus: ride.trackingStatus ?? "not_started",
-                  startedAt: ride.startedAt ?? null,
-                  endedAt: ride.endedAt ?? null,
-                });
-              }}
-              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-            >
-              Start Ride Tracking
-            </Link>
-          ) : (
-            <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs leading-5 text-zinc-500">
-              Route geometry is unavailable. Edit this meet and select meet point and destination
-              from search results to enable tracking.
-            </p>
-          )}
+                  trackingStatus: ride.trackingStatus,
+                  startedAt: ride.startedAt,
+                  endedAt: ride.endedAt,
+                })
+              );
+            }}
+            className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+          >
+            Start Ride Tracking
+          </Link>
 
           <button
             type="button"
@@ -1179,17 +1124,9 @@ export function RideDetailsModal({
             Report Meet
           </button>
 
-          {joinBlocked && (
+          {inviteJoinBlocked && (
             <p className="mb-3 text-center text-xs leading-5 text-zinc-500">
-              {getMeetJoinBlockMessage(ride.privacy)}
-              {ride.privacy === "Blackcard" && (
-                <>
-                  {" "}
-                  <Link href="/blackcard" className="text-[#d85f6c] hover:text-[#e87a82]">
-                    View Blackcard
-                  </Link>
-                </>
-              )}
+              Invite-only meet. Ask the host for access.
             </p>
           )}
 
@@ -1205,11 +1142,11 @@ export function RideDetailsModal({
               onClick={() => {
                 onJoin();
               }}
-              disabled={isHost || isCanceled || joinBlocked}
+              disabled={isHost || isCanceled || inviteJoinBlocked}
               className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                 isCanceled
                   ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                  : joinBlocked
+                  : inviteJoinBlocked
                     ? "border-white/10 bg-white/[0.02] text-zinc-600"
                     : isGoing
                       ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
@@ -1222,10 +1159,8 @@ export function RideDetailsModal({
                   ? "Hosting"
                   : isGoing
                     ? "✓ Going"
-                    : joinBlocked
-                      ? ride.privacy === "Blackcard"
-                        ? "Members Only"
-                        : "Invite Only"
+                    : inviteJoinBlocked
+                      ? "Invite Only"
                       : "JOIN RIDE"}
             </button>
           </div>

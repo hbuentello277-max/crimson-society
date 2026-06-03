@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -218,7 +219,8 @@ function AdminSkeleton() {
   );
 }
 
-export default function AdminPage() {
+function AdminPageContent() {
+  const searchParams = useSearchParams();
   const { session, loading: authLoading, profile, role, status, isAdmin } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -232,6 +234,16 @@ export default function AdminPage() {
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
   const [moderationLoading, setModerationLoading] = useState(true);
+  useEffect(() => {
+    if (searchParams.get("section") !== "deletion") return;
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("admin-deletion-requests")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }, [searchParams]);
+
+
   const [moderationError, setModerationError] = useState("");
   const [moderationSavingId, setModerationSavingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -860,7 +872,10 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  <AdminDeletionQueueSection enabled={isAdmin && !moderationLoading} />
+                  <AdminDeletionQueueSection
+                    enabled={isAdmin && !moderationLoading}
+                    highlightRequestId={searchParams.get("request")}
+                  />
 
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                     <h3 className="mb-4 font-serif text-2xl text-white">Recent Posts</h3>
@@ -1068,5 +1083,19 @@ export default function AdminPage() {
         )}
       </div>
         </main>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050405] px-4 py-16 text-sm text-zinc-500">
+          Loading admin…
+        </main>
+      }
+    >
+      <AdminPageContent />
+    </Suspense>
   );
 }

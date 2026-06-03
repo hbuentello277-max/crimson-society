@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
@@ -331,8 +331,9 @@ function getProfileHref(handle: string) {
   return `/profile/${username}`;
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, loading, isAdmin } = useAuth();
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -341,6 +342,7 @@ export default function DashboardPage() {
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
   const [popId, setPopId] = useState<string | null>(null);
   const [commentSheet, setCommentSheet] = useState<string | null>(null);
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const [shareSheet, setShareSheet] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [toast, setToast] = useState<string | null>(null);
@@ -361,6 +363,7 @@ export default function DashboardPage() {
   const [dashboardUserLocation, setDashboardUserLocation] = useState<RoutePoint | null>(null);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const postRefs = useRef<Record<string, HTMLElement | null>>({});
   const pullStartY = useRef<number | null>(null);
   const isPulling = useRef(false);
   const mouseStartY = useRef<number | null>(null);
@@ -489,6 +492,28 @@ if (livePostIds.length > 0) {
 
 setFeedLoading(false);
   }, [session]);
+
+  const deepLinkPostId = searchParams.get("post");
+  const deepLinkCommentId = searchParams.get("comment");
+
+  useEffect(() => {
+    if (!deepLinkPostId || feedLoading || posts.length === 0) return;
+
+    const targetPost = posts.find((post) => post.id === deepLinkPostId);
+    if (!targetPost) return;
+
+    setHighlightedPostId(deepLinkPostId);
+    if (deepLinkCommentId) {
+      setCommentSheet(deepLinkPostId);
+    }
+
+    window.requestAnimationFrame(() => {
+      postRefs.current[deepLinkPostId]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+
+    const timer = window.setTimeout(() => setHighlightedPostId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [deepLinkCommentId, deepLinkPostId, feedLoading, posts]);
 
   const loadDashboardSections = useCallback(async () => {
     if (!session) return;
@@ -1226,7 +1251,15 @@ setFeedLoading(false);
               return (
                 <article
                   key={p.id}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]"
+                  id={`post-${p.id}`}
+                  ref={(el) => {
+                    postRefs.current[p.id] = el;
+                  }}
+                  className={`overflow-hidden rounded-2xl border bg-gradient-to-b from-[#0c0c0d] to-[#070707] ${
+                    highlightedPostId === p.id
+                      ? "border-[#b4141e]/70 ring-2 ring-[#b4141e]/35"
+                      : "border-white/10"
+                  }`}
                 >
                   <div className="flex items-center gap-3 p-4">
                     {profileHref ? (
@@ -1620,5 +1653,19 @@ setFeedLoading(false);
         </div>
       )}
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+          <div className="mx-auto max-w-2xl px-4 py-16 text-sm text-zinc-500">Loading feed…</div>
+        </main>
+      }
+    >
+      <DashboardPageContent />
+    </Suspense>
   );
 }

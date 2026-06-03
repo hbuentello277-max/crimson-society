@@ -47,7 +47,13 @@ function getProfileLabel(id: string | null | undefined, profileMap: Map<string, 
   return identity ? `@${identity.replace(/^@+/, "")}` : id.slice(0, 8);
 }
 
-export function AdminDeletionQueueSection({ enabled }: { enabled: boolean }) {
+export function AdminDeletionQueueSection({
+  enabled,
+  highlightRequestId,
+}: {
+  enabled: boolean;
+  highlightRequestId?: string | null;
+}) {
   const [requests, setRequests] = useState<AccountDeletionRequest[]>([]);
   const [profiles, setProfiles] = useState<Map<string, AdminProfile>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -114,6 +120,22 @@ export function AdminDeletionQueueSection({ enabled }: { enabled: boolean }) {
     return requests.filter((request) => request.status === filter);
   }, [filter, requests]);
 
+
+  useEffect(() => {
+    if (!highlightRequestId || loading) return;
+
+    const target = requests.find((request) => request.id === highlightRequestId);
+    if (target && (target.status === "pending" || target.status === "reviewing")) {
+      setFilter("pending");
+    }
+
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`deletion-request-${highlightRequestId}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }, [highlightRequestId, loading, requests]);
+
   async function updateStatus(requestId: string, status: DeletionActionStatus) {
     setSavingId(requestId);
     setError("");
@@ -149,7 +171,7 @@ export function AdminDeletionQueueSection({ enabled }: { enabled: boolean }) {
   if (!enabled) return null;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+    <div id="admin-deletion-requests" className="rounded-2xl border border-white/10 bg-black/25 p-4">
       <div className="mb-4">
         <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
@@ -198,7 +220,15 @@ export function AdminDeletionQueueSection({ enabled }: { enabled: boolean }) {
       ) : (
         <div className="space-y-3">
           {filteredRequests.map((request) => (
-            <div key={request.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+            <div
+              key={request.id}
+              id={`deletion-request-${request.id}`}
+              className={`rounded-xl border bg-white/[0.025] p-4 ${
+                highlightRequestId === request.id
+                  ? "border-[#b4141e]/60 ring-2 ring-[#b4141e]/25"
+                  : "border-white/10"
+              }`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-white">
                   {getProfileLabel(request.user_id, profiles)}

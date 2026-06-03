@@ -8,6 +8,8 @@ export type NotificationType =
   | "meet_canceled"
   | "meet_ended"
   | "direct_message"
+  | "post_liked"
+  | "post_commented"
   | "account_deletion_requested"
   | "account_deletion_canceled"
   | "account_deletion_approved";
@@ -28,10 +30,52 @@ export type NotificationItem = {
   body: string;
   ride_id: string | null;
   conversation_id?: string | null;
+  post_id?: string | null;
+  comment_id?: string | null;
+  deletion_request_id?: string | null;
+  target_url?: string | null;
   actor_id: string | null;
   read_at: string | null;
   created_at: string;
 };
+
+export type NotificationDestinationInput = Pick<
+  NotificationItem,
+  | "type"
+  | "ride_id"
+  | "conversation_id"
+  | "post_id"
+  | "comment_id"
+  | "deletion_request_id"
+  | "target_url"
+>;
+
+const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
+  "meet_joined",
+  "meet_left",
+  "meet_chat_message",
+  "meet_chat_photo",
+  "profile_followed",
+  "meet_removed",
+  "meet_canceled",
+  "meet_ended",
+  "direct_message",
+  "post_liked",
+  "post_commented",
+  "account_deletion_requested",
+  "account_deletion_canceled",
+  "account_deletion_approved",
+];
+
+export function isKnownNotificationType(value: string): value is NotificationType {
+  return KNOWN_NOTIFICATION_TYPES.includes(value as NotificationType);
+}
+
+function normalizeInAppPath(path: string) {
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
 
 export function actorDisplayName(actor: NotificationActor | null | undefined) {
   return (
@@ -52,9 +96,37 @@ export function actorProfileHref(actor: NotificationActor | null | undefined) {
 }
 
 export function notificationDestination(
-  notification: Pick<NotificationItem, "type" | "ride_id" | "conversation_id">,
-  actor: NotificationActor | null | undefined
+  notification: NotificationDestinationInput,
+  actor: NotificationActor | null | undefined,
 ) {
+  const storedPath = notification.target_url ? normalizeInAppPath(notification.target_url) : null;
+  if (storedPath) {
+    return storedPath;
+  }
+
+  if (
+    notification.type === "account_deletion_requested" ||
+    notification.type === "account_deletion_canceled" ||
+    notification.type === "account_deletion_approved"
+  ) {
+    const params = new URLSearchParams({ section: "deletion" });
+    if (notification.deletion_request_id) {
+      params.set("request", notification.deletion_request_id);
+    }
+    return `/admin?${params.toString()}`;
+  }
+
+  if (
+    (notification.type === "post_liked" || notification.type === "post_commented") &&
+    notification.post_id
+  ) {
+    const params = new URLSearchParams({ post: notification.post_id });
+    if (notification.comment_id) {
+      params.set("comment", notification.comment_id);
+    }
+    return `/dashboard?${params.toString()}`;
+  }
+
   if (notification.type === "profile_followed") {
     return actorProfileHref(actor) || "/inbox?tab=notifications";
   }
@@ -64,7 +136,14 @@ export function notificationDestination(
   }
 
   if (notification.ride_id) {
-    return `/rides?meet=${notification.ride_id}`;
+    const params = new URLSearchParams({ meet: notification.ride_id });
+    if (
+      notification.type === "meet_chat_message" ||
+      notification.type === "meet_chat_photo"
+    ) {
+      params.set("section", "chat");
+    }
+    return `/rides?${params.toString()}`;
   }
 
   return "/inbox?tab=notifications";
@@ -88,6 +167,10 @@ export function notificationTypeLabel(type: NotificationType) {
       return "New follower";
     case "direct_message":
       return "Message";
+    case "post_liked":
+      return "Post liked";
+    case "post_commented":
+      return "Post comment";
     case "account_deletion_requested":
       return "Deletion request";
     case "account_deletion_canceled":
@@ -102,7 +185,7 @@ export function notificationTypeLabel(type: NotificationType) {
 
 export function notificationSummary(
   notification: Pick<NotificationItem, "type" | "title" | "body">,
-  actor: NotificationActor | null | undefined
+  actor: NotificationActor | null | undefined,
 ) {
   const name = actorDisplayName(actor);
   const trimmedBody = notification.body?.trim();
@@ -126,6 +209,16 @@ export function notificationSummary(
       return trimmedBody || "Ride tracking has ended";
     case "direct_message":
       return trimmedBody || `${name} sent you a message`;
+    case "post_liked":
+      return trimmedBody || `${name} liked your post`;
+    case "post_commented":
+      return trimmedBody || `${name} commented on your post`;
+    case "account_deletion_requested":
+      return trimmedBody || "A member submitted an account deletion request";
+    case "account_deletion_canceled":
+      return trimmedBody || "A member canceled their account deletion request";
+    case "account_deletion_approved":
+      return trimmedBody || "An account deletion request was approved";
     default:
       return trimmedBody || notification.title;
   }
@@ -152,21 +245,4 @@ export function formatRelativeNotificationTime(createdAt: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-export function isKnownNotificationType(value: string): value is NotificationType {
-  return (
-    value === "meet_joined" ||
-    value === "meet_left" ||
-    value === "meet_chat_message" ||
-    value === "meet_chat_photo" ||
-    value === "profile_followed" ||
-    value === "meet_removed" ||
-    value === "meet_canceled" ||
-    value === "meet_ended" ||
-    value === "direct_message" ||
-    value === "account_deletion_requested" ||
-    value === "account_deletion_canceled" ||
-    value === "account_deletion_approved"
-  );
 }

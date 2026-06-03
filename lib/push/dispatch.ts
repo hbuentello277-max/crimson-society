@@ -67,7 +67,7 @@ export async function dispatchPushForNotification(notificationId: string) {
   const { data: notification, error: notificationError } = await supabase
     .from("notifications")
     .select(
-      "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at",
+      "id, user_id, type, title, body, ride_id, conversation_id, post_id, comment_id, deletion_request_id, target_url, actor_id, read_at, created_at",
     )
     .eq("id", notificationId)
     .maybeSingle();

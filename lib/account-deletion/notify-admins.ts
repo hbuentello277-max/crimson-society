@@ -34,6 +34,14 @@ function notificationCopy(kind: AdminDeletionNotificationKind, username: string)
   }
 }
 
+function adminDeletionTargetUrl(requestId?: string) {
+  const params = new URLSearchParams({ section: "deletion" });
+  if (requestId) {
+    params.set("request", requestId);
+  }
+  return `/admin?${params.toString()}`;
+}
+
 export async function notifyAdminsAccountDeletion(
   adminClient: SupabaseClient,
   input: NotifyAdminsInput,
@@ -57,9 +65,9 @@ export async function notifyAdminsAccountDeletion(
     return;
   }
 
-  const username =
-    input.username?.trim().replace(/^@+/, "") || "member";
+  const username = input.username?.trim().replace(/^@+/, "") || "member";
   const copy = notificationCopy(input.kind, username);
+  const targetUrl = adminDeletionTargetUrl(input.requestId);
 
   const since = new Date(Date.now() - 5 * 60_000).toISOString();
   const { data: recentRows } = await adminClient
@@ -81,6 +89,8 @@ export async function notifyAdminsAccountDeletion(
       title: copy.title,
       body: copy.body,
       actor_id: input.actorUserId,
+      deletion_request_id: input.requestId ?? null,
+      target_url: targetUrl,
     }));
 
   if (rows.length === 0) {
