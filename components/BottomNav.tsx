@@ -404,23 +404,23 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/90 backdrop-blur-xl">
-      <ul className="mx-auto flex max-w-3xl items-center justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505]/90 backdrop-blur-xl">
+      <ul className="mx-auto flex w-full max-w-full items-stretch justify-between gap-0 overflow-x-hidden pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-3 sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (
-            <li key={n.href}>
+            <li key={n.href} className="flex min-w-0 flex-1 basis-0">
               <Link
                 href={n.href}
                 prefetch
                 onFocus={() => router.prefetch(n.href)}
                 onMouseEnter={() => router.prefetch(n.href)}
-                className={`flex flex-col items-center gap-1 px-1.5 py-1 transition ${
+                className={`flex min-w-0 w-full flex-col items-center justify-center gap-1 px-0.5 py-1 transition ${
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
                 <span
-                  className={`relative ${
+                  className={`relative shrink-0 ${
                     active ? "drop-shadow-[0_0_8px_rgba(232,122,130,0.7)]" : ""
                   }`}
                 >
@@ -436,7 +436,7 @@ export default function BottomNav() {
                     </span>
                   )}
                 </span>
-                <span className="text-[9px] uppercase tracking-[0.2em]">
+                <span className="max-w-full truncate text-center text-[9px] uppercase tracking-[0.2em]">
                   {n.label}
                 </span>
                 {active && (
