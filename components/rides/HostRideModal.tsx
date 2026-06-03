@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { RideType, RidePrivacy } from "@/app/rides/page";
+import {
+  MEET_VISIBILITY_OPTIONS,
+  type MeetPriorityAccess,
+  type MeetVisibility,
+} from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
 
 export interface HostRideForm {
@@ -18,6 +23,9 @@ export interface HostRideForm {
   duration: string;
   type: RideType;
   privacy: RidePrivacy;
+  visibility: MeetVisibility;
+  priorityAccess: MeetPriorityAccess;
+  priorityDelayMinutes: number;
   description: string;
   cover?: string;
 }
@@ -45,6 +53,9 @@ const EMPTY_FORM: HostRideForm = {
   duration: "",
   type: "Group Ride",
   privacy: "Open",
+  visibility: "public",
+  priorityAccess: "off",
+  priorityDelayMinutes: 60,
   description: "",
   cover: "",
 };
@@ -249,25 +260,75 @@ export function HostRideModal({
                   </select>
                 </Field>
 
-                <Field label="Visibility">
+                <Field label="Meet Visibility">
                   <select
-                    value={form.privacy}
-                    onChange={(e) => set("privacy", e.target.value as RidePrivacy)}
+                    value={form.visibility}
+                    onChange={(e) => {
+                      const visibility = e.target.value as MeetVisibility;
+                      set("visibility", visibility);
+                      if (visibility === "invite") set("privacy", "Invite");
+                      else if (visibility === "blackcard") set("privacy", "Blackcard");
+                      else set("privacy", "Open");
+                    }}
                     className={inputCls(false)}
                   >
-                    <option value="Open">Open</option>
-                    <option value="Invite">Invite Only</option>
-                    {canHostBlackcard && (
-                      <option value="Blackcard">Blackcard Members Only</option>
-                    )}
+                    {MEET_VISIBILITY_OPTIONS.filter(
+                      (option) => !option.blackcardOnly || canHostBlackcard,
+                    ).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </Field>
               </div>
 
+              <p className="text-[10px] leading-5 text-zinc-500">
+                {
+                  MEET_VISIBILITY_OPTIONS.find((option) => option.value === form.visibility)
+                    ?.description
+                }
+              </p>
+
               {!canHostBlackcard && (
                 <p className="text-[10px] leading-5 text-zinc-500">
-                  Blackcard membership unlocks hosting member-only meets.
+                  Blackcard membership unlocks exclusive meet visibility and priority access.
                 </p>
+              )}
+
+              {canHostBlackcard && (
+                <div className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <Field label="Priority Access">
+                    <select
+                      value={form.priorityAccess}
+                      onChange={(e) =>
+                        set("priorityAccess", e.target.value as MeetPriorityAccess)
+                      }
+                      className={inputCls(false)}
+                    >
+                      <option value="off">Off</option>
+                      <option value="blackcard_first">Blackcard First</option>
+                    </select>
+                  </Field>
+
+                  {form.priorityAccess === "blackcard_first" && (
+                    <Field label="Open To Everyone After (minutes)">
+                      <input
+                        type="number"
+                        min={5}
+                        max={1440}
+                        value={form.priorityDelayMinutes}
+                        onChange={(e) =>
+                          set(
+                            "priorityDelayMinutes",
+                            Math.max(5, Number(e.target.value) || 60),
+                          )
+                        }
+                        className={inputCls(false)}
+                      />
+                    </Field>
+                  )}
+                </div>
               )}
 
               <Field label="Meet Cover Image">

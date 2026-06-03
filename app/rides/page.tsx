@@ -6,7 +6,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
-import { canSelfJoinMeet } from "@/lib/meet-privacy";
+import { canSelfJoinMeet, canViewMeetForUser, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
+import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
+import {
+  meetVisibilityLabel,
+  normalizeMeetVisibility,
+  type MeetPriorityAccess,
+  type MeetVisibility,
+} from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
 import { RideDetailsModal } from "@/components/rides/RideDetailsModal";
 import { HostRideModal } from "@/components/rides/HostRideModal";
@@ -19,7 +26,7 @@ type RoutePoint = { lat: number; lng: number };
 type RideWaypoint = RoutePoint & { id: string; label: string };
 
 export type RideType = "Night Run" | "Track Day" | "Touring" | "Group Ride" | "Canyon Run";
-export type RidePrivacy = "Open" | "Invite";
+export type RidePrivacy = "Open" | "Invite" | "Blackcard";
 export type RideTrackingStatus = "not_started" | "active" | "ended";
 export type RideStatus = "active" | "canceled";
 
@@ -46,6 +53,9 @@ export type Ride = {
   going: Rider[];
   description: string;
   privacy: RidePrivacy;
+  visibility: MeetVisibility;
+  priorityAccess: MeetPriorityAccess;
+  priorityOpenAt: string | null;
   lat: number;
   lng: number;
   destinationLat?: number | null;
@@ -73,6 +83,9 @@ type RideRow = {
   city: string | null;
   type: RideType;
   privacy: RidePrivacy;
+  visibility?: string | null;
+  priority_access?: string | null;
+  priority_open_at?: string | null;
   distance: string | null;
   duration: string | null;
   description: string | null;
@@ -256,6 +269,9 @@ function rideRowToRide(row: RideRow, resolvedRoute?: RoutePoint[]): Ride {
     going: row.attendeeRiders || [],
     description: row.description || "Meet details coming soon.",
     privacy: row.privacy,
+    visibility: normalizeMeetVisibility(row.visibility, row.privacy),
+    priorityAccess: row.priority_access === "blackcard_first" ? "blackcard_first" : "off",
+    priorityOpenAt: row.priority_open_at ?? null,
     lat: row.meet_point_lat || 29.4241,
     lng: row.meet_point_lng || -98.4936,
     destinationLat: row.destination_lat,
@@ -285,6 +301,18 @@ function rideToForm(ride: Ride): HostRideForm {
     duration: ride.duration === "TBD" ? "" : ride.duration,
     type: ride.type,
     privacy: ride.privacy,
+    visibility: ride.visibility,
+    priorityAccess: ride.priorityAccess,
+    priorityDelayMinutes: ride.priorityOpenAt
+      ? Math.max(
+          5,
+          Math.round(
+            (new Date(ride.priorityOpenAt).getTime() -
+              new Date(`${ride.date}T${ride.time || "00:00"}`).getTime()) /
+              60_000,
+          ) || 60,
+        )
+      : 60,
     description: ride.description === "Meet details coming soon." ? "" : ride.description,
   };
 }
@@ -295,6 +323,9 @@ function RideCard({
   canManage,
   canModerate,
   unreadCount,
+  isLocked,
+  lockMessage,
+  joinBlocked,
   onJoin,
   onViewDetails,
   onEdit,
@@ -305,14 +336,16 @@ function RideCard({
   canManage: boolean;
   canModerate: boolean;
   unreadCount: number;
+  isLocked?: boolean;
+  lockMessage?: string | null;
+  joinBlocked?: boolean;
   onJoin: () => void;
   onViewDetails: () => void;
   onEdit: () => void;
   onCancel: () => void;
 }) {
   const isCanceled = ride.status === "canceled";
-  const inviteJoinBlocked =
-    ride.privacy === "Invite" && !canModerate && !isGoing;
+  const inviteJoinBlocked = joinBlocked ?? (ride.privacy === "Invite" && !canModerate && !isGoing);
 
   return (
     <article className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
@@ -329,6 +362,17 @@ function RideCard({
           <span className="absolute left-3 top-3 rounded-md border border-white/15 bg-black/45 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-100 backdrop-blur-md">
             {ride.type}
           </span>
+          {isLocked && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 px-4 text-center backdrop-blur-sm">
+              <span className="text-2xl">🔒</span>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7]">
+                {meetVisibilityLabel(ride.visibility)}
+              </p>
+              {lockMessage ? (
+                <p className="mt-2 text-xs leading-5 text-zinc-300">{lockMessage}</p>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="p-4">
@@ -350,9 +394,15 @@ function RideCard({
                 </span>
               )}
 
-              {ride.privacy === "Invite" && (
+              {(ride.visibility === "invite" || ride.privacy === "Invite") && (
                 <span className="rounded-md border border-[#b4141e]/45 bg-[#b4141e]/18 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f0c9ce]">
                   Invite
+                </span>
+              )}
+
+              {ride.visibility === "blackcard" && (
+                <span className="rounded-md border border-white/20 bg-black/55 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-100">
+                  Blackcard
                 </span>
               )}
 
@@ -469,6 +519,9 @@ function RidesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading: authLoading, isAdmin } = useAuth();
+  const [viewerHasBlackcard, setViewerHasBlackcard] = useState(false);
+  const [followingHostIds, setFollowingHostIds] = useState<Set<string>>(new Set());
+  const [favoritedHostIds, setFavoritedHostIds] = useState<Set<string>>(new Set());
   const [going, setGoing] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
@@ -922,14 +975,19 @@ const ridesWithRoutes = await Promise.all(
   if (
     !isCurrentlyGoing &&
     ride &&
-    !canSelfJoinMeet({
-      privacy: ride.privacy,
-      hostId: ride.hostId,
-      userId: session.user.id,
-      isAdmin,
-    })
+    meetJoinBlocked(ride, false)
   ) {
-    setToast("Invite-only meet. Ask the host for access.");
+    setToast(
+      getMeetJoinBlockMessage({
+        privacy: ride.privacy,
+        visibility: ride.visibility,
+        hasBlackcardAccess: viewerHasBlackcard,
+        viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
+        viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
+        priorityAccess: ride.priorityAccess,
+        priorityOpenAt: ride.priorityOpenAt,
+      }),
+    );
     window.setTimeout(() => setToast(null), 2800);
     return;
   }
@@ -1148,6 +1206,14 @@ let duration: string | null = newRide.duration || null;
       city: newRide.meetPoint,
       type: newRide.type,
       privacy: newRide.privacy,
+      visibility: newRide.visibility,
+      priority_access: newRide.priorityAccess,
+      priority_open_at:
+        newRide.priorityAccess === "blackcard_first"
+          ? new Date(
+              Date.now() + Math.max(5, newRide.priorityDelayMinutes || 60) * 60_000,
+            ).toISOString()
+          : null,
       distance,
       duration,
       description: newRide.description || null,
@@ -1239,6 +1305,78 @@ let duration: string | null = newRide.duration || null;
     setEditingRide(null);
     setToast(editingRide ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
+  }
+
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setViewerHasBlackcard(false);
+      setFollowingHostIds(new Set());
+      setFavoritedHostIds(new Set());
+      return;
+    }
+
+    let active = true;
+    const userId = session.user.id;
+
+    void (async () => {
+      const [membershipResponse, followsResponse, favoritesResponse] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("status, current_period_end")
+          .eq("user_id", userId)
+          .order("current_period_end", { ascending: false, nullsFirst: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from("user_follows").select("following_id").eq("follower_id", userId),
+        supabase.from("favorite_riders").select("favorite_user_id").eq("user_id", userId),
+      ]);
+
+      if (!active) return;
+
+      setViewerHasBlackcard(
+        hasBlackcardAccess((membershipResponse.data as MembershipRow | null) ?? null, isAdmin),
+      );
+      setFollowingHostIds(new Set((followsResponse.data || []).map((row) => row.following_id)));
+      setFavoritedHostIds(
+        new Set((favoritesResponse.data || []).map((row) => row.favorite_user_id)),
+      );
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, session?.user?.id]);
+
+  function meetAccessContext(ride: Ride) {
+    return {
+      viewerId: session?.user?.id,
+      hostId: ride.hostId,
+      visibility: ride.visibility,
+      legacyPrivacy: ride.privacy,
+      isAdmin,
+      viewerHasBlackcard,
+      viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
+      viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
+      priorityAccess: ride.priorityAccess,
+      priorityOpenAt: ride.priorityOpenAt,
+    };
+  }
+
+  function meetJoinBlocked(ride: Ride, isGoing: boolean) {
+    return !canSelfJoinMeet({
+      privacy: ride.privacy,
+      visibility: ride.visibility,
+      hostId: ride.hostId,
+      userId: session?.user?.id,
+      isAdmin,
+      hasBlackcardAccess: viewerHasBlackcard,
+      viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
+      viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
+      priorityAccess: ride.priorityAccess,
+      priorityOpenAt: ride.priorityOpenAt,
+      isGoing,
+    });
   }
 
   const meetTabIndex = meetTab === "upcoming" ? 0 : 1;
@@ -1346,18 +1484,12 @@ let duration: string | null = newRide.duration || null;
                   disabled={
                     panelFeatured.hostId === session?.user?.id ||
                     panelFeatured.status === "canceled" ||
-                    (panelFeatured.privacy === "Invite" &&
-                      panelFeatured.hostId !== session?.user?.id &&
-                      !isAdmin &&
-                      !going[panelFeatured.id])
+                    meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
                   }
                   className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     going[panelFeatured.id]
                       ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : panelFeatured.privacy === "Invite" &&
-                          panelFeatured.hostId !== session?.user?.id &&
-                          !isAdmin &&
-                          !going[panelFeatured.id]
+                      : meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
                         ? "border-white/10 bg-white/[0.02] text-zinc-600"
                         : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
                   }`}
@@ -1366,10 +1498,8 @@ let duration: string | null = newRide.duration || null;
                     ? "Hosting"
                     : going[panelFeatured.id]
                       ? "Going"
-                      : panelFeatured.privacy === "Invite" &&
-                          panelFeatured.hostId !== session?.user?.id &&
-                          !isAdmin
-                        ? "Invite Only"
+                      : meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
+                        ? "Locked"
                         : "JOIN MEET"}
                 </button>
               </div>
@@ -1398,20 +1528,42 @@ let duration: string | null = newRide.duration || null;
                 </div>
               ))}
 
-            {!loadingMeets && panelCompact.map((ride) => (
-              <RideCard
-                key={ride.id}
-                ride={ride}
-                canManage={ride.hostId === session?.user?.id}
-                canModerate={ride.hostId === session?.user?.id || isAdmin}
-                unreadCount={unreadCounts[ride.id] || 0}
-                onEdit={() => setEditingRide(ride)}
-                isGoing={!!going[ride.id]}
-                onCancel={() => void cancelMeet(ride.id)}
-                onJoin={() => toggleJoin(ride.id)}
-                onViewDetails={() => openRideDetails(ride)}
-              />
-            ))}
+            {!loadingMeets && panelCompact.map((ride) => {
+              const isGoingRide = !!going[ride.id];
+              const canManageRide = ride.hostId === session?.user?.id;
+              const canModerateRide = canManageRide || isAdmin;
+              const locked =
+                !canManageRide &&
+                !canModerateRide &&
+                !canViewMeetForUser(meetAccessContext(ride));
+
+              return (
+                <RideCard
+                  key={ride.id}
+                  ride={ride}
+                  canManage={canManageRide}
+                  canModerate={canModerateRide}
+                  unreadCount={unreadCounts[ride.id] || 0}
+                  isLocked={locked}
+                  lockMessage={
+                    locked
+                      ? getMeetJoinBlockMessage({
+                          privacy: ride.privacy,
+                          visibility: ride.visibility,
+                          priorityAccess: ride.priorityAccess,
+                          priorityOpenAt: ride.priorityOpenAt,
+                        })
+                      : null
+                  }
+                  joinBlocked={meetJoinBlocked(ride, isGoingRide)}
+                  onEdit={() => setEditingRide(ride)}
+                  isGoing={isGoingRide}
+                  onCancel={() => void cancelMeet(ride.id)}
+                  onJoin={() => toggleJoin(ride.id)}
+                  onViewDetails={() => openRideDetails(ride)}
+                />
+              );
+            })}
           </div>
         </section>
       </>
@@ -1515,6 +1667,7 @@ let duration: string | null = newRide.duration || null;
       {(showHostModal || editingRide) && (
         <HostRideModal
           mode={editingRide ? "edit" : "create"}
+          canHostBlackcard={viewerHasBlackcard || isAdmin}
           initialForm={editingRide ? rideToForm(editingRide) : undefined}
           onClose={() => {
             setShowHostModal(false);

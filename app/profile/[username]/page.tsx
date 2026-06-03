@@ -11,6 +11,9 @@ import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
+import { PostActionSheet, type PostActionTarget } from "@/components/social/PostActionSheet";
+import { ProfileActionSheet } from "@/components/social/ProfileActionSheet";
+import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { removeMutualFollows } from "@/lib/blocking";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
@@ -204,7 +207,8 @@ export default function PublicProfilePage() {
     "none" | "following" | "requested_out" | "requested_in"
   >("none");
   const [postCount, setPostCount] = useState(0);
-  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [profileActionOpen, setProfileActionOpen] = useState(false);
+  const [postActionTarget, setPostActionTarget] = useState<PostActionTarget | null>(null);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [reportPostOpen, setReportPostOpen] = useState(false);
@@ -275,6 +279,7 @@ export default function PublicProfilePage() {
           image_thumbnail_url
         `)
         .eq("user_id", profile.id)
+        .order("pinned_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -785,51 +790,15 @@ export default function PublicProfilePage() {
               </Link>
             )}
 
-            {!isOwnProfile && session?.user?.id && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setOverflowOpen((open) => !open)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-                  aria-label="Profile options"
-                >
-                  ⋯
-                </button>
-
-                {overflowOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Close profile options"
-                      className="fixed inset-0 z-40 cursor-default"
-                      onClick={() => setOverflowOpen(false)}
-                    />
-                    <div className="absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#090909] shadow-2xl">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOverflowOpen(false);
-                          setReportOpen(true);
-                        }}
-                        className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-zinc-300 hover:bg-white/[0.04]"
-                      >
-                        Report
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOverflowOpen(false);
-                          void toggleBlock();
-                        }}
-                        disabled={safetyBusy}
-                        className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-[#e87a82] hover:bg-[#b4141e]/10 disabled:opacity-60"
-                      >
-                        {isBlocked ? "Unblock" : "Block"}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+            {session?.user?.id && (
+              <button
+                type="button"
+                onClick={() => setProfileActionOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                aria-label="Profile options"
+              >
+                ⋯
+              </button>
             )}
           </div>
         </div>
@@ -999,8 +968,13 @@ export default function PublicProfilePage() {
                                 type="button"
                                 onClick={() => {
                                   setOpenPostMenuId(null);
-                                  setReportPostId(post.id);
-                                  setReportPostOpen(true);
+                                  setPostActionTarget({
+                                    postId: post.id,
+                                    authorId: profile?.id || "",
+                                    authorUsername: profile?.username,
+                                    authorName: displayName,
+                                    isOwner: isOwnProfile,
+                                  });
                                 }}
                                 className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-300 hover:bg-white/[0.04]"
                               >
@@ -1101,12 +1075,7 @@ export default function PublicProfilePage() {
         )}
 
         {tab === "saved" && (
-          <section className="mt-3">
-            <EmptyPanel
-              title="Coming into focus."
-              body="This profile section is wired to shared state and ready for the next data layer."
-            />
-          </section>
+          <SavedPostsPanel viewerId={session?.user?.id} isOwnProfile={isOwnProfile} />
         )}
 
         {tab === "rides" && (
@@ -1232,6 +1201,43 @@ export default function PublicProfilePage() {
           </div>
         </div>
       )}
+
+      <ProfileActionSheet
+        open={profileActionOpen}
+        target={
+          profile
+            ? {
+                profileId: profile.id,
+                username: profile.username,
+                displayName,
+                isOwnProfile,
+                isBlocked,
+              }
+            : null
+        }
+        onClose={() => setProfileActionOpen(false)}
+        onReport={() => setReportOpen(true)}
+        onBlock={() => void toggleBlock()}
+        onToast={(message) => {
+          setSafetyMessage(message);
+          setTimeout(() => setSafetyMessage(null), 1800);
+        }}
+      />
+
+      <PostActionSheet
+        open={Boolean(postActionTarget)}
+        target={postActionTarget}
+        onClose={() => setPostActionTarget(null)}
+        onReport={() => {
+          if (!postActionTarget) return;
+          setReportPostId(postActionTarget.postId);
+          setReportPostOpen(true);
+        }}
+        onToast={(message) => {
+          setSafetyMessage(message);
+          setTimeout(() => setSafetyMessage(null), 1800);
+        }}
+      />
 
       <ReportContentModal
         open={reportPostOpen}

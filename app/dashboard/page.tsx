@@ -13,6 +13,7 @@ import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
+import { PostActionSheet, type PostActionTarget } from "@/components/social/PostActionSheet";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 
@@ -349,7 +350,7 @@ function DashboardPageContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [feedLoading, setFeedLoading] = useState(true);
   const [pullY, setPullY] = useState(0);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [postActionTarget, setPostActionTarget] = useState<PostActionTarget | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [reportPostTarget, setReportPostTarget] = useState<{
     postId: string;
@@ -468,9 +469,27 @@ function DashboardPageContent() {
 
     const livePosts = ((data || []) as RawPost[]).map(mapPostToFeed);
 
-    setPosts(livePosts);
+    let visiblePosts = livePosts;
 
-const livePostIds = livePosts.map((post) => post.id);
+    if (session.user.id) {
+      const authorIds = Array.from(new Set(livePosts.map((post) => post.userId).filter(Boolean))) as string[];
+      const postIds = livePosts.map((post) => post.id);
+      const [{ data: hiddenRows }, { data: muteRows }] = await Promise.all([
+        postIds.length
+          ? supabase.from("hidden_posts").select("post_id").eq("user_id", session.user.id).in("post_id", postIds)
+          : Promise.resolve({ data: [] as { post_id: string }[] }),
+        authorIds.length
+          ? supabase.from("rider_mutes").select("muted_user_id").eq("user_id", session.user.id).eq("mute_posts", true).in("muted_user_id", authorIds)
+          : Promise.resolve({ data: [] as { muted_user_id: string }[] }),
+      ]);
+      const hiddenPostIds = new Set((hiddenRows || []).map((row) => row.post_id));
+      const mutedAuthorIds = new Set((muteRows || []).map((row) => row.muted_user_id));
+      visiblePosts = livePosts.filter((post) => !hiddenPostIds.has(post.id) && !(post.userId && mutedAuthorIds.has(post.userId)));
+    }
+
+    setPosts(visiblePosts);
+
+const livePostIds = visiblePosts.map((post) => post.id);
 
 if (livePostIds.length > 0) {
   const { data: userLikes, error: likesError } = await supabase
@@ -487,6 +506,13 @@ if (livePostIds.length > 0) {
     }
 
     setLiked(likedMap);
+  }
+
+  if (livePostIds.length > 0) {
+    const { data: savedRows } = await supabase.from("saved_posts").select("post_id").eq("user_id", session.user.id).in("post_id", livePostIds);
+    const savedMap: Record<string, boolean> = {};
+    for (const row of savedRows || []) savedMap[String(row.post_id)] = true;
+    setBookmarked(savedMap);
   }
 }
 
@@ -723,7 +749,7 @@ setFeedLoading(false);
     if (!confirmed) return;
 
     setDeletingPostId(post.id);
-    setOpenMenuId(null);
+    setPostActionTarget(null);
 
     let query = supabase.from("Posts").delete().eq("id", post.id);
 
@@ -1282,50 +1308,23 @@ setFeedLoading(false);
                       {p.timeLabel}
                     </span>
 
-                    {showPostMenu && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMenuId((current) => (current === p.id ? null : p.id))
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-lg leading-none text-white/60 hover:border-white/25 hover:text-white"
-                          aria-label="Post options"
-                        >
-                          ⋯
-                        </button>
-
-                        {openMenuId === p.id && (
-                          <div className="absolute right-0 top-10 z-30 w-44 overflow-hidden rounded-2xl border border-white/10 bg-[#090909] shadow-2xl">
-                            {canReportPost && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  setReportPostTarget({
-                                    postId: p.id,
-                                    authorId: p.userId!,
-                                    authorName: p.author.name,
-                                  });
-                                }}
-                                className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-zinc-300 hover:bg-white/[0.04]"
-                              >
-                                Report
-                              </button>
-                            )}
-                            {canDeletePost && (
-                              <button
-                                type="button"
-                                onClick={() => void deletePost(p)}
-                                disabled={deletingPostId === p.id}
-                                className="w-full px-4 py-3 text-left text-xs uppercase tracking-[0.2em] text-[#e87a82] hover:bg-[#b4141e]/15 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {deletingPostId === p.id ? "Deleting" : "Delete"}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                    {session?.user?.id && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPostActionTarget({
+                            postId: p.id,
+                            authorId: p.userId || "",
+                            authorUsername: p.author.handle.replace(/^@+/, ""),
+                            authorName: p.author.name,
+                            isOwner: canDeletePost,
+                          })
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-lg leading-none text-white/60 hover:border-white/25 hover:text-white"
+                        aria-label="Post options"
+                      >
+                        ⋯
+                      </button>
                     )}
                   </div>
 
@@ -1645,6 +1644,23 @@ setFeedLoading(false);
           setToast("Post report submitted.");
           window.setTimeout(() => setToast(null), 2600);
         }}
+      />
+
+      <PostActionSheet
+        open={Boolean(postActionTarget)}
+        target={postActionTarget}
+        onClose={() => setPostActionTarget(null)}
+        onReport={() => {
+          if (!postActionTarget) return;
+          setReportPostTarget({ postId: postActionTarget.postId, authorId: postActionTarget.authorId, authorName: postActionTarget.authorName });
+        }}
+        onDelete={() => {
+          if (!postActionTarget) return;
+          const post = posts.find((item) => item.id === postActionTarget.postId);
+          if (post) void deletePost(post);
+        }}
+        onHidden={(postId) => setPosts((current) => current.filter((item) => item.id !== postId))}
+        onToast={(message) => { setToast(message); setTimeout(() => setToast(null), 1600); }}
       />
 
       {toast && (

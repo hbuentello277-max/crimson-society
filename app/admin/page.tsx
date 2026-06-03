@@ -234,6 +234,11 @@ function AdminPageContent() {
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
   const [moderationLoading, setModerationLoading] = useState(true);
+  const [socialStats, setSocialStats] = useState({
+    favorites: 0,
+    blackcardMeets: 0,
+    meetSubscriptions: 0,
+  });
   useEffect(() => {
     if (searchParams.get("section") !== "deletion") return;
     window.requestAnimationFrame(() => {
@@ -285,7 +290,7 @@ function AdminPageContent() {
     setModerationLoading(true);
     setModerationError("");
 
-    const [reportsResponse, deletionResponse, postsResponse, ridesResponse] = await Promise.all([
+    const [reportsResponse, deletionResponse, postsResponse, ridesResponse, favoritesResponse, subscriptionsResponse, blackcardMeetsResponse] = await Promise.all([
       supabase
         .from("user_reports")
         .select(
@@ -309,10 +314,22 @@ function AdminPageContent() {
         .order("date", { ascending: false })
         .order("time", { ascending: false })
         .limit(6),
+      supabase.from("favorite_riders").select("id", { count: "exact", head: true }),
+      supabase.from("ride_notification_subscriptions").select("id", { count: "exact", head: true }),
+      supabase.from("rides").select("id", { count: "exact", head: true }).eq("visibility", "blackcard"),
     ]);
 
+    setSocialStats({
+      favorites: favoritesResponse.count ?? 0,
+      meetSubscriptions: subscriptionsResponse.count ?? 0,
+      blackcardMeets: blackcardMeetsResponse.count ?? 0,
+    });
+
     const firstError =
-      reportsResponse.error || deletionResponse.error || postsResponse.error || ridesResponse.error;
+      reportsResponse.error ||
+      deletionResponse.error ||
+      postsResponse.error ||
+      ridesResponse.error;
 
     if (firstError) {
       setModerationError(firstError.message);
@@ -726,6 +743,35 @@ function AdminPageContent() {
                 ))}
               </div>
             </div>
+
+            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
+              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
+                    Social + Blackcard Phase 2
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold">Engagement Stats</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+                    Monitor favorites, host meet subscriptions, and Blackcard-exclusive meet adoption.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {[
+                  { label: "Favorite riders", value: socialStats.favorites },
+                  { label: "Meet notify subs", value: socialStats.meetSubscriptions },
+                  { label: "Blackcard meets", value: socialStats.blackcardMeets },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                    <p className="text-2xl font-semibold text-white">{item.value}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
 
             <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

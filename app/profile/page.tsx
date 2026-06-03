@@ -22,6 +22,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
+import { ProfileActionSheet } from "@/components/social/ProfileActionSheet";
+import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 
 type ProfilePost = {
 id: string;
@@ -117,6 +119,8 @@ const [postsState, setPostsState] = useState<LoadState>("idle");
 const [garageState, setGarageState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [settingsOpen, setSettingsOpen] = useState(false);
+const [profileActionOpen, setProfileActionOpen] = useState(false);
+const [actionToast, setActionToast] = useState<string | null>(null);
 const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
 const [deleteRequesting, setDeleteRequesting] = useState(false);
@@ -475,7 +479,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
       <button
         type="button"
-        onClick={() => setSettingsOpen(true)}
+        onClick={() => setProfileActionOpen(true)}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
         aria-label="Open profile menu"
       >
@@ -671,7 +675,11 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </section>
     )}
 
-    {tab !== "posts" && tab !== "garage" && (
+    {tab === "saved" && (
+      <SavedPostsPanel viewerId={userId ?? undefined} isOwnProfile />
+    )}
+
+    {tab !== "posts" && tab !== "garage" && tab !== "saved" && (
       <section className="mt-3">
         <EmptyPanel
           title="Coming into focus."
@@ -680,6 +688,31 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </section>
     )}
   </div>
+
+  <ProfileActionSheet
+    open={profileActionOpen}
+    target={
+      profile
+        ? {
+            profileId: profile.id,
+            username: profile.username,
+            displayName: profileDisplayName(profile),
+            isOwnProfile: true,
+          }
+        : null
+    }
+    onClose={() => setProfileActionOpen(false)}
+    onToast={(message) => {
+      setActionToast(message);
+      window.setTimeout(() => setActionToast(null), 1800);
+    }}
+  />
+
+  {actionToast && (
+    <div className="fixed bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
+      {actionToast}
+    </div>
+  )}
 
   {settingsOpen && (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-sm">

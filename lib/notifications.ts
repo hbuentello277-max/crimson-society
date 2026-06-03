@@ -12,7 +12,11 @@ export type NotificationType =
   | "post_commented"
   | "account_deletion_requested"
   | "account_deletion_canceled"
-  | "account_deletion_approved";
+  | "account_deletion_approved"
+  | "favorite_rider_meet"
+  | "favorite_rider_post"
+  | "favorite_rider_ride_started"
+  | "host_meet_created";
 
 export type NotificationActor = {
   id: string;
@@ -65,6 +69,10 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "account_deletion_requested",
   "account_deletion_canceled",
   "account_deletion_approved",
+  "favorite_rider_meet",
+  "favorite_rider_post",
+  "favorite_rider_ride_started",
+  "host_meet_created",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -127,6 +135,20 @@ export function notificationDestination(
     return `/dashboard?${params.toString()}`;
   }
 
+
+  if (
+    (notification.type === "favorite_rider_meet" ||
+      notification.type === "favorite_rider_ride_started" ||
+      notification.type === "host_meet_created") &&
+    notification.ride_id
+  ) {
+    return `/rides?meet=${notification.ride_id}`;
+  }
+
+  if (notification.type === "favorite_rider_post" && notification.post_id) {
+    return `/dashboard?post=${notification.post_id}`;
+  }
+
   if (notification.type === "profile_followed") {
     return actorProfileHref(actor) || "/inbox?tab=notifications";
   }
@@ -177,6 +199,14 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Deletion canceled";
     case "account_deletion_approved":
       return "Deletion approved";
+    case "favorite_rider_meet":
+      return "Favorite meet";
+    case "favorite_rider_post":
+      return "Favorite post";
+    case "favorite_rider_ride_started":
+      return "Ride started";
+    case "host_meet_created":
+      return "Host meet";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -219,6 +249,14 @@ export function notificationSummary(
       return trimmedBody || "A member canceled their account deletion request";
     case "account_deletion_approved":
       return trimmedBody || "An account deletion request was approved";
+    case "favorite_rider_meet":
+      return trimmedBody || `${name} created a new meet`;
+    case "favorite_rider_post":
+      return trimmedBody || `${name} shared a new post`;
+    case "favorite_rider_ride_started":
+      return trimmedBody || `${name} started ride tracking`;
+    case "host_meet_created":
+      return trimmedBody || `${name} created a new meet`;
     default:
       return trimmedBody || notification.title;
   }

@@ -64,6 +64,12 @@ type BlockRow = {
 };
 
 const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
+const RIDER_TABS = [
+  { key: "all", label: "All Riders" },
+  { key: "following", label: "Following" },
+  { key: "favorites", label: "Favorites ⭐" },
+] as const;
+type RiderTab = (typeof RIDER_TABS)[number]["key"];
 
 const PROFILE_BASE_SELECT =
   "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, status";
@@ -156,6 +162,9 @@ export default function ConnectPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [filter, setFilter] = useState("All");
+  const [riderTab, setRiderTab] = useState<RiderTab>("all");
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,7 +207,7 @@ export default function ConnectPage() {
     setLoading(true);
     setErrorMsg("");
 
-    const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse] =
+    const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse, followsResponse, favoritesResponse] =
       await Promise.all([
         (async () => {
           const discoveryResponse = await supabase
@@ -229,6 +238,8 @@ export default function ConnectPage() {
           .from("user_blocks")
           .select("blocker_id, blocked_id")
           .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+        supabase.from("user_follows").select("following_id").eq("follower_id", userId),
+        supabase.from("favorite_riders").select("favorite_user_id, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
       ]);
 
     if (profilesResponse.error || connectionsResponse.error || blocksResponse.error) {
@@ -306,7 +317,27 @@ export default function ConnectPage() {
       })
       .sort((a, b) => b.mutualCount - a.mutualCount || a.name.localeCompare(b.name));
 
-    setMembers(nextMembers);
+    const favoriteOrder = new Map(
+      ((favoritesResponse.data || []) as { favorite_user_id: string; created_at: string }[]).map(
+        (row, index) => [row.favorite_user_id, index] as const,
+      ),
+    );
+
+    setFollowingIds(
+      new Set(((followsResponse.data || []) as { following_id: string }[]).map((row) => row.following_id)),
+    );
+    setFavoriteIds(new Set(favoriteOrder.keys()));
+
+    setMembers(
+      nextMembers.sort((a, b) => {
+        const aFavorite = favoriteOrder.get(a.id);
+        const bFavorite = favoriteOrder.get(b.id);
+        if (aFavorite !== undefined && bFavorite !== undefined) return aFavorite - bFavorite;
+        if (aFavorite !== undefined) return -1;
+        if (bFavorite !== undefined) return 1;
+        return b.mutualCount - a.mutualCount || a.name.localeCompare(b.name);
+      }),
+    );
     setStatuses(statusMap);
     setLoading(false);
   }, [userId]);
@@ -429,6 +460,10 @@ export default function ConnectPage() {
   const filtered = useMemo(
     () =>
       members.filter((m) => {
+        const matchesTab =
+          riderTab === "all" ||
+          (riderTab === "following" && followingIds.has(m.id)) ||
+          (riderTab === "favorites" && favoriteIds.has(m.id));
         const matchesFilter = filter === "All" || m.style.includes(filter);
         const q = query.trim().toLowerCase();
         const matchesQuery =
@@ -438,9 +473,9 @@ export default function ConnectPage() {
           m.city.toLowerCase().includes(q) ||
           m.bike.toLowerCase().includes(q);
 
-        return matchesFilter && matchesQuery;
+        return matchesTab && matchesFilter && matchesQuery;
       }),
-    [filter, members, query],
+    [favoriteIds, filter, followingIds, members, query, riderTab],
   );
 
   const suggested = useMemo(
@@ -501,6 +536,19 @@ export default function ConnectPage() {
                 placeholder="Search by name or city"
                 className={`w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-[15px] text-zinc-200 placeholder:text-zinc-600 transition ${CS_FOCUS_RING}`}
               />
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
+              {RIDER_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setRiderTab(tab.key)}
+                  className={csPill(riderTab === tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
