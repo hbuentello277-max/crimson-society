@@ -92,6 +92,9 @@ STRIPE_BLACKCARD_MONTHLY_PRICE_ID=price_...
 STRIPE_BLACKCARD_YEARLY_PRICE_ID=price_...
 ```
 
+Checkout prefers these env vars over `membership_plans.stripe_price_id` so a stale DB price ID cannot override production configuration.
+
+
 ---
 
 ## 3. Webhook Endpoint
@@ -132,8 +135,8 @@ Members open the portal via **Manage Subscription** on `/blackcard`.
 |----------|----------|---------|
 | `STRIPE_SECRET_KEY` | Yes | Server Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Webhook signature verification |
-| `STRIPE_BLACKCARD_MONTHLY_PRICE_ID` | Fallback | If DB price ID unset |
-| `STRIPE_BLACKCARD_YEARLY_PRICE_ID` | Fallback | If DB price ID unset |
+| `STRIPE_BLACKCARD_MONTHLY_PRICE_ID` | Yes | Checkout source of truth (overrides DB) |
+| `STRIPE_BLACKCARD_YEARLY_PRICE_ID` | Yes | Checkout source of truth (overrides DB) |
 | `NEXT_PUBLIC_APP_URL` | Yes | Checkout + portal return URLs |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Webhook admin client |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Webhook writes + badge sync |
