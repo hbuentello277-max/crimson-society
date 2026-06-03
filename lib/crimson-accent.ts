@@ -28,7 +28,21 @@ export const CS_ICON_BTN_ACTIVE =
   "flex items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30";
 
 export const CS_ICON_BTN_DISABLED =
-  "flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-600";
+  "flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
+
+/** DM send — same tokens as Connect ALL pill */
+export const CS_SEND_BTN =
+  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:pointer-events-none disabled:opacity-40";
+
+export const CS_SEND_BTN_DISABLED =
+  "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-zinc-500";
+
+/** Compact profile / card actions */
+export const CS_BTN_SECONDARY =
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-[10px] uppercase tracking-[0.14em] text-zinc-200 transition hover:border-white/30 hover:text-zinc-300";
+
+export const CS_BTN_PRIMARY_COMPACT =
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-[#b4141e] bg-[#b4141e]/20 px-2.5 text-[10px] uppercase tracking-[0.14em] text-[#e87a82] transition hover:bg-[#b4141e]/30";
 
 /** Unread / count badges */
 export const CS_BADGE =
@@ -64,3 +78,18 @@ export function csPill(active: boolean, size: "sm" | "md" = "sm") {
   const base = size === "md" ? CS_PILL_MD : CS_PILL_SM;
   return `${base} ${active ? CS_PILL_ACTIVE : CS_PILL_INACTIVE}`;
 }
+
+/** Connect / list avatar rings and letter fallbacks */
+export const CS_AVATAR_RING =
+  "overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#0a0405] shadow-[0_0_20px_-8px_rgba(180,20,30,0.45)]";
+
+export const CS_AVATAR_FALLBACK =
+  "flex h-full w-full items-center justify-center bg-[#b4141e]/20 font-serif italic text-[#e87a82]";
+
+/** Shop header bag control — Connect ALL pill language */
+export const CS_SHOP_BAG_BTN = `${CS_CTA_PRIMARY} relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.25em]`;
+
+export const CS_SHOP_BAG_COUNT = `${CS_BADGE} absolute -right-1 -top-1 h-4 w-4 min-w-4 px-0 text-[9px]`;
+
+/** Meets host CTA */
+export const CS_HOST_MEET_BTN = CS_CTA_PRIMARY_SM;

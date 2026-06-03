@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { csPill } from "@/lib/crimson-accent";
+import { CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 
@@ -464,7 +464,7 @@ export default function ConnectPage() {
         }}
       />
 
-      <div className="relative mx-auto max-w-3xl px-6 pb-20 pt-12">
+      <div className="relative mx-auto max-w-3xl px-6 pb-20 pt-[calc(env(safe-area-inset-top)+3rem)]">
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
@@ -492,14 +492,14 @@ export default function ConnectPage() {
           </p>
         </header>
 
-        <section className="mt-10">
+        <section className="mt-10 scroll-mt-[calc(env(safe-area-inset-top)+1rem)]">
           <div className="rounded-[24px] border border-white/10 bg-white/[0.02] px-4 py-4 backdrop-blur-sm sm:px-5">
             <div>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by name or city"
-                className="w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-[15px] text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
+                className={`w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 text-[15px] text-zinc-200 placeholder:text-zinc-600 transition ${CS_FOCUS_RING}`}
               />
             </div>
 
@@ -543,7 +543,7 @@ export default function ConnectPage() {
 
                 const cardContent = (
                   <>
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/35 bg-[#b4141e]">
+                    <div className={`relative h-12 w-12 shrink-0 ${CS_AVATAR_RING}`}>
                       {member.photo ? (
                         <Image
                           src={member.photo}
@@ -554,7 +554,7 @@ export default function ConnectPage() {
                           unoptimized={member.photo.includes("supabase")}
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center font-serif italic text-white">
+                        <div className={`${CS_AVATAR_FALLBACK} text-lg`}>
                           {member.name.charAt(0)}
                         </div>
                       )}
@@ -629,7 +629,7 @@ export default function ConnectPage() {
                       unoptimized={m.photo.includes("supabase")}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-serif text-xl italic text-white">
+                    <div className={`${CS_AVATAR_FALLBACK} text-xl`}>
                       {m.name.charAt(0)}
                     </div>
                   )}
@@ -668,14 +668,14 @@ export default function ConnectPage() {
                       <Link
                         href={profileHref}
                         prefetch
-                        className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_20px_-8px_rgba(180,20,30,0.65)] transition hover:scale-105 sm:h-16 sm:w-16"
+                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105 sm:h-16 sm:w-16`}
                       >
                         {avatarContent}
                       </Link>
                     ) : (
                       <button
                         onClick={() => setOpenId(m.id)}
-                        className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#b4141e]/50 bg-[#b4141e] shadow-[0_0_20px_-8px_rgba(180,20,30,0.65)] transition hover:scale-105 sm:h-16 sm:w-16"
+                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105 sm:h-16 sm:w-16`}
                       >
                         {avatarContent}
                       </button>
@@ -766,7 +766,7 @@ export default function ConnectPage() {
             </button>
 
             <div className="flex flex-col items-center text-center">
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border border-[#b4141e]/60 bg-[#b4141e] shadow-[0_0_32px_-4px_rgba(180,20,30,0.7)]">
+              <div className={`relative h-28 w-28 ${CS_AVATAR_RING} shadow-[0_0_32px_-8px_rgba(180,20,30,0.5)]`}>
                 {openMember.photo ? (
                   <Image
                     src={openMember.photo}
@@ -777,7 +777,7 @@ export default function ConnectPage() {
                     unoptimized={openMember.photo.includes("supabase")}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center font-serif text-3xl italic text-white">
+                  <div className={`${CS_AVATAR_FALLBACK} text-3xl`}>
                     {openMember.name.charAt(0)}
                   </div>
                 )}

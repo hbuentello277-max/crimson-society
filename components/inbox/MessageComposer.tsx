@@ -4,7 +4,7 @@ import type { ChangeEvent, RefObject } from "react";
 import { useRef, useState } from "react";
 import { EmojiTray } from "@/components/inbox/EmojiTray";
 import { IconCamera, IconGallery, IconMicrophone, IconSend } from "@/components/inbox/inbox-icons";
-import { CS_ICON_BTN_ACTIVE, CS_ICON_BTN_DISABLED } from "@/lib/crimson-accent";
+import { CS_SEND_BTN, CS_SEND_BTN_DISABLED } from "@/lib/crimson-accent";
 
 /** Minimal gap above BottomNav + home indicator (Messaging V3 mockup). */
 export const MESSAGE_COMPOSER_BOTTOM_OFFSET = "calc(env(safe-area-inset-bottom) + 0.75rem)";
@@ -146,12 +146,10 @@ export function MessageComposer({
           type="button"
           onClick={onSend}
           disabled={!draft.trim() || busy}
-          className={`mb-0.5 h-11 w-11 shrink-0 ${
-            draft.trim() && !busy ? CS_ICON_BTN_ACTIVE : CS_ICON_BTN_DISABLED
-          }`}
+          className={draft.trim() && !busy ? CS_SEND_BTN : CS_SEND_BTN_DISABLED}
           aria-label="Send message"
         >
-          <IconSend />
+          <IconSend className="h-5 w-5 text-current" />
         </button>
       </div>
     </div>

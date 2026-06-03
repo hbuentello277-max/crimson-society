@@ -13,6 +13,7 @@ import {
   fetchProducts,
 } from "@/lib/products";
 import { useCart, useCartCount } from "@/lib/cart-store";
+import { CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
 type SortKey = "featured" | "newest" | "price-low" | "price-high";
 
@@ -166,29 +167,20 @@ export default function ShopPage() {
             <button
               type="button"
               onClick={openDrawer}
-              className="relative flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white/80 transition hover:border-[#b4141e]/60 hover:text-white"
+              className={CS_SHOP_BAG_BTN}
             >
               <span>Bag</span>
-              <span className="text-[10px] text-white/50">·</span>
+              <span className="text-[10px] opacity-60">·</span>
 
               <motion.span
                 key={cartCount}
-                initial={{ scale: 1.4, color: "#ffffff" }}
-                animate={{ scale: 1, color: "#e87a82" }}
+                initial={{ scale: 1.15 }}
+                animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                className="tabular-nums"
               >
                 {cartCount}
               </motion.span>
-
-              {cartCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#b4141e] text-[9px] text-white shadow-[0_0_10px_rgba(180,20,30,0.6)]"
-                >
-                  {cartCount}
-                </motion.span>
-              )}
             </button>
           </div>
 
