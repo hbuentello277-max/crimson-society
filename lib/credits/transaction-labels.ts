@@ -5,6 +5,8 @@ const TYPE_LABELS: Record<string, string> = {
   referral_blackcard: "Referral Blackcard",
   admin_adjustment: "Admin Adjustment",
   adjustment: "Adjustment",
+  reward_redemption: "Reward Redemption",
+  reward_redemption_refund: "Reward Redemption Refund",
 };
 
 export function formatCreditTransactionLabel(
