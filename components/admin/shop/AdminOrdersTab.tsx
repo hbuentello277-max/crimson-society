@@ -12,13 +12,13 @@ import {
 function statusBadgeClass(status: ShopOrderStatus) {
   switch (status) {
     case "pending":
-      return "border-amber-500/35 bg-amber-500/10 text-amber-200";
+      return "border-amber-500/40 bg-amber-500/15 text-amber-200";
     case "paid":
-      return "border-sky-500/35 bg-sky-500/10 text-sky-200";
+      return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "fulfilled":
       return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300";
     case "cancelled":
-      return "border-zinc-500/35 bg-zinc-500/10 text-zinc-400";
+      return "border-red-500/40 bg-red-500/15 text-red-300";
     case "refunded":
       return "border-red-500/35 bg-red-500/10 text-red-300";
   }
@@ -59,7 +59,7 @@ export function AdminOrdersTab() {
         <div>
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Merch orders</p>
           <p className="mt-1 text-sm text-zinc-500">
-            Paid checkout and fulfillment will connect in a later phase.
+            Pending, paid, and cancelled merch checkout orders.
           </p>
         </div>
       </div>

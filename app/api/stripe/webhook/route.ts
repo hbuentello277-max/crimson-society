@@ -4,7 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { awardReferralBlackcardConversion } from "@/lib/credits/award-referral-blackcard";
+import { fulfillMerchOrderFromCheckoutSession } from "@/lib/shop/fulfill-merch-order";
 import { syncBlackcardPublicForUser } from "@/lib/stripe/sync-blackcard-public";
+import {
+  checkStripeWebhookDuplicate,
+  recordStripeWebhookEvent,
+} from "@/lib/stripe/webhook-idempotency";
 import { normalizeMembershipPlanType } from "@/lib/membership";
 
 function getSupabaseAdmin() {
@@ -34,7 +39,7 @@ async function upsertStripeCustomer(userId: string, customerId: string) {
       user_id: userId,
       stripe_customer_id: customerId,
     },
-    { onConflict: "user_id" }
+    { onConflict: "user_id" },
   );
 
   if (error) {
@@ -97,22 +102,20 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
       : planRow?.id ?? null;
   }
 
-  const { error } = await supabaseAdmin
-    .from("subscriptions")
-    .upsert(
-      {
-        user_id: userId,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscription.id,
-        plan_type: planType,
-        status: subscription.status,
-        current_period_start: toIso(item?.current_period_start),
-        current_period_end: toIso(item?.current_period_end),
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        membership_plan_id: membershipPlanId,
-      },
-      { onConflict: "stripe_subscription_id" }
-    );
+  const { error } = await supabaseAdmin.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+      plan_type: planType,
+      status: subscription.status,
+      current_period_start: toIso(item?.current_period_start),
+      current_period_end: toIso(item?.current_period_end),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      membership_plan_id: membershipPlanId,
+    },
+    { onConflict: "stripe_subscription_id" },
+  );
 
   if (error) {
     throw error;
@@ -121,6 +124,40 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   if (subscription.status === "active" || subscription.status === "trialing") {
     await syncBlackcardPublicForUser(supabaseAdmin, userId);
     await awardReferralBlackcardConversion(supabaseAdmin, userId);
+  }
+}
+
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  if (session.metadata?.checkout_type === "merch") {
+    const admin = getSupabaseAdmin();
+    const result = await fulfillMerchOrderFromCheckoutSession(admin, session);
+    if (!result.ok && result.reason !== "not_merch_checkout") {
+      console.info("[stripe-webhook] merch fulfillment", result);
+    }
+    return;
+  }
+
+  if (session.mode !== "subscription") {
+    return;
+  }
+
+  const customerId =
+    typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+
+  const userId = session.metadata?.supabase_user_id || session.metadata?.user_id || null;
+
+  if (customerId && userId) {
+    await upsertStripeCustomer(userId, customerId);
+  }
+
+  if (session.subscription) {
+    const subscription = await getStripe().subscriptions.retrieve(
+      typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription.id,
+    );
+
+    await upsertSubscription(subscription);
   }
 }
 
@@ -147,39 +184,18 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
+  const admin = getSupabaseAdmin();
+
   try {
+    const idempotency = await checkStripeWebhookDuplicate(admin, event.id);
+    if (idempotency === "duplicate") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-
-        if (session.mode !== "subscription") {
-          break;
-        }
-
-        const customerId =
-          typeof session.customer === "string"
-            ? session.customer
-            : session.customer?.id ?? null;
-
-        const userId =
-          session.metadata?.supabase_user_id ||
-          session.metadata?.user_id ||
-          null;
-
-        if (customerId && userId) {
-          await upsertStripeCustomer(userId, customerId);
-        }
-
-        if (session.subscription) {
-          const subscription = await getStripe().subscriptions.retrieve(
-            typeof session.subscription === "string"
-              ? session.subscription
-              : session.subscription.id
-          );
-
-          await upsertSubscription(subscription);
-        }
-
+        await handleCheckoutSessionCompleted(session);
         break;
       }
 
@@ -194,6 +210,8 @@ export async function POST(req: Request) {
       default:
         break;
     }
+
+    await recordStripeWebhookEvent(admin, event.id, event.type);
 
     return NextResponse.json({ received: true });
   } catch (error) {
