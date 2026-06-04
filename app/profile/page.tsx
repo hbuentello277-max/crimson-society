@@ -15,19 +15,13 @@ import { getBestImageUrl } from "@/lib/media";
 import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
 import {
   type AccountDeletionRequestRow,
-  deletionStatusLabel,
-  deletionStatusUserMessage,
   isOpenDeletionStatus,
 } from "@/lib/account-deletion";
 import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
-const PROFILE_MENU_BTN =
-  "block w-full rounded-2xl border border-[#b4141e]/50 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/22";
-
-const PROFILE_MENU_BTN_COMPACT =
-  "block w-full rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/12 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/22 disabled:opacity-60";
+import { ProfileSettingsMenuSheet } from "@/components/profile/ProfileSettingsMenuSheet";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
@@ -712,183 +706,31 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
   </div>
 
-  {settingsOpen && (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-sm">
-      <button
-        type="button"
-        aria-label="Close profile menu"
-        className="absolute inset-0 cursor-default"
-        onClick={() => setSettingsOpen(false)}
-      />
-      <section className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#080809] shadow-[0_30px_90px_rgba(0,0,0,0.7)]">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Profile Menu</p>
-            <h2 className="mt-1 font-serif text-2xl text-white">Settings</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(false)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-xl text-zinc-300 transition hover:border-white/25 hover:text-white"
-            aria-label="Close profile menu"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="max-h-[78dvh] overflow-y-auto px-3 py-3">
-          <div className="grid gap-2">
-            {[
-              { href: "/profile/edit", label: "Settings" },
-              { href: "/inbox?tab=notifications", label: "Notifications" },
-              { href: "/privacy", label: "Privacy" },
-              { href: "/rides/track?live=1", label: "Location Sharing" },
-              { href: "/blackcard", label: "Blackcard" },
-              { href: "/safety", label: "Safety" },
-              { href: "/support", label: "Support" },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                prefetch
-                onClick={() => setSettingsOpen(false)}
-                className={PROFILE_MENU_BTN}
-              >
-                {item.label}
-              </Link>
-            ))}
-
-            {isAdmin && (
-              <Link
-                href="/admin"
-                prefetch
-                onClick={() => setSettingsOpen(false)}
-                className={PROFILE_MENU_BTN}
-              >
-                Admin Dashboard
-              </Link>
-            )}
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Crimson Credits</p>
-            <p className="mt-2 text-xs leading-5 text-zinc-600">More detail coming soon</p>
-            <div className="mt-3 grid gap-2">
-              {[
-                { href: "/profile/credits/history", label: "Credits History" },
-                { href: "/profile/credits/referrals", label: "Referrals" },
-                { href: "/profile/credits/rewards", label: "Rewards" },
-                { href: "/profile/credits/how-it-works", label: "How It Works" },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  prefetch
-                  onClick={() => setSettingsOpen(false)}
-                  className={PROFILE_MENU_BTN_COMPACT}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Safety</p>
-            <div className="mt-3 grid gap-2">
-              {[
-                { href: "/community-guidelines", label: "Community Guidelines" },
-                { href: "/terms", label: "Terms of Service" },
-                { href: "/privacy", label: "Privacy Policy" },
-                { href: "/safety", label: "Safety Policy" },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  prefetch
-                  onClick={() => setSettingsOpen(false)}
-                  className={PROFILE_MENU_BTN_COMPACT}
-                >
-                  {item.label}
-                </Link>
-              ))}
-
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Account deletion</p>
-                <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  You will be signed out immediately. Your account enters deletion_pending until an admin
-                  approves. You can sign back in only to check status or cancel while pending.
-                </p>
-                <Link
-                  href="/account-deletion"
-                  prefetch
-                  onClick={() => setSettingsOpen(false)}
-                  className="mt-2 inline-block text-[10px] uppercase tracking-[0.16em] text-[#e87a82] hover:underline"
-                >
-                  How account deletion works
-                </Link>
-                {deletionRequestLoading ? (
-                  <p className="mt-3 text-xs leading-5 text-zinc-600">Loading request status…</p>
-                ) : deletionRequest ? (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#e87a82]">
-                      Status: {deletionStatusLabel(deletionRequest.status)}
-                    </p>
-                    <p className="text-xs leading-5 text-zinc-500">
-                      {deletionStatusUserMessage(deletionRequest)}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteConfirmText("");
-                  setDeleteRequestStatus(null);
-                  setDeleteModalOpen(true);
-                }}
-                disabled={
-                  deleteRequesting ||
-                  deletionRequestLoading ||
-                  profileStatus === "deletion_pending" ||
-                  Boolean(deletionRequest && isOpenDeletionStatus(deletionRequest.status))
-                }
-                className={`${PROFILE_MENU_BTN_COMPACT} text-left`}
-              >
-                {deletionRequest && isOpenDeletionStatus(deletionRequest.status)
-                  ? "Deletion Request Pending"
-                  : "Request Account Deletion"}
-              </button>
-
-              {deletionRequest && isOpenDeletionStatus(deletionRequest.status) && (
-                <Link
-                  href="/deletion-pending"
-                  prefetch
-                  onClick={() => setSettingsOpen(false)}
-                  className={PROFILE_MENU_BTN_COMPACT}
-                >
-                  Manage deletion status
-                </Link>
-              )}
-
-              {deleteRequestStatus && (
-                <p className="px-1 text-xs leading-5 text-zinc-500">{deleteRequestStatus}</p>
-              )}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            className={`mt-3 ${PROFILE_MENU_BTN} text-left`}
-          >
-            Log Out
-          </button>
-        </div>
-      </section>
-    </div>
-  )}
+  <ProfileSettingsMenuSheet
+    open={settingsOpen}
+    isAdmin={isAdmin}
+    deletionRequest={deletionRequest}
+    deletionRequestLoading={deletionRequestLoading}
+    deleteRequesting={deleteRequesting}
+    profileStatus={profileStatus}
+    deleteRequestStatus={deleteRequestStatus}
+    deletionDisabled={
+      deleteRequesting ||
+      deletionRequestLoading ||
+      profileStatus === "deletion_pending" ||
+      Boolean(deletionRequest && isOpenDeletionStatus(deletionRequest.status))
+    }
+    showManageDeletion={Boolean(
+      deletionRequest && isOpenDeletionStatus(deletionRequest.status),
+    )}
+    onClose={() => setSettingsOpen(false)}
+    onSignOut={() => void handleSignOut()}
+    onRequestDeletion={() => {
+      setDeleteConfirmText("");
+      setDeleteRequestStatus(null);
+      setDeleteModalOpen(true);
+    }}
+  />
 
   {deleteModalOpen && (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">
