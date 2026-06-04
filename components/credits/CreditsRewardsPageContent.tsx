@@ -1,25 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { CreditsAccountOverview } from "@/components/credits/CreditsAccountOverview";
+import { CreditRedemptionHistoryList } from "@/components/credits/CreditRedemptionHistoryList";
+import { CreditRewardCard } from "@/components/credits/CreditRewardCard";
+import { CreditRewardRedeemModal } from "@/components/credits/CreditRewardRedeemModal";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
-import { useCrimsonCreditsAccount } from "@/hooks/useCrimsonCreditsAccount";
-import { useCurrentMembershipTier } from "@/hooks/useCurrentMembershipTier";
-import { canRedeemCrimsonCredits } from "@/lib/credits/config";
-import { membershipTierLabel } from "@/lib/membership";
+import { CreditsRewardsSummary } from "@/components/credits/CreditsRewardsSummary";
+import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
+import { useCreditRewardsPage } from "@/hooks/useCreditRewardsPage";
 import { supabase } from "@/lib/supabase";
 
-const PLANNED_REWARDS = [
-  "Merch discounts for Blackcard members",
-  "Blackcard member perks and experiences",
-  "Limited inventory access",
-  "Future event and member rewards",
-] as const;
+type PendingRedeem = {
+  reward: CreditsRewardCatalogItem;
+  shirtSize: string | null;
+};
 
 export function CreditsRewardsPageContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [pendingRedeem, setPendingRedeem] = useState<PendingRedeem | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -32,60 +31,107 @@ export function CreditsRewardsPageContent() {
     void loadUser();
   }, []);
 
-  const { account, loading: accountLoading } = useCrimsonCreditsAccount(userId);
-  const { tier, loading: tierLoading } = useCurrentMembershipTier(userId);
+  const enabled = Boolean(userId) && !authLoading;
 
-  const canRedeem = canRedeemCrimsonCredits(tier);
-  const loading = authLoading || accountLoading || tierLoading;
+  const {
+    rewards,
+    summary,
+    redemptions,
+    loading,
+    error,
+    successMessage,
+    redeeming,
+    redeemReward,
+    dismissSuccess,
+    dismissError,
+  } = useCreditRewardsPage(enabled);
+
+  const pageLoading = authLoading || loading;
+
+  async function handleConfirmRedeem() {
+    if (!pendingRedeem) return;
+
+    try {
+      await redeemReward(pendingRedeem.reward.id, pendingRedeem.shirtSize);
+      setPendingRedeem(null);
+    } catch {
+      // Error surfaced via hook state
+    }
+  }
 
   return (
     <CreditsPageShell
       title="Rewards"
-      subtitle="Redemption is coming soon. Your credits are safe and tracked in your history."
+      subtitle="Redeem credits for member rewards. Cash-value rewards count toward your monthly cash cap; community rewards do not."
     >
-      <div className="rounded-2xl border border-[#b4141e]/30 bg-gradient-to-r from-[#b4141e]/10 to-transparent px-4 py-3">
-        <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Coming soon</p>
-        <p className="mt-2 text-sm leading-6 text-zinc-300">
-          Member reward redemption is in development. You can still earn and track credits today.
-        </p>
-      </div>
-
-      <CreditsAccountOverview account={account} loading={loading} compact />
-
-      <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Blackcard redemption status</p>
-        <p className="mt-2 text-sm font-medium text-white">{membershipTierLabel(tier)}</p>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">
-          {canRedeem
-            ? "You’ll be able to redeem credits for member rewards soon."
-            : "Upgrade to Blackcard to redeem future rewards."}
-        </p>
-        {!canRedeem && (
-          <Link
-            href="/blackcard"
-            className="mt-4 inline-flex rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-5 py-2 text-xs uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+      {successMessage ? (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          <p className="text-sm leading-6 text-emerald-200">{successMessage}</p>
+          <button
+            type="button"
+            onClick={dismissSuccess}
+            className="shrink-0 text-xs uppercase tracking-[0.16em] text-emerald-300/80"
           >
-            Explore Blackcard
-          </Link>
-        )}
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <p className="text-sm leading-6 text-red-300">{error}</p>
+          <button
+            type="button"
+            onClick={dismissError}
+            className="shrink-0 text-xs uppercase tracking-[0.16em] text-red-300/80"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      <CreditsRewardsSummary summary={summary} loading={pageLoading} />
+
+      <section>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Available rewards</h2>
+        <div className="mt-3 space-y-3">
+          {pageLoading && rewards.length === 0 ? (
+            <p className="text-sm text-zinc-500">Loading rewards…</p>
+          ) : null}
+          {!pageLoading && rewards.length === 0 ? (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-zinc-500">
+              No rewards are available right now.
+            </p>
+          ) : null}
+          {rewards.map((reward) => (
+            <CreditRewardCard
+              key={reward.id}
+              reward={reward}
+              summary={summary}
+              onRedeem={(selected, shirtSize) => setPendingRedeem({ reward: selected, shirtSize })}
+            />
+          ))}
+        </div>
       </section>
 
-      <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Planned reward uses</p>
-        <ul className="mt-3 space-y-2">
-          {PLANNED_REWARDS.map((item) => (
-            <li
-              key={item}
-              className="flex gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-sm text-zinc-400"
-            >
-              <span className="text-[#e87a82]" aria-hidden>
-                ·
-              </span>
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
+      <section>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Redemption history</h2>
+        <div className="mt-3">
+          <CreditRedemptionHistoryList redemptions={redemptions} loading={pageLoading} />
+        </div>
       </section>
+
+      <CreditRewardRedeemModal
+        open={Boolean(pendingRedeem)}
+        reward={pendingRedeem?.reward ?? null}
+        shirtSize={pendingRedeem?.shirtSize ?? null}
+        balance={summary.credits_balance}
+        redeeming={redeeming}
+        onConfirm={() => void handleConfirmRedeem()}
+        onClose={() => {
+          if (!redeeming) setPendingRedeem(null);
+        }}
+      />
     </CreditsPageShell>
   );
 }
