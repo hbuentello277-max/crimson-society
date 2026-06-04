@@ -19,6 +19,7 @@ import {
   IconMenuLogOut,
   IconMenuPrivacy,
   IconMenuReferrals,
+  IconMenuRewards,
   IconMenuSafety,
   IconMenuSettings,
   IconMenuSupport,
@@ -166,6 +167,11 @@ export function ProfileSettingsMenuSheet({
     { href: "/support", label: "Support", icon: <IconMenuSupport /> },
   ];
 
+  const shopItems: MenuLinkItem[] = [
+    { href: "/shop", label: "Shop", icon: <IconMenuRewards /> },
+    { href: "/profile/orders", label: "Orders", icon: <IconMenuRewards /> },
+  ];
+
   const creditsItems: MenuLinkItem[] = [
     { href: "/profile/credits/history", label: "Credits History", icon: <IconMenuCredits /> },
     { href: "/profile/credits/referrals", label: "Referrals", icon: <IconMenuReferrals /> },
@@ -229,6 +235,21 @@ export function ProfileSettingsMenuSheet({
                 onBeforeNavigate={persistScrollPosition}
               />
             )}
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Shop</p>
+            <div className="mt-2 grid gap-1.5">
+              {shopItems.map((item) => (
+                <MenuLinkRow
+                  key={item.label}
+                  item={item}
+                  className={MENU_ROW_COMPACT}
+                  onNavigate={onNavigate}
+                  onBeforeNavigate={persistScrollPosition}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">

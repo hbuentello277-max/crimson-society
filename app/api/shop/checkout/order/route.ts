@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { formatOrderStatusLabel, isShopOrderStatus } from "@/lib/shop/orders";
+import { formatOrderStatusLabel, normalizePaymentStatus } from "@/lib/shop/orders";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 /** Lookup a merch order for the success page by Stripe Checkout session id. */
@@ -50,9 +50,7 @@ export async function GET(request: Request) {
     order: {
       id: order.id,
       status: order.status,
-      status_label: isShopOrderStatus(order.status)
-        ? formatOrderStatusLabel(order.status)
-        : order.status,
+      status_label: formatOrderStatusLabel(normalizePaymentStatus(String(order.status))),
       total_cents: order.total_cents,
       subtotal_cents: order.subtotal_cents,
       shipping_cents: order.shipping_cents,
