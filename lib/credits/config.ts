@@ -1,4 +1,12 @@
-/** Crimson Credits Phase 3 V1 — flat earn amounts (no tier multipliers). */
+/**
+ * Crimson Credits Phase 3 V1 — flat earn amounts (no tier multipliers).
+ *
+ * Meet host (20) and attend (10) credits are awarded when a meet completes:
+ * - tracking_status becomes `ended`, ride status is `active` (not canceled)
+ * - host started tracking (started_at set) for at least 5 minutes
+ * - at least one non-host attendee with status `going`
+ * Idempotency keys prevent duplicate awards; join/leave does not re-trigger earn.
+ */
 
 export const CRIMSON_CREDITS_MONTHLY_EARN_CAP = 500;
 
