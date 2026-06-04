@@ -1,10 +1,5 @@
-import { CreditsPlaceholderPage } from "@/components/credits/CreditsPlaceholderPage";
+import { CreditsHistoryPageContent } from "@/components/credits/CreditsHistoryPageContent";
 
 export default function CreditsHistoryPage() {
-  return (
-    <CreditsPlaceholderPage
-      title="Credits History"
-      description="Your earn and adjustment history will appear here once this view is available."
-    />
-  );
+  return <CreditsHistoryPageContent />;
 }

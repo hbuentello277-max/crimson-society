@@ -1,0 +1,34 @@
+"use client";
+
+import { Suspense, type ReactNode } from "react";
+import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
+
+type Props = {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+};
+
+export function CreditsPageShell({ title, subtitle, children }: Props) {
+  return (
+    <main className="min-h-screen bg-[#050505] px-4 py-12 text-white sm:px-6 sm:py-14">
+      <div className="mx-auto max-w-lg">
+        <Suspense
+          fallback={
+            <span className="text-[10px] uppercase tracking-[0.28em] text-zinc-600">← Back</span>
+          }
+        >
+          <ProfileMenuBackLink className="text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]">
+            ← Back to Profile
+          </ProfileMenuBackLink>
+        </Suspense>
+
+        <p className="mt-8 text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Crimson Credits</p>
+        <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">{title}</h1>
+        {subtitle ? <p className="mt-3 text-sm leading-7 text-zinc-400">{subtitle}</p> : null}
+
+        <div className="mt-6 space-y-4">{children}</div>
+      </div>
+    </main>
+  );
+}
