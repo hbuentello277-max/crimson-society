@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { persistReferralCode } from "@/lib/credits/referral-storage";
+import { FormEvent, useMemo, useState } from "react";
+import { saveSignupReferralCode } from "@/lib/credits/signup-referral-session";
+import { normalizeReferralCodeInput } from "@/lib/credits/referral-code";
 import {
   getPasswordRequirementChecks,
   getPasswordValidationErrorKey,
@@ -52,6 +53,8 @@ const copy = {
     guidelinesLink: "Community Guidelines",
     complianceRequired:
       "Please confirm you are 18 or older and agree to the Terms and Community Guidelines before creating your account.",
+    referralCodeOptional: "Referral Code (Optional)",
+    referralCodeHint: "Enter a member's code if someone invited you.",
   },
   es: {
     eyebrow: "RIDE • CULTURE • LEGACY",
@@ -91,6 +94,8 @@ const copy = {
     guidelinesLink: "Normas de la comunidad",
     complianceRequired:
       "Confirma que tienes 18 años o más y acepta los Términos y las Normas de la comunidad antes de crear tu cuenta.",
+    referralCodeOptional: "Código de referido (opcional)",
+    referralCodeHint: "Ingresa el código de un miembro si te invitaron.",
   },
 } as const;
 
@@ -112,6 +117,7 @@ export default function SignUpPage() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
   const complianceComplete = ageConfirmed && termsAccepted && guidelinesAccepted;
   const passwordChecks = getPasswordRequirementChecks(password);
@@ -143,14 +149,6 @@ export default function SignUpPage() {
   const emailRedirectTo = useMemo(() => {
     if (typeof window === "undefined") return undefined;
     return `${window.location.origin}/auth/callback`;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (ref) {
-      persistReferralCode(ref);
-    }
   }, []);
 
   async function handleSignUp(e: FormEvent<HTMLFormElement>) {
@@ -193,6 +191,11 @@ export default function SignUpPage() {
       if (error) {
         setError(error.message);
         return;
+      }
+
+      const normalizedReferral = normalizeReferralCodeInput(referralCode);
+      if (normalizedReferral) {
+        saveSignupReferralCode(normalizedReferral);
       }
 
       setAwaitingConfirmation(true);
@@ -328,6 +331,23 @@ export default function SignUpPage() {
                   {confirmPassword.length > 0 && !passwordsMatch && (
                     <p className="mt-2 text-xs text-red-300/90">{t.passwordsNoMatch}</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-zinc-400">
+                    {t.referralCodeOptional}
+                  </label>
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(normalizeReferralCodeInput(e.target.value))}
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={20}
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/5 px-4 font-mono text-sm tracking-wider text-white outline-none transition placeholder:text-zinc-500 focus:border-red-700/70 focus:bg-white/10"
+                    placeholder="MEMBERCODE"
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">{t.referralCodeHint}</p>
                 </div>
 
                 <div className="space-y-2.5 rounded-2xl border border-white/10 bg-black/20 px-3 py-3">

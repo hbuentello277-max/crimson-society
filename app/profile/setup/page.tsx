@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { attributeReferralIfNeeded } from "@/lib/credits/attribute-referral";
+import { attributeReferral } from "@/lib/credits/attribute-referral";
+import {
+  normalizeReferralCodeInput,
+  validateReferralCodeFormat,
+} from "@/lib/credits/referral-code";
+import { readSignupReferralCode } from "@/lib/credits/signup-referral-session";
 import { cleanUsername } from "@/lib/profile";
 
 const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
@@ -40,6 +45,15 @@ export default function ProfileSetup() {
 
   // Chapter III — Style
   const [styles, setStyles] = useState<string[]>([]);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralWarning, setReferralWarning] = useState("");
+
+  useEffect(() => {
+    const fromSignup = readSignupReferralCode();
+    if (fromSignup) {
+      setReferralCode(fromSignup);
+    }
+  }, []);
 
   const toggleStyle = (s: string) => {
     setStyles((prev) =>
@@ -137,7 +151,22 @@ const { error: profileError } = await supabase
 
       if (profileError) throw profileError;
 
-      await attributeReferralIfNeeded(supabase);
+      const normalizedReferral = normalizeReferralCodeInput(referralCode);
+      if (normalizedReferral) {
+        const formatError = validateReferralCodeFormat(normalizedReferral);
+        if (formatError) {
+          setReferralWarning(formatError);
+          setSaving(false);
+          return;
+        }
+
+        const referralResult = await attributeReferral(supabase, normalizedReferral);
+        if (!referralResult.ok && referralResult.message) {
+          setReferralWarning(referralResult.message);
+          setSaving(false);
+          return;
+        }
+      }
 
       if (make.trim() || model.trim() || year.trim() || color.trim()) {
         const { error: motorcycleError } = await supabase
@@ -365,6 +394,30 @@ const { error: profileError } = await supabase
                     placeholder="A line that captures you."
                     className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-base text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
                   />
+                </div>
+
+                <div>
+                  <label className="text-xs uppercase tracking-[0.3em] text-zinc-500">
+                    Referral Code (Optional)
+                  </label>
+                  <input
+                    value={referralCode}
+                    onChange={(e) => {
+                      setReferralCode(normalizeReferralCodeInput(e.target.value));
+                      if (referralWarning) setReferralWarning("");
+                    }}
+                    placeholder="Enter a member's code"
+                    maxLength={20}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="mt-2 w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-base tracking-wider text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">
+                    If someone invited you, enter their code here (letters A–Z and numbers only).
+                  </p>
+                  {referralWarning && (
+                    <p className="mt-2 text-sm text-amber-200/90">{referralWarning}</p>
+                  )}
                 </div>
               </>
             )}

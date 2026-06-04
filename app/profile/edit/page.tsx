@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChangeEvent, useEffect, useState } from "react";
 import EditProfileForm from "@/components/profile/EditProfileForm";
+import ReferralCodeSection from "@/components/profile/ReferralCodeSection";
 import PrivacySettingsSection from "@/components/profile/PrivacySettingsSection";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
@@ -431,6 +432,11 @@ export default function ProfileEditPage() {
         </section>
 
         <EditProfileForm profile={profile} saving={savingProfile} message={profileMsg} onSubmit={saveProfileDetails} />
+
+        <ReferralCodeSection
+          profile={profile}
+          onCodeUpdated={() => void refresh()}
+        />
 
         {userId && (
           <PrivacySettingsSection

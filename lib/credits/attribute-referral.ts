@@ -1,17 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clearPersistedReferralCode, readPersistedReferralCode } from "@/lib/credits/referral-storage";
+import { REFERRAL_ATTRIBUTION_ERRORS } from "@/lib/credits/referral-code";
+import { clearSignupReferralCode } from "@/lib/credits/signup-referral-session";
 
 export type AttributeReferralResult =
   | { ok: true; referrerId?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; message: string };
 
-export async function attributeReferralIfNeeded(
+export async function attributeReferral(
   supabase: SupabaseClient,
-  explicitCode?: string | null,
+  referralCode: string,
 ): Promise<AttributeReferralResult> {
-  const code = explicitCode?.trim().toUpperCase() || readPersistedReferralCode();
+  const code = referralCode.trim().toUpperCase();
   if (!code) {
-    return { ok: false, error: "no_code" };
+    return { ok: false, error: "no_code", message: "" };
   }
 
   const { data, error } = await supabase.rpc("attribute_referral", {
@@ -19,7 +20,7 @@ export async function attributeReferralIfNeeded(
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: "rpc_error", message: error.message };
   }
 
   const payload = data as {
@@ -30,12 +31,13 @@ export async function attributeReferralIfNeeded(
 
   if (!payload?.ok) {
     const reason = payload?.error || "unknown";
-    if (reason === "already_referred" || reason === "invalid_code") {
-      clearPersistedReferralCode();
-    }
-    return { ok: false, error: reason };
+    return {
+      ok: false,
+      error: reason,
+      message: REFERRAL_ATTRIBUTION_ERRORS[reason] || "Could not apply referral code.",
+    };
   }
 
-  clearPersistedReferralCode();
+  clearSignupReferralCode();
   return { ok: true, referrerId: payload.referrer_id };
 }

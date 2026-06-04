@@ -33,6 +33,8 @@ export type AppProfile = {
   founding_blackcard_granted_at?: string | null;
   membership_tier?: string | null;
   blackcard_public?: boolean | null;
+  referral_code?: string | null;
+  referred_by_user_id?: string | null;
 };
 
 export type ProfileIdentityInput = {
@@ -101,7 +103,7 @@ export function getProfileSaveErrorDetails(error: unknown): ProfileSaveErrorDeta
 }
 
 export const PROFILE_SELECT =
-  "id, role, status, is_admin, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url, is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public";
+  "id, role, status, is_admin, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url, is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, referral_code, referred_by_user_id";
 
 export function cleanUsername(value: string) {
   const cleaned = value

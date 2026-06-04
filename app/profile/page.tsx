@@ -30,7 +30,6 @@ const PROFILE_MENU_BTN_COMPACT =
   "block w-full rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/12 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/22 disabled:opacity-60";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
-import { attributeReferralIfNeeded } from "@/lib/credits/attribute-referral";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
 
 type ProfilePost = {
@@ -454,15 +453,6 @@ const {
   loading: creditsLoading,
   refresh: refreshCreditsSummary,
 } = useCrimsonCreditsSummary(userId);
-
-useEffect(() => {
-  if (!userId || authLoading) return;
-  void attributeReferralIfNeeded(supabase).then((result) => {
-    if (result.ok) {
-      void refreshCreditsSummary();
-    }
-  });
-}, [authLoading, refreshCreditsSummary, userId]);
 
 if (authLoading || profileLoading) {
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8"> <ProfileSkeleton /> </div> </main>
