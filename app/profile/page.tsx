@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconAdmin, IconEdit, IconShare } from "@/components/profile/ProfileIcons";
@@ -22,6 +22,10 @@ import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
 import { ProfileSettingsMenuSheet } from "@/components/profile/ProfileSettingsMenuSheet";
+import {
+  PROFILE_MENU_OPEN_VALUE,
+  profileMenuOpenPath,
+} from "@/lib/navigation/profile-menu-return";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
@@ -108,7 +112,7 @@ function profileCardDetails(profile: AppProfile) {
   };
 }
 
-export default function ProfilePage() {
+function ProfilePageContent() {
 const { session, loading: authLoading, isAdmin, signOut, status: profileStatus } = useAuth();
 const { profile, loading: profileLoading, error, refresh } = useProfile();
 const userId = session?.user?.id ?? null;
@@ -127,6 +131,8 @@ const [deleteRequestStatus, setDeleteRequestStatus] = useState<string | null>(nu
 const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 const [deleteConfirmText, setDeleteConfirmText] = useState("");
 const router = useRouter();
+const searchParams = useSearchParams();
+const menuOpenFromUrl = searchParams.get("menu") === PROFILE_MENU_OPEN_VALUE;
 const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequestRow | null>(null);
 const [deletionRequestLoading, setDeletionRequestLoading] = useState(false);
 const [stats, setStats] = useState<ProfileStats>({ posts: 0, followers: 0, following: 0 });
@@ -143,8 +149,30 @@ useEffect(() => {
   if (typeof window === "undefined") return;
   if (window.sessionStorage.getItem("openProfileAccountMenu") !== "1") return;
   window.sessionStorage.removeItem("openProfileAccountMenu");
+  router.replace(profileMenuOpenPath(), { scroll: false });
+}, [router]);
+
+useEffect(() => {
+  setSettingsOpen(menuOpenFromUrl);
+}, [menuOpenFromUrl]);
+
+const openSettingsMenu = useCallback(() => {
   setSettingsOpen(true);
+  if (!menuOpenFromUrl) {
+    router.push(profileMenuOpenPath(), { scroll: false });
+  }
+}, [menuOpenFromUrl, router]);
+
+const dismissSettingsMenuOverlay = useCallback(() => {
+  setSettingsOpen(false);
 }, []);
+
+const closeSettingsMenu = useCallback(() => {
+  setSettingsOpen(false);
+  if (menuOpenFromUrl) {
+    router.replace("/profile", { scroll: false });
+  }
+}, [menuOpenFromUrl, router]);
 
 useEffect(() => {
 if (!userId) {
@@ -428,7 +456,7 @@ try {
 };
 
 const handleSignOut = async () => {
-setSettingsOpen(false);
+closeSettingsMenu();
 await signOut();
 };
 
@@ -490,7 +518,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
       <button
         type="button"
-        onClick={() => setSettingsOpen(true)}
+        onClick={openSettingsMenu}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
         aria-label="Open profile menu"
       >
@@ -707,7 +735,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
   </div>
 
   <ProfileSettingsMenuSheet
-    open={settingsOpen}
+    open={settingsOpen || menuOpenFromUrl}
     isAdmin={isAdmin}
     deletionRequest={deletionRequest}
     deletionRequestLoading={deletionRequestLoading}
@@ -722,7 +750,8 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     showManageDeletion={Boolean(
       deletionRequest && isOpenDeletionStatus(deletionRequest.status),
     )}
-    onClose={() => setSettingsOpen(false)}
+    onClose={closeSettingsMenu}
+    onNavigate={dismissSettingsMenuOverlay}
     onSignOut={() => void handleSignOut()}
     onRequestDeletion={() => {
       setDeleteConfirmText("");
@@ -787,4 +816,20 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 </main>
 
 );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
+          <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
+            <ProfileSkeleton />
+          </div>
+        </main>
+      }
+    >
+      <ProfilePageContent />
+    </Suspense>
+  );
 }

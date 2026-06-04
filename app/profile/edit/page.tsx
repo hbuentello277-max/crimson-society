@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, Suspense, useEffect, useState } from "react";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ReferralCodeSection from "@/components/profile/ReferralCodeSection";
 import PrivacySettingsSection from "@/components/profile/PrivacySettingsSection";
+import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -79,7 +80,7 @@ function storageExtension(file: File) {
   return file.type.split("/")[1] || "jpg";
 }
 
-export default function ProfileEditPage() {
+function ProfileEditPageContent() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, error, updateIdentity, updatePrivacy, updateAvatar, refresh } =
     useProfile();
@@ -397,9 +398,17 @@ export default function ProfileEditPage() {
             <p className="text-[11px] uppercase tracking-[0.38em] text-zinc-500">Profile Settings</p>
             <h1 className="mt-3 font-serif text-4xl text-white md:text-5xl">Edit Profile</h1>
           </div>
-          <Link href="/profile" className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">
-            Back to Profile
-          </Link>
+          <Suspense
+            fallback={
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300">
+                Back to Profile
+              </span>
+            }
+          >
+            <ProfileMenuBackLink className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">
+              Back to Profile
+            </ProfileMenuBackLink>
+          </Suspense>
         </div>
 
         <section className="mt-8 overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-[#111113] via-[#0b0b0d] to-[#070707]">
@@ -534,5 +543,21 @@ export default function ProfileEditPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ProfileEditPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
+          <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8">
+            <div className="h-80 animate-pulse rounded-[32px] border border-white/10 bg-white/[0.03]" />
+          </div>
+        </main>
+      }
+    >
+      <ProfileEditPageContent />
+    </Suspense>
   );
 }

@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { supabase } from "@/lib/supabase";
 
 type BlockedProfile = {
@@ -154,12 +155,20 @@ export default function BlockedMembersPage() {
             <p className="text-[11px] uppercase tracking-[0.38em] text-zinc-500">Privacy</p>
             <h1 className="mt-3 font-serif text-4xl text-white">Blocked Members</h1>
           </div>
-          <Link
-            href="/profile/edit"
-            className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+          <Suspense
+            fallback={
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300">
+                Back to Settings
+              </span>
+            }
           >
-            Back to Settings
-          </Link>
+            <ProfileMenuBackLink
+              fallbackHref="/profile/edit"
+              className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+            >
+              Back to Settings
+            </ProfileMenuBackLink>
+          </Suspense>
         </div>
 
         <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-500">

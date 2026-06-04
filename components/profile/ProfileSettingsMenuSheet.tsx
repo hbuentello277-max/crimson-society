@@ -24,6 +24,7 @@ import {
   deletionStatusUserMessage,
   type AccountDeletionRequestRow,
 } from "@/lib/account-deletion";
+import { hrefWithProfileMenuFrom } from "@/lib/navigation/profile-menu-return";
 
 /** Compact gray/black row — matches pre–large-menu profile sheet */
 const MENU_ROW =
@@ -54,6 +55,8 @@ type Props = {
   deletionDisabled: boolean;
   showManageDeletion: boolean;
   onClose: () => void;
+  /** Hide sheet when navigating to a subpage without clearing menu history state. */
+  onNavigate: () => void;
   onSignOut: () => void;
   onRequestDeletion: () => void;
 };
@@ -81,7 +84,7 @@ function MenuLinkRow({
   onNavigate: () => void;
 }) {
   return (
-    <Link href={item.href} prefetch onClick={onNavigate} className={className}>
+    <Link href={hrefWithProfileMenuFrom(item.href)} prefetch onClick={onNavigate} className={className}>
       <RowLabel icon={item.icon} label={item.label} />
       <RowChevron />
     </Link>
@@ -98,6 +101,7 @@ export function ProfileSettingsMenuSheet({
   deletionDisabled,
   showManageDeletion,
   onClose,
+  onNavigate,
   onSignOut,
   onRequestDeletion,
 }: Props) {
@@ -157,7 +161,7 @@ export function ProfileSettingsMenuSheet({
         <div className="max-h-[78dvh] overflow-y-auto px-3 py-3">
           <div className="grid gap-1.5">
             {mainItems.map((item) => (
-              <MenuLinkRow key={item.label} item={item} className={MENU_ROW} onNavigate={onClose} />
+              <MenuLinkRow key={item.label} item={item} className={MENU_ROW} onNavigate={onNavigate} />
             ))}
             {isAdmin && (
               <MenuLinkRow
@@ -167,7 +171,7 @@ export function ProfileSettingsMenuSheet({
                   icon: <IconAdmin className="h-3.5 w-3.5" />,
                 }}
                 className={MENU_ROW}
-                onNavigate={onClose}
+                onNavigate={onNavigate}
               />
             )}
           </div>
@@ -180,7 +184,7 @@ export function ProfileSettingsMenuSheet({
                   key={item.label}
                   item={item}
                   className={MENU_ROW_COMPACT}
-                  onNavigate={onClose}
+                  onNavigate={onNavigate}
                 />
               ))}
             </div>
@@ -194,7 +198,7 @@ export function ProfileSettingsMenuSheet({
                   key={`${item.href}-${item.label}`}
                   item={item}
                   className={MENU_ROW_LEGAL}
-                  onNavigate={onClose}
+                  onNavigate={onNavigate}
                 />
               ))}
             </div>
@@ -206,9 +210,9 @@ export function ProfileSettingsMenuSheet({
                 approves. You can sign back in only to check status or cancel while pending.
               </p>
               <Link
-                href="/account-deletion"
+                href={hrefWithProfileMenuFrom("/account-deletion")}
                 prefetch
-                onClick={onClose}
+                onClick={onNavigate}
                 className="mt-1.5 inline-block text-[10px] uppercase tracking-[0.16em] text-zinc-400 hover:text-[#e87a82]"
               >
                 How account deletion works
@@ -230,12 +234,12 @@ export function ProfileSettingsMenuSheet({
             {showManageDeletion && (
               <MenuLinkRow
                 item={{
-                  href: "/deletion-pending",
+                  href: hrefWithProfileMenuFrom("/deletion-pending"),
                   label: "Manage deletion status",
                   icon: <IconMenuDocument />,
                 }}
                 className={`${MENU_ROW_LEGAL} mt-1.5`}
-                onNavigate={onClose}
+                onNavigate={onNavigate}
               />
             )}
           </div>

@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
 
 const helpTopics = [
@@ -25,12 +27,20 @@ export default function SupportPage() {
     <main className="min-h-screen bg-[#050505] px-5 pb-28 pt-[calc(env(safe-area-inset-top)+2rem)] text-white sm:px-6">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
       <div className="relative mx-auto max-w-3xl">
-        <Link
-          href="/profile"
-          className="text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]"
+        <Suspense
+          fallback={
+            <Link
+              href="/profile"
+              className="text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]"
+            >
+              Back to Profile
+            </Link>
+          }
         >
-          Back to Profile
-        </Link>
+          <ProfileMenuBackLink className="text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]">
+            Back to Profile
+          </ProfileMenuBackLink>
+        </Suspense>
 
         <header className="mt-8 border-b border-white/10 pb-7">
           <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
