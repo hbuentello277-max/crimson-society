@@ -4,11 +4,13 @@ import Link from "next/link";
 import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { useState } from "react";
 import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
+import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
 import {
   CRIMSON_CREDIT_SHIRT_SIZES,
   formatRewardCategoryLabel,
   getRewardActionState,
 } from "@/lib/credits/rewards-ui";
+import { SCALAR_INVENTORY_KEY } from "@/lib/shop/inventory";
 import type { CreditsRewardsSummary } from "@/lib/credits/rewards-api-types";
 
 type Props = {
@@ -28,9 +30,16 @@ export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
     monthlyCashUsed: summary.monthly_cash_redemption_used,
     monthlyCashCap: summary.monthly_cash_redemption_cap,
     inventoryRemaining: reward.inventory_remaining,
+    sizeInventory: reward.size_inventory,
     requiresShirtSize: reward.requires_shirt_size,
     selectedShirtSize: shirtSize,
   });
+
+  const shirtSizes = reward.requires_shirt_size
+    ? reward.size_inventory
+      ? Object.keys(reward.size_inventory).filter((k) => k !== SCALAR_INVENTORY_KEY)
+      : [...CRIMSON_CREDIT_SHIRT_SIZES]
+    : [];
 
   const limitedStock =
     reward.inventory_remaining !== null && reward.inventory_total !== null;
@@ -73,25 +82,14 @@ export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
       {reward.requires_shirt_size ? (
         <div className="border-t border-white/8 px-3.5 py-3">
           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Shirt size</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {CRIMSON_CREDIT_SHIRT_SIZES.map((size) => {
-              const selected = shirtSize === size;
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => setShirtSize(size)}
-                  className={`min-h-9 min-w-[2.5rem] rounded-full border px-3 text-xs font-medium transition ${
-                    selected
-                      ? "border-[#b4141e]/70 bg-[#b4141e]/20 text-[#f1c3c7]"
-                      : "border-white/15 bg-black/20 text-zinc-400 hover:border-white/25"
-                  }`}
-                  aria-pressed={selected}
-                >
-                  {size}
-                </button>
-              );
-            })}
+          <div className="mt-2">
+            <SizeSelectorButtons
+              sizes={shirtSizes.length > 0 ? shirtSizes : [...CRIMSON_CREDIT_SHIRT_SIZES]}
+              sizeInventory={reward.size_inventory}
+              selected={shirtSize}
+              onSelect={setShirtSize}
+              disabled={action.kind === "upgrade"}
+            />
           </div>
         </div>
       ) : null}

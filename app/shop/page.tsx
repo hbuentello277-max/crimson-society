@@ -14,7 +14,13 @@ import {
   formatPrice,
   fetchMerchProducts,
 } from "@/lib/products";
-import { getSizeAvailable, isSizePurchasable, parseSizeInventory } from "@/lib/shop/inventory";
+import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
+import {
+  STANDARD_SHIRT_SIZES,
+  isSizePurchasable,
+  parseSizeInventory,
+  sizeKeysFromMap,
+} from "@/lib/shop/inventory";
 import { useCart, useCartCount } from "@/lib/cart-store";
 import { CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
@@ -135,6 +141,14 @@ function ShopPageInner() {
   const isComingSoon = (product: Product) => product.status === "coming_soon";
 
   const activeSizeMap = active ? parseSizeInventory(active.size_inventory) : null;
+
+  const activeDisplaySizes = useMemo(() => {
+    if (!active) return [];
+    const fromMap = sizeKeysFromMap(activeSizeMap);
+    if (fromMap.length > 0) return fromMap;
+    if (active.sizes?.length) return active.sizes;
+    return [...STANDARD_SHIRT_SIZES];
+  }, [active, activeSizeMap]);
 
   const isSizeOutOfStock = (product: Product, sizeLabel: string) => {
     const map = parseSizeInventory(product.size_inventory);
@@ -574,39 +588,20 @@ function ShopPageInner() {
                       <motion.div
                         animate={sizeError ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
                         transition={{ duration: 0.4 }}
-                        className="flex flex-wrap gap-2"
                       >
-                        {active.sizes.map((s) => {
-                          const sizeOos =
+                        <SizeSelectorButtons
+                          sizes={activeDisplaySizes}
+                          sizeInventory={activeSizeMap}
+                          selected={size}
+                          onSelect={(s) => {
+                            setSize(s);
+                            setSizeError(false);
+                          }}
+                          disabled={
                             isWaitlistState(active) ||
-                            isComingSoon(active) ||
-                            isSizeOutOfStock(active, s);
-                          const available = activeSizeMap
-                            ? getSizeAvailable(activeSizeMap, s)
-                            : null;
-
-                          return (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => {
-                              setSize(s);
-                              setSizeError(false);
-                            }}
-                            disabled={sizeOos}
-                            className={`min-w-[3rem] rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.2em] transition ${
-                              size === s
-                                ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                                : "border-white/10 bg-black/30 text-white/70 hover:border-white/30"
-                            } ${sizeOos ? "cursor-not-allowed opacity-40 line-through" : ""}`}
-                          >
-                            {s}
-                            {available != null && available < 10 ? (
-                              <span className="ml-1 text-[8px] opacity-70">({available})</span>
-                            ) : null}
-                          </button>
-                          );
-                        })}
+                            isComingSoon(active)
+                          }
+                        />
                       </motion.div>
                     </div>
 

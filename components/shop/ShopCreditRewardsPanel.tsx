@@ -5,11 +5,10 @@ import Link from "next/link";
 import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { CreditRewardRedeemModal } from "@/components/credits/CreditRewardRedeemModal";
 import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
-import {
-  formatRewardCategoryLabel,
-  getRewardActionState,
-  CRIMSON_CREDIT_SHIRT_SIZES,
-} from "@/lib/credits/rewards-ui";
+import { formatRewardCategoryLabel, getRewardActionState } from "@/lib/credits/rewards-ui";
+import { CRIMSON_CREDIT_SHIRT_SIZES } from "@/lib/credits/rewards-ui";
+import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
+import { SCALAR_INVENTORY_KEY } from "@/lib/shop/inventory";
 import { useCreditRewardsPage } from "@/hooks/useCreditRewardsPage";
 import { supabase } from "@/lib/supabase";
 
@@ -149,9 +148,16 @@ function ShopCreditRewardCard({
     monthlyCashUsed: summary.monthly_cash_redemption_used,
     monthlyCashCap: summary.monthly_cash_redemption_cap,
     inventoryRemaining: reward.inventory_remaining,
+    sizeInventory: reward.size_inventory,
     requiresShirtSize: reward.requires_shirt_size,
     selectedShirtSize: shirtSize,
   });
+
+  const shirtSizes = reward.requires_shirt_size
+    ? reward.size_inventory
+      ? Object.keys(reward.size_inventory).filter((k) => k !== SCALAR_INVENTORY_KEY)
+      : [...CRIMSON_CREDIT_SHIRT_SIZES]
+    : [];
 
   return (
     <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
@@ -176,21 +182,15 @@ function ShopCreditRewardCard({
         ) : null}
 
         {reward.requires_shirt_size ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {CRIMSON_CREDIT_SHIRT_SIZES.map((size) => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => setShirtSize(size)}
-                className={`min-h-8 rounded-full border px-2.5 text-[10px] font-medium ${
-                  shirtSize === size
-                    ? "border-[#b4141e]/70 bg-[#b4141e]/20 text-[#f1c3c7]"
-                    : "border-white/15 text-zinc-500"
-                }`}
-              >
-                {size}
-              </button>
-            ))}
+          <div className="mt-3">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500">Shirt size</p>
+            <SizeSelectorButtons
+              sizes={shirtSizes.length > 0 ? shirtSizes : [...CRIMSON_CREDIT_SHIRT_SIZES]}
+              sizeInventory={reward.size_inventory}
+              selected={shirtSize}
+              onSelect={setShirtSize}
+              disabled={action.kind !== "redeem" && action.kind !== "disabled"}
+            />
           </div>
         ) : null}
 

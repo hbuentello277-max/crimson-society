@@ -1,4 +1,5 @@
 import type { CrimsonCreditRewardCategory, CrimsonCreditRedemptionStatus } from "@/lib/credits/types";
+import { getSizeAvailable, parseSizeInventory, type SizeInventoryMap } from "@/lib/shop/inventory";
 
 export const CRIMSON_CREDIT_SHIRT_SIZES = ["S", "M", "L", "XL", "2XL"] as const;
 
@@ -40,11 +41,21 @@ export function getRewardActionState(input: {
   monthlyCashUsed: number;
   monthlyCashCap: number;
   inventoryRemaining: number | null;
+  sizeInventory?: SizeInventoryMap | null;
   requiresShirtSize: boolean;
   selectedShirtSize: string | null;
 }): RewardActionState {
   if (!input.canRedeem) {
     return { kind: "upgrade" };
+  }
+
+  const sizeMap = input.sizeInventory ?? null;
+
+  if (input.requiresShirtSize && input.selectedShirtSize && sizeMap) {
+    const available = getSizeAvailable(sizeMap, input.selectedShirtSize);
+    if (available !== null && available <= 0) {
+      return { kind: "disabled", message: "Size out of stock" };
+    }
   }
 
   if (input.inventoryRemaining !== null && input.inventoryRemaining <= 0) {

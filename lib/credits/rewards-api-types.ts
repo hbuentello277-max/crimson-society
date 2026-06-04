@@ -3,6 +3,7 @@ import type {
   CrimsonCreditRewardKind,
   CrimsonCreditRewardCategory,
 } from "@/lib/credits/types";
+import type { SizeInventoryMap } from "@/lib/shop/inventory";
 
 export type CreditsRewardsSummary = {
   credits_balance: number;
@@ -26,6 +27,7 @@ export type CreditsRewardCatalogItem = {
   image_url: string | null;
   inventory_total: number | null;
   inventory_remaining: number | null;
+  size_inventory: SizeInventoryMap | null;
   requires_shirt_size: boolean;
   is_active: boolean;
   sort_order: number;

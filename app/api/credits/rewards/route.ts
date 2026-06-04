@@ -3,10 +3,11 @@ import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
 import { memberCanRedeemFromProfileAndSubscription } from "@/lib/credits/member-redeem-eligibility";
 import type { CreditsRewardCatalogItem, CreditsRewardsCatalogResponse } from "@/lib/credits/rewards-api-types";
 import type { MembershipRow } from "@/lib/membership";
+import { parseSizeInventory } from "@/lib/shop/inventory";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const PRODUCT_COLUMNS =
-  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, requires_shirt_size, status, sort_order, credit_reward_id";
+  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, size_inventory, requires_shirt_size, status, sort_order, credit_reward_id";
 
 export async function GET(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
         image_url: row.images?.[0] ?? null,
         inventory_total: row.inventory_total,
         inventory_remaining: outOfStock ? 0 : row.inventory_remaining,
+        size_inventory: parseSizeInventory(row.size_inventory),
         requires_shirt_size: Boolean(row.requires_shirt_size),
         is_active: row.status !== "coming_soon",
         sort_order: row.sort_order ?? 0,

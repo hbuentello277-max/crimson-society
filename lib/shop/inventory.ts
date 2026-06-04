@@ -1,6 +1,8 @@
 /** Scalar bucket for rewards without per-size stock. */
 export const SCALAR_INVENTORY_KEY = "_all";
 
+export const STANDARD_SHIRT_SIZES = ["S", "M", "L", "XL", "2XL"] as const;
+
 export type InventorySlot = {
   total: number;
   available: number;
@@ -107,13 +109,66 @@ export function buildSizeInventoryFromTotals(
   return map;
 }
 
-export function buildScalarInventory(total: number): SizeInventoryMap {
-  return { [SCALAR_INVENTORY_KEY]: emptySlot(Math.max(0, total)) };
+export function buildScalarInventory(total: number, available?: number): SizeInventoryMap {
+  const t = Math.max(0, total);
+  const a = available == null ? t : Math.max(0, available);
+  return {
+    [SCALAR_INVENTORY_KEY]: {
+      total: t,
+      available: a,
+      reserved: 0,
+      sold: Math.max(0, t - a),
+    },
+  };
 }
 
-export function scalarInventoryTotal(map: SizeInventoryMap | null): number | null {
-  if (!map?.[SCALAR_INVENTORY_KEY]) return null;
-  return map[SCALAR_INVENTORY_KEY].total;
+export function sizeKeysFromMap(map: SizeInventoryMap | null): string[] {
+  if (!map) return [];
+  return Object.keys(map).filter((k) => k !== SCALAR_INVENTORY_KEY);
+}
+
+export function isPerSizeInventoryMap(map: SizeInventoryMap | null): boolean {
+  return sizeKeysFromMap(map).length > 0;
+}
+
+export function mergeSizeInventoryForSizes(
+  sizes: string[],
+  existing: SizeInventoryMap | null,
+): SizeInventoryMap {
+  const next: SizeInventoryMap = {};
+  for (const size of sizes) {
+    next[size] = existing?.[size] ?? emptySlot(0);
+  }
+  return next;
+}
+
+export function migrateScalarToPerSizeInventory(
+  map: SizeInventoryMap | null,
+  sizes: string[],
+): SizeInventoryMap {
+  const scalar = map?.[SCALAR_INVENTORY_KEY];
+  if (!scalar || sizes.length === 0) {
+    return mergeSizeInventoryForSizes(sizes, map);
+  }
+
+  const perSizeAvailable = Math.floor(scalar.available / sizes.length);
+  const perSizeTotal = Math.floor(scalar.total / sizes.length);
+  const next: SizeInventoryMap = {};
+  for (const size of sizes) {
+    next[size] = {
+      total: perSizeTotal,
+      available: perSizeAvailable,
+      reserved: 0,
+      sold: 0,
+    };
+  }
+  return next;
+}
+
+export function migratePerSizeToScalarInventory(map: SizeInventoryMap | null): SizeInventoryMap | null {
+  const totals = sumInventory(map);
+  if (!totals) return null;
+  return buildScalarInventory(totals.total, totals.available);
 }
 
 export function formatInventorySummary(available: number | null, reserved = 0, sold = 0) {

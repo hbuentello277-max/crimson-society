@@ -1,10 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AdminInventoryFields, initSizeInventoryFromProduct } from "@/components/admin/shop/AdminInventoryFields";
+import {
+  AdminInventoryFields,
+  initSizeInventoryFromProduct,
+  migratePerSizeToScalarInventory,
+  migrateScalarToPerSizeInventory,
+} from "@/components/admin/shop/AdminInventoryFields";
 import { ProductImageManager } from "@/components/admin/shop/ProductImageManager";
-import type { SizeInventoryMap } from "@/lib/shop/inventory";
-import { sumInventory } from "@/lib/shop/inventory";
+import {
+  STANDARD_SHIRT_SIZES,
+  sizeKeysFromMap,
+  type SizeInventoryMap,
+  sumInventory,
+} from "@/lib/shop/inventory";
 import {
   Category,
   Product,
@@ -67,7 +76,7 @@ export function AdminProductEditor({
     status: product?.status ?? "coming_soon",
     images: product?.images ?? [],
     price: product?.price ?? 0,
-    sizes: product?.sizes ?? ["S", "M", "L", "XL"],
+    sizes: product?.sizes?.length ? product.sizes : [...STANDARD_SHIRT_SIZES],
     credit_cost: product?.credit_cost ?? 100,
     reward_category: product?.reward_category ?? "community",
     requires_shirt_size: product?.requires_shirt_size ?? false,
@@ -84,6 +93,7 @@ export function AdminProductEditor({
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const isCreditReward = productType === "credit_reward";
+  const usePerSizeInventory = !isCreditReward || Boolean(draft.requires_shirt_size);
 
   const title = isNew
     ? "New product"
@@ -91,7 +101,11 @@ export function AdminProductEditor({
       ? "Credit reward"
       : "Merch product";
 
-  const initialInventory = initSizeInventoryFromProduct(product, isCreditReward);
+  const initialInventory = initSizeInventoryFromProduct(
+    product,
+    isCreditReward,
+    usePerSizeInventory,
+  );
   const [sizeInventory, setSizeInventory] = useState<SizeInventoryMap | null>(initialInventory.map);
   const [inventoryUnlimited, setInventoryUnlimited] = useState(initialInventory.unlimited);
 
@@ -105,10 +119,21 @@ export function AdminProductEditor({
   }, [draft.slug, draft.sort_order, draft.credit_reward_id, product?.id]);
 
   function selectProductType(nextType: ProductType) {
+    const nextIsCredit = nextType === "credit_reward";
+    const nextUsePerSize =
+      !nextIsCredit || Boolean(draft.requires_shirt_size);
+    const nextSizes =
+      nextUsePerSize
+        ? draft.sizes?.length
+          ? draft.sizes
+          : [...STANDARD_SHIRT_SIZES]
+        : [];
+
     setProductType(nextType);
     setDraft((current) => ({
       ...current,
       product_type: nextType,
+      sizes: nextSizes,
       ...(nextType === "credit_reward"
         ? {
             credit_cost: current.credit_cost ?? 100,
@@ -117,9 +142,18 @@ export function AdminProductEditor({
           }
         : {
             price: current.price ?? 0,
-            sizes: current.sizes?.length ? current.sizes : ["S", "M", "L", "XL"],
+            requires_shirt_size: false,
           }),
     }));
+
+    if (nextUsePerSize) {
+      setInventoryUnlimited(false);
+      setSizeInventory((map) =>
+        migrateScalarToPerSizeInventory(map, nextSizes.length ? nextSizes : [...STANDARD_SHIRT_SIZES]),
+      );
+    } else {
+      setSizeInventory((map) => migratePerSizeToScalarInventory(map));
+    }
   }
 
   async function handleSave() {
@@ -153,11 +187,16 @@ export function AdminProductEditor({
         patch.reward_kind =
           draft.reward_category === "cash" ? "merch_discount" : "physical";
         patch.requires_shirt_size = Boolean(draft.requires_shirt_size);
-        patch.sizes = draft.requires_shirt_size ? ["S", "M", "L", "XL", "2XL"] : [];
+        patch.sizes = draft.requires_shirt_size
+          ? draft.sizes?.length
+            ? draft.sizes
+            : [...STANDARD_SHIRT_SIZES]
+          : [];
         patch.category = "accessories";
       } else {
         patch.price = Number(draft.price) || 0;
-        patch.sizes = draft.sizes ?? [];
+        patch.sizes =
+          draft.sizes?.length ? draft.sizes : sizeKeysFromMap(sizeInventory) || [...STANDARD_SHIRT_SIZES];
         patch.credit_cost = null;
         patch.reward_category = null;
         patch.reward_kind = null;
@@ -324,9 +363,22 @@ export function AdminProductEditor({
                   type="checkbox"
                   checked={Boolean(draft.requires_shirt_size)}
                   disabled={disabled || saving}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, requires_shirt_size: e.target.checked }))
-                  }
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setDraft((d) => ({
+                      ...d,
+                      requires_shirt_size: checked,
+                      sizes: checked ? [...STANDARD_SHIRT_SIZES] : [],
+                    }));
+                    if (checked) {
+                      setInventoryUnlimited(false);
+                      setSizeInventory((map) =>
+                        migrateScalarToPerSizeInventory(map, [...STANDARD_SHIRT_SIZES]),
+                      );
+                    } else {
+                      setSizeInventory((map) => migratePerSizeToScalarInventory(map));
+                    }
+                  }}
                 />
                 <span className="text-sm text-zinc-300">Requires shirt size</span>
               </label>
@@ -345,39 +397,13 @@ export function AdminProductEditor({
                 />
                 <p className="mt-1 text-xs text-[#e87a82]">{formatPrice(draft.price ?? 0)}</p>
               </div>
-              <div>
-                <label className={labelClass()}>Sizes</label>
-                <input
-                  value={(draft.sizes ?? []).join(", ")}
-                  disabled={disabled || saving}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      sizes: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    }))
-                  }
-                  placeholder="S, M, L, XL"
-                  className={inputClass()}
-                />
-              </div>
             </>
           )}
 
           <AdminInventoryFields
-            sizes={
-              isCreditReward && draft.requires_shirt_size
-                ? draft.sizes?.length
-                  ? draft.sizes
-                  : ["S", "M", "L", "XL", "2XL"]
-                : isCreditReward
-                  ? []
-                  : draft.sizes ?? ["S", "M", "L", "XL"]
-            }
-            isSizedMerch={!isCreditReward}
-            isScalarReward={isCreditReward && !draft.requires_shirt_size}
+            mode={usePerSizeInventory ? "per_size" : "scalar"}
+            sizes={draft.sizes?.length ? draft.sizes : [...STANDARD_SHIRT_SIZES]}
+            onSizesChange={(nextSizes) => setDraft((d) => ({ ...d, sizes: nextSizes }))}
             sizeInventory={sizeInventory}
             unlimited={inventoryUnlimited}
             disabled={disabled || saving}
