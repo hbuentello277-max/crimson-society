@@ -93,38 +93,45 @@ export function CrimsonCreditsCard({ summary, loading = false }: Props) {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <div
-            className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10"
-            role="progressbar"
-            aria-valuenow={monthlyEarned}
-            aria-valuemin={0}
-            aria-valuemax={monthlyEarnCap}
-            aria-label="Monthly credits earned toward earn cap"
-          >
+        <div className="flex shrink-0 items-end gap-2">
+          <div className="flex items-center gap-2.5 pb-0.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#7a1018] to-[#b4141e] transition-all duration-300"
-              style={{ width: `${earnProgress}%` }}
-            />
+              className="h-1.5 w-[4.25rem] overflow-hidden rounded-full bg-white/10"
+              role="progressbar"
+              aria-valuenow={monthlyEarned}
+              aria-valuemin={0}
+              aria-valuemax={monthlyEarnCap}
+              aria-label="Monthly credits earned toward earn cap"
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#7a1018] to-[#b4141e] transition-all duration-300"
+                style={{ width: `${earnProgress}%` }}
+              />
+            </div>
+
+            <Link
+              href="/shop?tab=credit-rewards"
+              onClick={(event) => event.stopPropagation()}
+              className="group flex flex-col items-center gap-0.5"
+              aria-label="Browse credit rewards in the shop"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#b4141e]/55 bg-gradient-to-b from-[#b4141e]/30 to-[#7a1018]/25 text-base shadow-[0_0_22px_-4px_rgba(180,20,30,0.85)] transition group-hover:border-[#b4141e]/85 group-hover:shadow-[0_0_28px_-2px_rgba(180,20,30,0.95)]">
+                <span aria-hidden>👑</span>
+              </span>
+              <span className="text-[8px] font-medium uppercase tracking-[0.16em] text-[#e87a82]/90">
+                Rewards
+              </span>
+            </Link>
           </div>
+
           <span
-            className={`text-lg leading-none text-zinc-500 transition ${expanded ? "rotate-180" : ""}`}
+            className={`mb-1 text-lg leading-none text-zinc-500 transition ${expanded ? "rotate-180" : ""}`}
             aria-hidden
           >
             ⌄
           </span>
         </div>
       </button>
-
-      <div className="border-t border-white/8 px-4 py-3">
-        <Link
-          href="/shop?tab=credit-rewards"
-          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#b4141e]/50 bg-gradient-to-r from-[#b4141e]/25 to-[#7a1018]/20 px-5 py-3 text-sm font-medium tracking-[0.12em] text-[#f5d0d4] shadow-[0_0_24px_-8px_rgba(180,20,30,0.55)] transition hover:border-[#b4141e]/80 hover:from-[#b4141e]/35"
-        >
-          <span aria-hidden>👑</span>
-          <span className="uppercase">Rewards</span>
-        </Link>
-      </div>
 
       {expanded && (
         <div className="border-t border-white/8 px-4 py-4">

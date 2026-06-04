@@ -4,17 +4,9 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ProductImageManager } from "@/components/admin/shop/ProductImageManager";
+import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
-import {
-  Category,
-  Product,
-  ProductBadge,
-  ProductStatus,
-  ProductType,
-  formatCreditCost,
-  formatPrice,
-} from "@/lib/products";
+import { Product } from "@/lib/products";
 
 type AdminShopTab = "products" | "orders" | "redemptions";
 
@@ -38,6 +30,7 @@ function AdminShopPageInner() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -152,29 +145,34 @@ function AdminShopPageInner() {
     setSavingId(null);
   }
 
-  async function createProduct() {
+  async function createProductFromPatch(patch: Partial<Product>) {
     setCreating(true);
     setErrorMsg("");
     setSuccessMsg("");
 
-    const { data, error } = await supabase
-      .from("products")
-      .insert({
-        name: "New Piece",
-        slug: `new-piece-${Date.now()}`,
-        tagline: "",
-        description: "",
-        price: 0,
-        category: "tees",
-        status: "coming_soon",
-        badge: "new",
-        sizes: ["S", "M", "L", "XL"],
-        images: [],
-        sort_order: products.length,
-        product_type: "cash_product",
-      })
-      .select("*")
-      .single();
+    const isCreditReward = patch.product_type === "credit_reward";
+    const insert = {
+      name: patch.name?.trim() || "Untitled",
+      slug: patch.slug?.trim() || `${isCreditReward ? "reward" : "merch"}-${Date.now()}`,
+      tagline: patch.tagline ?? "",
+      description: patch.description ?? "",
+      price: patch.price ?? 0,
+      category: patch.category ?? (isCreditReward ? "accessories" : "tees"),
+      status: patch.status ?? "coming_soon",
+      badge: patch.badge ?? (isCreditReward ? null : "new"),
+      sizes: patch.sizes ?? (isCreditReward ? [] : ["S", "M", "L", "XL"]),
+      images: patch.images ?? [],
+      sort_order: patch.sort_order ?? products.length,
+      product_type: patch.product_type ?? "cash_product",
+      credit_cost: isCreditReward ? (patch.credit_cost ?? 100) : null,
+      reward_category: isCreditReward ? (patch.reward_category ?? "community") : null,
+      reward_kind: isCreditReward ? patch.reward_kind ?? "physical" : null,
+      requires_shirt_size: patch.requires_shirt_size ?? false,
+      inventory_remaining: patch.inventory_remaining ?? null,
+      inventory_total: patch.inventory_total ?? null,
+    };
+
+    const { data, error } = await supabase.from("products").insert(insert).select("*").single();
 
     if (error) {
       setErrorMsg(error.message);
@@ -182,8 +180,21 @@ function AdminShopPageInner() {
       return;
     }
 
-    setProducts((prev) => [...prev, data as Product]);
-    setSuccessMsg("New product created.");
+    const created = data as Product;
+    setProducts((prev) => [...prev, created]);
+    setShowCreateForm(false);
+
+    if (created.product_type === "credit_reward") {
+      try {
+        await syncCreditReward(created.id);
+      } catch (e) {
+        setErrorMsg(e instanceof Error ? e.message : "Sync failed");
+        setCreating(false);
+        return;
+      }
+    }
+
+    setSuccessMsg("Product created.");
     setCreating(false);
   }
 
@@ -213,9 +224,7 @@ function AdminShopPageInner() {
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
-              Admin · Shop
-            </p>
+            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin · Shop</p>
             <h1 className="mt-3 text-4xl font-semibold">Shop Control Room</h1>
             <p className="mt-2 text-sm text-zinc-500">
               Cash products, credit rewards, and redemption fulfillment in one place.
@@ -230,13 +239,19 @@ function AdminShopPageInner() {
               Main Admin
             </Link>
 
-            <button
-              onClick={createProduct}
-              disabled={creating}
-              className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {creating ? "Creating..." : "New Product"}
-            </button>
+            {tab === "products" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(true);
+                  setSuccessMsg("");
+                }}
+                disabled={creating || showCreateForm}
+                className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                New product
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -296,320 +311,32 @@ function AdminShopPageInner() {
             ) : null}
 
             {tab === "products" ? (
-            <div className="mt-8 space-y-4">
-              {products.map((product) => {
-                const isCreditReward = product.product_type === "credit_reward";
-                const isSaving = savingId === product.id;
+              <div className="mt-8 space-y-4">
+                {showCreateForm ? (
+                  <AdminProductEditor
+                    isNew
+                    disabled={creating}
+                    onCancel={() => setShowCreateForm(false)}
+                    onSave={createProductFromPatch}
+                  />
+                ) : null}
 
-                return (
-                  <div
+                {products.map((product) => (
+                  <AdminProductEditor
                     key={product.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-                  >
-                    <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Product Name
-                          </label>
-                          <input
-                            value={product.name}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, { name: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
+                    product={product}
+                    disabled={savingId === product.id}
+                    onSave={(patch) => updateProduct(product.id, patch)}
+                    onDelete={() => void deleteProduct(product.id)}
+                  />
+                ))}
 
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Tagline
-                          </label>
-                          <input
-                            value={product.tagline}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, { tagline: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Description
-                          </label>
-                          <textarea
-                            rows={4}
-                            value={product.description}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, { description: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
-
-                        <ProductImageManager
-                          productId={product.id}
-                          images={product.images}
-                          disabled={isSaving}
-                          onImagesChange={(images) => updateProduct(product.id, { images })}
-                        />
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Sizes (comma separated)
-                          </label>
-                          <input
-                            value={product.sizes.join(", ")}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                sizes: e.target.value
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean),
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Product type
-                          </label>
-                          <select
-                            value={product.product_type ?? "cash_product"}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              void updateProduct(product.id, {
-                                product_type: e.target.value as ProductType,
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                          >
-                            <option value="cash_product" className="bg-black">
-                              Cash product
-                            </option>
-                            <option value="credit_reward" className="bg-black">
-                              Credit reward
-                            </option>
-                          </select>
-                        </div>
-
-                        {isCreditReward ? (
-                          <>
-                            <div>
-                              <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                                Credit cost
-                              </label>
-                              <input
-                                type="number"
-                                value={product.credit_cost ?? 0}
-                                disabled={isSaving}
-                                onChange={(e) =>
-                                  updateProduct(product.id, {
-                                    credit_cost: Number(e.target.value || 0),
-                                  })
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                              />
-                              <p className="mt-2 text-xs text-[#e87a82]">
-                                {formatCreditCost(product.credit_cost ?? 0)}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                                Reward category
-                              </label>
-                              <select
-                                value={product.reward_category ?? "community"}
-                                disabled={isSaving}
-                                onChange={(e) =>
-                                  updateProduct(product.id, {
-                                    reward_category: e.target.value as "cash" | "community",
-                                  })
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                              >
-                                <option value="cash" className="bg-black">
-                                  Cash
-                                </option>
-                                <option value="community" className="bg-black">
-                                  Community
-                                </option>
-                              </select>
-                            </div>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={product.requires_shirt_size}
-                                disabled={isSaving}
-                                onChange={(e) =>
-                                  updateProduct(product.id, {
-                                    requires_shirt_size: e.target.checked,
-                                  })
-                                }
-                              />
-                              <span className="text-sm text-zinc-300">Requires shirt size</span>
-                            </label>
-                            <div>
-                              <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                                Inventory remaining
-                              </label>
-                              <input
-                                type="number"
-                                value={product.inventory_remaining ?? ""}
-                                disabled={isSaving}
-                                onChange={(e) =>
-                                  updateProduct(product.id, {
-                                    inventory_remaining: e.target.value
-                                      ? Number(e.target.value)
-                                      : null,
-                                    inventory_total: e.target.value
-                                      ? Number(e.target.value)
-                                      : null,
-                                  })
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white"
-                              />
-                            </div>
-                          </>
-                        ) : (
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Price
-                          </label>
-                          <input
-                            type="number"
-                            value={product.price}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                price: Number(e.target.value || 0),
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                          <p className="mt-2 text-xs text-[#e87a82]">
-                            {formatPrice(product.price)}
-                          </p>
-                        </div>
-                        )}
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Category
-                          </label>
-                          <select
-                            value={product.category}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                category: e.target.value as Exclude<Category, "all">,
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          >
-                            <option value="tees" className="bg-black text-white">tees</option>
-                            <option value="outerwear" className="bg-black text-white">outerwear</option>
-                            <option value="headwear" className="bg-black text-white">headwear</option>
-                            <option value="accessories" className="bg-black text-white">accessories</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Status
-                          </label>
-                          <select
-                            value={product.status}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                status: e.target.value as ProductStatus,
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          >
-                            <option value="in_stock" className="bg-black text-white">in_stock</option>
-                            <option value="out_of_stock" className="bg-black text-white">out_of_stock</option>
-                            <option value="waitlist" className="bg-black text-white">waitlist</option>
-                            <option value="coming_soon" className="bg-black text-white">coming_soon</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Badge
-                          </label>
-                          <select
-                            value={product.badge ?? ""}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                badge: (e.target.value || null) as ProductBadge,
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          >
-                            <option value="" className="bg-black text-white">none</option>
-                            <option value="new" className="bg-black text-white">new</option>
-                            <option value="low-stock" className="bg-black text-white">low-stock</option>
-                            <option value="best" className="bg-black text-white">best</option>
-                            <option value="sold-out" className="bg-black text-white">sold-out</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Slug
-                          </label>
-                          <input
-                            value={product.slug}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, { slug: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Sort Order
-                          </label>
-                          <input
-                            type="number"
-                            value={product.sort_order}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                sort_order: Number(e.target.value || 0),
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
-
-                        <button
-                          onClick={() => deleteProduct(product.id)}
-                          disabled={isSaving}
-                          className="w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs uppercase tracking-[0.25em] text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Delete Product
-                        </button>
-                      </div>
-                    </div>
+                {products.length === 0 && !showCreateForm ? (
+                  <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
+                    No products yet. Use New product to add merch or a credit reward.
                   </div>
-                );
-              })}
-            </div>
+                ) : null}
+              </div>
             ) : null}
           </>
         )}
