@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
+import { memberCanRedeemFromProfileAndSubscription } from "@/lib/credits/member-redeem-eligibility";
 import type { CreditsRewardCatalogItem, CreditsRewardsCatalogResponse } from "@/lib/credits/rewards-api-types";
+import type { MembershipRow } from "@/lib/membership";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const PRODUCT_COLUMNS =
@@ -15,7 +17,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const [productsResult, summaryResult, canRedeemResult, cashUsedResult, cashCapResult] =
+  const [productsResult, summaryResult, profileResult, subscriptionResult, cashUsedResult, cashCapResult] =
     await Promise.all([
       auth.supabase
         .from("products")
@@ -26,7 +28,21 @@ export async function GET(request: Request) {
         .order("sort_order", { ascending: true })
         .order("credit_cost", { ascending: true }),
       auth.supabase.rpc("get_crimson_credits_summary", { p_user_id: auth.userId }),
-      auth.supabase.rpc("crimson_credits_member_can_redeem", { p_user_id: auth.userId }),
+      auth.supabase
+        .from("profiles")
+        .select(
+          "role, is_admin, status, is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public",
+        )
+        .eq("id", auth.userId)
+        .maybeSingle(),
+      auth.supabase
+        .from("subscriptions")
+        .select("status, plan_type, current_period_end")
+        .eq("user_id", auth.userId)
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       auth.supabase.rpc("crimson_credits_monthly_cash_redemption_used", {
         p_user_id: auth.userId,
       }),
@@ -41,14 +57,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: summaryResult.error.message }, { status: 500 });
   }
 
-  if (canRedeemResult.error || cashUsedResult.error || cashCapResult.error) {
+  if (profileResult.error || cashUsedResult.error || cashCapResult.error) {
     const message =
-      canRedeemResult.error?.message ||
+      profileResult.error?.message ||
       cashUsedResult.error?.message ||
       cashCapResult.error?.message ||
       "Could not load redemption summary.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  const subscription = subscriptionResult.data as MembershipRow | null;
+  const canRedeem = memberCanRedeemFromProfileAndSubscription(
+    profileResult.data,
+    subscription,
+  );
 
   const balance =
     (summaryResult.data as { credits_balance?: number } | null)?.credits_balance ?? 0;
@@ -86,7 +108,7 @@ export async function GET(request: Request) {
       stored_reward_value_usd: formatCreditsRewardValueUsd(balance),
       monthly_cash_redemption_used: Number(cashUsedResult.data ?? 0),
       monthly_cash_redemption_cap: Number(cashCapResult.data ?? 500),
-      can_redeem: Boolean(canRedeemResult.data),
+      can_redeem: canRedeem,
     },
   };
 

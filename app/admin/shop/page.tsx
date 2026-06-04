@@ -128,17 +128,14 @@ function AdminShopPageInner() {
       return;
     }
 
-    const next = { ...products.find((p) => p.id === id)!, ...patch };
     setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...patch } : product)));
 
-    if (next.product_type === "credit_reward") {
-      try {
-        await syncCreditReward(id);
-      } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : "Sync failed");
-        setSavingId(null);
-        return;
-      }
+    try {
+      await syncCreditReward(id);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Sync failed");
+      setSavingId(null);
+      return;
     }
 
     setSuccessMsg("Product updated.");
@@ -314,6 +311,7 @@ function AdminShopPageInner() {
               <div className="mt-8 space-y-4">
                 {showCreateForm ? (
                   <AdminProductEditor
+                    key="admin-new-product"
                     isNew
                     disabled={creating}
                     onCancel={() => setShowCreateForm(false)}

@@ -52,7 +52,8 @@ export function AdminProductEditor({
   onDelete,
   onCancel,
 }: Props) {
-  const initialType = product?.product_type ?? "cash_product";
+  const initialType: ProductType =
+    isNew ? "cash_product" : (product?.product_type ?? "cash_product");
   const [productType, setProductType] = useState<ProductType>(initialType);
   const [draft, setDraft] = useState<Draft>(() => ({
     product_type: initialType,
@@ -98,8 +99,27 @@ export function AdminProductEditor({
     return items;
   }, [draft.slug, draft.sort_order, draft.credit_reward_id, product?.id]);
 
+  function selectProductType(nextType: ProductType) {
+    setProductType(nextType);
+    setDraft((current) => ({
+      ...current,
+      product_type: nextType,
+      ...(nextType === "credit_reward"
+        ? {
+            credit_cost: current.credit_cost ?? 100,
+            reward_category: current.reward_category ?? "community",
+            price: 0,
+          }
+        : {
+            price: current.price ?? 0,
+            sizes: current.sizes?.length ? current.sizes : ["S", "M", "L", "XL"],
+          }),
+    }));
+  }
+
   async function handleSave() {
     if (!draft.name.trim()) return;
+    if (isCreditReward && (!draft.credit_cost || draft.credit_cost <= 0)) return;
 
     setSaving(true);
     try {
@@ -185,11 +205,8 @@ export function AdminProductEditor({
             <button
               key={option.id}
               type="button"
-              disabled={disabled || saving || (!isNew && product != null)}
-              onClick={() => {
-                setProductType(option.id);
-                setDraft((current) => ({ ...current, product_type: option.id }));
-              }}
+              disabled={disabled || saving}
+              onClick={() => selectProductType(option.id)}
               className={`rounded-xl border px-4 py-3 text-left text-xs uppercase tracking-[0.16em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 productType === option.id
                   ? "border-[#b4141e]/55 bg-[#b4141e]/15 text-[#f1c3c7]"
@@ -200,9 +217,10 @@ export function AdminProductEditor({
             </button>
           ))}
         </div>
-        {!isNew ? (
-          <p className="mt-2 text-[10px] text-zinc-600">Type is fixed after creation.</p>
-        ) : null}
+        <p className="mt-2 text-[10px] text-zinc-600">
+          Merch appears in Shop → Merch. Credit rewards appear in Shop → Credit Rewards. You can
+          change type when editing; past redemptions are kept.
+        </p>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
