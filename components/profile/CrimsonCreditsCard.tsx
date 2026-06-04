@@ -1,11 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import type { CrimsonMembershipTier } from "@/lib/membership";
 import {
   canRedeemCrimsonCredits,
   CRIMSON_CREDITS_MONTHLY_EARN_CAP,
+  CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP,
+  CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD,
   formatCreditsRewardValueUsd,
 } from "@/lib/credits/config";
 import type { CrimsonCreditsSummary } from "@/lib/credits/types";
@@ -64,12 +67,18 @@ function CreditsBrandMark() {
 
 export function CrimsonCreditsCard({ summary, loading = false, membershipTier }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const monthlyCap = summary.monthly_cap || CRIMSON_CREDITS_MONTHLY_EARN_CAP;
+  const monthlyEarnCap = summary.monthly_cap || CRIMSON_CREDITS_MONTHLY_EARN_CAP;
   const monthlyEarned = summary.monthly_earned ?? 0;
-  const progress = monthlyCap > 0 ? Math.min(100, (monthlyEarned / monthlyCap) * 100) : 0;
+  const balance = summary.credits_balance ?? 0;
+  const earnProgress = monthlyEarnCap > 0 ? Math.min(100, (monthlyEarned / monthlyEarnCap) * 100) : 0;
   const canRedeem = canRedeemCrimsonCredits(membershipTier);
-  const balanceRewardValue = formatCreditsRewardValueUsd(summary.credits_balance ?? 0);
-  const monthlyRewardValue = formatCreditsRewardValueUsd(monthlyEarned);
+  const storedRewardValue = formatCreditsRewardValueUsd(balance);
+  const redemptionLimitUsd = CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
   return (
     <section className="mt-3 overflow-hidden rounded-[22px] border border-[#b4141e]/25 bg-gradient-to-r from-[#120608] via-[#0b0b0d] to-[#090909] shadow-[0_16px_50px_-36px_rgba(180,20,30,0.55)]">
@@ -86,10 +95,10 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
             Crimson Credits
           </p>
           <p className="mt-1 font-serif text-xl leading-none text-white">
-            {loading ? "—" : `${monthlyEarned} / ${monthlyCap}`}
+            {loading ? "—" : `${balance.toLocaleString()} credits`}
           </p>
           <p className="mt-1 text-[10px] leading-tight tracking-[0.06em] text-zinc-500">
-            {loading ? "—" : `≈ ${monthlyRewardValue} Reward Value`}
+            {loading ? "—" : `Stored reward value ≈ ${storedRewardValue}`}
           </p>
         </div>
 
@@ -99,12 +108,12 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
             role="progressbar"
             aria-valuenow={monthlyEarned}
             aria-valuemin={0}
-            aria-valuemax={monthlyCap}
-            aria-label="Monthly credits earned"
+            aria-valuemax={monthlyEarnCap}
+            aria-label="Monthly credits earned toward earn cap"
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#7a1018] to-[#b4141e] transition-all duration-300"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${earnProgress}%` }}
             />
           </div>
           <span
@@ -118,18 +127,53 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
 
       {expanded && (
         <div className="border-t border-white/8 px-4 py-4">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Estimated reward value</p>
-          <p className="mt-1 font-serif text-2xl text-white">
-            {loading ? "—" : `≈ ${balanceRewardValue}`}
-          </p>
-          <p className="mt-2 text-xs leading-5 text-zinc-500">
-            100 Credits = ≈ $5.00 Reward Value
-          </p>
-          <p className="mt-3 text-xs leading-5 text-zinc-400">
-            {canRedeem
-              ? "Available for Blackcard rewards"
-              : "Upgrade to Blackcard to redeem rewards"}
-          </p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                Total stored reward value
+              </p>
+              <p className="mt-1 font-serif text-2xl text-white">
+                {loading ? "—" : `≈ ${storedRewardValue}`}
+              </p>
+              <p className="mt-1 text-xs text-zinc-600">
+                {loading ? "—" : `From ${balance.toLocaleString()} credits — not cash`}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                Monthly redemption limit
+              </p>
+              <p className="mt-1 text-sm font-medium text-zinc-200">
+                {loading
+                  ? "—"
+                  : `${redemptionLimitUsd} / ${CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP.toLocaleString()} credits`}
+              </p>
+              <p className="mt-1 text-[10px] leading-4 text-zinc-600">
+                Cash-value rewards count toward this cap when redemption is available.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Monthly earned</p>
+              <p className="mt-1 text-sm text-zinc-300">
+                {loading ? "—" : `${monthlyEarned} / ${monthlyEarnCap} credits this month`}
+              </p>
+            </div>
+          </div>
+
+          {canRedeem ? (
+            <p className="mt-4 text-sm font-medium leading-6 text-[#f1c3c7]">
+              Redeem up to {redemptionLimitUsd} value per month
+            </p>
+          ) : (
+            <Link
+              href="/blackcard"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/75 hover:bg-[#b4141e]/20"
+            >
+              Upgrade to Blackcard to Redeem
+            </Link>
+          )}
         </div>
       )}
     </section>
