@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
+import {
+  clearProfileMenuScrollTop,
+  readProfileMenuScrollTop,
+  saveProfileMenuScrollTop,
+} from "@/lib/navigation/profile-menu-scroll";
 import { IconAdmin } from "@/components/profile/ProfileIcons";
 import {
   IconChevronRight,
@@ -78,13 +83,23 @@ function MenuLinkRow({
   item,
   className,
   onNavigate,
+  onBeforeNavigate,
 }: {
   item: MenuLinkItem;
   className: string;
   onNavigate: () => void;
+  onBeforeNavigate: () => void;
 }) {
   return (
-    <Link href={hrefWithProfileMenuFrom(item.href)} prefetch onClick={onNavigate} className={className}>
+    <Link
+      href={hrefWithProfileMenuFrom(item.href)}
+      prefetch
+      onClick={() => {
+        onBeforeNavigate();
+        onNavigate();
+      }}
+      className={className}
+    >
       <RowLabel icon={item.icon} label={item.label} />
       <RowChevron />
     </Link>
@@ -105,6 +120,41 @@ export function ProfileSettingsMenuSheet({
   onSignOut,
   onRequestDeletion,
 }: Props) {
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const persistScrollPosition = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    saveProfileMenuScrollTop(el.scrollTop);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    clearProfileMenuScrollTop();
+    onClose();
+  }, [onClose]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const saved = readProfileMenuScrollTop();
+    if (saved == null) return;
+
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const applyScroll = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = saved;
+      }
+    };
+
+    applyScroll();
+    requestAnimationFrame(() => {
+      applyScroll();
+      requestAnimationFrame(applyScroll);
+    });
+  }, [open]);
+
   if (!open) return null;
 
   const mainItems: MenuLinkItem[] = [
@@ -140,7 +190,7 @@ export function ProfileSettingsMenuSheet({
         type="button"
         aria-label="Close profile menu"
         className="absolute inset-0 cursor-default"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <section className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#080809] shadow-[0_30px_90px_rgba(0,0,0,0.7)]">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
@@ -150,7 +200,7 @@ export function ProfileSettingsMenuSheet({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-lg text-zinc-300 transition hover:border-white/25 hover:text-white"
             aria-label="Close profile menu"
           >
@@ -158,10 +208,16 @@ export function ProfileSettingsMenuSheet({
           </button>
         </div>
 
-        <div className="max-h-[78dvh] overflow-y-auto px-3 py-3">
+        <div ref={scrollContainerRef} className="max-h-[78dvh] overflow-y-auto px-3 py-3">
           <div className="grid gap-1.5">
             {mainItems.map((item) => (
-              <MenuLinkRow key={item.label} item={item} className={MENU_ROW} onNavigate={onNavigate} />
+              <MenuLinkRow
+                key={item.label}
+                item={item}
+                className={MENU_ROW}
+                onNavigate={onNavigate}
+                onBeforeNavigate={persistScrollPosition}
+              />
             ))}
             {isAdmin && (
               <MenuLinkRow
@@ -172,6 +228,7 @@ export function ProfileSettingsMenuSheet({
                 }}
                 className={MENU_ROW}
                 onNavigate={onNavigate}
+                onBeforeNavigate={persistScrollPosition}
               />
             )}
           </div>
@@ -185,6 +242,7 @@ export function ProfileSettingsMenuSheet({
                   item={item}
                   className={MENU_ROW_COMPACT}
                   onNavigate={onNavigate}
+                  onBeforeNavigate={persistScrollPosition}
                 />
               ))}
             </div>
@@ -199,6 +257,7 @@ export function ProfileSettingsMenuSheet({
                   item={item}
                   className={MENU_ROW_LEGAL}
                   onNavigate={onNavigate}
+                  onBeforeNavigate={persistScrollPosition}
                 />
               ))}
             </div>
@@ -212,7 +271,10 @@ export function ProfileSettingsMenuSheet({
               <Link
                 href={hrefWithProfileMenuFrom("/account-deletion")}
                 prefetch
-                onClick={onNavigate}
+                onClick={() => {
+                  persistScrollPosition();
+                  onNavigate();
+                }}
                 className="mt-1.5 inline-block text-[10px] uppercase tracking-[0.16em] text-zinc-400 hover:text-[#e87a82]"
               >
                 How account deletion works
@@ -240,6 +302,7 @@ export function ProfileSettingsMenuSheet({
                 }}
                 className={`${MENU_ROW_LEGAL} mt-1.5`}
                 onNavigate={onNavigate}
+                onBeforeNavigate={persistScrollPosition}
               />
             )}
           </div>
