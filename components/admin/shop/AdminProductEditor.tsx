@@ -37,6 +37,7 @@ type Props = {
   onSave: (patch: Partial<Product>) => Promise<void>;
   onDelete?: () => void;
   onCancel?: () => void;
+  onBack?: () => void;
 };
 
 function labelClass() {
@@ -54,6 +55,7 @@ export function AdminProductEditor({
   onSave,
   onDelete,
   onCancel,
+  onBack,
 }: Props) {
   const initialType: ProductType =
     isNew ? "cash_product" : (product?.product_type ?? "cash_product");
@@ -184,8 +186,22 @@ export function AdminProductEditor({
     }
   }
 
+  const handleBack = onBack ?? onCancel;
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      {handleBack ? (
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={disabled || saving}
+          className="mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm font-medium text-zinc-200 transition hover:border-[#b4141e]/40 hover:bg-[#b4141e]/10 hover:text-[#f1c3c7] disabled:opacity-50 sm:w-auto sm:justify-start"
+        >
+          <span aria-hidden>←</span>
+          Back to Products
+        </button>
+      ) : null}
+
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{title}</p>
@@ -193,15 +209,6 @@ export function AdminProductEditor({
             <p className="mt-1 text-sm text-zinc-500">{product.name}</p>
           ) : null}
         </div>
-        {isNew && onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-300"
-          >
-            Cancel
-          </button>
-        ) : null}
       </div>
 
       <div className="mb-6">

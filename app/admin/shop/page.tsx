@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
 import { AdminProductListRow } from "@/components/admin/shop/AdminProductListRow";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
+import { buildProductInsertRow, sanitizeProductPatch } from "@/lib/admin/sanitize-product-patch";
 import { Product } from "@/lib/products";
 
 type AdminShopTab = "products" | "orders" | "redemptions";
@@ -36,6 +37,7 @@ function AdminShopPageInner() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const listScrollYRef = useRef(0);
 
   async function fetchProducts() {
     const { data, error } = await supabase
@@ -136,17 +138,23 @@ function AdminShopPageInner() {
   }, []);
 
   function closeEditor() {
+    const scrollY = listScrollYRef.current;
     setEditorMode("closed");
     setEditingProductId(null);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "auto" });
+    });
   }
 
   function openCreate() {
+    listScrollYRef.current = window.scrollY;
     setSuccessMsg("");
     setEditorMode("create");
     setEditingProductId(null);
   }
 
   function openEdit(id: string) {
+    listScrollYRef.current = window.scrollY;
     setSuccessMsg("");
     setEditorMode("edit");
     setEditingProductId(id);
@@ -160,9 +168,19 @@ function AdminShopPageInner() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    const { size_inventory, ...rowPatch } = patch;
+    let rowPatch;
+    try {
+      rowPatch = sanitizeProductPatch(patch);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Invalid product data");
+      setSavingId(null);
+      return;
+    }
 
-    const { error } = await supabase.from("products").update(rowPatch).eq("id", id);
+    const sizeInventoryFromPatch = patch.size_inventory;
+    const { size_inventory: _omit, ...updateRow } = rowPatch;
+
+    const { error } = await supabase.from("products").update(updateRow).eq("id", id);
 
     if (error) {
       setErrorMsg(error.message);
@@ -170,11 +188,13 @@ function AdminShopPageInner() {
       return;
     }
 
-    setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...rowPatch } : product)));
+    setProducts((prev) =>
+      prev.map((product) => (product.id === id ? { ...product, ...updateRow } : product)),
+    );
 
     try {
-      if (size_inventory !== undefined) {
-        await applyInventoryMap(id, size_inventory);
+      if (sizeInventoryFromPatch !== undefined) {
+        await applyInventoryMap(id, sizeInventoryFromPatch);
       }
       await syncCreditReward(id);
     } catch (e) {
@@ -193,30 +213,16 @@ function AdminShopPageInner() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    const isCreditReward = patch.product_type === "credit_reward";
-    const { size_inventory, ...rowPatch } = patch;
+    let insert;
+    try {
+      insert = buildProductInsertRow(patch, { sortOrderDefault: products.length });
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Invalid product data");
+      setCreating(false);
+      return;
+    }
 
-    const insert = {
-      name: rowPatch.name?.trim() || "Untitled",
-      slug: rowPatch.slug?.trim() || `${isCreditReward ? "reward" : "merch"}-${Date.now()}`,
-      tagline: rowPatch.tagline ?? "",
-      description: rowPatch.description ?? "",
-      price: rowPatch.price ?? 0,
-      category: rowPatch.category ?? (isCreditReward ? "accessories" : "tees"),
-      status: rowPatch.status ?? "coming_soon",
-      badge: rowPatch.badge ?? (isCreditReward ? null : "new"),
-      sizes: rowPatch.sizes ?? (isCreditReward ? [] : ["S", "M", "L", "XL"]),
-      images: rowPatch.images ?? [],
-      sort_order: rowPatch.sort_order ?? products.length,
-      product_type: rowPatch.product_type ?? "cash_product",
-      credit_cost: isCreditReward ? (rowPatch.credit_cost ?? 100) : null,
-      reward_category: isCreditReward ? (rowPatch.reward_category ?? "community") : null,
-      reward_kind: isCreditReward ? rowPatch.reward_kind ?? "physical" : null,
-      requires_shirt_size: rowPatch.requires_shirt_size ?? false,
-      inventory_remaining: rowPatch.inventory_remaining ?? null,
-      inventory_total: rowPatch.inventory_total ?? null,
-      size_inventory: size_inventory ?? null,
-    };
+    const size_inventory = insert.size_inventory;
 
     const { data, error } = await supabase.from("products").insert(insert).select("*").single();
 
@@ -365,7 +371,7 @@ function AdminShopPageInner() {
                     key="admin-new-product"
                     isNew
                     disabled={creating}
-                    onCancel={closeEditor}
+                    onBack={closeEditor}
                     onSave={createProductFromPatch}
                   />
                 ) : null}
@@ -375,7 +381,7 @@ function AdminShopPageInner() {
                     key={editingProduct.id}
                     product={editingProduct}
                     disabled={savingId === editingProduct.id}
-                    onCancel={closeEditor}
+                    onBack={closeEditor}
                     onSave={(patch) => updateProduct(editingProduct.id, patch)}
                     onDelete={() => void deleteProduct(editingProduct.id)}
                   />
