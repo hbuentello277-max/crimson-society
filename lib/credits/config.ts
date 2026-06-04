@@ -19,6 +19,12 @@ export const CRIMSON_CREDITS_PER_100_VALUE_USD = 5;
 
 export const CRIMSON_CREDIT_USD_VALUE = CRIMSON_CREDITS_PER_100_VALUE_USD / 100;
 
+/** Monthly cash-value redemption limit (display); 500 credits ≈ $25 at standard rate */
+export const CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP = 500;
+
+export const CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD =
+  CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP * CRIMSON_CREDIT_USD_VALUE;
+
 export const CREDIT_EARN_AMOUNTS = {
   meet_attended: 10,
   meet_hosted: 20,
