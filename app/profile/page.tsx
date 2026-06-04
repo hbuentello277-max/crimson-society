@@ -712,7 +712,6 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     deletionRequest={deletionRequest}
     deletionRequestLoading={deletionRequestLoading}
     deleteRequesting={deleteRequesting}
-    profileStatus={profileStatus}
     deleteRequestStatus={deleteRequestStatus}
     deletionDisabled={
       deleteRequesting ||

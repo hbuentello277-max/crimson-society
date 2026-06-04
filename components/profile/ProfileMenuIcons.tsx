@@ -2,7 +2,7 @@ type IconProps = { className?: string };
 
 const base = "shrink-0";
 
-export function IconChevronRight({ className = "h-4 w-4" }: IconProps) {
+export function IconChevronRight({ className = "h-3 w-3" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`${base} ${className}`} aria-hidden>
       <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
