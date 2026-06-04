@@ -98,8 +98,9 @@ export function AdminOrdersTab() {
                   <span className="truncate font-mono text-xs text-zinc-400">
                     {order.id.slice(0, 8)}…
                   </span>
-                  <span className="truncate text-xs">
-                    {order.shipping_email ?? order.user_id?.slice(0, 8) ?? "—"}
+                  <span className="truncate text-xs" title={order.user_id ?? undefined}>
+                    {order.shipping_email ??
+                      (order.user_id ? `${order.user_id.slice(0, 8)}…` : "Guest")}
                   </span>
                   <span className="text-xs text-zinc-500">
                     {itemCount} line{itemCount === 1 ? "" : "s"} · {qty} unit{qty === 1 ? "" : "s"}

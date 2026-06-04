@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCart, useCartItems } from "@/lib/cart-store";
+import { supabase } from "@/lib/supabase";
 import { formatCentsUsd } from "@/lib/shop/orders";
 import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
@@ -25,12 +26,57 @@ export default function ShopCheckoutPage() {
 
 function ShopCheckoutPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const cartItems = useCartItems();
   const clearCart = useCart((s) => s.clear);
 
   const [validation, setValidation] = useState<CheckoutCartValidationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [networkError, setNetworkError] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+  const cancelHandledRef = useRef(false);
+
+  const cancelled = searchParams.get("cancelled") === "1";
+  const cancelOrderId = searchParams.get("order")?.trim() ?? "";
+
+  useEffect(() => {
+    async function loadAuth() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setAuthUserId(user?.id ?? null);
+      setAuthChecked(true);
+    }
+    void loadAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!cancelled || !cancelOrderId || cancelHandledRef.current) return;
+    cancelHandledRef.current = true;
+
+    async function handleCancel() {
+      try {
+        const res = await fetch("/api/shop/checkout/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ orderId: cancelOrderId }),
+        });
+        if (res.ok) {
+          setCancelMessage("Checkout cancelled. Your items were released.");
+        }
+      } catch {
+        setCancelMessage("Checkout cancelled.");
+      }
+      router.replace("/shop/checkout", { scroll: false });
+    }
+
+    void handleCancel();
+  }, [cancelled, cancelOrderId, router]);
 
   const runValidation = useCallback(async (items: CheckoutCartItemPayload[]) => {
     setLoading(true);
@@ -76,6 +122,41 @@ function ShopCheckoutPageInner() {
     void runValidation(payload);
   }, [cartItems, runValidation]);
 
+  async function handleContinueToPayment() {
+    if (!validation?.ok || !authUserId) return;
+
+    setCheckoutLoading(true);
+    setCheckoutError(null);
+
+    const items: CheckoutCartItemPayload[] = cartItems.map((item) => ({
+      product_id: item.productId,
+      size: item.size,
+      quantity: item.quantity,
+    }));
+
+    try {
+      const res = await fetch("/api/shop/checkout/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ items }),
+      });
+
+      const data = (await res.json()) as { url?: string; error?: string };
+
+      if (!res.ok || !data.url) {
+        setCheckoutError(data.error ?? "Could not start checkout.");
+        setCheckoutLoading(false);
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch {
+      setCheckoutError("Could not start checkout. Try again.");
+      setCheckoutLoading(false);
+    }
+  }
+
   const isEmpty = cartItems.length === 0;
 
   return (
@@ -108,8 +189,26 @@ function ShopCheckoutPageInner() {
       <div className="mx-auto max-w-2xl px-5 py-8">
         <h1 className="font-serif text-3xl italic text-white">Review your bag</h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Payment is not enabled yet. This page validates inventory and totals from the server.
+          Inventory is held for 15 minutes once you continue to payment.
         </p>
+
+        {cancelMessage ? (
+          <p className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {cancelMessage}
+          </p>
+        ) : null}
+
+        {authChecked && !authUserId ? (
+          <div className="mt-6 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 px-4 py-4">
+            <p className="text-sm text-[#f1c3c7]">Sign in to complete your purchase.</p>
+            <Link
+              href="/login"
+              className="mt-3 inline-block text-[10px] uppercase tracking-[0.2em] text-[#e87a82] underline-offset-2 hover:underline"
+            >
+              Log in
+            </Link>
+          </div>
+        ) : null}
 
         {isEmpty ? (
           <div className="mt-10 rounded-2xl border border-dashed border-white/15 p-8 text-center">
@@ -130,6 +229,12 @@ function ShopCheckoutPageInner() {
         {networkError ? (
           <p className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {networkError}
+          </p>
+        ) : null}
+
+        {checkoutError ? (
+          <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {checkoutError}
           </p>
         ) : null}
 
@@ -225,16 +330,22 @@ function ShopCheckoutPageInner() {
                 }`}
               />
               {validation.ok
-                ? "Inventory validated — ready for payment (coming soon)"
+                ? "Inventory validated — ready for payment"
                 : "Some items need attention"}
             </div>
 
             <button
               type="button"
-              disabled
-              className="mt-6 w-full cursor-not-allowed rounded-full border border-white/10 bg-white/[0.04] px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-zinc-500"
+              disabled={
+                !validation.ok ||
+                !authUserId ||
+                checkoutLoading ||
+                validation.errors.length > 0
+              }
+              onClick={() => void handleContinueToPayment()}
+              className="mt-6 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Continue to payment — coming soon
+              {checkoutLoading ? "Starting checkout…" : "Continue to payment"}
             </button>
 
             <button
