@@ -1,7 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AdminUserIdentity } from "@/components/admin/credits/AdminUserIdentity";
+import { TechnicalDetailsToggle } from "@/components/admin/credits/TechnicalDetailsToggle";
 import type { AdminCreditLedgerRow } from "@/lib/credits/admin-types";
+
+function ReferredUserCell({ row }: { row: AdminCreditLedgerRow }) {
+  if (!row.referred_user_id) {
+    return <span className="text-zinc-600">—</span>;
+  }
+
+  if (!row.referred_username && !row.referred_display_name) {
+    return (
+      <TechnicalDetailsToggle
+        items={[{ label: "Referred user ID", value: row.referred_user_id }]}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <AdminUserIdentity
+        profile={{
+          id: row.referred_user_id,
+          username: row.referred_username,
+          display_name: row.referred_display_name,
+        }}
+        showAvatar={false}
+        compact
+      />
+      <TechnicalDetailsToggle items={[{ label: "Referred user ID", value: row.referred_user_id }]} />
+    </div>
+  );
+}
 
 export function LedgerTab() {
   const [rows, setRows] = useState<AdminCreditLedgerRow[]>([]);
@@ -75,25 +106,42 @@ export function LedgerTab() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-white/5 text-zinc-300">
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-500">
+                  <td className="whitespace-nowrap px-3 py-2 align-top text-zinc-500">
                     {new Date(row.created_at).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2">
-                    {row.username ? `@${row.username}` : row.display_name ?? row.user_id.slice(0, 8)}
+                  <td className="px-3 py-2 align-top">
+                    <AdminUserIdentity
+                      profile={{
+                        id: row.user_id,
+                        username: row.username,
+                        display_name: row.display_name,
+                        avatar_url: row.avatar_url,
+                      }}
+                    />
+                    <TechnicalDetailsToggle
+                      items={[
+                        { label: "User ID", value: row.user_id },
+                        { label: "Transaction ID", value: row.id },
+                      ]}
+                    />
                   </td>
-                  <td className={`px-3 py-2 font-medium ${row.amount < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                  <td className={`px-3 py-2 align-top font-medium ${row.amount < 0 ? "text-red-300" : "text-emerald-300"}`}>
                     {row.amount > 0 ? "+" : ""}
                     {row.amount}
                   </td>
-                  <td className="px-3 py-2">{row.transaction_type}</td>
-                  <td className="max-w-[200px] truncate px-3 py-2" title={row.reason ?? undefined}>
+                  <td className="px-3 py-2 align-top">{row.transaction_type}</td>
+                  <td className="max-w-[200px] truncate px-3 py-2 align-top" title={row.reason ?? undefined}>
                     {row.reason ?? "—"}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-zinc-500">
-                    {row.ride_id ? row.ride_id.slice(0, 8) : "—"}
+                  <td className="px-3 py-2 align-top">
+                    {row.ride_id ? (
+                      <TechnicalDetailsToggle items={[{ label: "Ride ID", value: row.ride_id }]} />
+                    ) : (
+                      "—"
+                    )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-zinc-500">
-                    {row.referred_user_id ? row.referred_user_id.slice(0, 8) : "—"}
+                  <td className="px-3 py-2 align-top">
+                    <ReferredUserCell row={row} />
                   </td>
                 </tr>
               ))}

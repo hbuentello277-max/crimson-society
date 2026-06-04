@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 import type { AdminCreditLedgerRow } from "@/lib/credits/admin-types";
+import { resolveAvatarUrl } from "@/lib/credits/admin-user-display";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+
+type ProfileSnippet = {
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
 
 export async function GET(request: Request) {
   const auth = await requireAdminSession();
@@ -39,15 +46,25 @@ export async function GET(request: Request) {
     }
 
     const rows = transactions ?? [];
-    const userIds = [...new Set(rows.map((r) => r.user_id))];
+    const userIds = new Set<string>();
+    const referredIds = new Set<string>();
 
-    const profileMap = new Map<string, { username: string | null; display_name: string | null }>();
+    for (const row of rows) {
+      userIds.add(row.user_id);
+      const meta = (row.metadata ?? {}) as Record<string, unknown>;
+      if (typeof meta.referred_user_id === "string") {
+        referredIds.add(meta.referred_user_id);
+      }
+    }
 
-    if (userIds.length > 0) {
+    const allProfileIds = [...new Set([...userIds, ...referredIds])];
+    const profileMap = new Map<string, ProfileSnippet>();
+
+    if (allProfileIds.length > 0) {
       const { data: profiles, error: profileError } = await adminClient
         .from("profiles")
-        .select("id, username, display_name")
-        .in("id", userIds);
+        .select("id, username, display_name, full_name, avatar_url, profile_image_url")
+        .in("id", allProfileIds);
 
       if (profileError) {
         return NextResponse.json({ error: profileError.message }, { status: 500 });
@@ -56,7 +73,8 @@ export async function GET(request: Request) {
       for (const p of profiles ?? []) {
         profileMap.set(p.id, {
           username: p.username ?? null,
-          display_name: p.display_name ?? null,
+          display_name: p.display_name ?? p.full_name ?? null,
+          avatar_url: resolveAvatarUrl(p),
         });
       }
     }
@@ -72,6 +90,7 @@ export async function GET(request: Request) {
             : null;
       const referredUserId =
         typeof meta.referred_user_id === "string" ? meta.referred_user_id : null;
+      const referredProfile = referredUserId ? profileMap.get(referredUserId) : undefined;
 
       return {
         id: row.id,
@@ -79,12 +98,15 @@ export async function GET(request: Request) {
         user_id: row.user_id,
         username: profile?.username ?? null,
         display_name: profile?.display_name ?? null,
+        avatar_url: profile?.avatar_url ?? null,
         amount: row.amount,
         transaction_type: row.transaction_type,
         reason: row.reason,
         metadata: meta,
         ride_id: rideId,
         referred_user_id: referredUserId,
+        referred_username: referredProfile?.username ?? null,
+        referred_display_name: referredProfile?.display_name ?? null,
       };
     });
 

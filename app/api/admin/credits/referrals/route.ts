@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 import type { AdminCreditReferralRow } from "@/lib/credits/admin-types";
+import { resolveAvatarUrl } from "@/lib/credits/admin-user-display";
 
 export async function GET() {
   const auth = await requireAdminSession();
@@ -13,7 +14,9 @@ export async function GET() {
 
     const { data: referredProfiles, error: profileError } = await adminClient
       .from("profiles")
-      .select("id, username, referred_by_user_id, premium_tier")
+      .select(
+        "id, username, display_name, full_name, avatar_url, profile_image_url, referred_by_user_id, premium_tier",
+      )
       .not("referred_by_user_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -34,7 +37,7 @@ export async function GET() {
       await Promise.all([
         adminClient
           .from("profiles")
-          .select("id, username, referral_code")
+          .select("id, username, display_name, full_name, avatar_url, profile_image_url, referral_code")
           .in("id", referrerIds),
         adminClient
           .from("subscriptions")
@@ -45,10 +48,7 @@ export async function GET() {
           .from("crimson_credit_transactions")
           .select("metadata")
           .eq("transaction_type", "referral_signup")
-          .in(
-            "user_id",
-            referrerIds,
-          ),
+          .in("user_id", referrerIds),
         adminClient
           .from("crimson_credit_transactions")
           .select("metadata")
@@ -57,7 +57,15 @@ export async function GET() {
       ]);
 
     const referrerMap = new Map(
-      (referrers ?? []).map((r) => [r.id, { username: r.username, referral_code: r.referral_code }]),
+      (referrers ?? []).map((r) => [
+        r.id,
+        {
+          username: r.username ?? null,
+          display_name: r.display_name ?? r.full_name ?? null,
+          avatar_url: resolveAvatarUrl(r),
+          referral_code: r.referral_code ?? null,
+        },
+      ]),
     );
 
     const subStatusByUser = new Map<string, string>();
@@ -88,9 +96,13 @@ export async function GET() {
       return {
         referrer_id: referrerId,
         referrer_username: referrer?.username ?? null,
+        referrer_display_name: referrer?.display_name ?? null,
+        referrer_avatar_url: referrer?.avatar_url ?? null,
         referral_code: referrer?.referral_code ?? null,
         referred_user_id: referred.id,
         referred_username: referred.username ?? null,
+        referred_display_name: referred.display_name ?? referred.full_name ?? null,
+        referred_avatar_url: resolveAvatarUrl(referred),
         signup_reward_awarded: signupAwarded.has(referred.id),
         blackcard_reward_awarded: blackcardAwarded.has(referred.id),
         subscription_status: subStatusByUser.get(referred.id) ?? null,
