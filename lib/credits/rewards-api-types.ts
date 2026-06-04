@@ -1,6 +1,7 @@
 import type {
   CrimsonCreditRedemptionRow,
-  CrimsonCreditRewardRow,
+  CrimsonCreditRewardKind,
+  CrimsonCreditRewardCategory,
 } from "@/lib/credits/types";
 
 export type CreditsRewardsSummary = {
@@ -11,8 +12,23 @@ export type CreditsRewardsSummary = {
   can_redeem: boolean;
 };
 
-export type CreditsRewardCatalogItem = CrimsonCreditRewardRow & {
+/** `id` is the crimson_credit_rewards row used by redeem RPC. */
+export type CreditsRewardCatalogItem = {
+  id: string;
+  product_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  credit_cost: number;
+  reward_category: CrimsonCreditRewardCategory;
+  reward_kind: CrimsonCreditRewardKind;
+  metadata: Record<string, unknown>;
   image_url: string | null;
+  inventory_total: number | null;
+  inventory_remaining: number | null;
+  requires_shirt_size: boolean;
+  is_active: boolean;
+  sort_order: number;
 };
 
 export type CreditsRewardsCatalogResponse = {

@@ -19,7 +19,6 @@ import {
   IconMenuLogOut,
   IconMenuPrivacy,
   IconMenuReferrals,
-  IconMenuRewards,
   IconMenuSafety,
   IconMenuSettings,
   IconMenuSupport,
@@ -170,7 +169,6 @@ export function ProfileSettingsMenuSheet({
   const creditsItems: MenuLinkItem[] = [
     { href: "/profile/credits/history", label: "Credits History", icon: <IconMenuCredits /> },
     { href: "/profile/credits/referrals", label: "Referrals", icon: <IconMenuReferrals /> },
-    { href: "/profile/credits/rewards", label: "Rewards", icon: <IconMenuRewards /> },
     { href: "/profile/credits/how-it-works", label: "How It Works", icon: <IconMenuInfo /> },
   ];
 

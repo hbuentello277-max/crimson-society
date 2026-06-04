@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useCart, useCartItems } from "@/lib/cart-store";
-import { Product, fetchProducts, formatPrice } from "@/lib/products";
+import { Product, fetchMerchProducts, formatPrice } from "@/lib/products";
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function CartDrawer() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const data = await fetchProducts();
+        const data = await fetchMerchProducts();
         setProducts(data);
       } catch (error) {
         console.error("Failed to load cart products:", error);

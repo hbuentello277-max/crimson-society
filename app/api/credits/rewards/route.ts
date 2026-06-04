@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
-import { crimsonCreditRewardImagePublicUrl } from "@/lib/credits/reward-images";
 import type { CreditsRewardCatalogItem, CreditsRewardsCatalogResponse } from "@/lib/credits/rewards-api-types";
-import type { CrimsonCreditRewardRow } from "@/lib/credits/types";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
-const REWARD_COLUMNS =
-  "id, slug, title, description, credit_cost, reward_category, reward_kind, metadata, image_path, inventory_total, inventory_remaining, requires_shirt_size, is_active, sort_order";
+const PRODUCT_COLUMNS =
+  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, requires_shirt_size, status, sort_order, credit_reward_id";
 
 export async function GET(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);
@@ -17,12 +15,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const [rewardsResult, summaryResult, canRedeemResult, cashUsedResult, cashCapResult] =
+  const [productsResult, summaryResult, canRedeemResult, cashUsedResult, cashCapResult] =
     await Promise.all([
       auth.supabase
-        .from("crimson_credit_rewards")
-        .select(REWARD_COLUMNS)
-        .eq("is_active", true)
+        .from("products")
+        .select(PRODUCT_COLUMNS)
+        .eq("product_type", "credit_reward")
+        .neq("status", "coming_soon")
+        .not("credit_reward_id", "is", null)
         .order("sort_order", { ascending: true })
         .order("credit_cost", { ascending: true }),
       auth.supabase.rpc("get_crimson_credits_summary", { p_user_id: auth.userId }),
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
       auth.supabase.rpc("crimson_credits_monthly_cash_redemption_cap"),
     ]);
 
-  if (rewardsResult.error) {
-    return NextResponse.json({ error: rewardsResult.error.message }, { status: 500 });
+  if (productsResult.error) {
+    return NextResponse.json({ error: productsResult.error.message }, { status: 500 });
   }
 
   if (summaryResult.error) {
@@ -53,13 +53,31 @@ export async function GET(request: Request) {
   const balance =
     (summaryResult.data as { credits_balance?: number } | null)?.credits_balance ?? 0;
 
-  const rewards: CreditsRewardCatalogItem[] = (rewardsResult.data ?? []).map(
-    (row: CrimsonCreditRewardRow) => ({
-      ...row,
-      metadata: (row.metadata ?? {}) as Record<string, unknown>,
-      image_url: crimsonCreditRewardImagePublicUrl(row.image_path),
-    }),
-  );
+  const rewards: CreditsRewardCatalogItem[] = (productsResult.data ?? [])
+    .filter((row) => row.credit_reward_id)
+    .map((row) => {
+      const outOfStock =
+        row.status === "out_of_stock" ||
+        (row.inventory_remaining != null && row.inventory_remaining <= 0);
+
+      return {
+        id: row.credit_reward_id as string,
+        product_id: row.id,
+        slug: row.slug,
+        title: row.name,
+        description: row.description,
+        credit_cost: row.credit_cost ?? 0,
+        reward_category: row.reward_category as CreditsRewardCatalogItem["reward_category"],
+        reward_kind: row.reward_kind as CreditsRewardCatalogItem["reward_kind"],
+        metadata: {},
+        image_url: row.images?.[0] ?? null,
+        inventory_total: row.inventory_total,
+        inventory_remaining: outOfStock ? 0 : row.inventory_remaining,
+        requires_shirt_size: Boolean(row.requires_shirt_size),
+        is_active: row.status !== "coming_soon",
+        sort_order: row.sort_order ?? 0,
+      };
+    });
 
   const payload: CreditsRewardsCatalogResponse = {
     rewards,

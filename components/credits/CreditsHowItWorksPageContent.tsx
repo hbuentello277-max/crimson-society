@@ -22,7 +22,7 @@ export function CreditsHowItWorksPageContent() {
   return (
     <CreditsPageShell
       title="How It Works"
-      subtitle="Earn Crimson Credits through rides and referrals. Redemption is coming soon for Blackcard members."
+      subtitle="Earn credits from meets and referrals, then redeem in Shop → Credit Rewards."
     >
       {error ? (
         <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
@@ -37,8 +37,8 @@ export function CreditsHowItWorksPageContent() {
         </p>
         <p>
           <span className="text-zinc-200">Blackcard</span> and{" "}
-          <span className="text-zinc-200">Founding Blackcard</span> members can redeem credits for future
-          member rewards (redemption coming soon).
+          <span className="text-zinc-200">Founding Blackcard</span> members redeem in Shop → Credit Rewards
+          (tap 👑 Rewards on your profile card).
         </p>
         <p>
           <span className="text-white">100 Crimson Credits</span> ≈ {sampleValue} estimated reward value.

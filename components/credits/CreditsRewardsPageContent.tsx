@@ -1,24 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CreditRedemptionHistoryList } from "@/components/credits/CreditRedemptionHistoryList";
-import { CreditRewardCard } from "@/components/credits/CreditRewardCard";
-import { CreditRewardRedeemModal } from "@/components/credits/CreditRewardRedeemModal";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { CreditsRewardsSummary } from "@/components/credits/CreditsRewardsSummary";
-import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
 import { useCreditRewardsPage } from "@/hooks/useCreditRewardsPage";
 import { supabase } from "@/lib/supabase";
 
-type PendingRedeem = {
-  reward: CreditsRewardCatalogItem;
-  shirtSize: string | null;
-};
-
+/** Internal redemption history — not linked from Profile Menu. */
 export function CreditsRewardsPageContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [pendingRedeem, setPendingRedeem] = useState<PendingRedeem | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -32,106 +25,34 @@ export function CreditsRewardsPageContent() {
   }, []);
 
   const enabled = Boolean(userId) && !authLoading;
-
-  const {
-    rewards,
-    summary,
-    redemptions,
-    loading,
-    error,
-    successMessage,
-    redeeming,
-    redeemReward,
-    dismissSuccess,
-    dismissError,
-  } = useCreditRewardsPage(enabled);
-
-  const pageLoading = authLoading || loading;
-
-  async function handleConfirmRedeem() {
-    if (!pendingRedeem) return;
-
-    try {
-      await redeemReward(pendingRedeem.reward.id, pendingRedeem.shirtSize);
-      setPendingRedeem(null);
-    } catch {
-      // Error surfaced via hook state
-    }
-  }
+  const { summary, redemptions, loading, error } = useCreditRewardsPage(enabled);
 
   return (
     <CreditsPageShell
-      title="Rewards"
-      subtitle="Redeem from Profile → ⋯ Menu → Rewards. Cash-value rewards count toward your monthly cash cap; community rewards do not. Shop checkout is not available yet."
+      title="Redemption History"
+      subtitle="Your past credit reward redemptions. Redeem new rewards in the Shop."
     >
-      {successMessage ? (
-        <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-          <p className="text-sm leading-6 text-emerald-200">{successMessage}</p>
-          <button
-            type="button"
-            onClick={dismissSuccess}
-            className="shrink-0 text-xs uppercase tracking-[0.16em] text-emerald-300/80"
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-
       {error ? (
-        <div className="flex items-start justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">
-          <p className="text-sm leading-6 text-red-300">{error}</p>
-          <button
-            type="button"
-            onClick={dismissError}
-            className="shrink-0 text-xs uppercase tracking-[0.16em] text-red-300/80"
-          >
-            Dismiss
-          </button>
-        </div>
+        <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </p>
       ) : null}
 
-      <CreditsRewardsSummary summary={summary} loading={pageLoading} />
+      <Link
+        href="/shop?tab=credit-rewards"
+        className="flex min-h-12 items-center justify-center rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-5 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
+      >
+        👑 Browse rewards in Shop
+      </Link>
+
+      <CreditsRewardsSummary summary={summary} loading={authLoading || loading} />
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Available rewards</h2>
-        <div className="mt-3 space-y-3">
-          {pageLoading && rewards.length === 0 ? (
-            <p className="text-sm text-zinc-500">Loading rewards…</p>
-          ) : null}
-          {!pageLoading && rewards.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-sm text-zinc-500">
-              No rewards are available right now.
-            </p>
-          ) : null}
-          {rewards.map((reward) => (
-            <CreditRewardCard
-              key={reward.id}
-              reward={reward}
-              summary={summary}
-              onRedeem={(selected, shirtSize) => setPendingRedeem({ reward: selected, shirtSize })}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Redemption history</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Your redemptions</h2>
         <div className="mt-3">
-          <CreditRedemptionHistoryList redemptions={redemptions} loading={pageLoading} />
+          <CreditRedemptionHistoryList redemptions={redemptions} loading={authLoading || loading} />
         </div>
       </section>
-
-      <CreditRewardRedeemModal
-        open={Boolean(pendingRedeem)}
-        reward={pendingRedeem?.reward ?? null}
-        shirtSize={pendingRedeem?.shirtSize ?? null}
-        balance={summary.credits_balance}
-        redeeming={redeeming}
-        onConfirm={() => void handleConfirmRedeem()}
-        onClose={() => {
-          if (!redeeming) setPendingRedeem(null);
-        }}
-      />
     </CreditsPageShell>
   );
 }

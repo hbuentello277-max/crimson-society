@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { ShopCreditRewardsPanel } from "@/components/shop/ShopCreditRewardsPanel";
 import {
   Category,
   Product,
@@ -10,14 +12,32 @@ import {
   badgeStyle,
   categoryLabels,
   formatPrice,
-  fetchProducts,
+  fetchMerchProducts,
 } from "@/lib/products";
 import { useCart, useCartCount } from "@/lib/cart-store";
 import { CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
 type SortKey = "featured" | "newest" | "price-low" | "price-high";
 
+type ShopTab = "merch" | "credit-rewards";
+
 export default function ShopPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#050405] px-5 py-20 text-sm text-zinc-500">Loading shop…</main>
+      }
+    >
+      <ShopPageInner />
+    </Suspense>
+  );
+}
+
+function ShopPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const shopTab: ShopTab =
+    searchParams.get("tab") === "credit-rewards" ? "credit-rewards" : "merch";
   const [category, setCategory] = useState<Category>("all");
   const [sort, setSort] = useState<SortKey>("featured");
   const [active, setActive] = useState<Product | null>(null);
@@ -43,7 +63,7 @@ export default function ShopPage() {
       setErrorMsg("");
 
       try {
-        const data = await fetchProducts();
+        const data = await fetchMerchProducts();
         setProductList(data);
       } catch (error: unknown) {
         setErrorMsg(error instanceof Error ? error.message : "Failed to load products.");
@@ -164,24 +184,23 @@ export default function ShopPage() {
           <div className="flex items-center justify-between">
             <div className="w-[72px]" />
 
-            <button
-              type="button"
-              onClick={openDrawer}
-              className={CS_SHOP_BAG_BTN}
-            >
-              <span>Bag</span>
-              <span className="text-[10px] opacity-60">·</span>
-
-              <motion.span
-                key={cartCount}
-                initial={{ scale: 1.15 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 320, damping: 20 }}
-                className="tabular-nums"
-              >
-                {cartCount}
-              </motion.span>
-            </button>
+            {shopTab === "merch" ? (
+              <button type="button" onClick={openDrawer} className={CS_SHOP_BAG_BTN}>
+                <span>Bag</span>
+                <span className="text-[10px] opacity-60">·</span>
+                <motion.span
+                  key={cartCount}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                  className="tabular-nums"
+                >
+                  {cartCount}
+                </motion.span>
+              </button>
+            ) : (
+              <div className="w-[72px]" />
+            )}
           </div>
 
           <div className="mt-10 text-center">
@@ -200,10 +219,37 @@ export default function ShopPage() {
             </p>
 
             <p className="mx-auto mt-3 max-w-xl text-xs uppercase tracking-[0.28em] text-white/50">
-              Limited pieces · Crimson Society issue · Hand-finished drop
+              {shopTab === "merch"
+                ? "Limited pieces · Crimson Society issue · Hand-finished drop"
+                : "Redeem credits for stickers, gear, discounts & more"}
             </p>
           </div>
 
+          <div className="mx-auto mt-8 flex max-w-xs justify-center gap-2">
+            {(
+              [
+                { id: "merch" as const, label: "Merch" },
+                { id: "credit-rewards" as const, label: "Credit Rewards" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() =>
+                  router.push(tab.id === "credit-rewards" ? "/shop?tab=credit-rewards" : "/shop")
+                }
+                className={`rounded-full border px-5 py-2.5 text-[11px] uppercase tracking-[0.22em] transition ${
+                  shopTab === tab.id
+                    ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
+                    : "border-white/10 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {shopTab === "merch" ? (
           <div className="mt-10">
             <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
               {(Object.keys(categoryLabels) as Category[]).map((c) => (
@@ -245,9 +291,18 @@ export default function ShopPage() {
               </div>
             </div>
           </div>
+          ) : null}
         </div>
       </header>
 
+      {shopTab === "credit-rewards" ? (
+        <section className="relative mx-auto max-w-2xl px-5 pt-8 pb-16">
+          <ShopCreditRewardsPanel />
+        </section>
+      ) : null}
+
+      {shopTab === "merch" ? (
+      <>
       <section className="relative mx-auto max-w-2xl px-5 pt-10">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
           <div className="relative aspect-[16/10] w-full">
@@ -352,6 +407,8 @@ export default function ShopPage() {
           © Crimson Society · MMXXVI
         </p>
       </section>
+      </>
+      ) : null}
 
       <AnimatePresence>
         {active && (

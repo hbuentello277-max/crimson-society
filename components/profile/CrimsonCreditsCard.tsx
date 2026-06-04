@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import type { CrimsonMembershipTier } from "@/lib/membership";
 import {
-  canRedeemCrimsonCredits,
   CRIMSON_CREDITS_MONTHLY_EARN_CAP,
   CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP,
-  CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD,
   formatCreditsRewardValueUsd,
 } from "@/lib/credits/config";
 import type { CrimsonCreditsSummary } from "@/lib/credits/types";
@@ -65,20 +63,13 @@ function CreditsBrandMark() {
   );
 }
 
-export function CrimsonCreditsCard({ summary, loading = false, membershipTier }: Props) {
+export function CrimsonCreditsCard({ summary, loading = false }: Props) {
   const [expanded, setExpanded] = useState(false);
   const monthlyEarnCap = summary.monthly_cap || CRIMSON_CREDITS_MONTHLY_EARN_CAP;
   const monthlyEarned = summary.monthly_earned ?? 0;
   const balance = summary.credits_balance ?? 0;
   const earnProgress = monthlyEarnCap > 0 ? Math.min(100, (monthlyEarned / monthlyEarnCap) * 100) : 0;
-  const canRedeem = canRedeemCrimsonCredits(membershipTier);
   const storedRewardValue = formatCreditsRewardValueUsd(balance);
-  const redemptionLimitUsd = CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
 
   return (
     <section className="mt-3 overflow-hidden rounded-[22px] border border-[#b4141e]/25 bg-gradient-to-r from-[#120608] via-[#0b0b0d] to-[#090909] shadow-[0_16px_50px_-36px_rgba(180,20,30,0.55)]">
@@ -125,6 +116,16 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
         </div>
       </button>
 
+      <div className="border-t border-white/8 px-4 py-3">
+        <Link
+          href="/shop?tab=credit-rewards"
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#b4141e]/50 bg-gradient-to-r from-[#b4141e]/25 to-[#7a1018]/20 px-5 py-3 text-sm font-medium tracking-[0.12em] text-[#f5d0d4] shadow-[0_0_24px_-8px_rgba(180,20,30,0.55)] transition hover:border-[#b4141e]/80 hover:from-[#b4141e]/35"
+        >
+          <span aria-hidden>👑</span>
+          <span className="uppercase">Rewards</span>
+        </Link>
+      </div>
+
       {expanded && (
         <div className="border-t border-white/8 px-4 py-4">
           <div className="space-y-3">
@@ -142,15 +143,12 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
 
             <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                Monthly redemption limit
+                Monthly cash redemption
               </p>
               <p className="mt-1 text-sm font-medium text-zinc-200">
                 {loading
                   ? "—"
-                  : `${redemptionLimitUsd} / ${CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP.toLocaleString()} credits`}
-              </p>
-              <p className="mt-1 text-[10px] leading-4 text-zinc-600">
-                Cash-value rewards count toward this cap when redemption is available.
+                  : `${CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP.toLocaleString()} credits ($25) / month`}
               </p>
             </div>
 
@@ -162,18 +160,12 @@ export function CrimsonCreditsCard({ summary, loading = false, membershipTier }:
             </div>
           </div>
 
-          {canRedeem ? (
-            <p className="mt-4 text-sm font-medium leading-6 text-[#f1c3c7]">
-              Redeem up to {redemptionLimitUsd} value per month
-            </p>
-          ) : (
-            <Link
-              href="/blackcard"
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/75 hover:bg-[#b4141e]/20"
-            >
-              Upgrade to Blackcard to Redeem
-            </Link>
-          )}
+          <p className="mt-4 text-sm font-medium leading-6 text-[#f1c3c7]">
+            Unlimited balance • $25/month cash rewards • Community rewards separate
+          </p>
+          <p className="mt-2 text-[10px] leading-4 text-zinc-600">
+            Earn from meets & referrals · Credits never expire · Redeem in Shop → Credit Rewards
+          </p>
         </div>
       )}
     </section>

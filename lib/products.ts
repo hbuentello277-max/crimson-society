@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase";
 
 export type Category = "all" | "tees" | "outerwear" | "headwear" | "accessories";
 
+export type ProductType = "cash_product" | "credit_reward";
+
 export type ProductStatus =
   | "in_stock"
   | "out_of_stock"
@@ -25,6 +27,14 @@ export type Product = {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  product_type: ProductType;
+  credit_cost: number | null;
+  reward_category: "cash" | "community" | null;
+  reward_kind: "merch_discount" | "cash_value" | "physical" | null;
+  requires_shirt_size: boolean;
+  inventory_total: number | null;
+  inventory_remaining: number | null;
+  credit_reward_id: string | null;
 };
 
 export const categoryLabels: Record<Category, string> = {
@@ -37,6 +47,9 @@ export const categoryLabels: Record<Category, string> = {
 
 export const formatPrice = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
+
+export const formatCreditCost = (credits: number) =>
+  `${credits.toLocaleString()} Credits`;
 
 export const badgeStyle = (b?: Product["badge"]) => {
   if (b === "new") return "border-[#e87a82]/60 bg-[#b4141e]/15 text-[#e87a82]";
@@ -54,15 +67,48 @@ export const badgeLabel = (b?: Product["badge"]) => {
   return "";
 };
 
-export async function fetchProducts() {
-  const { data, error } = await supabase
+export function isCreditRewardProduct(product: Pick<Product, "product_type">) {
+  return product.product_type === "credit_reward";
+}
+
+export function isMerchProduct(product: Pick<Product, "product_type">) {
+  return product.product_type !== "credit_reward";
+}
+
+export async function fetchProducts(options?: { productType?: ProductType | "all" }) {
+  let query = supabase
     .from("products")
     .select("*")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  if (options?.productType && options.productType !== "all") {
+    query = query.eq("product_type", options.productType);
+  }
+
+  const { data, error } = await query;
+
   if (error) throw error;
   return (data || []) as Product[];
+}
+
+export async function fetchMerchProducts() {
+  const all = await fetchProducts();
+  return all.filter(isMerchProduct);
+}
+
+export async function fetchCreditRewardProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("product_type", "credit_reward")
+    .neq("status", "coming_soon")
+    .order("sort_order", { ascending: true })
+    .order("credit_cost", { ascending: true });
+
+  if (error) throw error;
+
+  return ((data || []) as Product[]).filter((p) => p.credit_reward_id);
 }
 
 export async function fetchProductById(id: string) {
@@ -76,11 +122,6 @@ export async function fetchProductById(id: string) {
   return (data as Product | null) ?? null;
 }
 
-/*
-  Temporary compatibility helper:
-  Your older components (like CartDrawer) may still import getProduct.
-  This version works when you pass a product list directly.
-*/
 export function getProduct(id: string, productList?: Product[]) {
   if (!productList) return null;
   return productList.find((p) => p.id === id) ?? null;

@@ -801,16 +801,10 @@ function AdminPageContent() {
                     cta: "Credits",
                   },
                   {
-                    eyebrow: "Rewards",
-                    title: "Rewards control room",
-                    href: "/admin/rewards",
-                    cta: "Rewards",
-                  },
-                  {
                     eyebrow: "Shop",
-                    title: "Merch control room",
+                    title: "Shop & rewards",
                     href: "/admin/shop",
-                    cta: "Products",
+                    cta: "Shop",
                   },
                   {
                     eyebrow: "Crimson Sounds",
