@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AdminMembershipBadge } from "@/components/admin/AdminMembershipBadge";
 import {
+  hasActiveMembership,
   hasAdminBlackcardOverride,
   membershipStatusLabel,
+  resolveMembershipTier,
   subscriptionStatusLabel,
   type MembershipRow,
 } from "@/lib/membership";
@@ -123,11 +126,13 @@ export function AdminMembershipControls({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-base font-semibold text-white">@{profileLabel(profile)}</p>
-                    {profile.is_founding_blackcard ? (
-                      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-amber-200">
-                        🏆 Founding
-                      </span>
-                    ) : null}
+                    <AdminMembershipBadge
+                      tier={resolveMembershipTier({
+                        membership: hasActiveMembership(subscription) ? subscription : null,
+                        profile,
+                        isAdmin: isAdminAccount,
+                      })}
+                    />
                   </div>
                   <p className="mt-2 text-sm text-zinc-400">
                     Membership: {membershipStatusLabel({ membership: subscription, profile, isAdmin: isAdminAccount })}

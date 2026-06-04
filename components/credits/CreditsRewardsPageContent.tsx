@@ -62,7 +62,7 @@ export function CreditsRewardsPageContent() {
   return (
     <CreditsPageShell
       title="Rewards"
-      subtitle="Redeem credits for member rewards. Cash-value rewards count toward your monthly cash cap; community rewards do not."
+      subtitle="Redeem from Profile → ⋯ Menu → Rewards. Cash-value rewards count toward your monthly cash cap; community rewards do not. Shop checkout is not available yet."
     >
       {successMessage ? (
         <div className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
