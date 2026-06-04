@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { useState } from "react";
 import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
 import {
@@ -38,20 +38,8 @@ export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
   return (
     <article className="overflow-hidden rounded-[20px] border border-white/10 bg-white/[0.02]">
       <div className="flex gap-3 p-3.5">
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40">
-          {reward.image_url ? (
-            <Image
-              src={reward.image_url}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="80px"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-              Reward
-            </div>
-          )}
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-[#120608] to-black">
+          <CreditRewardImage src={reward.image_url} className="object-contain p-2" sizes="80px" />
         </div>
 
         <div className="min-w-0 flex-1">

@@ -14,6 +14,7 @@ import {
   formatPrice,
   fetchMerchProducts,
 } from "@/lib/products";
+import { getSizeAvailable, isSizePurchasable, parseSizeInventory } from "@/lib/shop/inventory";
 import { useCart, useCartCount } from "@/lib/cart-store";
 import { CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
@@ -133,6 +134,14 @@ function ShopPageInner() {
 
   const isComingSoon = (product: Product) => product.status === "coming_soon";
 
+  const activeSizeMap = active ? parseSizeInventory(active.size_inventory) : null;
+
+  const isSizeOutOfStock = (product: Product, sizeLabel: string) => {
+    const map = parseSizeInventory(product.size_inventory);
+    if (!map) return false;
+    return !isSizePurchasable(map, sizeLabel);
+  };
+
   const handleAdd = () => {
     if (!active) return;
 
@@ -149,6 +158,11 @@ function ShopPageInner() {
     if (!size) {
       setSizeError(true);
       setTimeout(() => setSizeError(false), 1400);
+      return;
+    }
+
+    if (isSizeOutOfStock(active, size)) {
+      showToast("Out of stock", `Size ${size} is not available`);
       return;
     }
 
@@ -562,7 +576,16 @@ function ShopPageInner() {
                         transition={{ duration: 0.4 }}
                         className="flex flex-wrap gap-2"
                       >
-                        {active.sizes.map((s) => (
+                        {active.sizes.map((s) => {
+                          const sizeOos =
+                            isWaitlistState(active) ||
+                            isComingSoon(active) ||
+                            isSizeOutOfStock(active, s);
+                          const available = activeSizeMap
+                            ? getSizeAvailable(activeSizeMap, s)
+                            : null;
+
+                          return (
                           <button
                             key={s}
                             type="button"
@@ -570,20 +593,20 @@ function ShopPageInner() {
                               setSize(s);
                               setSizeError(false);
                             }}
-                            disabled={isWaitlistState(active) || isComingSoon(active)}
+                            disabled={sizeOos}
                             className={`min-w-[3rem] rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.2em] transition ${
                               size === s
                                 ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                                 : "border-white/10 bg-black/30 text-white/70 hover:border-white/30"
-                            } ${
-                              isWaitlistState(active) || isComingSoon(active)
-                                ? "cursor-not-allowed opacity-40"
-                                : ""
-                            }`}
+                            } ${sizeOos ? "cursor-not-allowed opacity-40 line-through" : ""}`}
                           >
                             {s}
+                            {available != null && available < 10 ? (
+                              <span className="ml-1 text-[8px] opacity-70">({available})</span>
+                            ) : null}
                           </button>
-                        ))}
+                          );
+                        })}
                       </motion.div>
                     </div>
 

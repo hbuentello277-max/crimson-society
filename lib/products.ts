@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { SizeInventoryMap } from "@/lib/shop/inventory";
 
 export type Category = "all" | "tees" | "outerwear" | "headwear" | "accessories";
 
@@ -34,6 +35,7 @@ export type Product = {
   requires_shirt_size: boolean;
   inventory_total: number | null;
   inventory_remaining: number | null;
+  size_inventory: SizeInventoryMap | null;
   credit_reward_id: string | null;
 };
 

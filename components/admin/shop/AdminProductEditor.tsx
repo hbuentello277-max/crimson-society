@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AdminInventoryFields, initSizeInventoryFromProduct } from "@/components/admin/shop/AdminInventoryFields";
 import { ProductImageManager } from "@/components/admin/shop/ProductImageManager";
+import type { SizeInventoryMap } from "@/lib/shop/inventory";
+import { sumInventory } from "@/lib/shop/inventory";
 import {
   Category,
   Product,
@@ -86,9 +89,9 @@ export function AdminProductEditor({
       ? "Credit reward"
       : "Merch product";
 
-  const [inventoryInput, setInventoryInput] = useState(() =>
-    product?.inventory_remaining == null ? "" : String(product.inventory_remaining),
-  );
+  const initialInventory = initSizeInventoryFromProduct(product, isCreditReward);
+  const [sizeInventory, setSizeInventory] = useState<SizeInventoryMap | null>(initialInventory.map);
+  const [inventoryUnlimited, setInventoryUnlimited] = useState(initialInventory.unlimited);
 
   const advancedItems = useMemo(() => {
     const items: { label: string; value: string }[] = [];
@@ -129,9 +132,17 @@ export function AdminProductEditor({
         description: draft.description.trim(),
         status: draft.status,
         images: draft.images,
-        inventory_remaining: inventoryInput === "" ? null : Number(inventoryInput),
-        inventory_total: inventoryInput === "" ? null : Number(inventoryInput),
+        size_inventory: inventoryUnlimited ? null : sizeInventory,
       };
+
+      const totals = sumInventory(sizeInventory);
+      if (inventoryUnlimited) {
+        patch.inventory_remaining = null;
+        patch.inventory_total = null;
+      } else if (totals) {
+        patch.inventory_remaining = totals.available;
+        patch.inventory_total = totals.total;
+      }
 
       if (isCreditReward) {
         patch.price = 0;
@@ -294,7 +305,7 @@ export function AdminProductEditor({
                   className={inputClass()}
                 >
                   <option value="cash" className="bg-black">
-                    Cash
+                    Store Credit
                   </option>
                   <option value="community" className="bg-black">
                     Community
@@ -348,19 +359,26 @@ export function AdminProductEditor({
             </>
           )}
 
-          <div>
-            <label className={labelClass()}>Inventory</label>
-            <input
-              type="number"
-              min={0}
-              value={inventoryInput}
-              disabled={disabled || saving}
-              onChange={(e) => setInventoryInput(e.target.value)}
-              placeholder="Leave empty for unlimited"
-              className={inputClass()}
-            />
-            <p className="mt-1 text-[10px] text-zinc-600">Units available to redeem or sell.</p>
-          </div>
+          <AdminInventoryFields
+            sizes={
+              isCreditReward && draft.requires_shirt_size
+                ? draft.sizes?.length
+                  ? draft.sizes
+                  : ["S", "M", "L", "XL", "2XL"]
+                : isCreditReward
+                  ? []
+                  : draft.sizes ?? ["S", "M", "L", "XL"]
+            }
+            isSizedMerch={!isCreditReward}
+            isScalarReward={isCreditReward && !draft.requires_shirt_size}
+            sizeInventory={sizeInventory}
+            unlimited={inventoryUnlimited}
+            disabled={disabled || saving}
+            onChange={(map, unlimited) => {
+              setSizeInventory(map);
+              setInventoryUnlimited(unlimited);
+            }}
+          />
 
           <div>
             <label className={labelClass()}>Status</label>

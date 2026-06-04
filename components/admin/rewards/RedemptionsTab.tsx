@@ -14,6 +14,19 @@ const STATUSES: Array<CrimsonCreditRedemptionStatus | "all"> = [
   "cancelled",
 ];
 
+function statusBadgeClass(status: CrimsonCreditRedemptionStatus) {
+  switch (status) {
+    case "pending":
+      return "border-amber-500/35 bg-amber-500/10 text-amber-200";
+    case "approved":
+      return "border-sky-500/35 bg-sky-500/10 text-sky-200";
+    case "fulfilled":
+      return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300";
+    case "cancelled":
+      return "border-zinc-500/35 bg-zinc-500/10 text-zinc-400";
+  }
+}
+
 type Props = {
   refreshKey?: number;
 };
@@ -81,7 +94,10 @@ export function RedemptionsTab({ refreshKey = 0 }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-500">Approve, fulfill, or cancel member redemptions.</p>
+        <p className="text-sm text-zinc-500">
+          Approve, fulfill, or cancel member redemptions. Cancel refunds credits and restores
+          inventory.
+        </p>
         <div className="flex flex-wrap gap-2">
           <select
             value={statusFilter}
@@ -153,9 +169,11 @@ export function RedemptionsTab({ refreshKey = 0 }: Props) {
                     </p>
                   ) : null}
                   {refunded ? (
-                    <p className="text-xs text-emerald-300">Credits refunded</p>
+                    <p className="text-xs text-emerald-300">Credits refunded · inventory restored</p>
                   ) : null}
-                  <span className="inline-flex rounded-full border border-white/15 px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] text-zinc-300">
+                  <span
+                    className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] ${statusBadgeClass(row.status)}`}
+                  >
                     {formatRedemptionStatusLabel(row.status)}
                   </span>
                 </div>
@@ -176,21 +194,36 @@ export function RedemptionsTab({ refreshKey = 0 }: Props) {
                   </label>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {(["pending", "approved", "fulfilled", "cancelled"] as const).map((status) => (
+                    {row.status === "pending" ? (
                       <button
-                        key={status}
                         type="button"
-                        disabled={busy || row.status === status}
-                        onClick={() => void updateStatus(row, status)}
-                        className={`rounded-full border px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] transition disabled:opacity-40 ${
-                          status === "cancelled"
-                            ? "border-red-500/30 text-red-300 hover:border-red-500/50"
-                            : "border-white/10 text-zinc-400 hover:border-[#b4141e]/40 hover:text-[#f1c3c7]"
-                        }`}
+                        disabled={busy}
+                        onClick={() => void updateStatus(row, "approved")}
+                        className="rounded-full border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-[9px] uppercase tracking-[0.14em] text-sky-200"
                       >
-                        {formatRedemptionStatusLabel(status)}
+                        Approve
                       </button>
-                    ))}
+                    ) : null}
+                    {row.status === "pending" || row.status === "approved" ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void updateStatus(row, "fulfilled")}
+                        className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-[9px] uppercase tracking-[0.14em] text-emerald-200"
+                      >
+                        Fulfill
+                      </button>
+                    ) : null}
+                    {row.status !== "cancelled" && row.status !== "fulfilled" ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void updateStatus(row, "cancelled")}
+                        className="rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-[9px] uppercase tracking-[0.14em] text-red-300"
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>

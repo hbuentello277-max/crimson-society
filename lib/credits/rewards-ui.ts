@@ -9,7 +9,7 @@ export function isCrimsonCreditShirtSize(value: string): value is CrimsonCreditS
 }
 
 export function formatRewardCategoryLabel(category: CrimsonCreditRewardCategory) {
-  return category === "cash" ? "Cash" : "Community";
+  return category === "cash" ? "Store Credit" : "Community";
 }
 
 export function formatRedemptionStatusLabel(status: CrimsonCreditRedemptionStatus) {
@@ -59,7 +59,7 @@ export function getRewardActionState(input: {
     input.rewardCategory === "cash" &&
     input.monthlyCashUsed + input.creditCost > input.monthlyCashCap
   ) {
-    return { kind: "disabled", message: "Monthly cash cap reached" };
+    return { kind: "disabled", message: "Monthly store credit cap reached" };
   }
 
   if (input.requiresShirtSize && !input.selectedShirtSize) {

@@ -44,7 +44,7 @@ export function CreditsRewardsSummary({ summary, loading = false }: Props) {
 
         <div>
           <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-            Monthly cash redemption
+            Monthly store credit redemption
           </p>
           <p className="mt-1 font-serif text-2xl text-white">
             {loading
@@ -52,7 +52,7 @@ export function CreditsRewardsSummary({ summary, loading = false }: Props) {
               : `${summary.monthly_cash_redemption_used} / ${summary.monthly_cash_redemption_cap}`}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            {loading ? "—" : `Cash-value rewards only · cap ${capUsd}`}
+            {loading ? "—" : `Store credit rewards only · cap ${capUsd}`}
           </p>
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"
@@ -60,7 +60,7 @@ export function CreditsRewardsSummary({ summary, loading = false }: Props) {
             aria-valuenow={summary.monthly_cash_redemption_used}
             aria-valuemin={0}
             aria-valuemax={summary.monthly_cash_redemption_cap}
-            aria-label="Monthly cash-value redemption usage"
+            aria-label="Monthly store credit redemption usage"
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#7a1018] to-[#b4141e] transition-all"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
+import { AdminProductListRow } from "@/components/admin/shop/AdminProductListRow";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
 import { Product } from "@/lib/products";
 
@@ -30,7 +31,8 @@ function AdminShopPageInner() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editorMode, setEditorMode] = useState<"closed" | "create" | "edit">("closed");
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -64,6 +66,24 @@ function AdminShopPageInner() {
       setProducts((prev) =>
         prev.map((item) => (item.id === productId ? { ...item, ...data.product } : item)),
       );
+    }
+  }
+
+  async function applyInventoryMap(productId: string, sizeInventory: Product["size_inventory"]) {
+    if (sizeInventory === undefined) return;
+
+    const { error } = await supabase.rpc("product_inventory_apply_map", {
+      p_product_id: productId,
+      p_size_inventory: sizeInventory,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const { data } = await supabase.from("products").select("*").eq("id", productId).maybeSingle();
+    if (data) {
+      setProducts((prev) => prev.map((p) => (p.id === productId ? (data as Product) : p)));
     }
   }
 
@@ -115,12 +135,34 @@ function AdminShopPageInner() {
     loadPage();
   }, []);
 
+  function closeEditor() {
+    setEditorMode("closed");
+    setEditingProductId(null);
+  }
+
+  function openCreate() {
+    setSuccessMsg("");
+    setEditorMode("create");
+    setEditingProductId(null);
+  }
+
+  function openEdit(id: string) {
+    setSuccessMsg("");
+    setEditorMode("edit");
+    setEditingProductId(id);
+  }
+
+  const editingProduct =
+    editingProductId != null ? products.find((p) => p.id === editingProductId) : null;
+
   async function updateProduct(id: string, patch: Partial<Product>) {
     setSavingId(id);
     setErrorMsg("");
     setSuccessMsg("");
 
-    const { error } = await supabase.from("products").update(patch).eq("id", id);
+    const { size_inventory, ...rowPatch } = patch;
+
+    const { error } = await supabase.from("products").update(rowPatch).eq("id", id);
 
     if (error) {
       setErrorMsg(error.message);
@@ -128,9 +170,12 @@ function AdminShopPageInner() {
       return;
     }
 
-    setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...patch } : product)));
+    setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...rowPatch } : product)));
 
     try {
+      if (size_inventory !== undefined) {
+        await applyInventoryMap(id, size_inventory);
+      }
       await syncCreditReward(id);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Sync failed");
@@ -140,6 +185,7 @@ function AdminShopPageInner() {
 
     setSuccessMsg("Product updated.");
     setSavingId(null);
+    closeEditor();
   }
 
   async function createProductFromPatch(patch: Partial<Product>) {
@@ -148,25 +194,28 @@ function AdminShopPageInner() {
     setSuccessMsg("");
 
     const isCreditReward = patch.product_type === "credit_reward";
+    const { size_inventory, ...rowPatch } = patch;
+
     const insert = {
-      name: patch.name?.trim() || "Untitled",
-      slug: patch.slug?.trim() || `${isCreditReward ? "reward" : "merch"}-${Date.now()}`,
-      tagline: patch.tagline ?? "",
-      description: patch.description ?? "",
-      price: patch.price ?? 0,
-      category: patch.category ?? (isCreditReward ? "accessories" : "tees"),
-      status: patch.status ?? "coming_soon",
-      badge: patch.badge ?? (isCreditReward ? null : "new"),
-      sizes: patch.sizes ?? (isCreditReward ? [] : ["S", "M", "L", "XL"]),
-      images: patch.images ?? [],
-      sort_order: patch.sort_order ?? products.length,
-      product_type: patch.product_type ?? "cash_product",
-      credit_cost: isCreditReward ? (patch.credit_cost ?? 100) : null,
-      reward_category: isCreditReward ? (patch.reward_category ?? "community") : null,
-      reward_kind: isCreditReward ? patch.reward_kind ?? "physical" : null,
-      requires_shirt_size: patch.requires_shirt_size ?? false,
-      inventory_remaining: patch.inventory_remaining ?? null,
-      inventory_total: patch.inventory_total ?? null,
+      name: rowPatch.name?.trim() || "Untitled",
+      slug: rowPatch.slug?.trim() || `${isCreditReward ? "reward" : "merch"}-${Date.now()}`,
+      tagline: rowPatch.tagline ?? "",
+      description: rowPatch.description ?? "",
+      price: rowPatch.price ?? 0,
+      category: rowPatch.category ?? (isCreditReward ? "accessories" : "tees"),
+      status: rowPatch.status ?? "coming_soon",
+      badge: rowPatch.badge ?? (isCreditReward ? null : "new"),
+      sizes: rowPatch.sizes ?? (isCreditReward ? [] : ["S", "M", "L", "XL"]),
+      images: rowPatch.images ?? [],
+      sort_order: rowPatch.sort_order ?? products.length,
+      product_type: rowPatch.product_type ?? "cash_product",
+      credit_cost: isCreditReward ? (rowPatch.credit_cost ?? 100) : null,
+      reward_category: isCreditReward ? (rowPatch.reward_category ?? "community") : null,
+      reward_kind: isCreditReward ? rowPatch.reward_kind ?? "physical" : null,
+      requires_shirt_size: rowPatch.requires_shirt_size ?? false,
+      inventory_remaining: rowPatch.inventory_remaining ?? null,
+      inventory_total: rowPatch.inventory_total ?? null,
+      size_inventory: size_inventory ?? null,
     };
 
     const { data, error } = await supabase.from("products").insert(insert).select("*").single();
@@ -179,20 +228,23 @@ function AdminShopPageInner() {
 
     const created = data as Product;
     setProducts((prev) => [...prev, created]);
-    setShowCreateForm(false);
 
-    if (created.product_type === "credit_reward") {
-      try {
-        await syncCreditReward(created.id);
-      } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : "Sync failed");
-        setCreating(false);
-        return;
+    try {
+      if (size_inventory) {
+        await applyInventoryMap(created.id, size_inventory);
       }
+      if (created.product_type === "credit_reward") {
+        await syncCreditReward(created.id);
+      }
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Sync failed");
+      setCreating(false);
+      return;
     }
 
     setSuccessMsg("Product created.");
     setCreating(false);
+    closeEditor();
   }
 
   async function deleteProduct(id: string) {
@@ -214,6 +266,7 @@ function AdminShopPageInner() {
     setProducts((prev) => prev.filter((product) => product.id !== id));
     setSuccessMsg("Product deleted.");
     setSavingId(null);
+    closeEditor();
   }
 
   return (
@@ -224,7 +277,7 @@ function AdminShopPageInner() {
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin · Shop</p>
             <h1 className="mt-3 text-4xl font-semibold">Shop Control Room</h1>
             <p className="mt-2 text-sm text-zinc-500">
-              Cash products, credit rewards, and redemption fulfillment in one place.
+              Merch, credit rewards, inventory, and redemption fulfillment.
             </p>
           </div>
 
@@ -236,17 +289,14 @@ function AdminShopPageInner() {
               Main Admin
             </Link>
 
-            {tab === "products" ? (
+            {tab === "products" && editorMode === "closed" ? (
               <button
                 type="button"
-                onClick={() => {
-                  setShowCreateForm(true);
-                  setSuccessMsg("");
-                }}
-                disabled={creating || showCreateForm}
+                onClick={openCreate}
+                disabled={creating}
                 className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                New product
+                Add product / reward
               </button>
             ) : null}
           </div>
@@ -297,7 +347,8 @@ function AdminShopPageInner() {
 
             {tab === "orders" ? (
               <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-zinc-500">
-                Order management is coming soon. Cash checkout orders will appear here.
+                Order management is coming soon. Merch checkout with inventory reservations will
+                connect here.
               </div>
             ) : null}
 
@@ -309,30 +360,45 @@ function AdminShopPageInner() {
 
             {tab === "products" ? (
               <div className="mt-8 space-y-4">
-                {showCreateForm ? (
+                {editorMode === "create" ? (
                   <AdminProductEditor
                     key="admin-new-product"
                     isNew
                     disabled={creating}
-                    onCancel={() => setShowCreateForm(false)}
+                    onCancel={closeEditor}
                     onSave={createProductFromPatch}
                   />
                 ) : null}
 
-                {products.map((product) => (
+                {editorMode === "edit" && editingProduct ? (
                   <AdminProductEditor
-                    key={product.id}
-                    product={product}
-                    disabled={savingId === product.id}
-                    onSave={(patch) => updateProduct(product.id, patch)}
-                    onDelete={() => void deleteProduct(product.id)}
+                    key={editingProduct.id}
+                    product={editingProduct}
+                    disabled={savingId === editingProduct.id}
+                    onCancel={closeEditor}
+                    onSave={(patch) => updateProduct(editingProduct.id, patch)}
+                    onDelete={() => void deleteProduct(editingProduct.id)}
                   />
-                ))}
+                ) : null}
 
-                {products.length === 0 && !showCreateForm ? (
-                  <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
-                    No products yet. Use New product to add merch or a credit reward.
-                  </div>
+                {editorMode === "closed" ? (
+                  <>
+                    {products.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
+                        No products yet. Add a merch product or credit reward to get started.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {products.map((product) => (
+                          <AdminProductListRow
+                            key={product.id}
+                            product={product}
+                            onEdit={() => openEdit(product.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : null}
               </div>
             ) : null}

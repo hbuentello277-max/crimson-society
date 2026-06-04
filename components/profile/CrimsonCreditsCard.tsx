@@ -150,7 +150,7 @@ export function CrimsonCreditsCard({ summary, loading = false }: Props) {
 
             <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                Monthly cash redemption
+                Monthly store credit redemption
               </p>
               <p className="mt-1 text-sm font-medium text-zinc-200">
                 {loading
@@ -168,7 +168,7 @@ export function CrimsonCreditsCard({ summary, loading = false }: Props) {
           </div>
 
           <p className="mt-4 text-sm font-medium leading-6 text-[#f1c3c7]">
-            Unlimited balance • $25/month cash rewards • Community rewards separate
+            Unlimited balance • $25/month rewards • Community rewards separate
           </p>
           <p className="mt-2 text-[10px] leading-4 text-zinc-600">
             Earn from meets & referrals · Credits never expire · Redeem in Shop → Credit Rewards

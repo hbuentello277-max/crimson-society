@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { CreditRewardRedeemModal } from "@/components/credits/CreditRewardRedeemModal";
 import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
 import {
@@ -70,8 +70,9 @@ export function ShopCreditRewardsPanel() {
           {pageLoading ? "—" : `Stored value ${summary.stored_reward_value_usd}`}
         </p>
         <p className="mt-3 text-[10px] leading-5 text-zinc-600">
-          Cash rewards: {summary.monthly_cash_redemption_used} / {summary.monthly_cash_redemption_cap}{" "}
-          credits used this month · Community rewards are separate
+          Store credit rewards: {summary.monthly_cash_redemption_used} /{" "}
+          {summary.monthly_cash_redemption_cap} credits used this month · Community rewards are
+          separate
         </p>
       </div>
 
@@ -152,14 +153,10 @@ function ShopCreditRewardCard({
     selectedShirtSize: shirtSize,
   });
 
-  const imageSrc =
-    reward.image_url ||
-    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800";
-
   return (
     <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-        <Image src={imageSrc} alt="" fill sizes="(max-width: 640px) 50vw, 320px" className="object-cover" />
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-b from-[#120608] to-black">
+        <CreditRewardImage src={reward.image_url} className="object-contain p-6 opacity-95" />
         <span
           className={`absolute left-3 top-3 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] ${
             reward.reward_category === "cash"
