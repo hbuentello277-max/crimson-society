@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
 import { AdminProductListRow } from "@/components/admin/shop/AdminProductListRow";
+import { AdminOrdersTab } from "@/components/admin/shop/AdminOrdersTab";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
 import type { AdminProductSaveOptions } from "@/components/admin/shop/AdminProductEditor";
 import { buildProductInsertRow, sanitizeProductPatch } from "@/lib/admin/sanitize-product-patch";
@@ -376,10 +377,7 @@ function AdminShopPageInner() {
             )}
 
             {tab === "orders" ? (
-              <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-zinc-500">
-                Order management is coming soon. Merch checkout with inventory reservations will
-                connect here.
-              </div>
+              <AdminOrdersTab />
             ) : null}
 
             {tab === "redemptions" ? (

@@ -64,7 +64,7 @@ export default function CartDrawer() {
 
   const goCheckout = () => {
     closeDrawer();
-    router.push("/checkout");
+    router.push("/shop/checkout");
   };
 
   return (
