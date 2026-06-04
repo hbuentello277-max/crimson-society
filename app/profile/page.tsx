@@ -23,6 +23,9 @@ import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
+import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
+import { attributeReferralIfNeeded } from "@/lib/credits/attribute-referral";
+import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
 
 type ProfilePost = {
 id: string;
@@ -440,6 +443,20 @@ return [
 }, []);
 
 const membershipTier = resolveMembershipTier({ membership, isAdmin, profile: profile ?? undefined });
+const {
+  summary: creditsSummary,
+  loading: creditsLoading,
+  refresh: refreshCreditsSummary,
+} = useCrimsonCreditsSummary(userId);
+
+useEffect(() => {
+  if (!userId || authLoading) return;
+  void attributeReferralIfNeeded(supabase).then((result) => {
+    if (result.ok) {
+      void refreshCreditsSummary();
+    }
+  });
+}, [authLoading, refreshCreditsSummary, userId]);
 
 if (authLoading || profileLoading) {
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8"> <ProfileSkeleton /> </div> </main>
@@ -526,6 +543,12 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           )}
         </div>
       }
+    />
+
+    <CrimsonCreditsCard
+      summary={creditsSummary}
+      loading={creditsLoading}
+      membershipTier={membershipTier}
     />
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
@@ -753,21 +776,23 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Crimson Credits</p>
-            <p className="mt-2 text-xs leading-5 text-zinc-600">Coming soon</p>
+            <p className="mt-2 text-xs leading-5 text-zinc-600">More detail coming soon</p>
             <div className="mt-3 grid gap-2">
               {[
-                "Credits History",
-                "Referrals",
-                "Rewards",
-                "How It Works",
-              ].map((label) => (
-                <div
-                  key={label}
-                  className="cursor-not-allowed rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-600"
-                  aria-disabled
+                { href: "/profile/credits/history", label: "Credits History" },
+                { href: "/profile/credits/referrals", label: "Referrals" },
+                { href: "/profile/credits/rewards", label: "Rewards" },
+                { href: "/profile/credits/how-it-works", label: "How It Works" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  prefetch
+                  onClick={() => setSettingsOpen(false)}
+                  className="rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
                 >
-                  {label}
-                </div>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>

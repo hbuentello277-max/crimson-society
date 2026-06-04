@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { attributeReferralIfNeeded } from "@/lib/credits/attribute-referral";
 import { cleanUsername } from "@/lib/profile";
 
 const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
@@ -135,6 +136,8 @@ const { error: profileError } = await supabase
         .eq("id", user.id);
 
       if (profileError) throw profileError;
+
+      await attributeReferralIfNeeded(supabase);
 
       if (make.trim() || model.trim() || year.trim() || color.trim()) {
         const { error: motorcycleError } = await supabase

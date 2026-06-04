@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
+import { awardReferralBlackcardConversion } from "@/lib/credits/award-referral-blackcard";
 import { syncBlackcardPublicForUser } from "@/lib/stripe/sync-blackcard-public";
 import { normalizeMembershipPlanType } from "@/lib/membership";
 
@@ -115,6 +116,11 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 
   if (error) {
     throw error;
+  }
+
+  if (subscription.status === "active" || subscription.status === "trialing") {
+    await syncBlackcardPublicForUser(supabaseAdmin, userId);
+    await awardReferralBlackcardConversion(supabaseAdmin, userId);
   }
 }
 

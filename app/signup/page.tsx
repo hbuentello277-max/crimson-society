@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { persistReferralCode } from "@/lib/credits/referral-storage";
 import {
   getPasswordRequirementChecks,
   getPasswordValidationErrorKey,
@@ -142,6 +143,14 @@ export default function SignUpPage() {
   const emailRedirectTo = useMemo(() => {
     if (typeof window === "undefined") return undefined;
     return `${window.location.origin}/auth/callback`;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) {
+      persistReferralCode(ref);
+    }
   }, []);
 
   async function handleSignUp(e: FormEvent<HTMLFormElement>) {
