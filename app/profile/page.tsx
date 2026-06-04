@@ -22,6 +22,12 @@ import {
 import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
+
+const PROFILE_MENU_BTN =
+  "block w-full rounded-2xl border border-[#b4141e]/50 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/22";
+
+const PROFILE_MENU_BTN_COMPACT =
+  "block w-full rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/12 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/22 disabled:opacity-60";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { attributeReferralIfNeeded } from "@/lib/credits/attribute-referral";
@@ -756,7 +762,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                 href={item.href}
                 prefetch
                 onClick={() => setSettingsOpen(false)}
-                className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-sm text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                className={PROFILE_MENU_BTN}
               >
                 {item.label}
               </Link>
@@ -767,7 +773,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                 href="/admin"
                 prefetch
                 onClick={() => setSettingsOpen(false)}
-                className="rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/12 px-4 py-3 text-sm text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+                className={PROFILE_MENU_BTN}
               >
                 Admin Dashboard
               </Link>
@@ -789,7 +795,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                   href={item.href}
                   prefetch
                   onClick={() => setSettingsOpen(false)}
-                  className="rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  className={PROFILE_MENU_BTN_COMPACT}
                 >
                   {item.label}
                 </Link>
@@ -811,7 +817,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                   href={item.href}
                   prefetch
                   onClick={() => setSettingsOpen(false)}
-                  className="rounded-xl border border-white/10 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  className={PROFILE_MENU_BTN_COMPACT}
                 >
                   {item.label}
                 </Link>
@@ -858,7 +864,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                   profileStatus === "deletion_pending" ||
                   Boolean(deletionRequest && isOpenDeletionStatus(deletionRequest.status))
                 }
-                className="rounded-xl border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-2.5 text-left text-xs uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25 disabled:opacity-60"
+                className={`${PROFILE_MENU_BTN_COMPACT} text-left`}
               >
                 {deletionRequest && isOpenDeletionStatus(deletionRequest.status)
                   ? "Deletion Request Pending"
@@ -870,7 +876,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
                   href="/deletion-pending"
                   prefetch
                   onClick={() => setSettingsOpen(false)}
-                  className="rounded-xl border border-white/10 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  className={PROFILE_MENU_BTN_COMPACT}
                 >
                   Manage deletion status
                 </Link>
@@ -885,7 +891,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           <button
             type="button"
             onClick={() => void handleSignOut()}
-            className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+            className={`mt-3 ${PROFILE_MENU_BTN} text-left`}
           >
             Log Out
           </button>
