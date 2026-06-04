@@ -22,7 +22,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
-import { ProfileActionSheet } from "@/components/social/ProfileActionSheet";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 
 type ProfilePost = {
@@ -119,8 +118,6 @@ const [postsState, setPostsState] = useState<LoadState>("idle");
 const [garageState, setGarageState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [settingsOpen, setSettingsOpen] = useState(false);
-const [profileActionOpen, setProfileActionOpen] = useState(false);
-const [actionToast, setActionToast] = useState<string | null>(null);
 const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 const [toast, setToast] = useState<string | null>(null);
 const [deleteRequesting, setDeleteRequesting] = useState(false);
@@ -139,6 +136,13 @@ void refresh();
 }, 0);
 return () => window.clearTimeout(timer);
 }, [authLoading, refresh, userId]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  if (window.sessionStorage.getItem("openProfileAccountMenu") !== "1") return;
+  window.sessionStorage.removeItem("openProfileAccountMenu");
+  setSettingsOpen(true);
+}, []);
 
 useEffect(() => {
 if (!userId) {
@@ -479,7 +483,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
       <button
         type="button"
-        onClick={() => setProfileActionOpen(true)}
+        onClick={() => setSettingsOpen(true)}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
         aria-label="Open profile menu"
       >
@@ -689,31 +693,6 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
   </div>
 
-  <ProfileActionSheet
-    open={profileActionOpen}
-    target={
-      profile
-        ? {
-            profileId: profile.id,
-            username: profile.username,
-            displayName: profileDisplayName(profile),
-            isOwnProfile: true,
-          }
-        : null
-    }
-    onClose={() => setProfileActionOpen(false)}
-    onToast={(message) => {
-      setActionToast(message);
-      window.setTimeout(() => setActionToast(null), 1800);
-    }}
-  />
-
-  {actionToast && (
-    <div className="fixed bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
-      {actionToast}
-    </div>
-  )}
-
   {settingsOpen && (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-sm">
       <button
@@ -773,13 +752,34 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Crimson Credits</p>
+            <p className="mt-2 text-xs leading-5 text-zinc-600">Coming soon</p>
+            <div className="mt-3 grid gap-2">
+              {[
+                "Credits History",
+                "Referrals",
+                "Rewards",
+                "How It Works",
+              ].map((label) => (
+                <div
+                  key={label}
+                  className="cursor-not-allowed rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs uppercase tracking-[0.16em] text-zinc-600"
+                  aria-disabled
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Safety</p>
             <div className="mt-3 grid gap-2">
               {[
                 { href: "/community-guidelines", label: "Community Guidelines" },
-                { href: "/terms", label: "Terms" },
+                { href: "/terms", label: "Terms of Service" },
                 { href: "/privacy", label: "Privacy Policy" },
-                { href: "/safety", label: "Safety Information" },
+                { href: "/safety", label: "Safety Policy" },
               ].map((item) => (
                 <Link
                   key={item.label}
@@ -862,7 +862,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
             onClick={() => void handleSignOut()}
             className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
           >
-            Logout
+            Log Out
           </button>
         </div>
       </section>

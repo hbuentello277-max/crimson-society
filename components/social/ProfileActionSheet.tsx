@@ -54,12 +54,13 @@ export function ProfileActionSheet({
     : null;
 
   useEffect(() => {
-    if (!open || !target || target.isOwnProfile) return;
+    if (!open || !target) return;
 
     void supabase.auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id ?? null;
       setUserId(uid);
-      if (!uid) return;
+
+      if (!uid || target.isOwnProfile) return;
 
       const [favoriteState, subscriptionState, muteState] = await Promise.all([
         isFavoriteRider(supabase, uid, target.profileId),
@@ -75,11 +76,22 @@ export function ProfileActionSheet({
   }, [open, target]);
 
   const items = useMemo<ActionSheetItem[]>(() => {
-    if (!target || !userId) return [];
+    if (!target) return [];
     const toast = (message: string) => onToast?.(message);
 
     if (target.isOwnProfile) {
       return [
+        {
+          key: "account-menu",
+          icon: "⚙️",
+          label: "Account Menu",
+          onSelect: () => {
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem("openProfileAccountMenu", "1");
+            }
+            router.push("/profile");
+          },
+        },
         {
           key: "share",
           icon: "📤",
@@ -97,8 +109,8 @@ export function ProfileActionSheet({
         },
         {
           key: "settings",
-          icon: "⚙️",
-          label: "Account Settings",
+          icon: "✏️",
+          label: "Edit Profile",
           onSelect: () => router.push("/profile/edit"),
         },
         {
@@ -118,6 +130,8 @@ export function ProfileActionSheet({
         },
       ];
     }
+
+    if (!userId) return [];
 
     return [
       {
