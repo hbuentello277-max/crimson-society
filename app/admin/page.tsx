@@ -786,13 +786,19 @@ function AdminPageContent() {
             )}
 
             <div className="mt-8 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                   {
                     eyebrow: "Blackcard",
                     title: "Membership controls",
                     href: "/admin/blackcard",
                     cta: "Members",
+                  },
+                  {
+                    eyebrow: "Crimson Credits",
+                    title: "Credits control center",
+                    href: "/admin/credits",
+                    cta: "Credits",
                   },
                   {
                     eyebrow: "Shop",

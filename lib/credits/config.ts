@@ -1,5 +1,9 @@
 /**
- * Crimson Credits Phase 3 V1 — flat earn amounts (no tier multipliers).
+ * Crimson Credits — client display defaults.
+ *
+ * Live earn amounts, monthly cap, and toggles are stored in
+ * platform_settings.crimson_credits_economy (admin: /admin/credits → Economy).
+ * SQL earn paths read crimson_credits_economy_settings().
  *
  * Meet host (20) and attend (10) credits are awarded when a meet completes:
  * - tracking_status becomes `ended`, ride status is `active` (not canceled)
