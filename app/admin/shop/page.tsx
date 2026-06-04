@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ProductImageManager } from "@/components/admin/shop/ProductImageManager";
 import {
   Category,
   Product,
@@ -261,25 +262,12 @@ export default function AdminShopPage() {
                           />
                         </div>
 
-                        <div>
-                          <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                            Image URLs (comma separated)
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={product.images.join(", ")}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              updateProduct(product.id, {
-                                images: e.target.value
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean),
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition focus:border-[#b4141e]/60"
-                          />
-                        </div>
+                        <ProductImageManager
+                          productId={product.id}
+                          images={product.images}
+                          disabled={isSaving}
+                          onImagesChange={(images) => updateProduct(product.id, { images })}
+                        />
 
                         <div>
                           <label className="mb-2 block text-[10px] uppercase tracking-[0.25em] text-zinc-500">

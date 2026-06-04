@@ -31,11 +31,14 @@ export function CreditsHowItWorksPageContent() {
       ) : null}
 
       <section className="space-y-3 rounded-[22px] border border-white/10 bg-white/[0.02] p-4 text-sm leading-7 text-zinc-400">
-        <p>Everyone can earn Crimson Credits by participating in the community.</p>
         <p>
-          Only <span className="text-zinc-200">Blackcard</span> and{" "}
-          <span className="text-zinc-200">Founding Blackcard</span> members can redeem credits for member
-          rewards (redemption coming soon).
+          <span className="text-zinc-200">Free members</span> can earn Crimson Credits through meets and
+          referrals.
+        </p>
+        <p>
+          <span className="text-zinc-200">Blackcard</span> and{" "}
+          <span className="text-zinc-200">Founding Blackcard</span> members can redeem credits for future
+          member rewards (redemption coming soon).
         </p>
         <p>
           <span className="text-white">100 Crimson Credits</span> ≈ {sampleValue} estimated reward value.

@@ -1,15 +1,8 @@
 import Link from "next/link";
 
-export const LOCKED_BLACKCARD_PERKS = [
-  "Crimson Credits",
-  "Early merch access",
-  "Member-only rides",
-  "Private Blackcard chat",
-  "Priority ride access",
-  "Limited merch reservations",
-  "Exclusive drops/giveaways",
-  "Coming soon rewards",
-] as const;
+import { BLACKCARD_MEMBERSHIP_PERKS } from "@/lib/blackcard/perks";
+
+export const LOCKED_BLACKCARD_PERKS = [...BLACKCARD_MEMBERSHIP_PERKS] as const;
 
 type Props = {
   unlocked: boolean;
@@ -44,8 +37,8 @@ export function BlackcardPerksPreview({ unlocked }: Props) {
 
       <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
         {unlocked
-          ? "Your membership unlocks these premium layers across Crimson Society."
-          : "Subscribe to Blackcard to unlock member-only rides, early access, and premium identity."}
+          ? "Your membership unlocks Crimson Credits redemption (coming soon), early merch access, and exclusive meets."
+          : "Subscribe to unlock Crimson Credits redemption for future rewards, early merch access, and exclusive meets."}
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">

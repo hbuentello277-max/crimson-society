@@ -6,7 +6,12 @@ import {
   formatMembershipPlanType,
   type MembershipPlanType,
 } from "@/lib/membership";
-import { BLACKCARD_ACTIVE_PERKS, BLACKCARD_PAYWALL_PERKS } from "@/lib/blackcard/perks";
+import {
+  BLACKCARD_ACTIVE_PERKS,
+  BLACKCARD_CREDITS_TAGLINE,
+  BLACKCARD_HERO_DESCRIPTION,
+} from "@/lib/blackcard/perks";
+import { resolveBlackcardPlanPerks } from "@/lib/blackcard/plan-perks";
 import {
   formatPrice,
   sanitizePlan,
@@ -248,10 +253,8 @@ export default function BlackcardPage() {
           <h1 className="mt-4 text-4xl font-light tracking-tight md:text-5xl">
             Enter the inner circle.
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
-            Blackcard is the premium membership for riders who show up: exclusive meets,
-            Crimson Credits bonuses, early merch access, member pricing, and merch voting.
-          </p>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">{BLACKCARD_HERO_DESCRIPTION}</p>
+          <p className="mt-3 max-w-2xl text-xs leading-6 text-zinc-500">{BLACKCARD_CREDITS_TAGLINE}</p>
 
           {errorMsg && (
             <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
@@ -270,22 +273,23 @@ export default function BlackcardPage() {
                 </p>
                 <h2 className="mt-3 text-2xl font-light">{plan.title}</h2>
                 <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
+                <p className="mt-3 text-xs leading-5 text-zinc-500">
+                  Earn credits as a member. Redeem future rewards when redemption launches.
+                </p>
                 <p className="mt-5 font-serif text-4xl text-white">
                   ${formatPrice(plan.price)}
                   <span className="ml-2 font-sans text-xs uppercase tracking-[0.2em] text-zinc-500">
                     / {plan.plan_type === "monthly" ? "mo" : "yr"}
                   </span>
                 </p>
-                {plan.perks.length > 0 && (
-                  <ul className="mt-5 space-y-2">
-                    {plan.perks.slice(0, 5).map((perk) => (
-                      <li key={perk} className="text-sm text-zinc-400">
-                        <span className="mr-2 text-[#b4141e]">✦</span>
-                        {perk}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ul className="mt-5 space-y-2">
+                  {resolveBlackcardPlanPerks(plan).map((perk) => (
+                    <li key={perk} className="text-sm text-zinc-400">
+                      <span className="mr-2 text-[#b4141e]">✦</span>
+                      {perk}
+                    </li>
+                  ))}
+                </ul>
                 <div className="mt-6">
                   <CheckoutButton
                     planType={plan.plan_type}

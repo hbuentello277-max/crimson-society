@@ -3,6 +3,8 @@
 import AdminPricingManager from "./AdminPricingManager";
 import type { MembershipPlan } from "./types";
 import { formatPrice } from "./types";
+import { BLACKCARD_MEMBERSHIP_PERKS } from "@/lib/blackcard/perks";
+import { resolveBlackcardPlanPerks } from "@/lib/blackcard/plan-perks";
 
 type Props = {
   onBack: () => void;
@@ -28,9 +30,10 @@ export default function BlackcardPaywall({
   const monthlyPlan = plans.find((plan) => plan.plan_type === "monthly");
   const yearlyPlan = plans.find((plan) => plan.plan_type === "yearly");
   const selectedPlanData = selectedPlan === "monthly" ? monthlyPlan : yearlyPlan;
-  const visiblePerks = Array.from(
-    new Set(plans.flatMap((plan) => plan.perks).filter(Boolean))
-  );
+  const visiblePerks =
+    plans.length > 0
+      ? Array.from(new Set(plans.flatMap((plan) => resolveBlackcardPlanPerks(plan))))
+      : [...BLACKCARD_MEMBERSHIP_PERKS];
 
   return (
     <section className="mt-8 overflow-hidden rounded-[32px] border border-[#b4141e]/25 bg-gradient-to-b from-[#121114] via-[#0b0b0d] to-[#060606] shadow-[0_24px_80px_-40px_rgba(0,0,0,0.95)]">

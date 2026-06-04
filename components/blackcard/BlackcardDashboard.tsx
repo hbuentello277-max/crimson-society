@@ -27,8 +27,8 @@ export default function BlackcardDashboard({ onBack }: Props) {
         </h1>
 
         <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-400">
-          Premium membership built around riding, community, and participation — not follower
-          competition. Earn more Crimson Credits, unlock exclusive meets, and get first access to merch.
+          Premium membership built around riding, community, and participation. Earn Crimson Credits
+          through meets and referrals, redeem future member rewards, and get early merch access.
         </p>
       </div>
 
