@@ -39,11 +39,15 @@ type Draft = Partial<Product> & {
   images: string[];
 };
 
+export type AdminProductSaveOptions = {
+  pendingImageFiles?: File[];
+};
+
 type Props = {
   product?: Product;
   isNew?: boolean;
   disabled?: boolean;
-  onSave: (patch: Partial<Product>) => Promise<void>;
+  onSave: (patch: Partial<Product>, options?: AdminProductSaveOptions) => Promise<void>;
   onDelete?: () => void;
   onCancel?: () => void;
   onBack?: () => void;
@@ -91,6 +95,7 @@ export function AdminProductEditor({
   }));
   const [saving, setSaving] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
 
   const isCreditReward = productType === "credit_reward";
   const usePerSizeInventory = !isCreditReward || Boolean(draft.requires_shirt_size);
@@ -219,7 +224,7 @@ export function AdminProductEditor({
         patch.slug = `${isCreditReward ? "reward" : "merch"}-${Date.now()}`;
       }
 
-      await onSave(patch);
+      await onSave(patch, isNew ? { pendingImageFiles } : undefined);
     } finally {
       setSaving(false);
     }
@@ -304,18 +309,14 @@ export function AdminProductEditor({
             />
           </div>
 
-          {product?.id ? (
-            <ProductImageManager
-              productId={product.id}
-              images={draft.images}
-              disabled={disabled || saving}
-              onImagesChange={(images) => setDraft((d) => ({ ...d, images }))}
-            />
-          ) : (
-            <p className="rounded-xl border border-dashed border-white/15 px-4 py-3 text-xs text-zinc-500">
-              Save the product first, then upload images.
-            </p>
-          )}
+          <ProductImageManager
+            productId={product?.id}
+            images={draft.images}
+            pendingFiles={isNew ? pendingImageFiles : undefined}
+            onPendingFilesChange={isNew ? setPendingImageFiles : undefined}
+            disabled={disabled || saving}
+            onImagesChange={(images) => setDraft((d) => ({ ...d, images }))}
+          />
         </div>
 
         <div className="space-y-4">

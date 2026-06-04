@@ -1,15 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
-import {
-  SHOP_PRODUCT_IMAGE_MAX_BYTES,
-  SHOP_PRODUCT_IMAGE_MIME_TYPES,
-} from "@/lib/shop/product-images";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SHOP_PRODUCT_IMAGE_MIME_TYPES } from "@/lib/shop/product-images";
+import { uploadShopProductImages } from "@/lib/shop/upload-product-images";
 
 type Props = {
-  productId: string;
+  productId?: string;
   images: string[];
+  pendingFiles?: File[];
+  onPendingFilesChange?: (files: File[]) => void;
   disabled?: boolean;
   onImagesChange: (images: string[]) => void;
 };
@@ -21,9 +21,15 @@ function parseUrlList(raw: string) {
     .filter(Boolean);
 }
 
+function pendingFileKey(file: File, index: number) {
+  return `${file.name}-${file.size}-${file.lastModified}-${index}`;
+}
+
 export function ProductImageManager({
   productId,
   images,
+  pendingFiles = [],
+  onPendingFilesChange,
   disabled = false,
   onImagesChange,
 }: Props) {
@@ -32,44 +38,43 @@ export function ProductImageManager({
   const [urlDraft, setUrlDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const canQueueLocally = !productId && Boolean(onPendingFilesChange);
+
+  const pendingPreviewUrls = useMemo(() => {
+    return pendingFiles.map((file) => URL.createObjectURL(file));
+  }, [pendingFiles]);
+
+  useEffect(() => {
+    return () => {
+      for (const url of pendingPreviewUrls) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [pendingPreviewUrls]);
+
   async function handleFilesSelected(fileList: FileList | null) {
     if (!fileList?.length || disabled) return;
+
+    const files = Array.from(fileList);
+
+    if (canQueueLocally) {
+      onPendingFilesChange?.([...pendingFiles, ...files]);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (!productId) return;
 
     setUploading(true);
     setError(null);
 
-    const uploaded: string[] = [];
-
     try {
-      for (const file of Array.from(fileList)) {
-        if (!(SHOP_PRODUCT_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
-          throw new Error(`${file.name}: only JPG, PNG, and WebP are allowed.`);
-        }
-        if (file.size > SHOP_PRODUCT_IMAGE_MAX_BYTES) {
-          throw new Error(`${file.name}: exceeds 5MB limit.`);
-        }
-
-        const body = new FormData();
-        body.set("product_id", productId);
-        body.set("file", file);
-
-        const res = await fetch("/api/admin/shop/upload", {
-          method: "POST",
-          body,
-        });
-        const data = (await res.json()) as { url?: string; error?: string };
-        if (!res.ok || !data.url) {
-          throw new Error(data.error ?? `Failed to upload ${file.name}`);
-        }
-        uploaded.push(data.url);
-      }
-
+      const uploaded = await uploadShopProductImages(productId, files);
       onImagesChange([...images, ...uploaded]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
-      if (uploaded.length > 0) {
-        onImagesChange([...images, ...uploaded]);
-      }
     } finally {
       setUploading(false);
       if (inputRef.current) {
@@ -80,6 +85,11 @@ export function ProductImageManager({
 
   function removeImage(url: string) {
     onImagesChange(images.filter((item) => item !== url));
+  }
+
+  function removePendingFile(index: number) {
+    if (!onPendingFilesChange) return;
+    onPendingFilesChange(pendingFiles.filter((_, i) => i !== index));
   }
 
   function addUrlsFromDraft() {
@@ -95,13 +105,23 @@ export function ProductImageManager({
     setUrlDraft("");
   }
 
+  const queuedCount = pendingFiles.length;
+  const hasAnyImages = images.length > 0 || queuedCount > 0;
+
   return (
     <div className="space-y-3">
       <label className="block text-[10px] uppercase tracking-[0.25em] text-zinc-500">
         Product images
       </label>
 
-      {images.length > 0 && (
+      {canQueueLocally && queuedCount > 0 ? (
+        <p className="text-[10px] leading-5 text-zinc-500">
+          {queuedCount} image{queuedCount === 1 ? "" : "s"} queued — uploads when you save the
+          product.
+        </p>
+      ) : null}
+
+      {hasAnyImages && (
         <div className="flex flex-wrap gap-2">
           {images.map((url) => (
             <div
@@ -120,17 +140,43 @@ export function ProductImageManager({
               </button>
             </div>
           ))}
+
+          {pendingFiles.map((file, index) => {
+            const previewUrl = pendingPreviewUrls[index];
+            if (!previewUrl) return null;
+            return (
+              <div
+                key={pendingFileKey(file, index)}
+                className="relative h-20 w-20 overflow-hidden rounded-xl border border-dashed border-[#b4141e]/40 bg-black/40"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+                <span className="absolute bottom-0 left-0 right-0 bg-black/75 px-1 py-0.5 text-center text-[8px] uppercase tracking-wider text-[#e87a82]">
+                  Queued
+                </span>
+                <button
+                  type="button"
+                  disabled={disabled || uploading}
+                  onClick={() => removePendingFile(index)}
+                  className="absolute right-1 top-1 rounded-full bg-black/80 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-black"
+                  aria-label="Remove queued image"
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || (!productId && !canQueueLocally)}
           onClick={() => inputRef.current?.click()}
           className="rounded-xl border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:border-[#b4141e]/70 disabled:opacity-50"
         >
-          {uploading ? "Uploading…" : "Upload images"}
+          {uploading ? "Uploading…" : canQueueLocally ? "Choose images" : "Upload images"}
         </button>
         <input
           ref={inputRef}
@@ -144,6 +190,7 @@ export function ProductImageManager({
 
       <p className="text-[10px] leading-5 text-zinc-600">
         JPG, PNG, or WebP · max 5MB each · multiple files supported
+        {canQueueLocally ? " · saved on Create product" : ""}
       </p>
 
       <div>

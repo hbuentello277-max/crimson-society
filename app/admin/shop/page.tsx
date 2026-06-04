@@ -7,8 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
 import { AdminProductListRow } from "@/components/admin/shop/AdminProductListRow";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
+import type { AdminProductSaveOptions } from "@/components/admin/shop/AdminProductEditor";
 import { buildProductInsertRow, sanitizeProductPatch } from "@/lib/admin/sanitize-product-patch";
 import { Product } from "@/lib/products";
+import { uploadShopProductImages } from "@/lib/shop/upload-product-images";
 
 type AdminShopTab = "products" | "orders" | "redemptions";
 
@@ -208,7 +210,10 @@ function AdminShopPageInner() {
     closeEditor();
   }
 
-  async function createProductFromPatch(patch: Partial<Product>) {
+  async function createProductFromPatch(
+    patch: Partial<Product>,
+    options?: AdminProductSaveOptions,
+  ) {
     setCreating(true);
     setErrorMsg("");
     setSuccessMsg("");
@@ -223,6 +228,7 @@ function AdminShopPageInner() {
     }
 
     const size_inventory = insert.size_inventory;
+    const pendingFiles = options?.pendingImageFiles ?? [];
 
     const { data, error } = await supabase.from("products").insert(insert).select("*").single();
 
@@ -232,10 +238,27 @@ function AdminShopPageInner() {
       return;
     }
 
-    const created = data as Product;
-    setProducts((prev) => [...prev, created]);
+    let created = data as Product;
 
     try {
+      if (pendingFiles.length > 0) {
+        const uploadedUrls = await uploadShopProductImages(created.id, pendingFiles);
+        const mergedImages = [...(insert.images ?? []), ...uploadedUrls];
+
+        const { data: withImages, error: imagesError } = await supabase
+          .from("products")
+          .update({ images: mergedImages })
+          .eq("id", created.id)
+          .select("*")
+          .single();
+
+        if (imagesError) {
+          throw new Error(imagesError.message);
+        }
+
+        created = (withImages as Product) ?? { ...created, images: mergedImages };
+      }
+
       if (size_inventory) {
         await applyInventoryMap(created.id, size_inventory);
       }
@@ -248,6 +271,7 @@ function AdminShopPageInner() {
       return;
     }
 
+    setProducts((prev) => [...prev, created]);
     setSuccessMsg("Product created.");
     setCreating(false);
     closeEditor();
