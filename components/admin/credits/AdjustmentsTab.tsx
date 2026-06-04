@@ -2,12 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminUserSearch, type SelectedAdminUser } from "@/components/admin/credits/AdminUserSearch";
+import {
+  ADJUSTMENT_AMOUNT_PRESETS,
+  ADJUSTMENT_REASON_PRESETS,
+} from "@/components/admin/credits/adjustment-quick-actions";
+import { QuickPresetChips } from "@/components/admin/credits/QuickPresetChips";
 import type { AdminCreditUserSummary } from "@/lib/credits/admin-types";
 
-export function AdjustmentsTab() {
+type Props = {
+  onAdjustmentSuccess?: () => void;
+};
+
+export function AdjustmentsTab({ onAdjustmentSuccess }: Props) {
   const [selectedUser, setSelectedUser] = useState<SelectedAdminUser | null>(null);
   const [summary, setSummary] = useState<AdminCreditUserSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryRefreshing, setSummaryRefreshing] = useState(false);
   const [direction, setDirection] = useState<"add" | "remove">("add");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -16,9 +26,15 @@ export function AdjustmentsTab() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
-  const loadSummary = useCallback(async (userId: string) => {
-    setSummaryLoading(true);
-    setSummary(null);
+  const loadSummary = useCallback(async (userId: string, options?: { refresh?: boolean }) => {
+    const isRefresh = options?.refresh === true;
+    if (isRefresh) {
+      setSummaryRefreshing(true);
+    } else {
+      setSummaryLoading(true);
+      setSummary(null);
+    }
+
     try {
       const res = await fetch(`/api/admin/credits/users/summary?user_id=${encodeURIComponent(userId)}`);
       const data = await res.json();
@@ -27,9 +43,12 @@ export function AdjustmentsTab() {
       }
       setSummary(data.summary);
     } catch {
-      setSummary(null);
+      if (!isRefresh) {
+        setSummary(null);
+      }
     } finally {
       setSummaryLoading(false);
+      setSummaryRefreshing(false);
     }
   }, []);
 
@@ -77,12 +96,23 @@ export function AdjustmentsTab() {
       }
 
       const r = data.result as { credits_balance?: number; direction?: string; amount?: number };
+
+      if (typeof r.credits_balance === "number") {
+        setSummary((prev) =>
+          prev
+            ? { ...prev, credits_balance: r.credits_balance as number }
+            : prev,
+        );
+      }
+
+      await loadSummary(selectedUser.id, { refresh: true });
+      onAdjustmentSuccess?.();
+
       setResult(
-        `Success: ${r.direction} ${Math.abs(r.amount ?? parsedAmount)} credits. New balance: ${r.credits_balance ?? "—"}.`,
+        `Success: ${r.direction} ${Math.abs(r.amount ?? parsedAmount)} credits. New balance: ${r.credits_balance ?? summary?.credits_balance ?? "—"}.`,
       );
       setAmount("");
       setNote("");
-      void loadSummary(selectedUser.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Adjustment failed");
     } finally {
@@ -102,13 +132,16 @@ export function AdjustmentsTab() {
 
         {selectedUser && (
           <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
-            {summaryLoading ? (
+            {summaryLoading && !summary ? (
               <p className="text-xs text-zinc-500">Loading balance…</p>
             ) : summary ? (
-              <div className="space-y-1 text-sm">
+              <div className={`space-y-1 text-sm ${summaryRefreshing ? "opacity-70" : ""}`}>
                 <p>
                   <span className="text-zinc-500">Current balance:</span>{" "}
                   <span className="font-medium text-white">{summary.credits_balance} credits</span>
+                  {summaryRefreshing ? (
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-zinc-600">Updating…</span>
+                  ) : null}
                 </p>
                 <p>
                   <span className="text-zinc-500">Monthly earned:</span>{" "}
@@ -127,7 +160,7 @@ export function AdjustmentsTab() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
+          <label className="block sm:col-span-2">
             <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Direction</span>
             <select
               value={direction}
@@ -139,30 +172,45 @@ export function AdjustmentsTab() {
             </select>
           </label>
 
-          <label className="block">
-            <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Amount</span>
+          <div className="block sm:col-span-2">
+            <QuickPresetChips
+              label="Quick amount"
+              options={ADJUSTMENT_AMOUNT_PRESETS}
+              formatOption={(value) => `+${value}`}
+              onSelect={(value) => setAmount(String(value))}
+            />
+            <label className="mt-3 block">
+              <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Amount</span>
+              <input
+                type="number"
+                min={1}
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <QuickPresetChips
+            label="Quick reason"
+            options={ADJUSTMENT_REASON_PRESETS}
+            onSelect={(value) => setReason(String(value))}
+          />
+          <label className="mt-3 block">
+            <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Reason (required)</span>
             <input
-              type="number"
-              min={1}
+              type="text"
               required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Support credit, correction, etc."
               className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
             />
           </label>
         </div>
-
-        <label className="block">
-          <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Reason (required)</span>
-          <input
-            type="text"
-            required
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Support credit, correction, etc."
-            className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
-          />
-        </label>
 
         <label className="block">
           <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Internal note (optional)</span>

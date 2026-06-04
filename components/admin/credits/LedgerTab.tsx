@@ -34,7 +34,11 @@ function ReferredUserCell({ row }: { row: AdminCreditLedgerRow }) {
   );
 }
 
-export function LedgerTab() {
+type Props = {
+  refreshKey?: number;
+};
+
+export function LedgerTab({ refreshKey = 0 }: Props) {
   const [rows, setRows] = useState<AdminCreditLedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +63,14 @@ export function LedgerTab() {
   }, [offset]);
 
   useEffect(() => {
+    if (refreshKey > 0) {
+      setOffset(0);
+    }
+  }, [refreshKey]);
+
+  useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   return (
     <div className="space-y-4">

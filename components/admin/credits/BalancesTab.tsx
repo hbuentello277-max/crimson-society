@@ -5,7 +5,11 @@ import { AdminUserIdentity } from "@/components/admin/credits/AdminUserIdentity"
 import { TechnicalDetailsToggle } from "@/components/admin/credits/TechnicalDetailsToggle";
 import type { AdminCreditBalanceRow } from "@/lib/credits/admin-types";
 
-export function BalancesTab() {
+type Props = {
+  refreshKey?: number;
+};
+
+export function BalancesTab({ refreshKey = 0 }: Props) {
   const [rows, setRows] = useState<AdminCreditBalanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +33,7 @@ export function BalancesTab() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   return (
     <div className="space-y-4">
