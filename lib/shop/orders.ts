@@ -12,6 +12,14 @@ export const SHOP_FULFILLMENT_STATUSES = [
 
 export const SHOP_DELIVERY_METHODS = ["shipping", "local_pickup"] as const;
 
+export const SHOP_ORDER_EMAIL_TYPES = [
+  "order_confirmation",
+  "ready_for_pickup",
+  "shipped",
+] as const;
+
+export type ShopOrderEmailType = (typeof SHOP_ORDER_EMAIL_TYPES)[number];
+
 export const SHOP_PICKUP_STATUSES = [
   "not_applicable",
   "pending",
@@ -233,4 +241,17 @@ export function formatCentsUsd(cents: number) {
 
 export function shortOrderId(orderId: string) {
   return orderId.slice(0, 8).toUpperCase();
+}
+
+export function formatEmailTypeLabel(type: ShopOrderEmailType | string) {
+  switch (type) {
+    case "order_confirmation":
+      return "Order confirmation";
+    case "ready_for_pickup":
+      return "Ready for pickup";
+    case "shipped":
+      return "Shipped";
+    default:
+      return type;
+  }
 }

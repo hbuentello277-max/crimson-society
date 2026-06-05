@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   formatCentsUsd,
   formatDeliveryMethodLabel,
+  formatEmailTypeLabel,
   formatFulfillmentStatusLabel,
   formatOrderStatusLabel,
   formatPickupStatusLabel,
@@ -23,6 +24,15 @@ type OrderItem = {
   size: string | null;
   quantity: number;
   line_total_cents: number;
+};
+
+type EmailEventRow = {
+  id: string;
+  email_type: string;
+  sent_to: string;
+  sent_at: string;
+  provider_message_id: string | null;
+  metadata: Record<string, unknown>;
 };
 
 type AdminOrderDetail = {
@@ -44,6 +54,7 @@ type AdminOrderDetail = {
   pickup_note: string | null;
   created_at: string;
   items: OrderItem[];
+  email_events?: EmailEventRow[];
 };
 
 type Props = {
@@ -57,6 +68,7 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
 
   const [fulfillmentStatus, setFulfillmentStatus] = useState<ShopFulfillmentStatus>("unfulfilled");
   const [pickupStatus, setPickupStatus] = useState<ShopPickupStatus>("not_applicable");
@@ -78,6 +90,7 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
     async function load() {
       setLoading(true);
       setError(null);
+      setEmailWarning(null);
       try {
         const res = await fetch(`/api/admin/shop/orders/${orderId}`);
         const data = (await res.json()) as { order?: AdminOrderDetail; error?: string };
@@ -112,16 +125,24 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
     if (!orderId) return;
     setSaving(true);
     setError(null);
+    setEmailWarning(null);
     try {
       const res = await fetch(`/api/admin/shop/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      const data = (await res.json()) as { order?: AdminOrderDetail; error?: string };
+      const data = (await res.json()) as {
+        order?: AdminOrderDetail;
+        error?: string;
+        email_warnings?: string[];
+      };
       if (!res.ok) {
         setError(data.error ?? "Save failed");
         return;
+      }
+      if (data.email_warnings?.length) {
+        setEmailWarning(data.email_warnings.join(" · "));
       }
       if (data.order) {
         setOrder(data.order);
@@ -164,6 +185,11 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
 
       {loading ? <p className="text-sm text-zinc-500">Loading…</p> : null}
       {error ? <p className="mb-3 text-sm text-red-300">{error}</p> : null}
+      {emailWarning ? (
+        <p className="mb-3 text-sm text-amber-300">
+          Order saved, but email could not be sent: {emailWarning}
+        </p>
+      ) : null}
 
       {order ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -227,6 +253,37 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
             </ul>
 
             <p className="text-sm text-[#e87a82]">Total {formatCentsUsd(order.total_cents)}</p>
+
+            {order.email_events && order.email_events.length > 0 ? (
+              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-600">
+                  Emails sent
+                </p>
+                <ul className="mt-2 space-y-2 text-xs text-zinc-400">
+                  {order.email_events.map((ev) => {
+                    const failed = ev.metadata?.status === "failed";
+                    return (
+                      <li key={ev.id}>
+                        <span className="text-zinc-300">
+                          {formatEmailTypeLabel(
+                            ev.email_type as "order_confirmation" | "ready_for_pickup" | "shipped",
+                          )}
+                        </span>
+                        {failed ? (
+                          <span className="text-amber-400"> · failed</span>
+                        ) : ev.provider_message_id ? (
+                          <span className="text-emerald-400/90"> · sent</span>
+                        ) : null}
+                        <br />
+                        <span className="text-zinc-500">
+                          {ev.sent_to} · {new Date(ev.sent_at).toLocaleString()}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-4">

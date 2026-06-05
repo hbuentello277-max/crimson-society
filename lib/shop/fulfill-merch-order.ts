@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
+import { sendOrderConfirmationEmail } from "@/lib/shop/order-emails";
 
 export type MerchFulfillmentResult = {
   ok: boolean;
@@ -53,6 +54,10 @@ export async function fulfillMerchOrderFromCheckoutSession(
   }
 
   if (order.status === "paid") {
+    const emailResult = await sendOrderConfirmationEmail(admin, orderId);
+    if (!emailResult.sent && !emailResult.skipped && emailResult.error) {
+      console.warn("[merch-fulfill] confirmation email", emailResult.error);
+    }
     return { ok: true, order_id: orderId, reason: "already_paid" };
   }
 
@@ -104,6 +109,11 @@ export async function fulfillMerchOrderFromCheckoutSession(
   if (updateError) {
     console.error("[merch-fulfill] order update failed", updateError.message);
     return { ok: false, reason: "order_update_error" };
+  }
+
+  const emailResult = await sendOrderConfirmationEmail(admin, orderId);
+  if (!emailResult.sent && !emailResult.skipped && emailResult.error) {
+    console.warn("[merch-fulfill] confirmation email", emailResult.error);
   }
 
   return { ok: true, order_id: orderId };

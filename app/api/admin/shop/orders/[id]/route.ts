@@ -4,6 +4,12 @@ import {
   buildAdminOrderUpdateRow,
   sanitizeAdminShopOrderPatch,
 } from "@/lib/shop/admin-order-patch";
+import {
+  listOrderEmailEvents,
+  sendReadyForPickupEmail,
+  sendShippedEmail,
+  type OrderEmailSendResult,
+} from "@/lib/shop/order-emails";
 import { serializeOrder } from "@/lib/shop/serialize-order";
 
 const ORDER_SELECT =
@@ -39,12 +45,14 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const order = serializeOrder(data, true);
+  const email_events = await listOrderEmailEvents(admin, orderId);
   return NextResponse.json({
     order: {
       ...order,
       shipping_name: (data.shipping_name as string | null) ?? null,
       admin_fulfillment_note: (data.admin_fulfillment_note as string | null) ?? null,
       pickup_note: (data.pickup_note as string | null) ?? null,
+      email_events,
     },
   });
 }
@@ -83,7 +91,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const { data: existing, error: loadError } = await admin
     .from("shop_orders")
     .select(
-      "id, fulfilled_at, shipped_at, pickup_ready_at, picked_up_at, fulfillment_status, admin_fulfillment_note, customer_note, tracking_carrier, tracking_number, tracking_url",
+      "id, delivery_method, fulfilled_at, shipped_at, pickup_ready_at, picked_up_at, fulfillment_status, pickup_status, admin_fulfillment_note, customer_note, tracking_carrier, tracking_number, tracking_url",
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -114,13 +122,41 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  const emailResults: OrderEmailSendResult[] = [];
+
+  const prevPickup = existing.pickup_status as string;
+  const nextPickup = (updated.pickup_status as string) ?? prevPickup;
+  if (
+    patch.pickup_status === "ready" &&
+    prevPickup !== "ready" &&
+    (updated.delivery_method as string) === "local_pickup"
+  ) {
+    emailResults.push(await sendReadyForPickupEmail(admin, orderId));
+  }
+
+  const prevFulfillment = existing.fulfillment_status as string;
+  if (
+    patch.fulfillment_status === "shipped" &&
+    prevFulfillment !== "shipped" &&
+    (updated.delivery_method as string) === "shipping"
+  ) {
+    emailResults.push(await sendShippedEmail(admin, orderId));
+  }
+
   const order = serializeOrder(updated, true);
+  const email_events = await listOrderEmailEvents(admin, orderId);
+  const email_warnings = emailResults
+    .filter((r) => !r.sent && r.error)
+    .map((r) => `${r.email_type}: ${r.error}`);
+
   return NextResponse.json({
     order: {
       ...order,
       shipping_name: (updated.shipping_name as string | null) ?? null,
       admin_fulfillment_note: (updated.admin_fulfillment_note as string | null) ?? null,
       pickup_note: (updated.pickup_note as string | null) ?? null,
+      email_events,
     },
+    email_warnings: email_warnings.length ? email_warnings : undefined,
   });
 }
