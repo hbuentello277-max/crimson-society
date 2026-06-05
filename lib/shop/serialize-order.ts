@@ -87,6 +87,8 @@ export function serializeOrder(row: DbOrder, includeItems = false) {
     pickup_note: (row.pickup_note as string | null) ?? null,
     pickup_ready_at: (row.pickup_ready_at as string | null) ?? null,
     picked_up_at: (row.picked_up_at as string | null) ?? null,
+    archived_at: (row.archived_at as string | null) ?? null,
+    archived_by: (row.archived_by as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };

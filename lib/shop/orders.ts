@@ -72,6 +72,8 @@ export type ShopOrder = {
   pickup_note: string | null;
   pickup_ready_at: string | null;
   picked_up_at: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

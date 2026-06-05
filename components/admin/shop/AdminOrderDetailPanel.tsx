@@ -52,6 +52,7 @@ type AdminOrderDetail = {
   admin_fulfillment_note: string | null;
   customer_note: string | null;
   pickup_note: string | null;
+  archived_at?: string | null;
   created_at: string;
   items: OrderItem[];
   email_events?: EmailEventRow[];
@@ -61,9 +62,10 @@ type Props = {
   orderId: string | null;
   onClose: () => void;
   onUpdated: () => void;
+  onDeleted?: () => void;
 };
 
-export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
+export function AdminOrderDetailPanel({ orderId, onClose, onUpdated, onDeleted }: Props) {
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,6 +160,91 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
       onUpdated();
     } catch {
       setError("Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archiveOrder() {
+    if (!orderId) return;
+    if (
+      !window.confirm(
+        "Archive this order? It will be hidden from the customer's Profile → Orders.",
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shop/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive: true }),
+      });
+      const data = (await res.json()) as { order?: AdminOrderDetail; error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Archive failed");
+        return;
+      }
+      if (data.order) setOrder(data.order);
+      onUpdated();
+    } catch {
+      setError("Archive failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function unarchiveOrder() {
+    if (!orderId) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shop/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unarchive: true }),
+      });
+      const data = (await res.json()) as { order?: AdminOrderDetail; error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Restore failed");
+        return;
+      }
+      if (data.order) setOrder(data.order);
+      onUpdated();
+    } catch {
+      setError("Restore failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteOrderPermanently() {
+    if (!orderId) return;
+    if (
+      !window.confirm(
+        "Permanently delete this order? This cannot be undone and is only intended for dev/test cleanup.",
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/shop/orders/${orderId}`, { method: "DELETE" });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Delete failed");
+        return;
+      }
+      onDeleted?.();
+      onClose();
+    } catch {
+      setError("Delete failed");
     } finally {
       setSaving(false);
     }
@@ -489,6 +576,39 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated }: Props) {
                 </button>
               </>
             )}
+
+            <div className="mt-6 space-y-2 border-t border-white/10 pt-4">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-600">Test cleanup</p>
+              {order.archived_at ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void unarchiveOrder()}
+                  className="w-full rounded-full border border-white/15 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-300 hover:border-white/30"
+                >
+                  Restore order
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void archiveOrder()}
+                  className="w-full rounded-full border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-amber-200 hover:bg-amber-500/15"
+                >
+                  Archive test order
+                </button>
+              )}
+              {process.env.NODE_ENV !== "production" ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void deleteOrderPermanently()}
+                  className="w-full rounded-full border border-red-500/35 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-red-300 hover:bg-red-500/10"
+                >
+                  Delete permanently (dev)
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
