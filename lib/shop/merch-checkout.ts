@@ -5,8 +5,10 @@ import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/ord
 import type { CheckoutCartValidationResult, ValidatedCheckoutLine } from "@/lib/shop/validate-checkout-cart";
 import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
 import { validateCheckoutCart } from "@/lib/shop/validate-checkout-cart";
-
-export const MERCH_CHECKOUT_RESERVATION_MINUTES = 15;
+import {
+  cleanupExpiredMerchReservations,
+  MERCH_CHECKOUT_RESERVATION_MINUTES,
+} from "@/lib/shop/reservation-cleanup";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -146,6 +148,16 @@ export async function createMerchCheckoutSession(input: {
   deliveryMethod?: ShopDeliveryMethod;
 }): Promise<MerchCheckoutSessionResult> {
   const deliveryMethod = input.deliveryMethod ?? "shipping";
+
+  try {
+    await cleanupExpiredMerchReservations(input.admin);
+  } catch (error) {
+    console.warn(
+      "[merch-checkout] stale reservation cleanup before checkout failed",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
   const validation = await validateCheckoutCart(input.admin, input.cartItems, deliveryMethod);
 
   if (!validation.ok || validation.items.length === 0) {
