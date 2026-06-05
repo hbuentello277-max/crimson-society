@@ -8,6 +8,8 @@ export type CartItem = {
   productId: string;
   size: string;
   quantity: number;
+  /** Cached display hint only — bag/checkout totals use server validation. */
+  unitPriceCents?: number;
 };
 
 export type ToastPayload = {
@@ -33,6 +35,8 @@ type CartState = {
   increment: (key: string) => void;
   decrement: (key: string) => void;
   clear: () => void;
+  /** Sync cached unit prices from server validation (does not affect checkout totals). */
+  hydrateUnitPrices: (lines: Array<{ key: string; unitPriceCents: number }>) => void;
 
   openDrawer: () => void;
   closeDrawer: () => void;
@@ -43,7 +47,9 @@ type CartState = {
   joinWaitlist: (productId: string, email: string) => void;
 };
 
-const makeKey = (productId: string, size: string) => `${productId}__${size}`;
+export const cartItemKey = (productId: string, size: string) => `${productId}__${size}`;
+
+const makeKey = cartItemKey;
 
 export const useCart = create<CartState>()(
   persist(
@@ -90,6 +96,18 @@ export const useCart = create<CartState>()(
         }),
 
       clear: () => set({ items: [] }),
+
+      hydrateUnitPrices: (lines) => {
+        if (!lines.length) return;
+        const priceMap = new Map(lines.map((l) => [l.key, l.unitPriceCents]));
+        set({
+          items: get().items.map((item) => {
+            const next = priceMap.get(item.key);
+            if (next === undefined || next === item.unitPriceCents) return item;
+            return { ...item, unitPriceCents: next };
+          }),
+        });
+      },
 
       openDrawer: () => set({ drawerOpen: true }),
       closeDrawer: () => set({ drawerOpen: false }),

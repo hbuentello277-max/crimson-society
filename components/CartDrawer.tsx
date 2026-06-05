@@ -3,9 +3,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { useCart, useCartItems } from "@/lib/cart-store";
-import { Product, fetchMerchProducts, formatPrice } from "@/lib/products";
+import { useEffect } from "react";
+import { cartItemKey, useCart, useCartItems } from "@/lib/cart-store";
+import { formatCentsUsd } from "@/lib/shop/orders";
+import { useCartValidation } from "@/lib/shop/use-cart-validation";
+import { FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/shop/shipping";
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -15,24 +17,27 @@ export default function CartDrawer() {
   const increment = useCart((s) => s.increment);
   const decrement = useCart((s) => s.decrement);
   const removeItem = useCart((s) => s.removeItem);
+  const hydrateUnitPrices = useCart((s) => s.hydrateUnitPrices);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const {
+    validation,
+    loading,
+    networkError,
+    refresh,
+    lineByKey,
+    errorsByKey,
+    canCheckout,
+  } = useCartValidation(open, items, "shipping");
 
   useEffect(() => {
-    async function loadProducts() {
-      try {
-        const data = await fetchMerchProducts();
-        setProducts(data);
-      } catch (error) {
-        console.error("Failed to load cart products:", error);
-      } finally {
-        setLoadingProducts(false);
-      }
-    }
-
-    loadProducts();
-  }, []);
+    if (!validation?.items.length) return;
+    hydrateUnitPrices(
+      validation.items.map((line) => ({
+        key: cartItemKey(line.product_id, line.size),
+        unitPriceCents: line.unit_price_cents,
+      })),
+    );
+  }, [validation, hydrateUnitPrices]);
 
   useEffect(() => {
     if (open) {
@@ -44,25 +49,12 @@ export default function CartDrawer() {
     }
   }, [open]);
 
-  const productMap = useMemo(() => {
-    return new Map(products.map((product) => [product.id, product]));
-  }, [products]);
-
-  const enrichedItems = useMemo(() => {
-    return items.map((item) => ({
-      ...item,
-      product: productMap.get(item.productId) ?? null,
-    }));
-  }, [items, productMap]);
-
-  const subtotal = enrichedItems.reduce((sum, item) => {
-    return sum + ((item.product?.price || 0) * item.quantity);
-  }, 0);
-
-  const shipping = subtotal === 0 ? 0 : subtotal >= 200 ? 0 : 12;
-  const total = subtotal + shipping;
+  const subtotalCents = validation?.subtotal_cents ?? 0;
+  const shippingCents = validation?.shipping_cents ?? 0;
+  const totalCents = validation?.total_cents ?? 0;
 
   const goCheckout = () => {
+    if (!canCheckout) return;
     closeDrawer();
     router.push("/shop/checkout");
   };
@@ -85,172 +77,230 @@ export default function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed right-0 top-0 z-[101] flex h-full w-full max-w-md flex-col border-l border-white/10 bg-[#050505] text-white shadow-[-30px_0_60px_rgba(0,0,0,0.7)]"
+            className="fixed right-0 top-0 z-[101] flex h-[100dvh] w-full max-w-md flex-col border-l border-white/10 bg-[#050505] text-white shadow-[-30px_0_60px_rgba(0,0,0,0.7)]"
           >
-            <div className="flex items-center justify-between border-b border-white/10 bg-[#050505] px-6 py-5">
-              <div>
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#050505] px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+              <div className="min-w-0 pr-3">
                 <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Your</p>
                 <h2 className="font-serif text-3xl italic text-white">Bag</h2>
               </div>
               <button
+                type="button"
                 onClick={closeDrawer}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 hover:border-[#b4141e]/60 hover:text-white"
-                aria-label="Close"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-lg text-white/70 hover:border-[#b4141e]/60 hover:text-white"
+                aria-label="Close bag"
               >
                 ✕
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-[#050505] px-6 py-5">
-              {items.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-black/40 text-2xl text-white/40">
-                    ◇
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 overflow-y-auto bg-[#050505] px-5 py-4">
+                {items.length === 0 ? (
+                  <div className="flex h-full min-h-[200px] flex-col items-center justify-center text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-black/40 text-2xl text-white/40">
+                      ◇
+                    </div>
+                    <p className="font-serif text-2xl italic text-white">Empty as the open road.</p>
+                    <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-white/40">
+                      Nothing in your bag yet
+                    </p>
+                    <button
+                      type="button"
+                      onClick={closeDrawer}
+                      className="mt-6 rounded-full border border-[#b4141e]/40 px-5 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] hover:bg-[#b4141e]/10"
+                    >
+                      Keep Shopping
+                    </button>
                   </div>
-                  <p className="font-serif text-2xl italic text-white">Empty as the open road.</p>
-                  <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    Nothing in your bag yet
-                  </p>
-                  <button
-                    onClick={closeDrawer}
-                    className="mt-6 rounded-full border border-[#b4141e]/40 px-5 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] hover:bg-[#b4141e]/10"
-                  >
-                    Keep Shopping
-                  </button>
-                </div>
-              ) : loadingProducts ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-                  Loading your bag...
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <AnimatePresence initial={false}>
-                    {enrichedItems.map((item) => {
-                      const p = item.product;
-                      if (!p) return null;
+                ) : (
+                  <div className="space-y-3">
+                    {loading && !validation ? (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+                        Refreshing prices…
+                      </div>
+                    ) : null}
 
-                      const lineTotal = p.price * item.quantity;
-
-                      return (
-                        <motion.div
-                          key={item.key}
-                          layout
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: 40 }}
-                          transition={{ type: "spring", stiffness: 280, damping: 28 }}
-                          className="flex gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-3"
+                    {networkError ? (
+                      <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                        {networkError}
+                        <button
+                          type="button"
+                          onClick={() => void refresh()}
+                          className="mt-2 block text-[10px] uppercase tracking-[0.2em] text-[#e87a82]"
                         >
-                          <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-white/10">
-                            <Image
-                              src={
-                                p.images[0] ||
-                                "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
-                              }
-                              alt={p.name}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
+                          Retry
+                        </button>
+                      </div>
+                    ) : null}
 
-                          <div className="flex flex-1 flex-col">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="truncate font-serif text-base italic text-white">
-                                  {p.name}
-                                </p>
-                                <p className="mt-0.5 text-[10px] uppercase tracking-[0.25em] text-white/45">
-                                  Size {item.size}
-                                </p>
-                              </div>
+                    <AnimatePresence initial={false}>
+                      {items.map((item) => {
+                        const line = lineByKey.get(item.key);
+                        const lineError = errorsByKey.get(item.key);
+                        const unitCents =
+                          line?.unit_price_cents ?? item.unitPriceCents ?? 0;
+                        const lineTotalCents =
+                          line?.line_total_cents ?? unitCents * item.quantity;
 
-                              <button
-                                onClick={() => removeItem(item.key)}
-                                className="text-[10px] uppercase tracking-[0.25em] text-white/40 hover:text-[#e87a82]"
-                              >
-                                Remove
-                              </button>
+                        return (
+                          <motion.div
+                            key={item.key}
+                            layout
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, x: 40 }}
+                            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+                            className={`flex gap-3 rounded-2xl border p-3 ${
+                              lineError
+                                ? "border-amber-500/35 bg-amber-500/5"
+                                : "border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]"
+                            }`}
+                          >
+                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10">
+                              {line?.product_image_url ? (
+                                <Image
+                                  src={line.product_image_url}
+                                  alt=""
+                                  fill
+                                  className="object-cover"
+                                  sizes="80px"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-black/50 text-white/20">
+                                  ◇
+                                </div>
+                              )}
                             </div>
 
-                            <div className="mt-auto flex items-center justify-between pt-2">
-                              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-0.5">
-                                <button
-                                  onClick={() => decrement(item.key)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 hover:bg-white/5 hover:text-white"
-                                  aria-label="Decrease"
-                                >
-                                  −
-                                </button>
-
-                                <span className="min-w-[1.5rem] text-center text-xs text-white">
-                                  {item.quantity}
-                                </span>
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate font-serif text-base italic text-white">
+                                    {line?.product_name ?? "Item"}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.25em] text-white/45">
+                                    Size {item.size}
+                                  </p>
+                                </div>
 
                                 <button
-                                  onClick={() => increment(item.key)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 hover:bg-white/5 hover:text-white"
-                                  aria-label="Increase"
+                                  type="button"
+                                  onClick={() => removeItem(item.key)}
+                                  className="shrink-0 text-[10px] uppercase tracking-[0.25em] text-white/40 hover:text-[#e87a82]"
                                 >
-                                  +
+                                  Remove
                                 </button>
                               </div>
 
-                              <p className="text-sm text-[#e87a82]">{formatPrice(lineTotal)}</p>
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                </div>
-              )}
-            </div>
+                              {lineError ? (
+                                <p className="mt-2 text-xs text-amber-200">{lineError}</p>
+                              ) : null}
 
-            {items.length > 0 && (
-              <div className="border-t border-white/10 bg-[#070707] px-6 py-5">
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex items-center justify-between text-white/70">
-                    <span>Subtotal</span>
-                    <span className="text-white">{formatPrice(subtotal)}</span>
+                              <div className="mt-auto flex items-center justify-between pt-2">
+                                <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => decrement(item.key)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/5 hover:text-white"
+                                    aria-label="Decrease"
+                                  >
+                                    −
+                                  </button>
+                                  <span className="min-w-[1.5rem] text-center text-xs text-white">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => increment(item.key)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/5 hover:text-white"
+                                    aria-label="Increase"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <p className="text-sm text-[#e87a82]">
+                                  {formatCentsUsd(lineTotalCents)}
+                                </p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+
+                    {validation && !validation.ok && validation.errors.length > 0 ? (
+                      <p className="text-center text-[10px] uppercase tracking-[0.2em] text-amber-300/90">
+                        Fix bag issues before checkout
+                      </p>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => void refresh()}
+                      disabled={loading}
+                      className="w-full text-center text-[10px] uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
+                    >
+                      {loading ? "Refreshing…" : "Refresh bag"}
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between text-white/70">
-                    <span>Shipping</span>
-                    <span className="text-white">
-                      {shipping === 0 ? "Free" : formatPrice(shipping)}
+                )}
+              </div>
+
+              {items.length > 0 ? (
+                <div className="shrink-0 border-t border-white/10 bg-[#070707] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center justify-between text-white/70">
+                      <span>Subtotal</span>
+                      <span className="text-white">{formatCentsUsd(subtotalCents)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-white/70">
+                      <span>Shipping (estimate)</span>
+                      <span className="text-white">
+                        {shippingCents === 0 ? "Free" : formatCentsUsd(shippingCents)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">
+                      Total
+                    </span>
+                    <span className="font-serif text-2xl italic text-[#e87a82]">
+                      {formatCentsUsd(totalCents)}
                     </span>
                   </div>
+
+                  {subtotalCents > 0 &&
+                  subtotalCents < FREE_SHIPPING_THRESHOLD_CENTS &&
+                  shippingCents > 0 ? (
+                    <p className="mt-3 text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
+                      Add {formatCentsUsd(FREE_SHIPPING_THRESHOLD_CENTS - subtotalCents)} more
+                      for free shipping
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={goCheckout}
+                    disabled={!canCheckout || loading}
+                    className="mt-4 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Checkout
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeDrawer}
+                    className="mt-2 block w-full text-center text-[11px] uppercase tracking-[0.3em] text-white/45 hover:text-white"
+                  >
+                    Continue Browsing
+                  </button>
                 </div>
-
-                <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">
-                    Total
-                  </span>
-                  <span className="font-serif text-2xl italic text-[#e87a82]">
-                    {formatPrice(total)}
-                  </span>
-                </div>
-
-                {subtotal < 200 && (
-                  <p className="mt-3 text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
-                    Add {formatPrice(200 - subtotal)} more for free shipping
-                  </p>
-                )}
-
-                <button
-                  onClick={goCheckout}
-                  className="mt-4 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
-                >
-                  Checkout
-                </button>
-
-                <button
-                  onClick={closeDrawer}
-                  className="mt-2 block w-full text-center text-[11px] uppercase tracking-[0.3em] text-white/45 hover:text-white"
-                >
-                  Continue Browsing
-                </button>
-              </div>
-            )}
+              ) : null}
+            </div>
           </motion.aside>
         </>
       )}
