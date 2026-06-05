@@ -8,6 +8,7 @@ import {
 } from "@/lib/shop/inventory";
 import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import { computeShippingCents } from "@/lib/shop/shipping";
+import { resolveProductImageFields } from "@/lib/shop/product-image-url";
 import { isMerchProduct } from "@/lib/products";
 
 type ProductRow = {
@@ -25,6 +26,8 @@ export type ValidatedCheckoutLine = {
   product_id: string;
   product_name: string;
   product_image_url: string | null;
+  image_display_url: string | null;
+  image_thumbnail_url: string | null;
   size: string;
   quantity: number;
   unit_price_cents: number;
@@ -241,7 +244,7 @@ export async function validateCheckoutCart(
     validated.push({
       product_id: productId,
       product_name: product.name,
-      product_image_url: product.images?.[0] ?? null,
+      ...resolveProductImageFields(product.images),
       size,
       quantity,
       unit_price_cents: unitPriceCents,

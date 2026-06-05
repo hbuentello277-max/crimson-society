@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CartItem } from "@/lib/cart-store";
 import { cartItemKey } from "@/lib/cart-store";
-import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
-import type { ShopDeliveryMethod } from "@/lib/shop/orders";
+import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
 
 function toPayload(items: CartItem[]): CheckoutCartItemPayload[] {
@@ -15,82 +14,113 @@ function toPayload(items: CartItem[]): CheckoutCartItemPayload[] {
   }));
 }
 
+function cartFingerprint(items: CartItem[]) {
+  return items.map((item) => `${item.productId}|${item.size}|${item.quantity}`).join(",");
+}
+
 export function useCartValidation(
   enabled: boolean,
   items: CartItem[],
   deliveryMethod: ShopDeliveryMethod = "shipping",
 ) {
   const [validation, setValidation] = useState<CheckoutCartValidationResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [networkError, setNetworkError] = useState<string | null>(null);
 
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const fingerprint = useMemo(() => cartFingerprint(items), [items]);
+
   const refresh = useCallback(async () => {
-    if (!items.length) {
+    const currentItems = itemsRef.current;
+
+    if (!currentItems.length) {
       setValidation(null);
       setNetworkError(null);
-      setLoading(false);
+      setRefreshing(false);
       return;
     }
 
-    setLoading(true);
+    setRefreshing(true);
     setNetworkError(null);
 
     try {
       const res = await fetch("/api/shop/checkout/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: toPayload(items), delivery_method: deliveryMethod }),
+        body: JSON.stringify({
+          items: toPayload(currentItems),
+          delivery_method: deliveryMethod,
+        }),
       });
 
       const data = (await res.json()) as CheckoutCartValidationResult | { error?: string };
 
-      if ("error" in data && typeof data.error === "string" && !("items" in data)) {
-        setNetworkError(data.error);
-        setValidation(null);
+      if ("items" in data && Array.isArray(data.items)) {
+        setValidation(data);
         return;
       }
 
-      setValidation(data as CheckoutCartValidationResult);
+      if ("error" in data && typeof data.error === "string") {
+        setNetworkError(data.error);
+        return;
+      }
+
+      setNetworkError("Could not refresh bag prices.");
     } catch {
       setNetworkError("Could not refresh bag prices.");
-      setValidation(null);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  }, [items, deliveryMethod]);
+  }, [deliveryMethod]);
 
   useEffect(() => {
-    if (!enabled || items.length === 0) {
+    if (!enabled || !fingerprint) {
       setValidation(null);
       setNetworkError(null);
-      setLoading(false);
+      setRefreshing(false);
       return;
     }
 
     void refresh();
-  }, [enabled, items, deliveryMethod, refresh]);
+  }, [enabled, fingerprint, deliveryMethod, refresh]);
 
-  const lineByKey = new Map(
-    (validation?.items ?? []).map((line) => [
-      cartItemKey(line.product_id, line.size),
-      line,
-    ]),
+  const lineByKey = useMemo(
+    () =>
+      new Map(
+        (validation?.items ?? []).map((line) => [
+          cartItemKey(line.product_id, line.size),
+          line,
+        ]),
+      ),
+    [validation],
   );
 
-  const errorsByKey = new Map<string, string>();
-  for (const err of validation?.errors ?? []) {
-    if (!err.product_id) continue;
-    const key = cartItemKey(err.product_id, err.size);
-    errorsByKey.set(key, err.message);
-  }
+  const errorsByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const err of validation?.errors ?? []) {
+      if (!err.product_id) continue;
+      map.set(cartItemKey(err.product_id, err.size), err.message);
+    }
+    return map;
+  }, [validation]);
+
+  const canCheckout = Boolean(
+    validation &&
+      validation.subtotal_cents > 0 &&
+      validation.items.length === items.length &&
+      validation.errors.length === 0,
+  );
 
   return {
     validation,
-    loading,
+    refreshing,
+    initialLoading: refreshing && !validation,
     networkError,
     refresh,
     lineByKey,
     errorsByKey,
-    canCheckout: Boolean(validation?.ok && validation.subtotal_cents > 0),
+    canCheckout,
   };
 }

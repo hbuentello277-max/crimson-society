@@ -3,11 +3,26 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { cartItemKey, useCart, useCartItems } from "@/lib/cart-store";
+import { useEffect, useMemo, useState } from "react";
+import { useCart, useCartItems } from "@/lib/cart-store";
 import { formatCentsUsd } from "@/lib/shop/orders";
+import { resolveProductImageUrl } from "@/lib/shop/product-image-url";
 import { useCartValidation } from "@/lib/shop/use-cart-validation";
 import { FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/shop/shipping";
+import { fetchMerchProducts, type Product } from "@/lib/products";
+
+function lineImageUrl(line: {
+  product_image_url?: string | null;
+  image_display_url?: string | null;
+  image_thumbnail_url?: string | null;
+}) {
+  return (
+    line.image_display_url ??
+    line.image_thumbnail_url ??
+    line.product_image_url ??
+    null
+  );
+}
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -17,11 +32,11 @@ export default function CartDrawer() {
   const increment = useCart((s) => s.increment);
   const decrement = useCart((s) => s.decrement);
   const removeItem = useCart((s) => s.removeItem);
-  const hydrateUnitPrices = useCart((s) => s.hydrateUnitPrices);
 
   const {
     validation,
-    loading,
+    refreshing,
+    initialLoading,
     networkError,
     refresh,
     lineByKey,
@@ -29,15 +44,45 @@ export default function CartDrawer() {
     canCheckout,
   } = useCartValidation(open, items, "shipping");
 
+  const [productCatalog, setProductCatalog] = useState<Map<string, Product>>(new Map());
+
   useEffect(() => {
-    if (!validation?.items.length) return;
-    hydrateUnitPrices(
-      validation.items.map((line) => ({
-        key: cartItemKey(line.product_id, line.size),
-        unitPriceCents: line.unit_price_cents,
-      })),
-    );
-  }, [validation, hydrateUnitPrices]);
+    if (!open || items.length === 0) return;
+
+    let cancelled = false;
+
+    async function loadCatalog() {
+      try {
+        const products = await fetchMerchProducts();
+        if (cancelled) return;
+        setProductCatalog(new Map(products.map((product) => [product.id, product])));
+      } catch {
+        // Catalog is a display fallback only; validation remains authoritative for pricing.
+      }
+    }
+
+    void loadCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, items.length]);
+
+  const imageByProductId = useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const product of productCatalog.values()) {
+      const url = resolveProductImageUrl(product.images);
+      if (url) map.set(product.id, url);
+    }
+
+    for (const line of validation?.items ?? []) {
+      const url = lineImageUrl(line);
+      if (url) map.set(line.product_id, url);
+    }
+
+    return map;
+  }, [productCatalog, validation]);
 
   useEffect(() => {
     if (open) {
@@ -115,7 +160,7 @@ export default function CartDrawer() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {loading && !validation ? (
+                    {initialLoading ? (
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
                         Refreshing prices…
                       </div>
@@ -142,6 +187,10 @@ export default function CartDrawer() {
                           line?.unit_price_cents ?? item.unitPriceCents ?? 0;
                         const lineTotalCents =
                           line?.line_total_cents ?? unitCents * item.quantity;
+                        const imageUrl =
+                          (line ? lineImageUrl(line) : null) ??
+                          imageByProductId.get(item.productId) ??
+                          null;
 
                         return (
                           <motion.div
@@ -158,9 +207,9 @@ export default function CartDrawer() {
                             }`}
                           >
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10">
-                              {line?.product_image_url ? (
+                              {imageUrl ? (
                                 <Image
-                                  src={line.product_image_url}
+                                  src={imageUrl}
                                   alt=""
                                   fill
                                   className="object-cover"
@@ -178,7 +227,9 @@ export default function CartDrawer() {
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <p className="truncate font-serif text-base italic text-white">
-                                    {line?.product_name ?? "Item"}
+                                    {line?.product_name ??
+                                      productCatalog.get(item.productId)?.name ??
+                                      "Item"}
                                   </p>
                                   <p className="mt-0.5 text-[10px] uppercase tracking-[0.25em] text-white/45">
                                     Size {item.size}
@@ -231,7 +282,7 @@ export default function CartDrawer() {
                       })}
                     </AnimatePresence>
 
-                    {validation && !validation.ok && validation.errors.length > 0 ? (
+                    {validation && !canCheckout && validation.errors.length > 0 ? (
                       <p className="text-center text-[10px] uppercase tracking-[0.2em] text-amber-300/90">
                         Fix bag issues before checkout
                       </p>
@@ -240,10 +291,10 @@ export default function CartDrawer() {
                     <button
                       type="button"
                       onClick={() => void refresh()}
-                      disabled={loading}
+                      disabled={refreshing}
                       className="w-full text-center text-[10px] uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
                     >
-                      {loading ? "Refreshing…" : "Refresh bag"}
+                      {refreshing ? "Refreshing…" : "Refresh bag"}
                     </button>
                   </div>
                 )}
@@ -285,7 +336,7 @@ export default function CartDrawer() {
                   <button
                     type="button"
                     onClick={goCheckout}
-                    disabled={!canCheckout || loading}
+                    disabled={!canCheckout}
                     className="mt-4 w-full rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-6 py-3.5 text-xs uppercase tracking-[0.3em] text-[#e87a82] transition hover:bg-[#b4141e]/30 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Checkout
