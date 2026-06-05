@@ -139,7 +139,6 @@ function buildStripeLineItems(validation: CheckoutCartValidationResult) {
 }
 
 export async function createMerchCheckoutSession(input: {
-  supabase: SupabaseClient;
   admin: SupabaseClient;
   userId: string;
   userEmail?: string | null;
@@ -147,7 +146,7 @@ export async function createMerchCheckoutSession(input: {
   deliveryMethod?: ShopDeliveryMethod;
 }): Promise<MerchCheckoutSessionResult> {
   const deliveryMethod = input.deliveryMethod ?? "shipping";
-  const validation = await validateCheckoutCart(input.supabase, input.cartItems, deliveryMethod);
+  const validation = await validateCheckoutCart(input.admin, input.cartItems, deliveryMethod);
 
   if (!validation.ok || validation.items.length === 0) {
     return {

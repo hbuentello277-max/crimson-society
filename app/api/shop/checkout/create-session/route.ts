@@ -36,7 +36,6 @@ export async function POST(request: Request) {
   const admin = createAdminServiceClient();
 
   const result = await createMerchCheckoutSession({
-    supabase: auth.supabase,
     admin,
     userId: auth.userId,
     userEmail: authUser?.email ?? null,
