@@ -143,6 +143,7 @@ export async function dispatchPushForNotification(notificationId: string) {
         status: "skipped",
         processed_at: now,
         last_error: "push_disabled",
+        sent_count: 0,
       })
       .eq("id", job.id);
 
@@ -166,6 +167,7 @@ export async function dispatchPushForNotification(notificationId: string) {
         status: "skipped",
         processed_at: now,
         last_error: "no_tokens",
+        sent_count: 0,
       })
       .eq("id", job.id);
 
@@ -205,6 +207,7 @@ export async function dispatchPushForNotification(notificationId: string) {
           status: "failed",
           processed_at: new Date().toISOString(),
           last_error: error instanceof Error ? error.message : "send_failed",
+          sent_count: sent,
         })
         .eq("id", job.id);
 
@@ -225,6 +228,7 @@ export async function dispatchPushForNotification(notificationId: string) {
       status: sent > 0 ? "sent" : "skipped",
       processed_at: new Date().toISOString(),
       last_error: sent > 0 ? null : "no_deliverable_tokens",
+      sent_count: sent,
     })
     .eq("id", job.id);
 
