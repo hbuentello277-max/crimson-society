@@ -152,7 +152,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
       const { data, error } = await supabase
         .from("notifications")
         .select(
-          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at, target_url, post_id, comment_id, deletion_request_id",
+          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at, target_url, post_id, comment_id, deletion_request_id, notification_group_key, notification_count, last_actor_id, last_preview_text, last_event_at",
         )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -238,6 +238,18 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
         "postgres_changes",
         {
           event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void loadNotifications();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
           schema: "public",
           table: "notifications",
           filter: `user_id=eq.${userId}`,
@@ -353,6 +365,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                   const summary = notificationSummary(notification, actor);
                   const href = notificationDestination(notification, actor);
                   const isUnread = !notification.read_at;
+                  const notificationCount = Math.max(1, Number(notification.notification_count ?? 1));
 
                   const rowContent = (
                     <div
@@ -421,7 +434,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
 
                       {isUnread && (
                         <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[10px] font-semibold text-[#e87a82] sm:ml-0">
-                          1
+                          {notificationCount}
                         </span>
                       )}
                     </div>

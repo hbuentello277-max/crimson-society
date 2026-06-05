@@ -45,6 +45,11 @@ export type NotificationItem = {
   actor_id: string | null;
   read_at: string | null;
   created_at: string;
+  notification_group_key?: string | null;
+  notification_count?: number | null;
+  last_actor_id?: string | null;
+  last_preview_text?: string | null;
+  last_event_at?: string | null;
 };
 
 export type NotificationDestinationInput = Pick<

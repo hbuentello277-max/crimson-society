@@ -47,39 +47,38 @@ async function insertNotifications(
     title: string;
     body: string;
     target_url: string;
+    notification_group_key: string;
   }>,
 ) {
   if (rows.length === 0) return { inserted: 0, error: null as string | null };
 
-  const { error } = await admin.from("notifications").insert(rows);
-  if (error) {
-    console.error("[shop-notify] insert failed", error.message, error.code);
-    return { inserted: 0, error: error.message };
+  for (const row of rows) {
+    const { error } = await admin.rpc("upsert_grouped_notification", {
+      p_user_id: row.user_id,
+      p_type: row.type,
+      p_title: row.title,
+      p_body: row.body,
+      p_notification_group_key: row.notification_group_key,
+      p_actor_id: null,
+      p_ride_id: null,
+      p_conversation_id: null,
+      p_post_id: null,
+      p_comment_id: null,
+      p_deletion_request_id: null,
+      p_target_url: row.target_url,
+      p_destination_url: row.target_url,
+      p_metadata: {},
+      p_preview_text: row.body,
+      p_grouped_body_template: null,
+    });
+
+    if (error) {
+      console.error("[shop-notify] upsert failed", error.message, error.code);
+      return { inserted: 0, error: error.message };
+    }
   }
 
   return { inserted: rows.length, error: null };
-}
-
-async function adminPaidNotificationExists(
-  admin: SupabaseClient,
-  adminId: string,
-  shortId: string,
-) {
-  const { data, error } = await admin
-    .from("notifications")
-    .select("id")
-    .eq("user_id", adminId)
-    .eq("type", "shop_order_paid")
-    .ilike("body", `%#${shortId}%`)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("[shop-notify] dedupe check failed", error.message);
-    return false;
-  }
-
-  return Boolean(data);
 }
 
 function deliveryShortLabel(deliveryMethod: string) {
@@ -108,18 +107,17 @@ export async function notifyShopOrderPaidAdmins(admin: SupabaseClient, orderId: 
     title: string;
     body: string;
     target_url: string;
+    notification_group_key: string;
   }> = [];
 
   for (const adminId of adminIds) {
-    const exists = await adminPaidNotificationExists(admin, adminId, shortId);
-    if (exists) continue;
-
     rows.push({
       user_id: adminId,
       type: "shop_order_paid",
       title: "New shop order",
       body: `New order #${shortId} · ${total} · ${delivery}`,
       target_url: adminOrderUrl(orderId),
+      notification_group_key: `order:${orderId}:${adminId}`,
     });
   }
 
@@ -147,6 +145,7 @@ async function notifyShopOrderConfirmedCustomer(admin: SupabaseClient, orderId: 
       title: "Order confirmed",
       body: `Your Crimson Society order #${shortId} is confirmed.`,
       target_url: customerOrderUrl(orderId),
+      notification_group_key: `order:${orderId}:${order.user_id}`,
     },
   ]);
 }
@@ -181,6 +180,7 @@ export async function notifyShopOrderReadyForPickup(admin: SupabaseClient, order
       title: "Ready for pickup",
       body,
       target_url: customerOrderUrl(orderId),
+      notification_group_key: `order:${orderId}:${order.user_id}`,
     },
   ]);
 }
@@ -197,6 +197,7 @@ export async function notifyShopOrderShipped(admin: SupabaseClient, orderId: str
       title: "Your order has shipped",
       body: `Your order #${shortId} is on the move.`,
       target_url: customerOrderUrl(orderId),
+      notification_group_key: `order:${orderId}:${order.user_id}`,
     },
   ]);
 }
