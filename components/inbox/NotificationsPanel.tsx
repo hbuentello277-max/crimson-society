@@ -21,6 +21,10 @@ import {
   type NotificationType,
 } from "@/lib/notifications";
 import { NotificationTypeIcon } from "@/components/inbox/notification-type-icon";
+import {
+  NotificationDeleteButton,
+  SwipeableNotificationRow,
+} from "@/components/inbox/SwipeableNotificationRow";
 import { supabase } from "@/lib/supabase";
 
 type NotificationRow = NotificationItem & {
@@ -148,7 +152,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
       const { data, error } = await supabase
         .from("notifications")
         .select(
-          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at",
+          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at, target_url, post_id, comment_id, deletion_request_id",
         )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -289,6 +293,25 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
     window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
   };
 
+  const deleteNotification = async (notificationId: string) => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("Failed to delete notification:", error);
+      return;
+    }
+
+    setNotifications((current) => current.filter((notification) => notification.id !== notificationId));
+    window.dispatchEvent(new CustomEvent("crimson-notifications-read"));
+  };
+
   const topPadding = embedded
     ? "pt-4"
     : "pt-[calc(env(safe-area-inset-top)+28px)]";
@@ -331,16 +354,27 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                   const href = notificationDestination(notification, actor);
                   const isUnread = !notification.read_at;
 
-                  return (
-                    <Link
-                      key={notification.id}
-                      href={href}
+                  const rowContent = (
+                    <div
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => {
+                        void markNotificationRead(notification.id);
+                        router.push(href);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          void markNotificationRead(notification.id);
+                          router.push(href);
+                        }
+                      }}
                       className={
                         embedded
-                          ? `flex items-center gap-3 px-3 py-3.5 transition active:bg-white/[0.04] ${
+                          ? `flex cursor-pointer items-center gap-3 px-3 py-3.5 transition active:bg-white/[0.04] ${
                               isUnread ? "bg-white/[0.02]" : ""
                             }`
-                          : `flex items-center gap-3 rounded-lg border p-3 transition ${
+                          : `flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
                               isUnread
                                 ? "border-[#b4141e] bg-[#b4141e]/10 hover:bg-[#b4141e]/20"
                                 : "border-white/10 bg-white/[0.025] hover:border-white/20"
@@ -380,12 +414,27 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                         )}
                       </div>
 
+                      <NotificationDeleteButton
+                        onDelete={() => void deleteNotification(notification.id)}
+                        className="hidden sm:inline-flex"
+                      />
+
                       {isUnread && (
-                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[10px] font-semibold text-[#e87a82]">
+                        <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[10px] font-semibold text-[#e87a82] sm:ml-0">
                           1
                         </span>
                       )}
-                    </Link>
+                    </div>
+                  );
+
+                  return (
+                    <SwipeableNotificationRow
+                      key={notification.id}
+                      onDelete={() => void deleteNotification(notification.id)}
+                      className={embedded ? "" : "rounded-lg"}
+                    >
+                      {rowContent}
+                    </SwipeableNotificationRow>
                   );
                 })}
               </div>

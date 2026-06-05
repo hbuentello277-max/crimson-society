@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 import { sendOrderConfirmationEmail } from "@/lib/shop/order-emails";
+import { notifyShopOrderPaid } from "@/lib/shop/order-notifications";
 
 export type MerchFulfillmentResult = {
   ok: boolean;
@@ -96,7 +97,7 @@ export async function fulfillMerchOrderFromCheckoutSession(
 
   const piId = paymentIntentId(session);
 
-  const { error: updateError } = await admin
+  const { data: updated, error: updateError } = await admin
     .from("shop_orders")
     .update({
       status: "paid",
@@ -104,17 +105,25 @@ export async function fulfillMerchOrderFromCheckoutSession(
       stripe_payment_intent_id: piId,
     })
     .eq("id", orderId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     console.error("[merch-fulfill] order update failed", updateError.message);
     return { ok: false, reason: "order_update_error" };
   }
 
+  if (!updated) {
+    return { ok: true, order_id: orderId, reason: "already_paid" };
+  }
+
   const emailResult = await sendOrderConfirmationEmail(admin, orderId);
   if (!emailResult.sent && !emailResult.skipped && emailResult.error) {
     console.warn("[merch-fulfill] confirmation email", emailResult.error);
   }
+
+  await notifyShopOrderPaid(admin, orderId);
 
   return { ok: true, order_id: orderId };
 }

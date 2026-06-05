@@ -16,7 +16,11 @@ export type NotificationType =
   | "favorite_rider_meet"
   | "favorite_rider_post"
   | "favorite_rider_ride_started"
-  | "host_meet_created";
+  | "host_meet_created"
+  | "shop_order_paid"
+  | "shop_order_confirmed"
+  | "shop_order_ready_for_pickup"
+  | "shop_order_shipped";
 
 export type NotificationActor = {
   id: string;
@@ -73,6 +77,10 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "favorite_rider_post",
   "favorite_rider_ride_started",
   "host_meet_created",
+  "shop_order_paid",
+  "shop_order_confirmed",
+  "shop_order_ready_for_pickup",
+  "shop_order_shipped",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -148,6 +156,18 @@ export function notificationDestination(
     return `/inbox?conversation=${notification.conversation_id}`;
   }
 
+  if (
+    notification.type === "shop_order_confirmed" ||
+    notification.type === "shop_order_ready_for_pickup" ||
+    notification.type === "shop_order_shipped"
+  ) {
+    return storedPath ?? "/profile/orders";
+  }
+
+  if (notification.type === "shop_order_paid") {
+    return storedPath ?? "/admin/shop?tab=orders";
+  }
+
   if (notification.ride_id) {
     const params = new URLSearchParams({ meet: notification.ride_id });
     if (
@@ -198,6 +218,14 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Ride started";
     case "host_meet_created":
       return "Host meet";
+    case "shop_order_paid":
+      return "Shop order";
+    case "shop_order_confirmed":
+      return "Order confirmed";
+    case "shop_order_ready_for_pickup":
+      return "Ready for pickup";
+    case "shop_order_shipped":
+      return "Shipped";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -248,6 +276,11 @@ export function notificationSummary(
       return trimmedBody || `${name} started ride tracking`;
     case "host_meet_created":
       return trimmedBody || `${name} created a new meet`;
+    case "shop_order_paid":
+    case "shop_order_confirmed":
+    case "shop_order_ready_for_pickup":
+    case "shop_order_shipped":
+      return trimmedBody || notification.title;
     default:
       return trimmedBody || notification.title;
   }

@@ -274,7 +274,7 @@ function ShopCheckoutPageInner() {
                 >
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                     {imageUrl ? (
-                      <ShopProductImage src={imageUrl} alt="" sizes="80px" />
+                      <ShopProductImage src={imageUrl} alt="" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">

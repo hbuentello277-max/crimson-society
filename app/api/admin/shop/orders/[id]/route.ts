@@ -10,6 +10,10 @@ import {
   sendShippedEmail,
   type OrderEmailSendResult,
 } from "@/lib/shop/order-emails";
+import {
+  notifyShopOrderReadyForPickup,
+  notifyShopOrderShipped,
+} from "@/lib/shop/order-notifications";
 import { serializeOrder } from "@/lib/shop/serialize-order";
 
 const ORDER_SELECT =
@@ -132,6 +136,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     (updated.delivery_method as string) === "local_pickup"
   ) {
     emailResults.push(await sendReadyForPickupEmail(admin, orderId));
+    await notifyShopOrderReadyForPickup(admin, orderId);
   }
 
   const prevFulfillment = existing.fulfillment_status as string;
@@ -141,6 +146,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     (updated.delivery_method as string) === "shipping"
   ) {
     emailResults.push(await sendShippedEmail(admin, orderId));
+    await notifyShopOrderShipped(admin, orderId);
   }
 
   const order = serializeOrder(updated, true);

@@ -146,7 +146,7 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
                 >
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                     {item.product_image_url ? (
-                      <ShopProductImage src={item.product_image_url} alt="" sizes="80px" />
+                      <ShopProductImage src={item.product_image_url} alt="" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">

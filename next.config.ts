@@ -1,5 +1,17 @@
 import type { NextConfig } from "next";
 
+function supabaseImageHostname(): string | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const supabaseHost = supabaseImageHostname();
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_BUILD_COMMIT: process.env.VERCEL_GIT_COMMIT_SHA || "local",
@@ -13,12 +25,16 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
-      {
-        protocol: "https",
-        hostname: "clelrausyoejbpqlxplf.supabase.co",
-        port: "",
-        pathname: "/storage/v1/**",
-      },
+      ...(supabaseHost
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: supabaseHost,
+              port: "",
+              pathname: "/storage/v1/**",
+            },
+          ]
+        : []),
     ],
     formats: ["image/webp"],
     minimumCacheTTL: 31536000,

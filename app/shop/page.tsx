@@ -14,6 +14,15 @@ import {
   formatPrice,
   fetchMerchProducts,
 } from "@/lib/products";
+import { resolveProductImageUrl, resolveStoredProductImageUrl, normalizeProductImages } from "@/lib/shop/product-image-url";
+
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800";
+
+function productImageAt(images: unknown, index = 0) {
+  const list = normalizeProductImages(images);
+  return resolveStoredProductImageUrl(list[index]) || FALLBACK_PRODUCT_IMAGE;
+}
 import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
 import {
   STANDARD_SHIRT_SIZES,
@@ -388,10 +397,7 @@ function ShopPageInner() {
               >
                 <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
                   <Image
-                    src={
-                      p.images[0] ||
-                      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
-                    }
+                    src={resolveProductImageUrl(p.images) || FALLBACK_PRODUCT_IMAGE}
                     alt={p.name}
                     fill
                     sizes="(max-width: 640px) 50vw, 320px"
@@ -486,10 +492,7 @@ function ShopPageInner() {
                       className="absolute inset-0"
                     >
                       <Image
-                        src={
-                          active.images[imgIdx] ||
-                          "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"
-                        }
+                        src={productImageAt(active.images, imgIdx)}
                         alt={active.name}
                         fill
                         sizes="(max-width: 768px) 100vw, 768px"
@@ -529,7 +532,7 @@ function ShopPageInner() {
                         }`}
                       >
                         <Image
-                          src={src}
+                          src={productImageAt(active.images, i)}
                           alt={`${active.name} thumbnail ${i + 1}`}
                           fill
                           sizes="64px"

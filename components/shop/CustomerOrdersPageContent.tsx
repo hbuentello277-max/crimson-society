@@ -120,7 +120,7 @@ export function CustomerOrdersPageContent() {
               <div className="flex gap-3 p-3">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                   {order.first_product_image_url ? (
-                    <ShopProductImage src={order.first_product_image_url} alt="" sizes="80px" />
+                    <ShopProductImage src={order.first_product_image_url} alt="" />
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">

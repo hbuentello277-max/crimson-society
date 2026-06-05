@@ -1,36 +1,33 @@
 "use client";
 
-import Image from "next/image";
 import { resolveStoredProductImageUrl } from "@/lib/shop/product-image-url";
 
 type Props = {
   src?: string | null;
   alt?: string;
   className?: string;
-  sizes?: string;
 };
 
 /**
- * Merch product image — always unoptimized so any Supabase/public URL works
- * without relying on next.config remotePatterns host matching.
+ * Merch product image — native img so any Supabase/public URL loads without
+ * Next.js remotePatterns or Image optimizer constraints.
  */
 export function ShopProductImage({
   src,
   alt = "",
   className = "object-cover",
-  sizes = "80px",
 }: Props) {
   const resolved = resolveStoredProductImageUrl(src);
   if (!resolved) return null;
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={resolved}
       alt={alt}
-      fill
-      sizes={sizes}
-      className={className}
-      unoptimized
+      className={`absolute inset-0 h-full w-full ${className}`}
+      loading="lazy"
+      decoding="async"
     />
   );
 }

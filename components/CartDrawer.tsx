@@ -195,7 +195,7 @@ export default function CartDrawer() {
                           >
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10">
                               {imageUrl ? (
-                                <ShopProductImage src={imageUrl} alt="" sizes="80px" />
+                                <ShopProductImage src={imageUrl} alt="" />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center bg-black/50 text-white/20">
                                   ◇

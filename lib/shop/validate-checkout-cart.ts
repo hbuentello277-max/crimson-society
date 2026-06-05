@@ -8,7 +8,7 @@ import {
 } from "@/lib/shop/inventory";
 import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import { computeShippingCents } from "@/lib/shop/shipping";
-import { resolveProductImageFields } from "@/lib/shop/product-image-url";
+import { resolveProductImageFields, describeProductImagesRaw } from "@/lib/shop/product-image-url";
 import { isMerchProduct } from "@/lib/products";
 
 type ProductRow = {
@@ -241,10 +241,21 @@ export async function validateCheckoutCart(
           ? getSizeAvailable(sizeMap, SCALAR_INVENTORY_KEY)
           : null;
 
+    const imageFields = resolveProductImageFields(product.images);
+    if (!imageFields.product_image_url) {
+      const debug = describeProductImagesRaw(product.images);
+      if (debug.normalizedCount > 0) {
+        console.warn("[shop-image] could not resolve product image", {
+          product_id: productId,
+          ...debug,
+        });
+      }
+    }
+
     validated.push({
       product_id: productId,
       product_name: product.name,
-      ...resolveProductImageFields(product.images),
+      ...imageFields,
       size,
       quantity,
       unit_price_cents: unitPriceCents,
