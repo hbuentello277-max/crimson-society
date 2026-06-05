@@ -33,6 +33,26 @@ function toIso(unix: number | null | undefined) {
   return unix ? new Date(unix * 1000).toISOString() : null;
 }
 
+function getSubscriptionTimestamp(
+  subscription: Stripe.Subscription,
+  key: "current_period_start" | "current_period_end" | "cancel_at" | "canceled_at" | "trial_start" | "trial_end",
+) {
+  return (subscription as unknown as Record<string, number | null | undefined>)[key];
+}
+
+function getSubscriptionPeriodIso(
+  subscription: Stripe.Subscription,
+  item: Stripe.SubscriptionItem | undefined,
+  key: "current_period_start" | "current_period_end",
+) {
+  const itemValue = item
+    ? (item as unknown as Record<string, number | null | undefined>)[key]
+    : null;
+  const subscriptionValue = getSubscriptionTimestamp(subscription, key);
+
+  return toIso(itemValue ?? subscriptionValue ?? Math.floor(Date.now() / 1000));
+}
+
 async function upsertStripeCustomer(userId: string, customerId: string) {
   const supabaseAdmin = getSupabaseAdmin();
 
@@ -59,7 +79,7 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 
   const metadata = subscription.metadata || {};
   let userId = metadata.supabase_user_id || metadata.user_id || null;
-  const planType = normalizeMembershipPlanType(metadata.plan_type);
+  let planType = normalizeMembershipPlanType(metadata.plan_type);
   let membershipPlanId = metadata.membership_plan_id || null;
 
   if (!userId && customerId) {
@@ -82,9 +102,13 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   }
 
   const item = subscription.items.data[0];
+  const stripePriceId = item?.price?.id ?? null;
+
+  if (!stripePriceId) {
+    throw new Error(`Missing Stripe price ID for subscription ${subscription.id}`);
+  }
 
   if (!membershipPlanId && planType) {
-    const stripePriceId = item?.price?.id ?? null;
     const query = supabaseAdmin
       .from("membership_plans")
       .select("id")
@@ -104,16 +128,46 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
       : planRow?.id ?? null;
   }
 
+  if ((!membershipPlanId || !planType) && stripePriceId) {
+    const { data: planRow, error: planLookupError } = await supabaseAdmin
+      .from("membership_plans")
+      .select("id, plan_type")
+      .eq("stripe_price_id", stripePriceId)
+      .maybeSingle();
+
+    if (planLookupError) {
+      throw planLookupError;
+    }
+
+    membershipPlanId = membershipPlanId ?? planRow?.id ?? null;
+    planType = planType ?? normalizeMembershipPlanType(planRow?.plan_type);
+  }
+
   const { error } = await supabaseAdmin.from("subscriptions").upsert(
     {
       user_id: userId,
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
+      price_id: stripePriceId,
+      subscription_status: subscription.status,
       plan_type: planType,
       status: subscription.status,
-      current_period_start: toIso(item?.current_period_start),
-      current_period_end: toIso(item?.current_period_end),
+      current_period_start: getSubscriptionPeriodIso(
+        subscription,
+        item,
+        "current_period_start",
+      ),
+      current_period_end: getSubscriptionPeriodIso(
+        subscription,
+        item,
+        "current_period_end",
+      ),
       cancel_at_period_end: subscription.cancel_at_period_end,
+      cancel_at: toIso(getSubscriptionTimestamp(subscription, "cancel_at")),
+      canceled_at: toIso(getSubscriptionTimestamp(subscription, "canceled_at")),
+      trial_start: toIso(getSubscriptionTimestamp(subscription, "trial_start")),
+      trial_end: toIso(getSubscriptionTimestamp(subscription, "trial_end")),
+      metadata: subscription.metadata ?? {},
       membership_plan_id: membershipPlanId,
     },
     { onConflict: "stripe_subscription_id" },
