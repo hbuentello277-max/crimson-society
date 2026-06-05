@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminOrderDetailPanel } from "@/components/admin/shop/AdminOrderDetailPanel";
 import {
   formatCentsUsd,
+  formatDeliveryMethodLabel,
   formatFulfillmentStatusLabel,
   formatOrderStatusLabel,
+  formatPickupStatusLabel,
   fulfillmentStatusBadgeClass,
   paymentStatusBadgeClass,
+  pickupStatusBadgeClass,
   shortOrderId,
 } from "@/lib/shop/orders";
 
@@ -17,6 +20,8 @@ type AdminOrderRow = {
   id: string;
   status: string;
   fulfillment_status: string;
+  delivery_method: string;
+  pickup_status: string;
   total_cents: number;
   shipping_email: string | null;
   shipping_name: string | null;
@@ -92,14 +97,15 @@ export function AdminOrdersTab() {
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-        <div className="min-w-[720px]">
-          <div className="grid grid-cols-[0.9fr_1fr_0.7fr_0.6fr_0.75fr_0.75fr_0.85fr_0.7fr] gap-2 border-b border-white/10 px-4 py-3 text-[9px] uppercase tracking-[0.18em] text-zinc-600">
+        <div className="min-w-[820px]">
+          <div className="grid grid-cols-[0.85fr_1fr_0.65fr_0.55fr_0.7fr_0.7fr_0.7fr_0.8fr_0.65fr] gap-2 border-b border-white/10 px-4 py-3 text-[9px] uppercase tracking-[0.18em] text-zinc-600">
             <span>Order</span>
             <span>Customer</span>
             <span>Items</span>
             <span>Total</span>
+            <span>Delivery</span>
             <span>Payment</span>
-            <span>Fulfillment</span>
+            <span>Status</span>
             <span>Date</span>
             <span />
           </div>
@@ -117,7 +123,7 @@ export function AdminOrdersTab() {
               {orders.map((order) => (
                 <li
                   key={order.id}
-                  className="grid grid-cols-[0.9fr_1fr_0.7fr_0.6fr_0.75fr_0.75fr_0.85fr_0.7fr] gap-2 px-4 py-3 text-sm text-zinc-300"
+                  className="grid grid-cols-[0.85fr_1fr_0.65fr_0.55fr_0.7fr_0.7fr_0.7fr_0.8fr_0.65fr] gap-2 px-4 py-3 text-sm text-zinc-300"
                 >
                   <span className="font-mono text-xs text-zinc-400">
                     #{shortOrderId(order.id)}
@@ -131,6 +137,9 @@ export function AdminOrdersTab() {
                     {order.line_count} / {order.unit_count}
                   </span>
                   <span className="text-[#e87a82]">{formatCentsUsd(order.total_cents)}</span>
+                  <span className="text-[9px] uppercase tracking-[0.1em] text-zinc-500">
+                    {formatDeliveryMethodLabel(order.delivery_method)}
+                  </span>
                   <span>
                     <span
                       className={`inline-block rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${paymentStatusBadgeClass(order.status)}`}
@@ -139,11 +148,19 @@ export function AdminOrdersTab() {
                     </span>
                   </span>
                   <span>
-                    <span
-                      className={`inline-block rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
-                    >
-                      {formatFulfillmentStatusLabel(order.fulfillment_status)}
-                    </span>
+                    {order.delivery_method === "local_pickup" ? (
+                      <span
+                        className={`inline-block rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${pickupStatusBadgeClass(order.pickup_status)}`}
+                      >
+                        {formatPickupStatusLabel(order.pickup_status)}
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-block rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
+                      >
+                        {formatFulfillmentStatusLabel(order.fulfillment_status)}
+                      </span>
+                    )}
                   </span>
                   <span className="text-xs text-zinc-500">
                     {new Date(order.created_at).toLocaleDateString()}

@@ -10,9 +10,23 @@ export const SHOP_FULFILLMENT_STATUSES = [
   "cancelled",
 ] as const;
 
+export const SHOP_DELIVERY_METHODS = ["shipping", "local_pickup"] as const;
+
+export const SHOP_PICKUP_STATUSES = [
+  "not_applicable",
+  "pending",
+  "ready",
+  "picked_up",
+  "cancelled",
+] as const;
+
 export type ShopOrderStatus = (typeof SHOP_ORDER_STATUSES)[number] | "fulfilled";
 
 export type ShopFulfillmentStatus = (typeof SHOP_FULFILLMENT_STATUSES)[number];
+
+export type ShopDeliveryMethod = (typeof SHOP_DELIVERY_METHODS)[number];
+
+export type ShopPickupStatus = (typeof SHOP_PICKUP_STATUSES)[number];
 
 export type ShopOrderShippingAddress = {
   line1?: string;
@@ -45,6 +59,11 @@ export type ShopOrder = {
   tracking_url: string | null;
   admin_fulfillment_note: string | null;
   customer_note: string | null;
+  delivery_method: ShopDeliveryMethod;
+  pickup_status: ShopPickupStatus;
+  pickup_note: string | null;
+  pickup_ready_at: string | null;
+  picked_up_at: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -90,6 +109,14 @@ export function isShopOrderStatus(value: string): value is ShopOrderStatus {
 
 export function isShopFulfillmentStatus(value: string): value is ShopFulfillmentStatus {
   return (SHOP_FULFILLMENT_STATUSES as readonly string[]).includes(value);
+}
+
+export function isShopDeliveryMethod(value: string): value is ShopDeliveryMethod {
+  return (SHOP_DELIVERY_METHODS as readonly string[]).includes(value);
+}
+
+export function isShopPickupStatus(value: string): value is ShopPickupStatus {
+  return (SHOP_PICKUP_STATUSES as readonly string[]).includes(value);
 }
 
 export function formatOrderStatusLabel(status: ShopOrderStatus | string) {
@@ -147,6 +174,49 @@ export function fulfillmentStatusBadgeClass(status: ShopFulfillmentStatus | stri
       return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "shipped":
       return "border-sky-500/40 bg-sky-500/15 text-sky-200";
+    case "cancelled":
+      return "border-red-500/40 bg-red-500/15 text-red-300";
+    default:
+      return "border-zinc-500/30 bg-zinc-500/10 text-zinc-400";
+  }
+}
+
+export function formatDeliveryMethodLabel(method: ShopDeliveryMethod | string) {
+  switch (method) {
+    case "local_pickup":
+      return "Local Pickup";
+    case "shipping":
+      return "Shipping";
+    default:
+      return method;
+  }
+}
+
+export function formatPickupStatusLabel(status: ShopPickupStatus | string) {
+  switch (status) {
+    case "not_applicable":
+      return "N/A";
+    case "pending":
+      return "Pickup Pending";
+    case "ready":
+      return "Ready for Pickup";
+    case "picked_up":
+      return "Picked Up";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+
+export function pickupStatusBadgeClass(status: ShopPickupStatus | string) {
+  switch (status) {
+    case "pending":
+      return "border-amber-500/40 bg-amber-500/15 text-amber-200";
+    case "ready":
+      return "border-sky-500/40 bg-sky-500/15 text-sky-200";
+    case "picked_up":
+      return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "cancelled":
       return "border-red-500/40 bg-red-500/15 text-red-300";
     default:

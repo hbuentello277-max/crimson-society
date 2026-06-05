@@ -6,7 +6,7 @@ import {
   parseSizeInventory,
   sizeKeysFromMap,
 } from "@/lib/shop/inventory";
-import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
+import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import { computeShippingCents } from "@/lib/shop/shipping";
 import { isMerchProduct } from "@/lib/products";
 
@@ -43,6 +43,7 @@ export type CheckoutCartValidationResult = {
   ok: boolean;
   items: ValidatedCheckoutLine[];
   errors: CheckoutCartValidationError[];
+  delivery_method: ShopDeliveryMethod;
   subtotal_cents: number;
   shipping_cents: number;
   total_cents: number;
@@ -60,6 +61,7 @@ function purchasableStatuses(status: string) {
 export async function validateCheckoutCart(
   supabase: SupabaseClient,
   cartItems: CheckoutCartItemPayload[],
+  deliveryMethod: ShopDeliveryMethod = "shipping",
 ): Promise<CheckoutCartValidationResult> {
   const errors: CheckoutCartValidationError[] = [];
   const validated: ValidatedCheckoutLine[] = [];
@@ -72,6 +74,7 @@ export async function validateCheckoutCart(
       subtotal_cents: 0,
       shipping_cents: 0,
       total_cents: 0,
+      delivery_method: deliveryMethod,
     };
   }
 
@@ -97,6 +100,7 @@ export async function validateCheckoutCart(
       subtotal_cents: 0,
       shipping_cents: 0,
       total_cents: 0,
+      delivery_method: deliveryMethod,
     };
   }
 
@@ -237,13 +241,14 @@ export async function validateCheckoutCart(
   }
 
   const subtotal_cents = validated.reduce((sum, line) => sum + line.line_total_cents, 0);
-  const shipping_cents = computeShippingCents(subtotal_cents);
+  const shipping_cents = computeShippingCents(subtotal_cents, deliveryMethod);
   const total_cents = subtotal_cents + shipping_cents;
 
   return {
     ok: errors.length === 0 && validated.length === cartItems.length,
     items: validated,
     errors,
+    delivery_method: deliveryMethod,
     subtotal_cents,
     shipping_cents,
     total_cents,

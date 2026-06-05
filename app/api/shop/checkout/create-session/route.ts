@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminServiceClient } from "@/lib/admin-api";
 import { createMerchCheckoutSession } from "@/lib/shop/merch-checkout";
 import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
+import { parseDeliveryMethod } from "@/lib/shop/shipping";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 export async function POST(request: Request) {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: auth.error }, { status: 401 });
   }
 
-  let body: { items?: CheckoutCartItemPayload[] };
+  let body: { items?: CheckoutCartItemPayload[]; delivery_method?: string };
   try {
     body = await request.json();
   } catch {
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
   }
 
   const items = Array.isArray(body.items) ? body.items : [];
+  const deliveryMethod = parseDeliveryMethod(body.delivery_method);
+
   if (items.length === 0) {
     return NextResponse.json({ error: "Your bag is empty." }, { status: 400 });
   }
@@ -38,6 +41,7 @@ export async function POST(request: Request) {
     userId: auth.userId,
     userEmail: authUser?.email ?? null,
     cartItems: items,
+    deliveryMethod,
   });
 
   if (!result.ok) {

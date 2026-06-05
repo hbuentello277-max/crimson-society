@@ -1,8 +1,19 @@
-import type { ShopFulfillmentStatus, ShopOrder, ShopOrderItem, ShopOrderWithItems } from "@/lib/shop/orders";
+import type {
+  ShopDeliveryMethod,
+  ShopFulfillmentStatus,
+  ShopOrder,
+  ShopOrderItem,
+  ShopOrderWithItems,
+  ShopPickupStatus,
+} from "@/lib/shop/orders";
 import {
+  formatDeliveryMethodLabel,
   formatFulfillmentStatusLabel,
   formatOrderStatusLabel,
+  formatPickupStatusLabel,
+  isShopDeliveryMethod,
   isShopFulfillmentStatus,
+  isShopPickupStatus,
   normalizePaymentStatus,
 } from "@/lib/shop/orders";
 
@@ -36,6 +47,16 @@ export function serializeOrder(row: DbOrder, includeItems = false) {
 
   const status = normalizePaymentStatus(String(row.status ?? "pending"));
 
+  const deliveryRaw = String(row.delivery_method ?? "shipping");
+  const delivery_method: ShopDeliveryMethod = isShopDeliveryMethod(deliveryRaw)
+    ? deliveryRaw
+    : "shipping";
+
+  const pickupRaw = String(row.pickup_status ?? "not_applicable");
+  const pickup_status: ShopPickupStatus = isShopPickupStatus(pickupRaw)
+    ? pickupRaw
+    : "not_applicable";
+
   const base = {
     id: String(row.id),
     user_id: (row.user_id as string | null) ?? null,
@@ -54,6 +75,13 @@ export function serializeOrder(row: DbOrder, includeItems = false) {
     tracking_carrier: (row.tracking_carrier as string | null) ?? null,
     tracking_url: (row.tracking_url as string | null) ?? null,
     customer_note: (row.customer_note as string | null) ?? null,
+    delivery_method,
+    delivery_method_label: formatDeliveryMethodLabel(delivery_method),
+    pickup_status,
+    pickup_status_label: formatPickupStatusLabel(pickup_status),
+    pickup_note: (row.pickup_note as string | null) ?? null,
+    pickup_ready_at: (row.pickup_ready_at as string | null) ?? null,
+    picked_up_at: (row.picked_up_at as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -102,6 +130,15 @@ export function toShopOrderWithItems(row: DbOrder): ShopOrderWithItems {
     tracking_url: (row.tracking_url as string | null) ?? null,
     admin_fulfillment_note: (row.admin_fulfillment_note as string | null) ?? null,
     customer_note: (row.customer_note as string | null) ?? null,
+    delivery_method: isShopDeliveryMethod(String(row.delivery_method ?? "shipping"))
+      ? (row.delivery_method as ShopDeliveryMethod)
+      : "shipping",
+    pickup_status: isShopPickupStatus(String(row.pickup_status ?? "not_applicable"))
+      ? (row.pickup_status as ShopPickupStatus)
+      : "not_applicable",
+    pickup_note: (row.pickup_note as string | null) ?? null,
+    pickup_ready_at: (row.pickup_ready_at as string | null) ?? null,
+    picked_up_at: (row.picked_up_at as string | null) ?? null,
     metadata: (row.metadata as Record<string, unknown>) ?? {},
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),

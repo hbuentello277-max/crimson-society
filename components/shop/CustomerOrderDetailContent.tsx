@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   formatCentsUsd,
+  formatDeliveryMethodLabel,
   fulfillmentStatusBadgeClass,
   formatFulfillmentStatusLabel,
+  formatPickupStatusLabel,
   paymentStatusBadgeClass,
   formatOrderStatusLabel,
+  pickupStatusBadgeClass,
   shortOrderId,
 } from "@/lib/shop/orders";
 
@@ -25,6 +28,8 @@ type OrderDetail = {
   id: string;
   status: string;
   fulfillment_status: string;
+  delivery_method: string;
+  pickup_status: string;
   subtotal_cents: number;
   shipping_cents: number;
   total_cents: number;
@@ -32,6 +37,8 @@ type OrderDetail = {
   tracking_carrier: string | null;
   tracking_url: string | null;
   customer_note: string | null;
+  pickup_note: string | null;
+  pickup_ready_at: string | null;
   created_at: string;
   items: OrderItem[];
 };
@@ -99,12 +106,37 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
               >
                 Payment: {formatOrderStatusLabel(order.status)}
               </span>
-              <span
-                className={`rounded-full border px-2.5 py-0.5 text-[9px] uppercase tracking-[0.14em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
-              >
-                {formatFulfillmentStatusLabel(order.fulfillment_status)}
-              </span>
+              {order.delivery_method === "local_pickup" ? (
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-[9px] uppercase tracking-[0.14em] ${pickupStatusBadgeClass(order.pickup_status)}`}
+                >
+                  {formatPickupStatusLabel(order.pickup_status)}
+                </span>
+              ) : (
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-[9px] uppercase tracking-[0.14em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
+                >
+                  {formatFulfillmentStatusLabel(order.fulfillment_status)}
+                </span>
+              )}
             </div>
+
+            {order.delivery_method === "local_pickup" ? (
+              <div className="mt-4 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/5 p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#e87a82]">Local pickup</p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {formatDeliveryMethodLabel(order.delivery_method)} selected — no shipping charge.
+                </p>
+                {order.pickup_ready_at ? (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Ready since {new Date(order.pickup_ready_at).toLocaleString()}
+                  </p>
+                ) : null}
+                {order.pickup_note ? (
+                  <p className="mt-3 text-sm text-zinc-300">{order.pickup_note}</p>
+                ) : null}
+              </div>
+            ) : null}
 
             <ul className="mt-8 space-y-3">
               {order.items.map((item) => (
@@ -147,7 +179,7 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
                 <span className="text-white">{formatCentsUsd(order.subtotal_cents)}</span>
               </div>
               <div className="flex justify-between text-zinc-400">
-                <span>Shipping</span>
+                <span>{order.delivery_method === "local_pickup" ? "Pickup" : "Shipping"}</span>
                 <span className="text-white">
                   {order.shipping_cents === 0 ? "Free" : formatCentsUsd(order.shipping_cents)}
                 </span>
@@ -160,7 +192,8 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
               </div>
             </div>
 
-            {order.tracking_number || order.tracking_carrier || order.tracking_url ? (
+            {order.delivery_method !== "local_pickup" &&
+            (order.tracking_number || order.tracking_carrier || order.tracking_url) ? (
               <div className="mt-6 rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-sky-300">Tracking</p>
                 {order.tracking_carrier ? (

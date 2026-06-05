@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
-import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
+import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult, ValidatedCheckoutLine } from "@/lib/shop/validate-checkout-cart";
 import { validateCheckoutCart } from "@/lib/shop/validate-checkout-cart";
 
@@ -143,8 +143,10 @@ export async function createMerchCheckoutSession(input: {
   userId: string;
   userEmail?: string | null;
   cartItems: CheckoutCartItemPayload[];
+  deliveryMethod?: ShopDeliveryMethod;
 }): Promise<MerchCheckoutSessionResult> {
-  const validation = await validateCheckoutCart(input.supabase, input.cartItems);
+  const deliveryMethod = input.deliveryMethod ?? "shipping";
+  const validation = await validateCheckoutCart(input.supabase, input.cartItems, deliveryMethod);
 
   if (!validation.ok || validation.items.length === 0) {
     return {
@@ -171,6 +173,7 @@ export async function createMerchCheckoutSession(input: {
 
   const orderMetadata = {
     checkout_type: "merch",
+    delivery_method: deliveryMethod,
     reservation_ids: reservationIds,
     validated_at: new Date().toISOString(),
     cart_snapshot: reserveResult.lines.map((line) => ({
@@ -182,6 +185,8 @@ export async function createMerchCheckoutSession(input: {
     })),
   };
 
+  const pickupStatus = deliveryMethod === "local_pickup" ? "pending" : "not_applicable";
+
   const { data: order, error: orderError } = await input.admin
     .from("shop_orders")
     .insert({
@@ -192,6 +197,8 @@ export async function createMerchCheckoutSession(input: {
       total_cents: validation.total_cents,
       currency: "usd",
       shipping_email: input.userEmail ?? null,
+      delivery_method: deliveryMethod,
+      pickup_status: pickupStatus,
       metadata: orderMetadata,
     })
     .select("id")
@@ -269,7 +276,7 @@ export async function createMerchCheckoutSession(input: {
   }
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       customer: stripeCustomerId,
       line_items: buildStripeLineItems(validation),
@@ -280,9 +287,18 @@ export async function createMerchCheckoutSession(input: {
         checkout_type: "merch",
         shop_order_id: orderId,
         supabase_user_id: input.userId,
+        delivery_method: deliveryMethod,
         reservation_ids: reservationIds.join(","),
       },
-    });
+    };
+
+    if (deliveryMethod === "shipping") {
+      sessionParams.shipping_address_collection = {
+        allowed_countries: ["US"],
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     if (!session.url) {
       throw new Error("Stripe did not return a checkout URL.");

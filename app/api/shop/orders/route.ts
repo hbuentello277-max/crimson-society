@@ -3,7 +3,7 @@ import { serializeOrder } from "@/lib/shop/serialize-order";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const ORDER_SELECT =
-  "id, user_id, status, fulfillment_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, fulfilled_at, shipped_at, tracking_number, tracking_carrier, tracking_url, customer_note, created_at, updated_at";
+  "id, user_id, status, fulfillment_status, delivery_method, pickup_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, fulfilled_at, shipped_at, tracking_number, tracking_carrier, tracking_url, customer_note, pickup_note, pickup_ready_at, picked_up_at, created_at, updated_at";
 
 export async function GET(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);

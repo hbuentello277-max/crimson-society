@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart, useCartItems } from "@/lib/cart-store";
 import { supabase } from "@/lib/supabase";
-import { formatCentsUsd } from "@/lib/shop/orders";
+import { formatCentsUsd, type ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
 
@@ -37,6 +37,7 @@ function ShopCheckoutPageInner() {
   const [authChecked, setAuthChecked] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<ShopDeliveryMethod>("shipping");
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const cancelHandledRef = useRef(false);
 
@@ -78,7 +79,8 @@ function ShopCheckoutPageInner() {
     void handleCancel();
   }, [cancelled, cancelOrderId, router]);
 
-  const runValidation = useCallback(async (items: CheckoutCartItemPayload[]) => {
+  const runValidation = useCallback(
+    async (items: CheckoutCartItemPayload[], method: ShopDeliveryMethod) => {
     setLoading(true);
     setNetworkError(null);
 
@@ -86,7 +88,7 @@ function ShopCheckoutPageInner() {
       const res = await fetch("/api/shop/checkout/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, delivery_method: method }),
       });
 
       const data = (await res.json()) as CheckoutCartValidationResult | { error?: string };
@@ -104,7 +106,9 @@ function ShopCheckoutPageInner() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  },
+    [],
+  );
 
   useEffect(() => {
     const payload: CheckoutCartItemPayload[] = cartItems.map((item) => ({
@@ -119,8 +123,8 @@ function ShopCheckoutPageInner() {
       return;
     }
 
-    void runValidation(payload);
-  }, [cartItems, runValidation]);
+    void runValidation(payload, deliveryMethod);
+  }, [cartItems, deliveryMethod, runValidation]);
 
   async function handleContinueToPayment() {
     if (!validation?.ok || !authUserId) return;
@@ -139,7 +143,7 @@ function ShopCheckoutPageInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, delivery_method: deliveryMethod }),
       });
 
       const data = (await res.json()) as { url?: string; error?: string };
@@ -296,12 +300,48 @@ function ShopCheckoutPageInner() {
             </ul>
 
             <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Delivery</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod("shipping")}
+                  className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
+                    deliveryMethod === "shipping"
+                      ? "border-[#b4141e]/50 bg-[#b4141e]/10 text-[#f1c3c7]"
+                      : "border-white/10 text-zinc-400 hover:border-white/20"
+                  }`}
+                >
+                  <span className="block text-[10px] uppercase tracking-[0.18em]">Ship to me</span>
+                  <span className="mt-1 block text-xs text-zinc-500">
+                    Standard shipping · address at payment
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod("local_pickup")}
+                  className={`rounded-xl border px-3 py-3 text-left text-sm transition ${
+                    deliveryMethod === "local_pickup"
+                      ? "border-[#b4141e]/50 bg-[#b4141e]/10 text-[#f1c3c7]"
+                      : "border-white/10 text-zinc-400 hover:border-white/20"
+                  }`}
+                >
+                  <span className="block text-[10px] uppercase tracking-[0.18em]">
+                    Local pickup
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-500">No shipping charge</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
               <div className="flex justify-between text-sm text-zinc-400">
                 <span>Subtotal</span>
                 <span className="text-white">{formatCentsUsd(validation.subtotal_cents)}</span>
               </div>
               <div className="mt-2 flex justify-between text-sm text-zinc-400">
-                <span>Shipping (estimate)</span>
+                <span>
+                  {deliveryMethod === "local_pickup" ? "Pickup" : "Shipping (estimate)"}
+                </span>
                 <span className="text-white">
                   {validation.shipping_cents === 0
                     ? "Free"
@@ -314,7 +354,8 @@ function ShopCheckoutPageInner() {
                   {formatCentsUsd(validation.total_cents)}
                 </span>
               </div>
-              {validation.subtotal_cents > 0 &&
+              {deliveryMethod === "shipping" &&
+              validation.subtotal_cents > 0 &&
               validation.subtotal_cents < 20_000 &&
               validation.shipping_cents > 0 ? (
                 <p className="mt-3 text-center text-[10px] uppercase tracking-[0.2em] text-zinc-600">

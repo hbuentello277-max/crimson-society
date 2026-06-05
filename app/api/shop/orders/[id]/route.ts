@@ -3,7 +3,7 @@ import { serializeOrder } from "@/lib/shop/serialize-order";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const ORDER_SELECT =
-  "id, user_id, status, fulfillment_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, fulfilled_at, shipped_at, tracking_number, tracking_carrier, tracking_url, customer_note, created_at, updated_at, shop_order_items(id, order_id, product_id, product_name, product_image_url, size, quantity, unit_price_cents, line_total_cents, created_at)";
+  "id, user_id, status, fulfillment_status, delivery_method, pickup_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, fulfilled_at, shipped_at, tracking_number, tracking_carrier, tracking_url, customer_note, pickup_note, pickup_ready_at, picked_up_at, created_at, updated_at, shop_order_items(id, order_id, product_id, product_name, product_image_url, size, quantity, unit_price_cents, line_total_cents, created_at)";
 
 type RouteContext = { params: Promise<{ id: string }> };
 

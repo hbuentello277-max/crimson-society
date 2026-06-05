@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   formatCentsUsd,
+  formatDeliveryMethodLabel,
   fulfillmentStatusBadgeClass,
   formatFulfillmentStatusLabel,
+  formatPickupStatusLabel,
   paymentStatusBadgeClass,
   formatOrderStatusLabel,
+  pickupStatusBadgeClass,
   shortOrderId,
 } from "@/lib/shop/orders";
 
@@ -18,6 +21,8 @@ type OrderListItem = {
   status_label: string;
   fulfillment_status: string;
   fulfillment_status_label: string;
+  delivery_method: string;
+  pickup_status: string;
   total_cents: number;
   created_at: string;
   line_count: number;
@@ -133,13 +138,22 @@ export function CustomerOrdersPageContent() {
                     >
                       {formatOrderStatusLabel(order.status)}
                     </span>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
-                    >
-                      {formatFulfillmentStatusLabel(order.fulfillment_status)}
-                    </span>
+                    {order.delivery_method === "local_pickup" ? (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${pickupStatusBadgeClass(order.pickup_status)}`}
+                      >
+                        {formatPickupStatusLabel(order.pickup_status)}
+                      </span>
+                    ) : (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] ${fulfillmentStatusBadgeClass(order.fulfillment_status)}`}
+                      >
+                        {formatFulfillmentStatusLabel(order.fulfillment_status)}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
+                    {formatDeliveryMethodLabel(order.delivery_method)} ·{" "}
                     {new Date(order.created_at).toLocaleDateString()} · {order.line_count} item
                     {order.line_count === 1 ? "" : "s"} · {order.unit_count} unit
                     {order.unit_count === 1 ? "" : "s"}

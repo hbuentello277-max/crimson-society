@@ -1,5 +1,5 @@
-import type { ShopFulfillmentStatus } from "@/lib/shop/orders";
-import { isShopFulfillmentStatus } from "@/lib/shop/orders";
+import type { ShopFulfillmentStatus, ShopPickupStatus } from "@/lib/shop/orders";
+import { isShopFulfillmentStatus, isShopPickupStatus } from "@/lib/shop/orders";
 
 export type AdminShopOrderPatch = {
   fulfillment_status?: ShopFulfillmentStatus;
@@ -8,6 +8,8 @@ export type AdminShopOrderPatch = {
   tracking_url?: string | null;
   admin_fulfillment_note?: string | null;
   customer_note?: string | null;
+  pickup_status?: ShopPickupStatus;
+  pickup_note?: string | null;
 };
 
 export function sanitizeAdminShopOrderPatch(body: unknown): AdminShopOrderPatch {
@@ -61,6 +63,21 @@ export function sanitizeAdminShopOrderPatch(body: unknown): AdminShopOrderPatch 
         : String(input.customer_note).trim();
   }
 
+  if (input.pickup_status !== undefined) {
+    const value = String(input.pickup_status);
+    if (!isShopPickupStatus(value)) {
+      throw new Error("Invalid pickup_status");
+    }
+    patch.pickup_status = value;
+  }
+
+  if (input.pickup_note !== undefined) {
+    patch.pickup_note =
+      input.pickup_note == null || input.pickup_note === ""
+        ? null
+        : String(input.pickup_note).trim();
+  }
+
   if (Object.keys(patch).length === 0) {
     throw new Error("No valid fields to update");
   }
@@ -70,7 +87,12 @@ export function sanitizeAdminShopOrderPatch(body: unknown): AdminShopOrderPatch 
 
 export function buildAdminOrderUpdateRow(
   patch: AdminShopOrderPatch,
-  existing?: { fulfilled_at?: string | null; shipped_at?: string | null },
+  existing?: {
+    fulfilled_at?: string | null;
+    shipped_at?: string | null;
+    pickup_ready_at?: string | null;
+    picked_up_at?: string | null;
+  },
 ): Record<string, unknown> {
   const row: Record<string, unknown> = { ...patch };
 
@@ -82,6 +104,17 @@ export function buildAdminOrderUpdateRow(
     row.shipped_at = existing?.shipped_at ?? new Date().toISOString();
     if (!existing?.fulfilled_at) {
       row.fulfilled_at = new Date().toISOString();
+    }
+  }
+
+  if (patch.pickup_status === "ready" && !existing?.pickup_ready_at) {
+    row.pickup_ready_at = new Date().toISOString();
+  }
+
+  if (patch.pickup_status === "picked_up") {
+    row.picked_up_at = existing?.picked_up_at ?? new Date().toISOString();
+    if (!existing?.pickup_ready_at) {
+      row.pickup_ready_at = new Date().toISOString();
     }
   }
 
