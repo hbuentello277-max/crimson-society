@@ -5,10 +5,12 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { awardReferralBlackcardConversion } from "@/lib/credits/award-referral-blackcard";
 import { fulfillMerchOrderFromCheckoutSession } from "@/lib/shop/fulfill-merch-order";
+import { cancelPendingMerchOrderById } from "@/lib/shop/merch-checkout";
 import { syncBlackcardPublicForUser } from "@/lib/stripe/sync-blackcard-public";
 import {
-  checkStripeWebhookDuplicate,
-  recordStripeWebhookEvent,
+  claimStripeWebhookEvent,
+  markStripeWebhookFailed,
+  markStripeWebhookProcessed,
 } from "@/lib/stripe/webhook-idempotency";
 import { normalizeMembershipPlanType } from "@/lib/membership";
 
@@ -121,8 +123,9 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
     throw error;
   }
 
+  await syncBlackcardPublicForUser(supabaseAdmin, userId);
+
   if (subscription.status === "active" || subscription.status === "trialing") {
-    await syncBlackcardPublicForUser(supabaseAdmin, userId);
     await awardReferralBlackcardConversion(supabaseAdmin, userId);
   }
 }
@@ -161,6 +164,73 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 }
 
+async function handleCheckoutSessionFailedOrExpired(session: Stripe.Checkout.Session) {
+  if (session.metadata?.checkout_type !== "merch") {
+    return;
+  }
+
+  const orderId =
+    session.metadata.shop_order_id?.trim() ||
+    session.client_reference_id?.trim() ||
+    null;
+
+  if (!orderId) {
+    console.warn("[stripe-webhook] merch checkout failure missing order id", session.id);
+    return;
+  }
+
+  const admin = getSupabaseAdmin();
+  const result = await cancelPendingMerchOrderById({ admin, orderId });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const paymentIntentId =
+    typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+
+  if (!paymentIntentId || charge.amount_refunded < charge.amount) {
+    return;
+  }
+
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("shop_orders")
+    .update({ status: "refunded" })
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .eq("status", "paid");
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function handleInvoiceSubscriptionSync(invoice: Stripe.Invoice) {
+  const subscriptionRef = (invoice as unknown as {
+    subscription?: string | { id?: string | null } | null;
+  }).subscription;
+  const subscriptionId =
+    typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id ?? null;
+
+  if (!subscriptionId) {
+    return;
+  }
+
+  const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+  await upsertSubscription(subscription);
+}
+
+async function handleRefundUpdated(refund: Stripe.Refund) {
+  const chargeId = typeof refund.charge === "string" ? refund.charge : refund.charge?.id;
+  if (!chargeId || refund.status !== "succeeded") {
+    return;
+  }
+
+  const charge = await getStripe().charges.retrieve(chargeId);
+  await handleChargeRefunded(charge);
+}
+
 export async function POST(req: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -187,15 +257,32 @@ export async function POST(req: Request) {
   const admin = getSupabaseAdmin();
 
   try {
-    const idempotency = await checkStripeWebhookDuplicate(admin, event.id);
-    if (idempotency === "duplicate") {
-      return NextResponse.json({ received: true, duplicate: true });
+    const claim = await claimStripeWebhookEvent(admin, event.id, event.type);
+    if (claim !== "claimed") {
+      return NextResponse.json({
+        received: true,
+        duplicate: claim === "duplicate",
+        processing: claim === "processing",
+      });
     }
 
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutSessionCompleted(session);
+        break;
+      }
+
+      case "checkout.session.async_payment_succeeded": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutSessionCompleted(session);
+        break;
+      }
+
+      case "checkout.session.expired":
+      case "checkout.session.async_payment_failed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutSessionFailedOrExpired(session);
         break;
       }
 
@@ -207,15 +294,40 @@ export async function POST(req: Request) {
         break;
       }
 
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        await handleInvoiceSubscriptionSync(invoice);
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        await handleChargeRefunded(charge);
+        break;
+      }
+
+      case "refund.updated": {
+        const refund = event.data.object as Stripe.Refund;
+        await handleRefundUpdated(refund);
+        break;
+      }
+
       default:
         break;
     }
 
-    await recordStripeWebhookEvent(admin, event.id, event.type);
+    await markStripeWebhookProcessed(admin, event.id);
 
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("STRIPE WEBHOOK ERROR", error);
+    await markStripeWebhookFailed(
+      admin,
+      event.id,
+      error instanceof Error ? error.message : "Webhook handler failed",
+    ).catch((markError) => {
+      console.error("STRIPE WEBHOOK MARK FAILED ERROR", markError);
+    });
     return new NextResponse("Webhook handler failed", { status: 500 });
   }
 }

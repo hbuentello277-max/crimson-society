@@ -167,7 +167,7 @@ export async function createMerchCheckoutSession(input: {
     };
   }
 
-  const reserveResult = await reserveCartLines(input.supabase, input.userId, validation.items);
+  const reserveResult = await reserveCartLines(input.admin, input.userId, validation.items);
   if (!reserveResult.ok) {
     return {
       ok: false,
@@ -392,6 +392,55 @@ export async function cancelPendingMerchOrder(input: {
 
   if (cancelError) {
     return { ok: false, status: 500, error: cancelError.message };
+  }
+
+  return { ok: true };
+}
+
+export async function cancelPendingMerchOrderById(input: {
+  admin: SupabaseClient;
+  orderId: string;
+}): Promise<{ ok: true; reason?: string } | { ok: false; error: string }> {
+  const { data: order, error: orderError } = await input.admin
+    .from("shop_orders")
+    .select("id, status")
+    .eq("id", input.orderId)
+    .maybeSingle();
+
+  if (orderError) {
+    return { ok: false, error: orderError.message };
+  }
+
+  if (!order) {
+    return { ok: false, error: "Order not found." };
+  }
+
+  if (order.status !== "pending") {
+    return { ok: true, reason: "not_pending" };
+  }
+
+  const { data: items, error: itemsError } = await input.admin
+    .from("shop_order_items")
+    .select("reservation_id")
+    .eq("order_id", input.orderId);
+
+  if (itemsError) {
+    return { ok: false, error: itemsError.message };
+  }
+
+  await releaseReservationIds(
+    input.admin,
+    (items ?? []).map((row) => row.reservation_id as string | null),
+  );
+
+  const { error: cancelError } = await input.admin
+    .from("shop_orders")
+    .update({ status: "cancelled" })
+    .eq("id", input.orderId)
+    .eq("status", "pending");
+
+  if (cancelError) {
+    return { ok: false, error: cancelError.message };
   }
 
   return { ok: true };

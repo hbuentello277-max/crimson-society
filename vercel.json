@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/shop-expire-reservations",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/push-dispatch",
       "schedule": "0 14 * * *"
     }

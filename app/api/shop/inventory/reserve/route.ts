@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createAdminServiceClient } from "@/lib/admin-api";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 export async function POST(request: Request) {
@@ -25,14 +26,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "productId is required" }, { status: 400 });
   }
 
-  const { data, error } = await auth.supabase.rpc("product_inventory_reserve", {
+  const admin = createAdminServiceClient();
+  const quantity = Math.trunc(Number(body.quantity ?? 1));
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    return NextResponse.json({ error: "quantity must be at least 1" }, { status: 400 });
+  }
+
+  const requestedExpires = Math.trunc(Number(body.expiresMinutes ?? 15));
+  const expiresMinutes = Number.isFinite(requestedExpires)
+    ? Math.min(Math.max(requestedExpires, 1), 30)
+    : 15;
+
+  const { data, error } = await admin.rpc("product_inventory_reserve", {
     p_product_id: productId,
     p_size_label: body.size?.trim() || null,
-    p_quantity: body.quantity ?? 1,
+    p_quantity: quantity,
     p_reservation_type: "merch_checkout",
     p_user_id: auth.userId,
     p_redemption_id: null,
-    p_expires_minutes: body.expiresMinutes ?? 15,
+    p_expires_minutes: expiresMinutes,
   });
 
   if (error) {

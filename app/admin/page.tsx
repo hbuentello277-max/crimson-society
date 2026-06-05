@@ -578,19 +578,24 @@ function AdminPageContent() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    const { data, error } = await supabase.rpc("admin_update_profile_access", {
-      target_user_id: id,
-      new_role: nextRole,
-      new_status: nextStatus,
+    const res = await fetch("/api/admin/profiles/access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId: id,
+        role: nextRole,
+        status: nextStatus,
+      }),
     });
+    const data = await res.json();
 
-    if (error) {
-      setErrorMsg(error.message);
+    if (!res.ok) {
+      setErrorMsg(data.error ?? "Could not update profile access.");
       setSavingId(null);
       return;
     }
 
-    const updated = data as AdminProfile | null;
+    const updated = data.profile as AdminProfile | null;
 
     setProfiles((prev) =>
       prev.map((item) =>

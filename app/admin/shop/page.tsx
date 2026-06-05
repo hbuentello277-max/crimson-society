@@ -80,18 +80,24 @@ function AdminShopPageInner() {
   async function applyInventoryMap(productId: string, sizeInventory: Product["size_inventory"]) {
     if (sizeInventory === undefined) return;
 
-    const { error } = await supabase.rpc("product_inventory_apply_map", {
-      p_product_id: productId,
-      p_size_inventory: sizeInventory,
+    const res = await fetch("/api/admin/shop/products/apply-inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product_id: productId,
+        size_inventory: sizeInventory,
+      }),
     });
+    const data = await res.json();
 
-    if (error) {
-      throw new Error(error.message);
+    if (!res.ok) {
+      throw new Error(data.error ?? "Failed to update inventory");
     }
 
-    const { data } = await supabase.from("products").select("*").eq("id", productId).maybeSingle();
-    if (data) {
-      setProducts((prev) => prev.map((p) => (p.id === productId ? (data as Product) : p)));
+    if (data.product) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? (data.product as Product) : p)),
+      );
     }
   }
 
