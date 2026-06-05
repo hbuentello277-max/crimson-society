@@ -7,6 +7,7 @@ export type SavePushTokenInput = {
   token: string;
   platform: PushPlatform;
   userAgent: string | null;
+  deviceId?: string | null;
 };
 
 export type SavePushTokenResult =
@@ -23,9 +24,31 @@ export async function savePushTokenRow(
     token: input.token.trim(),
     platform: input.platform,
     user_agent: input.userAgent,
+    device_id: input.deviceId?.trim() || null,
     enabled: true,
     updated_at: now,
   };
+
+  if (row.device_id) {
+    const disableExistingForDevice = await supabase
+      .from("user_push_tokens")
+      .update({
+        enabled: false,
+        updated_at: now,
+      })
+      .eq("user_id", input.userId)
+      .eq("device_id", row.device_id)
+      .eq("enabled", true)
+      .neq("token", row.token);
+
+    if (disableExistingForDevice.error) {
+      return {
+        ok: false,
+        message: disableExistingForDevice.error.message,
+        code: disableExistingForDevice.error.code,
+      };
+    }
+  }
 
   const upsert = await supabase.from("user_push_tokens").upsert(row, {
     onConflict: "user_id,token",
@@ -46,6 +69,7 @@ export async function savePushTokenRow(
       .update({
         platform: row.platform,
         user_agent: row.user_agent,
+        device_id: row.device_id,
         enabled: true,
         updated_at: now,
       })

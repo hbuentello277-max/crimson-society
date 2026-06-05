@@ -24,6 +24,11 @@ type NotificationRow = NotificationItem & {
   conversation_id: string | null;
 };
 
+type PushJobRow = {
+  id: string;
+  status: string;
+};
+
 async function loadActor(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   actorId: string | null,
@@ -63,6 +68,45 @@ export async function dispatchPushForNotification(notificationId: string) {
 
   const supabase = getSupabaseAdmin();
   const appOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://crimson-society.com";
+  const now = new Date().toISOString();
+
+  const { data: claimedJob, error: claimError } = await supabase
+    .from("push_notification_jobs")
+    .update({
+      status: "processing",
+      attempt_count: 1,
+      last_error: null,
+      processed_at: null,
+    })
+    .eq("notification_id", notificationId)
+    .eq("status", "pending")
+    .select("id, status")
+    .maybeSingle();
+
+  if (claimError) {
+    throw new Error(claimError.message);
+  }
+
+  if (!claimedJob) {
+    const { data: existingJob } = await supabase
+      .from("push_notification_jobs")
+      .select("id, status")
+      .eq("notification_id", notificationId)
+      .maybeSingle();
+
+    return {
+      sent: 0,
+      skipped: true,
+      reason:
+        existingJob?.status === "sent"
+          ? ("already_sent" as const)
+          : existingJob?.status === "processing"
+            ? ("already_processing" as const)
+            : ("not_pending" as const),
+    };
+  }
+
+  const job = claimedJob as PushJobRow;
 
   const { data: notification, error: notificationError } = await supabase
     .from("notifications")
@@ -73,6 +117,14 @@ export async function dispatchPushForNotification(notificationId: string) {
     .maybeSingle();
 
   if (notificationError || !notification) {
+    await supabase
+      .from("push_notification_jobs")
+      .update({
+        status: "failed",
+        processed_at: new Date().toISOString(),
+        last_error: notificationError?.message || "Notification not found.",
+      })
+      .eq("id", job.id);
     throw new Error(notificationError?.message || "Notification not found.");
   }
 
@@ -89,10 +141,10 @@ export async function dispatchPushForNotification(notificationId: string) {
       .from("push_notification_jobs")
       .update({
         status: "skipped",
-        processed_at: new Date().toISOString(),
+        processed_at: now,
         last_error: "push_disabled",
       })
-      .eq("notification_id", notificationId);
+      .eq("id", job.id);
 
     return { sent: 0, skipped: true, reason: "push_disabled" as const };
   }
@@ -112,10 +164,10 @@ export async function dispatchPushForNotification(notificationId: string) {
       .from("push_notification_jobs")
       .update({
         status: "skipped",
-        processed_at: new Date().toISOString(),
+        processed_at: now,
         last_error: "no_tokens",
       })
-      .eq("notification_id", notificationId);
+      .eq("id", job.id);
 
     return { sent: 0, skipped: true, reason: "no_tokens" as const };
   }
@@ -153,9 +205,8 @@ export async function dispatchPushForNotification(notificationId: string) {
           status: "failed",
           processed_at: new Date().toISOString(),
           last_error: error instanceof Error ? error.message : "send_failed",
-          attempt_count: 1,
         })
-        .eq("notification_id", notificationId);
+        .eq("id", job.id);
 
       throw error;
     }
@@ -174,9 +225,8 @@ export async function dispatchPushForNotification(notificationId: string) {
       status: sent > 0 ? "sent" : "skipped",
       processed_at: new Date().toISOString(),
       last_error: sent > 0 ? null : "no_deliverable_tokens",
-      attempt_count: 1,
     })
-    .eq("notification_id", notificationId);
+    .eq("id", job.id);
 
   return { sent, skipped: sent === 0, reason: sent === 0 ? ("no_deliverable_tokens" as const) : null };
 }

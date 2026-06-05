@@ -131,7 +131,12 @@ export async function POST(request: Request) {
 
     const { userId, authMethod } = auth;
 
-    let body: { token?: string; platform?: string; userAgent?: string | null };
+    let body: {
+      token?: string;
+      platform?: string;
+      userAgent?: string | null;
+      deviceId?: string | null;
+    };
     try {
       body = await request.json();
     } catch {
@@ -158,6 +163,7 @@ export async function POST(request: Request) {
       token: body.token.trim(),
       platform,
       userAgent: body.userAgent || null,
+      deviceId: body.deviceId || null,
     };
 
     const admin = getServiceRoleClient();

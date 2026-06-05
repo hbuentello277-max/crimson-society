@@ -4,12 +4,37 @@ import { supabase } from "@/lib/supabase";
 import { getFirebasePublicConfig, getFirebaseVapidKey, isPushConfiguredOnClient } from "@/lib/push/firebase-public";
 import { savePushTokenRow, setPushNotificationsEnabled } from "@/lib/push/save-token";
 
+const PUSH_DEVICE_ID_STORAGE_KEY = "crimson_push_device_id";
+
 function detectPushPlatform(): "web" | "ios" | "android" {
   if (typeof navigator === "undefined") return "web";
   const ua = navigator.userAgent;
   if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
   if (/Android/i.test(ua)) return "android";
   return "web";
+}
+
+function randomDeviceId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `push-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+export function getPushDeviceId() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const existing = window.localStorage.getItem(PUSH_DEVICE_ID_STORAGE_KEY);
+    if (existing) return existing;
+
+    const next = randomDeviceId();
+    window.localStorage.setItem(PUSH_DEVICE_ID_STORAGE_KEY, next);
+    return next;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveAccessToken() {
@@ -121,6 +146,7 @@ async function registerPushTokenDirect(token: string) {
     token,
     platform: detectPushPlatform(),
     userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    deviceId: getPushDeviceId(),
   });
 
   if (!saveResult.ok) {
@@ -145,6 +171,7 @@ async function registerPushTokenViaApi(token: string) {
       token,
       platform: detectPushPlatform(),
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      deviceId: getPushDeviceId(),
     }),
   });
 

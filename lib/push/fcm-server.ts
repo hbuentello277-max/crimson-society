@@ -130,10 +130,6 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
       body: JSON.stringify({
         message: {
           token,
-          notification: {
-            title: payload.title,
-            body: payload.body,
-          },
           data: {
             title: payload.title,
             body: payload.body,
