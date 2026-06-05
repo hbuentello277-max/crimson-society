@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import {
   formatCentsUsd,
   formatDeliveryMethodLabel,
@@ -120,14 +120,7 @@ export function CustomerOrdersPageContent() {
               <div className="flex gap-3 p-3">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                   {order.first_product_image_url ? (
-                    <Image
-                      src={order.first_product_image_url}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="80px"
-                      unoptimized
-                    />
+                    <ShopProductImage src={order.first_product_image_url} alt="" sizes="80px" />
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">

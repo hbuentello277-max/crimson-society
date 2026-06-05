@@ -16,6 +16,7 @@ import {
   isShopPickupStatus,
   normalizePaymentStatus,
 } from "@/lib/shop/orders";
+import { resolveStoredProductImageUrl } from "@/lib/shop/product-image-url";
 
 type DbOrder = Record<string, unknown> & {
   shop_order_items?: DbOrderItem[];
@@ -24,12 +25,16 @@ type DbOrder = Record<string, unknown> & {
 type DbOrderItem = Record<string, unknown>;
 
 export function serializeOrderItem(row: DbOrderItem) {
+  const product_image_url = resolveStoredProductImageUrl(
+    (row.product_image_url as string | null) ?? null,
+  );
+
   return {
     id: String(row.id),
     order_id: String(row.order_id),
     product_id: String(row.product_id),
     product_name: String(row.product_name),
-    product_image_url: (row.product_image_url as string | null) ?? null,
+    product_image_url,
     size: (row.size as string | null) ?? null,
     quantity: Number(row.quantity) || 0,
     unit_price_cents: Number(row.unit_price_cents) || 0,

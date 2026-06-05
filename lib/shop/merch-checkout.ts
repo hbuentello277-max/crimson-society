@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import type { CheckoutCartItemPayload, ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult, ValidatedCheckoutLine } from "@/lib/shop/validate-checkout-cart";
+import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
 import { validateCheckoutCart } from "@/lib/shop/validate-checkout-cart";
 
 export const MERCH_CHECKOUT_RESERVATION_MINUTES = 15;
@@ -229,7 +230,7 @@ export async function createMerchCheckoutSession(input: {
     order_id: orderId,
     product_id: line.product_id,
     product_name: line.product_name,
-    product_image_url: line.product_image_url,
+    product_image_url: resolveLineImageUrl(line) ?? line.product_image_url,
     size: line.size,
     quantity: line.quantity,
     unit_price_cents: line.unit_price_cents,

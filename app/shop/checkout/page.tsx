@@ -1,14 +1,15 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart, useCartItems } from "@/lib/cart-store";
 import { supabase } from "@/lib/supabase";
 import { formatCentsUsd, type ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
+import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
 
 export default function ShopCheckoutPage() {
   return (
@@ -264,21 +265,16 @@ function ShopCheckoutPageInner() {
             ) : null}
 
             <ul className="mt-8 space-y-3">
-              {validation.items.map((line) => (
+              {validation.items.map((line) => {
+                const imageUrl = resolveLineImageUrl(line);
+                return (
                 <li
                   key={`${line.product_id}-${line.size}`}
                   className="flex gap-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-3"
                 >
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
-                    {line.product_image_url ? (
-                      <Image
-                        src={line.product_image_url}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="80px"
-                        unoptimized
-                      />
+                    {imageUrl ? (
+                      <ShopProductImage src={imageUrl} alt="" sizes="80px" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -296,7 +292,8 @@ function ShopCheckoutPageInner() {
                     </p>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
 
             <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4">

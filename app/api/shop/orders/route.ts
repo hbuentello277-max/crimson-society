@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveStoredProductImageUrl } from "@/lib/shop/product-image-url";
 import { serializeOrder } from "@/lib/shop/serialize-order";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
@@ -32,7 +33,9 @@ export async function GET(request: Request) {
       ...serialized,
       line_count: items.length,
       unit_count: items.reduce((sum, item) => sum + (item.quantity ?? 0), 0),
-      first_product_image_url: items[0]?.product_image_url ?? null,
+      first_product_image_url: resolveStoredProductImageUrl(
+        items[0]?.product_image_url ?? null,
+      ),
     };
   });
 

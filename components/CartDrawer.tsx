@@ -1,28 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import { useCart, useCartItems } from "@/lib/cart-store";
 import { formatCentsUsd } from "@/lib/shop/orders";
-import { resolveProductImageUrl } from "@/lib/shop/product-image-url";
+import { resolveLineImageUrl, resolveProductImageUrl } from "@/lib/shop/product-image-url";
 import { useCartValidation } from "@/lib/shop/use-cart-validation";
 import { FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/shop/shipping";
 import { fetchMerchProducts, type Product } from "@/lib/products";
-
-function lineImageUrl(line: {
-  product_image_url?: string | null;
-  image_display_url?: string | null;
-  image_thumbnail_url?: string | null;
-}) {
-  return (
-    line.image_display_url ??
-    line.image_thumbnail_url ??
-    line.product_image_url ??
-    null
-  );
-}
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -77,7 +64,7 @@ export default function CartDrawer() {
     }
 
     for (const line of validation?.items ?? []) {
-      const url = lineImageUrl(line);
+      const url = resolveLineImageUrl(line);
       if (url) map.set(line.product_id, url);
     }
 
@@ -188,7 +175,7 @@ export default function CartDrawer() {
                         const lineTotalCents =
                           line?.line_total_cents ?? unitCents * item.quantity;
                         const imageUrl =
-                          (line ? lineImageUrl(line) : null) ??
+                          (line ? resolveLineImageUrl(line) : null) ??
                           imageByProductId.get(item.productId) ??
                           null;
 
@@ -208,14 +195,7 @@ export default function CartDrawer() {
                           >
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10">
                               {imageUrl ? (
-                                <Image
-                                  src={imageUrl}
-                                  alt=""
-                                  fill
-                                  className="object-cover"
-                                  sizes="80px"
-                                  unoptimized
-                                />
+                                <ShopProductImage src={imageUrl} alt="" sizes="80px" />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center bg-black/50 text-white/20">
                                   ◇
