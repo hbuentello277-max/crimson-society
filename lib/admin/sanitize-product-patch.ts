@@ -59,6 +59,13 @@ function toInt(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
+/** USD dollars with up to 2 decimal places (matches products.price numeric(10,2)). */
+function toPriceDollars(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * Validates and whitelists product writes for Supabase.
  * Prevents accidental fields (e.g. is_active text) from reaching products.
@@ -72,7 +79,7 @@ export function sanitizeProductPatch(
   if (patch.slug !== undefined) out.slug = String(patch.slug).trim();
   if (patch.tagline !== undefined) out.tagline = String(patch.tagline);
   if (patch.description !== undefined) out.description = String(patch.description);
-  if (patch.price !== undefined) out.price = toInt(patch.price, 0);
+  if (patch.price !== undefined) out.price = toPriceDollars(patch.price, 0);
   if (patch.category !== undefined) out.category = patch.category;
   if (patch.images !== undefined) out.images = Array.isArray(patch.images) ? patch.images : [];
   if (patch.sizes !== undefined) out.sizes = Array.isArray(patch.sizes) ? patch.sizes : [];

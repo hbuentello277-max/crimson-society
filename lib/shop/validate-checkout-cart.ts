@@ -220,6 +220,16 @@ export async function validateCheckoutCart(
     }
 
     const unitPriceCents = priceToCents(Number(product.price));
+    if (unitPriceCents <= 0) {
+      errors.push({
+        product_id: productId,
+        size,
+        code: "invalid_price",
+        message: `${product.name} is not available for purchase at this price. Contact support if this persists.`,
+      });
+      continue;
+    }
+
     const lineTotalCents = unitPriceCents * quantity;
     const available =
       sizeMap && isPerSizeInventoryMap(sizeMap)
@@ -244,8 +254,17 @@ export async function validateCheckoutCart(
   const shipping_cents = computeShippingCents(subtotal_cents, deliveryMethod);
   const total_cents = subtotal_cents + shipping_cents;
 
+  if (validated.length > 0 && subtotal_cents <= 0) {
+    errors.push({
+      product_id: "",
+      size: "",
+      code: "zero_subtotal",
+      message: "Your bag total must be greater than $0 to checkout.",
+    });
+  }
+
   return {
-    ok: errors.length === 0 && validated.length === cartItems.length,
+    ok: errors.length === 0 && validated.length === cartItems.length && subtotal_cents > 0,
     items: validated,
     errors,
     delivery_method: deliveryMethod,

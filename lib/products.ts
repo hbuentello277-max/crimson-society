@@ -47,8 +47,13 @@ export const categoryLabels: Record<Category, string> = {
   accessories: "Accessories",
 };
 
-export const formatPrice = (n: number) =>
-  `$${n.toLocaleString("en-US", { minimumFractionDigits: 0 })}`;
+export const formatPrice = (n: number) => {
+  const hasCents = Math.round(n * 100) % 100 !== 0;
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+};
 
 export const formatCreditCost = (credits: number) =>
   `${credits.toLocaleString()} Credits`;

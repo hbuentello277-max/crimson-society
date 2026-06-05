@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/lib/cart-store";
-import { formatCentsUsd, formatOrderStatusLabel, isShopOrderStatus } from "@/lib/shop/orders";
+import { formatCentsUsd, formatOrderStatusLabel } from "@/lib/shop/orders";
 
 type OrderSummary = {
   id: string;
@@ -15,6 +15,10 @@ type OrderSummary = {
   unit_count: number;
 };
 
+function isPaidOrderStatus(status: string) {
+  return status === "paid";
+}
+
 function SuccessInner() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -23,6 +27,10 @@ function SuccessInner() {
   const [order, setOrder] = useState<OrderSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [slowConfirm, setSlowConfirm] = useState(false);
+
+  const attemptsRef = useRef(0);
+  const clearedRef = useRef(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -32,10 +40,14 @@ function SuccessInner() {
     }
 
     let cancelled = false;
-    let attempts = 0;
-    const maxAttempts = 12;
-
+    const maxAttempts = 15;
     const checkoutSessionId = sessionId;
+
+    function clearBagOnce() {
+      if (clearedRef.current) return;
+      clearedRef.current = true;
+      clearCart();
+    }
 
     async function loadOrder() {
       try {
@@ -48,8 +60,11 @@ function SuccessInner() {
         if (cancelled) return;
 
         if (!res.ok) {
-          if (res.status === 404 && attempts < maxAttempts) {
-            attempts += 1;
+          if (res.status === 404 && attemptsRef.current < maxAttempts) {
+            attemptsRef.current += 1;
+            if (attemptsRef.current >= 5) {
+              setSlowConfirm(true);
+            }
             window.setTimeout(() => void loadOrder(), 2000);
             return;
           }
@@ -58,17 +73,30 @@ function SuccessInner() {
           return;
         }
 
-        if (data.order) {
-          setOrder(data.order);
-          if (data.order.status === "paid") {
-            clearCart();
-          } else if (attempts < maxAttempts) {
-            attempts += 1;
-            window.setTimeout(() => void loadOrder(), 2000);
-            return;
-          }
+        if (!data.order) {
+          setError("Could not load your order.");
+          setLoading(false);
+          return;
         }
 
+        setOrder(data.order);
+
+        if (isPaidOrderStatus(data.order.status)) {
+          clearBagOnce();
+          setLoading(false);
+          return;
+        }
+
+        if (attemptsRef.current < maxAttempts) {
+          attemptsRef.current += 1;
+          if (attemptsRef.current >= 4) {
+            setSlowConfirm(true);
+          }
+          window.setTimeout(() => void loadOrder(), 2000);
+          return;
+        }
+
+        clearBagOnce();
         setLoading(false);
       } catch {
         if (!cancelled) {
@@ -78,6 +106,8 @@ function SuccessInner() {
       }
     }
 
+    attemptsRef.current = 0;
+    setSlowConfirm(false);
     void loadOrder();
 
     return () => {
@@ -85,10 +115,9 @@ function SuccessInner() {
     };
   }, [sessionId, clearCart]);
 
-  const statusLabel =
-    order && isShopOrderStatus(order.status)
-      ? formatOrderStatusLabel(order.status)
-      : order?.status_label ?? "Paid";
+  const statusLabel = order ? formatOrderStatusLabel(order.status) : "Paid";
+  const showConfirmed = order && isPaidOrderStatus(order.status);
+  const showPendingAfterPoll = order && !isPaidOrderStatus(order.status) && !loading;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050405] px-5 py-20 text-white">
@@ -112,6 +141,11 @@ function SuccessInner() {
             <p className="mt-4 text-sm text-zinc-400">
               We received your payment and are finalizing your order.
             </p>
+            {slowConfirm ? (
+              <p className="mt-3 text-xs text-zinc-500">
+                This can take a moment. Your bag will clear once confirmation completes.
+              </p>
+            ) : null}
           </>
         ) : error ? (
           <>
@@ -126,7 +160,7 @@ function SuccessInner() {
               </p>
             ) : null}
           </>
-        ) : order ? (
+        ) : showConfirmed && order ? (
           <>
             <h1 className="mt-3 font-serif text-3xl italic text-white">Order confirmed</h1>
             <p className="mt-2 text-sm text-zinc-400">Thank you for riding with Crimson Society.</p>
@@ -134,13 +168,15 @@ function SuccessInner() {
             <div className="mt-8 space-y-3 rounded-2xl border border-white/10 bg-black/30 p-4">
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-500">Order number</span>
-                <span className="font-mono text-xs text-zinc-300">{order.id.slice(0, 8).toUpperCase()}</span>
+                <span className="font-mono text-xs text-zinc-300">
+                  {order.id.slice(0, 8).toUpperCase()}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-500">Items</span>
                 <span className="text-white">
-                  {order.line_count} line{order.line_count === 1 ? "" : "s"} · {order.unit_count} unit
-                  {order.unit_count === 1 ? "" : "s"}
+                  {order.line_count} line{order.line_count === 1 ? "" : "s"} · {order.unit_count}{" "}
+                  unit{order.unit_count === 1 ? "" : "s"}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -157,9 +193,28 @@ function SuccessInner() {
               </div>
             </div>
           </>
+        ) : showPendingAfterPoll && order ? (
+          <>
+            <h1 className="mt-3 font-serif text-3xl italic text-white">Payment received</h1>
+            <p className="mt-4 text-sm text-zinc-400">
+              Your payment went through. Order confirmation is still processing — check Profile →
+              Orders in a minute.
+            </p>
+            <div className="mt-6 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm text-amber-200">
+              Order #{order.id.slice(0, 8).toUpperCase()} · {statusLabel}
+            </div>
+          </>
         ) : null}
 
         <div className="mt-8 flex flex-col gap-3">
+          {order ? (
+            <Link
+              href={`/profile/orders/${order.id}`}
+              className="inline-flex justify-center rounded-full border border-white/15 px-6 py-3 text-xs uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/25 hover:text-white"
+            >
+              View order
+            </Link>
+          ) : null}
           <Link
             href="/shop"
             className="inline-flex justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-6 py-3 text-xs uppercase tracking-[0.28em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
@@ -167,10 +222,10 @@ function SuccessInner() {
             Back to shop
           </Link>
           <Link
-            href="/profile"
+            href="/profile/orders"
             className="inline-flex justify-center rounded-full border border-white/15 px-6 py-3 text-xs uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/25 hover:text-white"
           >
-            Back to profile
+            Your orders
           </Link>
         </div>
       </div>

@@ -199,7 +199,8 @@ export function AdminProductEditor({
           : [];
         patch.category = "accessories";
       } else {
-        patch.price = Number(draft.price) || 0;
+        const price = Number(draft.price);
+        patch.price = Number.isFinite(price) && price > 0 ? Math.round(price * 100) / 100 : 0;
         patch.sizes =
           draft.sizes?.length ? draft.sizes : sizeKeysFromMap(sizeInventory) || [...STANDARD_SHIRT_SIZES];
         patch.credit_cost = null;
@@ -390,7 +391,8 @@ export function AdminProductEditor({
                 <label className={labelClass()}>Price</label>
                 <input
                   type="number"
-                  min={0}
+                  min={0.01}
+                  step={0.01}
                   value={draft.price ?? 0}
                   disabled={disabled || saving}
                   onChange={(e) => setDraft((d) => ({ ...d, price: Number(e.target.value) }))}

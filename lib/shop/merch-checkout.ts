@@ -157,6 +157,15 @@ export async function createMerchCheckoutSession(input: {
     };
   }
 
+  if (validation.subtotal_cents <= 0 || validation.total_cents <= 0) {
+    return {
+      ok: false,
+      status: 422,
+      error: "Your bag total must be greater than $0 to checkout.",
+      code: "zero_total",
+    };
+  }
+
   const reserveResult = await reserveCartLines(input.supabase, input.userId, validation.items);
   if (!reserveResult.ok) {
     return {
