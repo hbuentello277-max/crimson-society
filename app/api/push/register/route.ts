@@ -28,14 +28,70 @@ function readBearerMeta(request: Request) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const checkToken = url.searchParams.get("token")?.trim();
+
+  if (checkToken) {
+    const bearerMeta = readBearerMeta(request);
+    const auth = await getAuthedSupabaseFromRequest(request);
+
+    if (!auth.ok) {
+      return pushRegisterJson(
+        {
+          ok: false,
+          code: "AUTH_FAILED",
+          error: auth.error,
+          authDetail: auth.authDetail,
+          registered: false,
+          debug: {
+            ...bearerMeta,
+            authMethod: auth.authMethod,
+            userFound: false,
+          },
+        },
+        401,
+      );
+    }
+
+    const admin = getServiceRoleClient();
+    const client = admin ?? auth.supabase;
+
+    const { data, error } = await client
+      .from("user_push_tokens")
+      .select("enabled")
+      .eq("user_id", auth.userId)
+      .eq("token", checkToken)
+      .maybeSingle();
+
+    if (error) {
+      return pushRegisterJson(
+        {
+          ok: false,
+          code: "TOKEN_LOOKUP_FAILED",
+          error: error.message,
+          registered: false,
+        },
+        500,
+      );
+    }
+
+    return pushRegisterJson({
+      ok: true,
+      registered: data?.enabled === true,
+      authMethod: auth.authMethod,
+      version: PUSH_REGISTER_API_VERSION,
+      commit: getDeployCommitSha(),
+    });
+  }
+
   return pushRegisterJson({
     ok: true,
     endpoint: "/api/push/register",
     version: PUSH_REGISTER_API_VERSION,
     commit: getDeployCommitSha(),
     requiresServiceRoleForRegister: false,
-    note: "POST saves FCM token; errors include code and debug fields",
+    note: "POST saves FCM token; GET ?token= checks active registration for the signed-in user",
   });
 }
 

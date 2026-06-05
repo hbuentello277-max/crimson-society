@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import MessagesPanel from "@/components/inbox/MessagesPanel";
 import NotificationsPanel from "@/components/inbox/NotificationsPanel";
+import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
@@ -269,6 +270,8 @@ export default function InboxSwipeTabs() {
           </div>
         </div>
       </div>
+
+      <PushPermissionPrompt allowDeniedGuidance={activeTab === "notifications"} />
     </>
   );
 }

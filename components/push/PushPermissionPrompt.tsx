@@ -2,47 +2,58 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { enableDevicePush, getPushPermissionState, isPushSupported } from "@/lib/push/client";
-import { isPushConfiguredOnClient } from "@/lib/push/firebase-public";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  evaluatePushPromptState,
+  type PushPromptMode,
+} from "@/lib/push/evaluate-prompt";
+import { enableDevicePush, getPushPermissionState } from "@/lib/push/client";
 import {
   clearPushPromptPending,
   dismissPushPrompt,
-  isIosBrowser,
-  isStandalonePwa,
-  shouldShowPushPrompt,
 } from "@/lib/push/prompt-state";
 
-type PromptMode = "enable" | "install" | "hidden";
+type PushPermissionPromptProps = {
+  /** Show manual settings guidance when permission is denied (inbox). */
+  allowDeniedGuidance?: boolean;
+};
 
-function resolvePromptMode(): PromptMode {
-  if (!shouldShowPushPrompt()) return "hidden";
-  if (!isPushConfiguredOnClient()) return "hidden";
-
-  if (!isPushSupported()) {
-    if (isIosBrowser() && !isStandalonePwa()) {
-      return "install";
-    }
-    return "hidden";
-  }
-
-  return "enable";
-}
-
-export function PushPermissionPrompt() {
-  const [mode, setMode] = useState<PromptMode>("hidden");
-  const [loading, setLoading] = useState(false);
+export function PushPermissionPrompt({
+  allowDeniedGuidance = false,
+}: PushPermissionPromptProps) {
+  const { session, loading } = useAuth();
+  const [mode, setMode] = useState<PushPromptMode>("hidden");
+  const [loadingAction, setLoadingAction] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setMode(resolvePromptMode());
-  }, []);
+    if (loading || !session?.user?.id) {
+      setMode("hidden");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function resolveMode() {
+      const evaluation = await evaluatePushPromptState({ allowDeniedGuidance });
+      if (!cancelled) {
+        setMode(evaluation.mode);
+      }
+    }
+
+    void resolveMode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, session?.user?.id, allowDeniedGuidance]);
 
   if (mode === "hidden" || typeof document === "undefined") {
     return null;
   }
 
   async function handleEnable() {
-    setLoading(true);
+    setLoadingAction(true);
     setMessage(null);
 
     try {
@@ -64,7 +75,7 @@ export function PushPermissionPrompt() {
         error instanceof Error ? error.message : "Could not enable notifications.",
       );
     } finally {
-      setLoading(false);
+      setLoadingAction(false);
     }
   }
 
@@ -87,13 +98,23 @@ export function PushPermissionPrompt() {
       >
         <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Stay in the loop</p>
         <h2 id="push-prompt-title" className="mt-2 font-serif text-2xl italic text-white">
-          {mode === "install" ? "Install to enable alerts" : "Enable ride alerts, messages, and order updates?"}
+          {mode === "install"
+            ? "Install to enable alerts"
+            : mode === "denied"
+              ? "Notifications are turned off"
+              : "Enable ride alerts, messages, and order updates?"}
         </h2>
 
         {mode === "install" ? (
           <p className="mt-3 text-sm leading-6 text-zinc-400">
             On iPhone, add Crimson Society to your Home Screen, then open the app from there to
             enable push notifications.
+          </p>
+        ) : mode === "denied" ? (
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            Crimson cannot request notification permission while it is blocked. Open iOS Settings →
+            Notifications → Crimson Society and allow alerts, or use Notification settings in your
+            profile.
           </p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-zinc-400">
@@ -108,21 +129,21 @@ export function PushPermissionPrompt() {
           {mode === "enable" ? (
             <button
               type="button"
-              disabled={loading}
+              disabled={loadingAction}
               onClick={() => void handleEnable()}
               className="rounded-full border border-[#b4141e]/70 bg-[#b4141e]/30 px-5 py-3 text-xs uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/45 disabled:opacity-50"
             >
-              {loading ? "Enabling…" : "Enable notifications"}
+              {loadingAction ? "Enabling…" : "Enable notifications"}
             </button>
           ) : null}
 
           <button
             type="button"
-            disabled={loading}
+            disabled={loadingAction}
             onClick={handleDismiss}
             className="rounded-full border border-white/15 px-5 py-3 text-xs uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
           >
-            {mode === "install" ? "Got it" : "Not now"}
+            {mode === "install" || mode === "denied" ? "Got it" : "Not now"}
           </button>
         </div>
       </div>

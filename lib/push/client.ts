@@ -183,18 +183,7 @@ async function registerFirebaseServiceWorker() {
   return registration;
 }
 
-export async function obtainWebPushToken() {
-  if (!isPushSupported()) {
-    throw new Error("Push notifications are not supported on this device.");
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") {
-    throw new Error("Notification permission was not granted.");
-  }
-
-  await registerFirebaseServiceWorker();
-
+async function loadFirebaseMessaging() {
   const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported }] = await Promise.all([
     import("firebase/app"),
     import("firebase/messaging"),
@@ -213,6 +202,130 @@ export async function obtainWebPushToken() {
 
   const app = getApps().length > 0 ? getApps()[0]! : initializeApp(config);
   const messaging = getMessaging(app);
+
+  return { getToken, messaging, vapidKey };
+}
+
+export async function getExistingPushToken() {
+  if (!isPushSupported() || getPushPermissionState() !== "granted") {
+    return null;
+  }
+
+  try {
+    await registerFirebaseServiceWorker();
+    const { getToken, messaging, vapidKey } = await loadFirebaseMessaging();
+    const registration = await navigator.serviceWorker.ready;
+
+    return (
+      (await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: registration,
+      })) || null
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function checkServerPushSubscription(token: string) {
+  const { headers } = await pushRegisterHeaders();
+
+  const response = await fetch(
+    `/api/push/register?token=${encodeURIComponent(token)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers,
+      cache: "no-store",
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as {
+    registered?: boolean;
+  } | null;
+
+  if (!response.ok) {
+    return false;
+  }
+
+  return payload?.registered === true;
+}
+
+export type PushSubscriptionStatus = {
+  subscribed: boolean;
+  hasLocalToken: boolean;
+  serverRegistered: boolean;
+  token: string | null;
+};
+
+export async function hasActivePushSubscription(): Promise<PushSubscriptionStatus> {
+  const token = await getExistingPushToken();
+  if (!token) {
+    return {
+      subscribed: false,
+      hasLocalToken: false,
+      serverRegistered: false,
+      token: null,
+    };
+  }
+
+  const serverRegistered = await checkServerPushSubscription(token);
+  return {
+    subscribed: serverRegistered,
+    hasLocalToken: true,
+    serverRegistered,
+    token,
+  };
+}
+
+export type EnsurePushSubscriptionResult = {
+  subscribed: boolean;
+  token: string | null;
+  serverRegistered: boolean;
+};
+
+export async function ensurePushSubscription(): Promise<EnsurePushSubscriptionResult> {
+  if (getPushPermissionState() !== "granted" || !isPushSupported()) {
+    return { subscribed: false, token: null, serverRegistered: false };
+  }
+
+  const token = await getExistingPushToken();
+  if (!token) {
+    return { subscribed: false, token: null, serverRegistered: false };
+  }
+
+  const serverRegistered = await checkServerPushSubscription(token);
+  if (serverRegistered) {
+    return { subscribed: true, token, serverRegistered: true };
+  }
+
+  try {
+    await registerPushTokenWithServer(token);
+    return { subscribed: true, token, serverRegistered: true };
+  } catch {
+    return { subscribed: false, token, serverRegistered: false };
+  }
+}
+
+export async function obtainWebPushToken() {
+  if (!isPushSupported()) {
+    throw new Error("Push notifications are not supported on this device.");
+  }
+
+  if (getPushPermissionState() === "granted") {
+    const existingToken = await getExistingPushToken();
+    if (existingToken) {
+      return existingToken;
+    }
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    throw new Error("Notification permission was not granted.");
+  }
+
+  await registerFirebaseServiceWorker();
+  const { getToken, messaging, vapidKey } = await loadFirebaseMessaging();
   const registration = await navigator.serviceWorker.ready;
 
   const token = await getToken(messaging, {
