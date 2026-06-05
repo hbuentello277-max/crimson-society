@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdminOrderDetailPanel } from "@/components/admin/shop/AdminOrderDetailPanel";
 import {
   formatCentsUsd,
@@ -58,13 +58,16 @@ const VISIBILITY_FILTERS: { id: VisibilityFilter; label: string }[] = [
 ];
 
 export function AdminOrdersTab() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<OrderFilter>("all");
   const [visibility, setVisibility] = useState<VisibilityFilter>("active");
   const [orders, setOrders] = useState<AdminOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const successTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const orderParam = searchParams.get("order")?.trim();
@@ -99,6 +102,48 @@ export function AdminOrdersTab() {
     void loadOrders();
   }, [loadOrders]);
 
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current != null) {
+        window.clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const clearOrderQueryParam = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.has("order")) return;
+
+    params.delete("order");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `/admin/shop?${nextQuery}` : "/admin/shop?tab=orders", {
+      scroll: false,
+    });
+  }, [router, searchParams]);
+
+  const showSuccessMessage = useCallback((message: string) => {
+    setSuccessMsg(message);
+    if (successTimeoutRef.current != null) {
+      window.clearTimeout(successTimeoutRef.current);
+    }
+    successTimeoutRef.current = window.setTimeout(() => {
+      setSuccessMsg(null);
+      successTimeoutRef.current = null;
+    }, 4000);
+  }, []);
+
+  const closePanelAndRefresh = useCallback(
+    (message?: string) => {
+      setSelectedOrderId(null);
+      clearOrderQueryParam();
+      if (message) {
+        showSuccessMessage(message);
+      }
+      void loadOrders();
+    },
+    [clearOrderQueryParam, loadOrders, showSuccessMessage],
+  );
+
   return (
     <div className="mt-8 space-y-4">
       <div className="rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/5 p-4">
@@ -111,6 +156,12 @@ export function AdminOrdersTab() {
           <span className="text-zinc-300">Manage</span> to update tracking or archive test orders.
         </p>
       </div>
+
+      {successMsg ? (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          <p className="text-sm text-emerald-300">{successMsg}</p>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -251,15 +302,19 @@ export function AdminOrdersTab() {
         </div>
       </div>
 
-      <AdminOrderDetailPanel
-        orderId={selectedOrderId}
-        onClose={() => setSelectedOrderId(null)}
-        onUpdated={() => void loadOrders()}
-        onDeleted={() => {
-          setSelectedOrderId(null);
-          void loadOrders();
-        }}
-      />
+      {selectedOrderId ? (
+        <AdminOrderDetailPanel
+          orderId={selectedOrderId}
+          onClose={() => {
+            setSelectedOrderId(null);
+            clearOrderQueryParam();
+          }}
+          onUpdated={() => void loadOrders()}
+          onArchived={() => closePanelAndRefresh("Order archived.")}
+          onRestored={() => closePanelAndRefresh("Order restored.")}
+          onDeleted={() => closePanelAndRefresh("Order deleted.")}
+        />
+      ) : null}
     </div>
   );
 }

@@ -62,10 +62,19 @@ type Props = {
   orderId: string | null;
   onClose: () => void;
   onUpdated: () => void;
+  onArchived?: () => void;
+  onRestored?: () => void;
   onDeleted?: () => void;
 };
 
-export function AdminOrderDetailPanel({ orderId, onClose, onUpdated, onDeleted }: Props) {
+export function AdminOrderDetailPanel({
+  orderId,
+  onClose,
+  onUpdated,
+  onArchived,
+  onRestored,
+  onDeleted,
+}: Props) {
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -188,8 +197,7 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated, onDeleted }
         setError(data.error ?? "Archive failed");
         return;
       }
-      if (data.order) setOrder(data.order);
-      onUpdated();
+      onArchived?.();
     } catch {
       setError("Archive failed");
     } finally {
@@ -213,8 +221,7 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated, onDeleted }
         setError(data.error ?? "Restore failed");
         return;
       }
-      if (data.order) setOrder(data.order);
-      onUpdated();
+      onRestored?.();
     } catch {
       setError("Restore failed");
     } finally {
@@ -242,7 +249,6 @@ export function AdminOrderDetailPanel({ orderId, onClose, onUpdated, onDeleted }
         return;
       }
       onDeleted?.();
-      onClose();
     } catch {
       setError("Delete failed");
     } finally {
