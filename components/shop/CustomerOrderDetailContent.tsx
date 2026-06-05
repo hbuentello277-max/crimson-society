@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ShopProductImage } from "@/components/shop/ShopProductImage";
+import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
 import {
   formatCentsUsd,
-  formatDeliveryMethodLabel,
   fulfillmentStatusBadgeClass,
   formatFulfillmentStatusLabel,
   formatPickupStatusLabel,
@@ -122,18 +122,16 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
             </div>
 
             {order.delivery_method === "local_pickup" ? (
-              <div className="mt-4 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/5 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[#e87a82]">Local pickup</p>
-                <p className="mt-2 text-sm text-zinc-300">
-                  {formatDeliveryMethodLabel(order.delivery_method)} selected — no shipping charge.
-                </p>
+              <div className="mt-4 space-y-2">
+                <PickupLocationCard
+                  mode={order.pickup_status === "ready" || order.pickup_status === "picked_up" ? "ready" : "preview"}
+                  pickupNote={order.pickup_note}
+                  pickupStatus={order.pickup_status}
+                />
                 {order.pickup_ready_at ? (
-                  <p className="mt-2 text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500">
                     Ready since {new Date(order.pickup_ready_at).toLocaleString()}
                   </p>
-                ) : null}
-                {order.pickup_note ? (
-                  <p className="mt-3 text-sm text-zinc-300">{order.pickup_note}</p>
                 ) : null}
               </div>
             ) : null}

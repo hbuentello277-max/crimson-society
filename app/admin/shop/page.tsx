@@ -7,13 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { AdminProductEditor } from "@/components/admin/shop/AdminProductEditor";
 import { AdminProductListRow } from "@/components/admin/shop/AdminProductListRow";
 import { AdminOrdersTab } from "@/components/admin/shop/AdminOrdersTab";
+import { AdminPickupSettingsPanel } from "@/components/admin/shop/AdminPickupSettingsPanel";
 import { RedemptionsTab } from "@/components/admin/rewards/RedemptionsTab";
 import type { AdminProductSaveOptions } from "@/components/admin/shop/AdminProductEditor";
 import { buildProductInsertRow, sanitizeProductPatch } from "@/lib/admin/sanitize-product-patch";
 import { Product } from "@/lib/products";
 import { uploadShopProductImages } from "@/lib/shop/upload-product-images";
 
-type AdminShopTab = "products" | "orders" | "redemptions";
+type AdminShopTab = "products" | "orders" | "redemptions" | "settings";
 
 export default function AdminShopPage() {
   return (
@@ -31,7 +32,9 @@ function AdminShopPageInner() {
       ? "redemptions"
       : searchParams.get("tab") === "orders"
         ? "orders"
-        : "products";
+        : searchParams.get("tab") === "settings"
+          ? "settings"
+          : "products";
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -353,6 +356,7 @@ function AdminShopPageInner() {
                   { id: "products" as const, label: "Products" },
                   { id: "orders" as const, label: "Orders" },
                   { id: "redemptions" as const, label: "Redemptions" },
+                  { id: "settings" as const, label: "Settings" },
                 ] as const
               ).map((item) => (
                 <button
@@ -385,6 +389,8 @@ function AdminShopPageInner() {
                 <RedemptionsTab />
               </div>
             ) : null}
+
+            {tab === "settings" ? <AdminPickupSettingsPanel /> : null}
 
             {tab === "products" ? (
               <div className="mt-8 space-y-4">

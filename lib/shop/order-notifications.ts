@@ -5,12 +5,15 @@ import {
   formatDeliveryMethodLabel,
   shortOrderId,
 } from "@/lib/shop/orders";
+import { pickupReadyNotificationBody } from "@/lib/shop/pickup-settings";
+import { loadLocalPickupSettings } from "@/lib/shop/shop-settings-db";
 
 type OrderNotificationRow = {
   id: string;
   user_id: string | null;
   total_cents: number;
   delivery_method: string;
+  pickup_note?: string | null;
 };
 
 function customerOrderUrl(orderId: string) {
@@ -24,7 +27,7 @@ function adminOrderUrl(orderId: string) {
 async function loadOrder(admin: SupabaseClient, orderId: string): Promise<OrderNotificationRow | null> {
   const { data, error } = await admin
     .from("shop_orders")
-    .select("id, user_id, total_cents, delivery_method")
+    .select("id, user_id, total_cents, delivery_method, pickup_note")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -168,12 +171,15 @@ export async function notifyShopOrderReadyForPickup(admin: SupabaseClient, order
   if (!order?.user_id) return;
 
   const shortId = shortOrderId(orderId);
+  const pickupSettings = await loadLocalPickupSettings(admin);
+  const body = pickupReadyNotificationBody(shortId, pickupSettings, order.pickup_note);
+
   await insertNotifications(admin, [
     {
       user_id: order.user_id,
       type: "shop_order_ready_for_pickup",
       title: "Ready for pickup",
-      body: `Your order #${shortId} is ready for pickup.`,
+      body,
       target_url: customerOrderUrl(orderId),
     },
   ]);

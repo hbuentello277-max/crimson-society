@@ -11,6 +11,7 @@ import {
 } from "@/lib/credits/referral-code";
 import { readSignupReferralCode } from "@/lib/credits/signup-referral-session";
 import { cleanUsername } from "@/lib/profile";
+import { markPushPromptPending } from "@/lib/push/prompt-state";
 
 const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
 
@@ -185,7 +186,8 @@ const { error: profileError } = await supabase
         if (motorcycleError) throw motorcycleError;
       }
 
-      router.replace("/dashboard");
+      markPushPromptPending();
+      router.replace("/dashboard?push_prompt=1");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not save setup."

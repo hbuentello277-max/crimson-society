@@ -16,6 +16,7 @@ import { ReportContentModal } from "@/components/safety/ReportContentModal";
 import { PostActionSheet, type PostActionTarget } from "@/components/social/PostActionSheet";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
+import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 
 const FEED_POST_LIMIT = 40;
 
@@ -1668,6 +1669,8 @@ setFeedLoading(false);
           {toast}
         </div>
       )}
+
+      <PushPermissionPrompt />
     </main>
   );
 }

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
   let { data: order, error: orderError } = await auth.supabase
     .from("shop_orders")
-    .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at")
+    .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at, delivery_method")
     .eq("stripe_checkout_session_id", sessionId)
     .eq("user_id", auth.userId)
     .maybeSingle();
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   if (!order) {
     const { data: bySession } = await admin
       .from("shop_orders")
-      .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at")
+      .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at, delivery_method")
       .eq("stripe_checkout_session_id", sessionId)
       .eq("user_id", auth.userId)
       .maybeSingle();
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
     const { data: refreshed, error: refreshError } = await auth.supabase
       .from("shop_orders")
-      .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at")
+      .select("id, status, total_cents, subtotal_cents, shipping_cents, currency, created_at, delivery_method")
       .eq("id", order.id)
       .maybeSingle();
 
@@ -92,6 +92,7 @@ export async function GET(request: Request) {
       created_at: order.created_at,
       line_count: itemCount,
       unit_count: totalUnits,
+      delivery_method: order.delivery_method ?? "shipping",
     },
   });
 }

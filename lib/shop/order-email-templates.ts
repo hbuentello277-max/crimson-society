@@ -152,17 +152,28 @@ export function orderConfirmationEmailHtml(input: {
 export function readyForPickupEmailHtml(input: {
   orderId: string;
   pickup_note: string | null;
+  pickup_details?: string | null;
   orderUrl: string;
 }) {
   const shortId = shortOrderId(input.orderId);
-  const noteBlock = input.pickup_note
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111111" style="margin-top:14px;background-color:#111111;border:1px solid #2a2a2a;border-radius:10px;"><tr><td style="padding:12px;color:#d4d4d8;font-size:14px;">${escapeHtml(input.pickup_note)}</td></tr></table>`
-    : "";
+  const detailsLines = (input.pickup_details ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detailsBlock =
+    detailsLines.length > 0
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111111" style="margin-top:14px;background-color:#111111;border:1px solid #2a2a2a;border-radius:10px;"><tr><td style="padding:12px;color:#d4d4d8;font-size:14px;line-height:1.6;">${detailsLines.map((line) => escapeHtml(line)).join("<br/>")}</td></tr></table>`
+      : "";
+  const noteBlock =
+    input.pickup_note && !input.pickup_details?.includes(input.pickup_note)
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111111" style="margin-top:14px;background-color:#111111;border:1px solid #2a2a2a;border-radius:10px;"><tr><td style="padding:12px;color:#d4d4d8;font-size:14px;">${escapeHtml(input.pickup_note)}</td></tr></table>`
+      : "";
   const body = `
-    <p style="margin:0;color:${TEXT};">Your Crimson Society order is ready. Check your order details for pickup notes.</p>
+    <p style="margin:0;color:${TEXT};">Your Crimson Society order is ready for pickup.</p>
     ${orderCard(`
       <p style="margin:0;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${MUTED};">Order #${shortId}</p>
       <p style="margin:10px 0 0;font-size:16px;color:${CRIMSON_SOFT};font-weight:600;">Ready for pickup</p>
+      ${detailsBlock}
       ${noteBlock}
     `)}
   `;

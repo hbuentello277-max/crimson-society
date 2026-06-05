@@ -6,6 +6,8 @@ import {
   shippedEmailHtml,
   type OrderEmailLine,
 } from "@/lib/shop/order-email-templates";
+import { pickupReadyDetailsText } from "@/lib/shop/pickup-settings";
+import { loadLocalPickupSettings } from "@/lib/shop/shop-settings-db";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -263,10 +265,14 @@ export async function sendReadyForPickupEmail(
     return { email_type: "ready_for_pickup", sent: false, error: "no_recipient_email" };
   }
 
+  const pickupSettings = await loadLocalPickupSettings(admin);
+  const pickupDetails = pickupReadyDetailsText(pickupSettings, order.pickup_note);
+
   return sendWithIdempotency(admin, orderId, "ready_for_pickup", sentTo, () =>
     readyForPickupEmailHtml({
       orderId,
       pickup_note: order.pickup_note,
+      pickup_details: pickupDetails,
       orderUrl: orderDetailUrl(orderId),
     }),
   );

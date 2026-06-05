@@ -14,15 +14,12 @@ import {
   pickupStatusBadgeClass,
   shortOrderId,
 } from "@/lib/shop/orders";
+import {
+  orderMatchesAdminFilter,
+  type AdminOrderFilter,
+} from "@/lib/shop/admin-order-filters";
 
-type OrderFilter =
-  | "all"
-  | "pending"
-  | "paid"
-  | "unfulfilled"
-  | "fulfilled"
-  | "shipped"
-  | "cancelled";
+type OrderFilter = AdminOrderFilter;
 
 type VisibilityFilter = "active" | "archived" | "all";
 
@@ -46,6 +43,8 @@ const STATUS_FILTERS: { id: OrderFilter; label: string }[] = [
   { id: "pending", label: "Pending" },
   { id: "paid", label: "Paid" },
   { id: "unfulfilled", label: "Unfulfilled" },
+  { id: "pickup_pending", label: "Pending pickup" },
+  { id: "pickup_ready", label: "Ready pickup" },
   { id: "fulfilled", label: "Fulfilled" },
   { id: "shipped", label: "Shipped" },
   { id: "cancelled", label: "Cancelled" },
@@ -142,6 +141,28 @@ export function AdminOrdersTab() {
       void loadOrders();
     },
     [clearOrderQueryParam, loadOrders, showSuccessMessage],
+  );
+
+  const handleOrderSaved = useCallback(
+    (result: {
+      order: {
+        id: string;
+        status: string;
+        fulfillment_status: string;
+        delivery_method: string;
+        pickup_status: string;
+      };
+      message: string;
+    }) => {
+      showSuccessMessage(result.message);
+      void loadOrders();
+
+      if (!orderMatchesAdminFilter(result.order, filter)) {
+        closePanelAndRefresh();
+        return;
+      }
+    },
+    [closePanelAndRefresh, filter, loadOrders, showSuccessMessage],
   );
 
   return (
@@ -309,7 +330,7 @@ export function AdminOrdersTab() {
             setSelectedOrderId(null);
             clearOrderQueryParam();
           }}
-          onUpdated={() => void loadOrders()}
+          onSaved={handleOrderSaved}
           onArchived={() => closePanelAndRefresh("Order archived.")}
           onRestored={() => closePanelAndRefresh("Order restored.")}
           onDeleted={() => closePanelAndRefresh("Order deleted.")}

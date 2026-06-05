@@ -49,6 +49,12 @@ export async function GET(request: Request) {
     case "cancelled":
       query = query.or("status.eq.cancelled,fulfillment_status.eq.cancelled");
       break;
+    case "pickup_pending":
+      query = query.eq("delivery_method", "local_pickup").eq("pickup_status", "pending");
+      break;
+    case "pickup_ready":
+      query = query.eq("delivery_method", "local_pickup").eq("pickup_status", "ready");
+      break;
     default:
       break;
   }

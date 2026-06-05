@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/lib/cart-store";
+import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
 import { formatCentsUsd, formatOrderStatusLabel } from "@/lib/shop/orders";
 
 type OrderSummary = {
@@ -13,6 +14,7 @@ type OrderSummary = {
   total_cents: number;
   line_count: number;
   unit_count: number;
+  delivery_method?: string;
 };
 
 function isPaidOrderStatus(status: string) {
@@ -192,6 +194,10 @@ function SuccessInner() {
                 </span>
               </div>
             </div>
+
+            {order.delivery_method === "local_pickup" ? (
+              <PickupLocationCard mode="preview" className="mt-6" />
+            ) : null}
           </>
         ) : showPendingAfterPoll && order ? (
           <>

@@ -10,6 +10,7 @@ import { formatCentsUsd, type ShopDeliveryMethod } from "@/lib/shop/orders";
 import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
 import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
+import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
 
 export default function ShopCheckoutPage() {
   return (
@@ -328,6 +329,9 @@ function ShopCheckoutPageInner() {
                   <span className="mt-1 block text-xs text-zinc-500">No shipping charge</span>
                 </button>
               </div>
+              {deliveryMethod === "local_pickup" ? (
+                <PickupLocationCard mode="preview" className="mt-4" />
+              ) : null}
             </div>
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">

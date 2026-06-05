@@ -58,10 +58,15 @@ type AdminOrderDetail = {
   email_events?: EmailEventRow[];
 };
 
+type SavedResult = {
+  order: AdminOrderDetail;
+  message: string;
+};
+
 type Props = {
   orderId: string | null;
   onClose: () => void;
-  onUpdated: () => void;
+  onSaved?: (result: SavedResult) => void;
   onArchived?: () => void;
   onRestored?: () => void;
   onDeleted?: () => void;
@@ -70,7 +75,7 @@ type Props = {
 export function AdminOrderDetailPanel({
   orderId,
   onClose,
-  onUpdated,
+  onSaved,
   onArchived,
   onRestored,
   onDeleted,
@@ -132,7 +137,22 @@ export function AdminOrderDetailPanel({
     void load();
   }, [orderId]);
 
-  async function savePatch(patch: Record<string, unknown>) {
+  function pickupSaveMessage(patch: Record<string, unknown>) {
+    if (patch.pickup_status === "ready") return "Order marked ready for pickup.";
+    if (patch.pickup_status === "picked_up") return "Order marked picked up.";
+    return "Pickup changes saved.";
+  }
+
+  function fulfillmentSaveMessage(patch: Record<string, unknown>) {
+    if (patch.fulfillment_status === "fulfilled") return "Order marked fulfilled.";
+    if (patch.fulfillment_status === "shipped") return "Order marked shipped.";
+    return "Order updated.";
+  }
+
+  async function savePatch(
+    patch: Record<string, unknown>,
+    successMessage?: string,
+  ) {
     if (!orderId) return;
     setSaving(true);
     setError(null);
@@ -165,8 +185,12 @@ export function AdminOrderDetailPanel({
         setAdminNote(data.order.admin_fulfillment_note ?? "");
         setCustomerNote(data.order.customer_note ?? "");
         setPickupNote(data.order.pickup_note ?? "");
+
+        const message =
+          successMessage ??
+          (isPickup ? pickupSaveMessage(patch) : fulfillmentSaveMessage(patch));
+        onSaved?.({ order: data.order, message });
       }
-      onUpdated();
     } catch {
       setError("Save failed");
     } finally {
