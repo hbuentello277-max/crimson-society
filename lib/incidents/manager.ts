@@ -1,16 +1,15 @@
-import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emitNexusEvent } from "@/lib/events/emit";
 import { logNexusActivity } from "@/lib/nexus/activity-log";
 import { safeProbeDetails } from "@/lib/monitoring/redact";
 import type { NexusIncidentStatus } from "@/lib/nexus/constants";
+import { buildImpactSummary, getAlertImpactScore } from "@/lib/incidents/escalation";
 import {
-  buildImpactSummary,
-  buildIncidentSeverity,
-  buildIncidentTitle,
-  getAlertImpactScore,
-} from "@/lib/incidents/escalation";
+  executeTransactionalIncidentCreate,
+  toCreateIncidentFromAlertsResult,
+} from "@/lib/incidents/transactional-create";
 import type {
+  CreateIncidentFromAlertsResult,
   EscalationAlertRow,
   EscalationReason,
   IncidentDbRow,
@@ -27,6 +26,45 @@ function appendTimeline(
   return [...timeline, entry];
 }
 
+async function emitIncidentCreationFailed(input: {
+  reason: EscalationReason;
+  alertIds: string[];
+  correlationId: string;
+  error: string;
+  code?: string;
+}): Promise<boolean> {
+  const event = await emitNexusEvent({
+    source: "collector",
+    category: "infra",
+    eventType: "incident.creation_failed",
+    severity: "warning",
+    title: "Incident creation failed",
+    description: input.error,
+    correlationId: input.correlationId,
+    payload: {
+      escalation_reason: input.reason,
+      alert_ids: input.alertIds,
+      error: input.error,
+      code: input.code ?? null,
+      correlation_id: input.correlationId,
+    },
+  });
+
+  await logNexusActivity({
+    actorType: "collector",
+    action: "nexus.incident.creation_failed",
+    targetType: "nexus_alert",
+    details: {
+      escalation_reason: input.reason,
+      alert_ids: input.alertIds,
+      error: input.error,
+      code: input.code ?? null,
+    },
+  });
+
+  return event.ok;
+}
+
 export async function linkAlertToIncident(
   admin: SupabaseClient,
   input: {
@@ -40,7 +78,8 @@ export async function linkAlertToIncident(
       incident_id: input.incidentId,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.alertId);
+    .eq("id", input.alertId)
+    .is("incident_id", null);
 
   return !error;
 }
@@ -53,106 +92,60 @@ export async function createIncidentFromAlerts(
     integration_id?: string | null;
     correlation_id?: string;
   },
-): Promise<{ incident: IncidentDbRow; eventEmitted: boolean } | null> {
-  if (input.alerts.length === 0) {
-    return null;
-  }
+): Promise<CreateIncidentFromAlertsResult> {
+  const result = await executeTransactionalIncidentCreate(admin, input);
 
-  const now = new Date().toISOString();
-  const primary = input.alerts[0];
-  const correlationId = input.correlation_id ?? randomUUID();
-  const impactScore = maxImpactScore(input.alerts);
-  const severity = buildIncidentSeverity(input.alerts);
-  const title = buildIncidentTitle({
-    reason: input.reason,
-    primary_alert: primary,
-    alert_count: input.alerts.length,
-  });
-
-  const metadata = safeProbeDetails({
-    impact_score: impactScore,
-    escalation_reason: input.reason,
-    correlation_id: correlationId,
-    linked_alert_ids: input.alerts.map((alert) => alert.id),
-    owner_notes: [],
-    suggest_resolve: false,
-  });
-
-  const timeline = [
-    {
-      at: now,
-      type: "created",
+  if (!result.ok) {
+    const eventEmitted = await emitIncidentCreationFailed({
       reason: input.reason,
-      alert_ids: input.alerts.map((alert) => alert.id),
-    },
-  ];
-
-  const { data, error } = await admin
-    .from("nexus_incidents")
-    .insert({
-      title,
-      status: "open",
-      severity,
-      integration_id: input.integration_id ?? null,
-      started_at: now,
-      impact_summary: buildImpactSummary(input.reason),
-      timeline,
-      metadata,
-    })
-    .select(
-      "id, title, status, severity, integration_id, started_at, resolved_at, root_cause, impact_summary, timeline, metadata, created_at, updated_at",
-    )
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Failed to create incident");
-  }
-
-  const incident = data as IncidentDbRow;
-
-  for (const alert of input.alerts) {
-    await linkAlertToIncident(admin, {
-      alertId: alert.id,
-      incidentId: incident.id,
+      alertIds: result.alertIds,
+      correlationId: result.correlationId,
+      error: result.error,
+      code: result.code,
     });
+    return toCreateIncidentFromAlertsResult(result, eventEmitted);
   }
 
-  const event = await emitNexusEvent({
-    source: "collector",
-    category: mapIncidentCategory(primary.category),
-    eventType: "incident.created",
-    severity: severity === "critical" ? "critical" : "warning",
-    title,
-    description: buildImpactSummary(input.reason),
-    correlationId,
-    payload: {
-      incident_id: incident.id,
-      escalation_reason: input.reason,
-      impact_score: impactScore,
-      alert_ids: input.alerts.map((alert) => alert.id),
-      correlation_id: correlationId,
-    },
-    metadata: {
-      linked_alert_count: input.alerts.length,
-    },
-  });
+  if (result.created) {
+    const primary = input.alerts[0];
+    const event = await emitNexusEvent({
+      source: "collector",
+      category: mapIncidentCategory(primary.category),
+      eventType: "incident.created",
+      severity: result.severity === "critical" ? "critical" : "warning",
+      title: result.title,
+      description: buildImpactSummary(input.reason),
+      correlationId: result.correlationId,
+      payload: {
+        incident_id: result.incident.id,
+        escalation_reason: input.reason,
+        impact_score: result.impactScore,
+        alert_ids: result.alertIds,
+        correlation_id: result.correlationId,
+        idempotency_key: result.incident.metadata.idempotency_key ?? null,
+      },
+      metadata: {
+        linked_alert_count: input.alerts.length,
+      },
+    });
 
-  await logNexusActivity({
-    actorType: "collector",
-    action: "nexus.incident.created",
-    targetType: "nexus_incident",
-    targetId: incident.id,
-    details: {
-      escalation_reason: input.reason,
-      alert_ids: input.alerts.map((alert) => alert.id),
-      impact_score: impactScore,
-    },
-  });
+    await logNexusActivity({
+      actorType: "collector",
+      action: "nexus.incident.created",
+      targetType: "nexus_incident",
+      targetId: result.incident.id,
+      details: {
+        escalation_reason: input.reason,
+        alert_ids: result.alertIds,
+        impact_score: result.impactScore,
+        idempotency_key: result.incident.metadata.idempotency_key ?? null,
+      },
+    });
 
-  return {
-    incident,
-    eventEmitted: event.ok,
-  };
+    return toCreateIncidentFromAlertsResult(result, event.ok);
+  }
+
+  return toCreateIncidentFromAlertsResult(result, false);
 }
 
 export async function updateIncidentImpactFromAlerts(

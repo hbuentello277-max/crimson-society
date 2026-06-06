@@ -123,14 +123,22 @@ export async function runIncidentEscalationPass(
       integration_id: integrationIdFromAlert(candidate.alert, input.context),
     });
 
-    if (result) {
-      incidentsCreated += 1;
-      alertsLinked += 1;
-      escalatedAlertIds.add(candidate.alert.id);
-      candidate.alert.incident_id = result.incident.id;
+    if (!result.ok) {
       if (result.eventEmitted) {
         eventsEmitted += 1;
       }
+      continue;
+    }
+
+    if (result.created) {
+      incidentsCreated += 1;
+    }
+
+    alertsLinked += 1;
+    escalatedAlertIds.add(candidate.alert.id);
+    candidate.alert.incident_id = result.incident.id;
+    if (result.eventEmitted) {
+      eventsEmitted += 1;
     }
   }
 
@@ -150,11 +158,18 @@ export async function runIncidentEscalationPass(
       integration_id: integrationIdFromAlert(rollupAlerts[0], input.context),
     });
 
-    if (result) {
-      incidentsCreated += 1;
+    if (!result.ok) {
+      if (result.eventEmitted) {
+        eventsEmitted += 1;
+      }
+    } else {
+      if (result.created) {
+        incidentsCreated += 1;
+      }
       alertsLinked += rollupAlerts.length;
       for (const alert of rollupAlerts) {
         escalatedAlertIds.add(alert.id);
+        alert.incident_id = result.incident.id;
       }
       if (result.eventEmitted) {
         eventsEmitted += 1;
