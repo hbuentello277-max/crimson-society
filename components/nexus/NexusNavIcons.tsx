@@ -130,3 +130,13 @@ export function NexusNavBriefingsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavIntelligenceIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="10" cy="10" r="6.5" />
+      <path d="M10 6.5v4l2.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 14.5c1.2 1 2.6 1.5 4 1.5s2.8-.5 4-1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}

@@ -12,6 +12,7 @@ import {
   NexusNavMetricsIcon,
   NexusNavOverviewIcon,
   NexusNavBriefingsIcon,
+  NexusNavIntelligenceIcon,
   NexusNavReportsIcon,
   NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
@@ -81,6 +82,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/briefings",
     label: "Briefings",
     icon: NexusNavBriefingsIcon,
+  },
+  {
+    href: "/admin/nexus/intelligence",
+    label: "Intelligence",
+    icon: NexusNavIntelligenceIcon,
   },
 ] as const;
 
