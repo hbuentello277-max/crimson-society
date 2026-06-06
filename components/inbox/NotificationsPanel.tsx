@@ -177,7 +177,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
 
       if (actorIds.length > 0) {
         const { data: actors, error: actorsError } = await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("id, username, display_name, full_name, profile_image_url, avatar_url")
           .in("id", actorIds);
 

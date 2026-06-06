@@ -27,7 +27,7 @@ export default function PublicFollowersPage() {
       setNotFound(false);
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("id")
         .eq("username", usernameParam)
         .maybeSingle();

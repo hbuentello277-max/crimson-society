@@ -38,22 +38,26 @@ async function ensureProfileIdsExist(
   userId: string,
   peerId: string,
 ) {
-  const { data, error } = await supabase.from("profiles").select("id").in("id", [userId, peerId]);
+  const [ownProfile, peerProfile] = await Promise.all([
+    supabase.from("profiles").select("id").eq("id", userId).maybeSingle(),
+    supabase.from("public_profiles").select("id").eq("id", peerId).maybeSingle(),
+  ]);
 
-  if (error) {
-    return { ok: false as const, error: error.message };
+  if (ownProfile.error || peerProfile.error) {
+    return {
+      ok: false as const,
+      error: ownProfile.error?.message || peerProfile.error?.message || "Could not verify riders.",
+    };
   }
 
-  const found = new Set((data || []).map((row) => row.id as string));
-
-  if (!found.has(userId)) {
+  if (!ownProfile.data?.id) {
     return {
       ok: false as const,
       error: "Complete your profile setup before starting a message.",
     };
   }
 
-  if (!found.has(peerId)) {
+  if (!peerProfile.data?.id) {
     return {
       ok: false as const,
       error: "This rider does not have a messaging profile yet.",

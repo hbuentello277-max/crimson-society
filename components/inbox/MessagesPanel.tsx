@@ -55,6 +55,7 @@ type Message = {
   timeLabel: string;
   createdAt: string;
   mediaUrl?: string | null;
+  mediaPath?: string | null;
   mediaMimeType?: string | null;
   mediaDurationSeconds?: number | null;
 };
@@ -203,9 +204,43 @@ function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Mes
     timeLabel: messageTime(row.created_at),
     createdAt: row.created_at,
     mediaUrl: row.media_url,
+    mediaPath: row.media_path,
     mediaMimeType: row.media_mime_type,
     mediaDurationSeconds: row.media_duration_seconds,
   };
+}
+
+async function signMessageMediaRows(rows: MessageRow[]) {
+  const rowsNeedingSignedUrls = rows.filter((row) => row.media_path);
+  if (rowsNeedingSignedUrls.length === 0) return rows;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  const signedEntries = await Promise.all(
+    rowsNeedingSignedUrls.map(async (row) => {
+      const params = new URLSearchParams({
+        conversationId: row.conversation_id,
+        path: row.media_path || "",
+      });
+
+      try {
+        const response = await fetch(`/api/messages/media?${params.toString()}`, { headers });
+        const payload = (await response.json()) as { ok?: boolean; mediaUrl?: string };
+        return [row.id, response.ok && payload.ok ? payload.mediaUrl ?? null : null] as const;
+      } catch {
+        return [row.id, null] as const;
+      }
+    }),
+  );
+
+  const signedUrlById = new Map(signedEntries);
+  return rows.map((row) =>
+    row.media_path && signedUrlById.has(row.id)
+      ? { ...row, media_url: signedUrlById.get(row.id) ?? row.media_url }
+      : row,
+  );
 }
 
 function conversationHasMessages(conversationId: string, messages: MessageRow[]) {
@@ -452,7 +487,8 @@ export default function MessagesPanel({
     const visibleMembers = allMembers.filter((member) =>
       visibleConversationIds.has(member.conversation_id),
     );
-    const visibleMessages = messageRows.filter((message) =>
+    const signedMessageRows = await signMessageMediaRows(messageRows);
+    const visibleMessages = signedMessageRows.filter((message) =>
       visibleConversationIds.has(message.conversation_id),
     );
     const profileIds = Array.from(
@@ -464,7 +500,7 @@ export default function MessagesPanel({
 
     const profilesResponse = profileIds.length
       ? await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("id, username, display_name, full_name, profile_image_url, avatar_url")
           .in("id", profileIds)
       : { data: [], error: null };
@@ -514,11 +550,10 @@ export default function MessagesPanel({
 
     const [profilesResponse, connectionsResponse, blocksResponse, meResponse] = await Promise.all([
       supabase
-        .from("profiles")
+        .from("public_profiles")
         .select(
-          "id, username, display_name, full_name, profile_image_url, avatar_url, city, state, riding_area, riding_style, bike_type, profile_tags, hide_location_from_suggestions, hide_from_suggestions, status",
+          "id, username, display_name, full_name, profile_image_url, avatar_url, city, state, riding_area, riding_style, bike_type, profile_tags, hide_location_from_suggestions, hide_from_suggestions",
         )
-        .eq("status", "active")
         .eq("hide_from_suggestions", false)
         .neq("id", userId)
         .limit(24),
@@ -744,7 +779,7 @@ export default function MessagesPanel({
       if (!activeId) return;
 
       const senderProfileResponsePromise = supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("id, username, display_name, full_name, profile_image_url, avatar_url")
         .eq("id", row.sender_id)
         .maybeSingle();
@@ -870,7 +905,7 @@ export default function MessagesPanel({
           sender_id: userId,
           message_type: "image",
           body: "",
-          media_url: uploadResult.mediaUrl,
+          media_url: null,
           media_path: uploadResult.mediaPath,
           media_mime_type: uploadResult.mediaMimeType,
           media_size_bytes: uploadResult.mediaSizeBytes,
@@ -882,7 +917,10 @@ export default function MessagesPanel({
         throw new Error(inserted.error?.message || "Image message could not be saved.");
       }
 
-      appendLocalMessage(inserted.data as unknown as MessageRow);
+      appendLocalMessage({
+        ...(inserted.data as unknown as MessageRow),
+        media_url: uploadResult.mediaUrl ?? null,
+      });
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : "Could not send image.");
     } finally {
@@ -948,7 +986,7 @@ export default function MessagesPanel({
           sender_id: userId,
           message_type: "audio",
           body: "",
-          media_url: uploadResult.mediaUrl,
+          media_url: null,
           media_path: uploadResult.mediaPath,
           media_mime_type: uploadResult.mediaMimeType,
           media_size_bytes: uploadResult.mediaSizeBytes,
@@ -962,7 +1000,10 @@ export default function MessagesPanel({
         throw new Error(inserted.error?.message || "Voice message could not be saved.");
       }
 
-      appendLocalMessage(inserted.data as unknown as MessageRow);
+      appendLocalMessage({
+        ...(inserted.data as unknown as MessageRow),
+        media_url: uploadResult.mediaUrl ?? null,
+      });
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : "Could not send voice message.");
     } finally {

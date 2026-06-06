@@ -35,8 +35,6 @@ type PublicProfile = {
   bike_type: string | null;
   riding_style: string | null;
   profile_tags: string[] | null;
-  status: string | null;
-  membership_status: string | null;
   hide_location_from_suggestions: boolean | null;
   hide_from_suggestions: boolean | null;
   instagram_url: string | null;
@@ -225,9 +223,9 @@ export default function PublicProfilePage() {
       setProfileState("loading");
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select(
-          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, status, membership_status, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, instagram_url, tiktok_url, youtube_url, website_url",
+          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, instagram_url, tiktok_url, youtube_url, website_url",
         )
         .eq("username", usernameParam)
         .maybeSingle();
@@ -523,20 +521,6 @@ export default function PublicProfilePage() {
           >
             Return
           </Link>
-        </div>
-      </main>
-    );
-  }
-
-  if (profile.status === "suspended" || profile.status === "blocked") {
-    return (
-      <main className="relative flex min-h-screen items-center justify-center bg-[#050505] px-6 text-center text-white">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Account Status</p>
-          <h2 className="mt-4 font-serif text-5xl text-white">Access Restricted</h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400">
-            This member profile is not available.
-          </p>
         </div>
       </main>
     );

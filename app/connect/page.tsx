@@ -72,7 +72,7 @@ const RIDER_TABS = [
 type RiderTab = (typeof RIDER_TABS)[number]["key"];
 
 const PROFILE_BASE_SELECT =
-  "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location, status";
+  "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location";
 
 const PROFILE_DISCOVERY_SELECT = `${PROFILE_BASE_SELECT}, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions`;
 
@@ -211,9 +211,8 @@ export default function ConnectPage() {
       await Promise.all([
         (async () => {
           const discoveryResponse = await supabase
-            .from("profiles")
+            .from("public_profiles")
             .select(PROFILE_DISCOVERY_SELECT)
-            .eq("status", "active")
             .neq("id", userId)
             .eq("hide_from_suggestions", false)
             .limit(80);
@@ -223,9 +222,8 @@ export default function ConnectPage() {
           }
 
           return supabase
-            .from("profiles")
+            .from("public_profiles")
             .select(PROFILE_BASE_SELECT)
-            .eq("status", "active")
             .neq("id", userId)
             .limit(80);
         })(),

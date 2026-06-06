@@ -26,6 +26,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "productId is required" }, { status: 400 });
   }
 
+  const { data: profile, error: profileError } = await auth.supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", auth.userId)
+    .maybeSingle();
+
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  }
+
+  if (!profile || profile.status !== "active") {
+    return NextResponse.json(
+      { error: "Your account is not eligible to reserve inventory." },
+      { status: 403 },
+    );
+  }
+
   const admin = createAdminServiceClient();
   const quantity = Math.trunc(Number(body.quantity ?? 1));
   if (!Number.isFinite(quantity) || quantity < 1) {

@@ -74,7 +74,7 @@ export async function fetchDirectConversationPreview(
   }
 
   const { data: profile, error: profileError } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, username, display_name, full_name, profile_image_url, avatar_url")
     .eq("id", otherUserId)
     .maybeSingle();
