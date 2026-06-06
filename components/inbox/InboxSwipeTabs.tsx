@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
@@ -46,6 +46,8 @@ export default function InboxSwipeTabs() {
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [newMessageRequestId, setNewMessageRequestId] = useState(0);
   const [threadOpen, setThreadOpen] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const activeTab: InboxTab =
     searchParams.get("tab") === "notifications" ? "notifications" : "messages";
@@ -199,16 +201,37 @@ export default function InboxSwipeTabs() {
     };
   }, [loadMessageUnreadCount, loadNotificationUnreadCount, loading, session?.user?.id]);
 
-  const viewportTopClass = threadOpen
-    ? "top-0"
-    : activeTab === "messages"
-      ? "top-[calc(env(safe-area-inset-top)+14.25rem)]"
-      : "top-[calc(env(safe-area-inset-top)+6.75rem)]";
+  useLayoutEffect(() => {
+    if (threadOpen) {
+      return;
+    }
+
+    const header = headerRef.current;
+    if (!header) {
+      return;
+    }
+
+    const measure = () => {
+      setHeaderHeight(header.offsetHeight);
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+
+    return () => observer.disconnect();
+  }, [threadOpen, activeTab]);
+
+  const viewportTop = threadOpen ? 0 : headerHeight;
 
   return (
     <>
       {!threadOpen && (
-        <div className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-black px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+        <div
+          ref={headerRef}
+          className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-black px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]"
+        >
           <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
             <InboxOverflowMenu activeTab={activeTab} />
@@ -248,7 +271,8 @@ export default function InboxSwipeTabs() {
 
       <div
         ref={viewportRef}
-        className={`fixed inset-x-0 bottom-0 w-full max-w-full touch-none overflow-hidden ${viewportTopClass} ${threadOpen ? "pointer-events-none invisible" : ""}`}
+        className={`fixed inset-x-0 bottom-0 w-full max-w-full touch-none overflow-hidden ${threadOpen ? "pointer-events-none invisible" : ""}`}
+        style={{ top: viewportTop }}
         {...swipeHandlers}
       >
         <div
@@ -261,6 +285,7 @@ export default function InboxSwipeTabs() {
           <div className="h-full shrink-0 touch-pan-y overflow-y-auto overscroll-contain" style={{ width: `${panelWidthPercent}%` }}>
             <MessagesPanel
               embedded
+              inboxHeaderOffsetPx={headerHeight}
               newMessageRequestId={newMessageRequestId}
               onThreadActiveChange={setThreadOpen}
             />

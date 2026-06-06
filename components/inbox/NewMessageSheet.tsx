@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 
@@ -14,6 +14,7 @@ export type NewMessageSuggestion = {
 
 type NewMessageSheetProps = {
   open: boolean;
+  headerOffsetPx?: number;
   memberSearch: string;
   suggestions: NewMessageSuggestion[];
   onMemberSearchChange: (value: string) => void;
@@ -21,8 +22,12 @@ type NewMessageSheetProps = {
   onClose: () => void;
 };
 
+const DISMISS_DRAG_THRESHOLD_PX = 72;
+const BOTTOM_NAV_CLEARANCE = "calc(3.75rem + env(safe-area-inset-bottom))";
+
 export function NewMessageSheet({
   open,
+  headerOffsetPx = 0,
   memberSearch,
   suggestions,
   onMemberSearchChange,
@@ -30,9 +35,22 @@ export function NewMessageSheet({
   onClose,
 }: NewMessageSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartYRef = useRef(0);
+  const dragOffsetRef = useRef(0);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const resetDrag = useCallback(() => {
+    dragOffsetRef.current = 0;
+    setDragY(0);
+    setIsDragging(false);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      resetDrag();
+      return;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -47,49 +65,105 @@ export function NewMessageSheet({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open, onClose, resetDrag]);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+
+    dragStartYRef.current = event.clientY;
+    dragOffsetRef.current = dragY;
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+
+    const delta = event.clientY - dragStartYRef.current;
+    const nextOffset = Math.max(0, dragOffsetRef.current + delta);
+    setDragY(nextOffset);
+  };
+
+  const finishDrag = () => {
+    if (!isDragging) return;
+
+    setIsDragging(false);
+
+    if (dragY >= DISMISS_DRAG_THRESHOLD_PX) {
+      onClose();
+      resetDrag();
+      return;
+    }
+
+    resetDrag();
+  };
 
   if (!open || typeof document === "undefined") return null;
 
+  const sheetTop = Math.max(headerOffsetPx, 0);
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[300] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      className="fixed inset-x-0 z-[300] flex justify-center"
+      style={{
+        top: sheetTop,
+        bottom: BOTTOM_NAV_CLEARANCE,
+      }}
       role="presentation"
-      onClick={onClose}
     >
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+
       <div
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-message-title"
-        className="flex h-[min(76dvh,660px)] w-full max-w-full flex-col rounded-t-3xl border border-white/10 bg-[#0b0b0d] shadow-[0_0_50px_rgba(180,20,30,0.18)] sm:h-auto sm:max-h-[min(88dvh,720px)] sm:max-w-md sm:rounded-3xl"
+        className="relative z-[1] flex h-full w-full max-w-full flex-col rounded-b-3xl border border-t-0 border-white/10 bg-[#0b0b0d] shadow-[0_16px_50px_rgba(180,20,30,0.18)] sm:max-w-md sm:rounded-3xl sm:border"
         style={{
-          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+          transform: `translateY(${dragY}px)`,
+          transition: isDragging ? "none" : "transform 0.24s ease-out",
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 justify-center pt-2 sm:hidden">
-          <span className="h-1 w-10 rounded-full bg-white/20" aria-hidden />
-        </div>
-
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5">
-          <div className="min-w-0">
-            <h2 id="new-message-title" className="text-lg font-semibold text-white">
-              New Message
-            </h2>
-            <p className="mt-1 text-xs uppercase tracking-[0.25em] text-white/35">
-              Choose a rider
-            </p>
-          </div>
-
+        <div
+          className="flex shrink-0 touch-none flex-col items-center border-b border-white/10 px-4 pb-2 pt-2"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishDrag}
+          onPointerCancel={finishDrag}
+        >
           <button
             type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/60 hover:border-[#b4141e]/60 hover:text-white"
-            aria-label="Close new message"
+            className="flex h-8 w-full items-center justify-center"
+            aria-label="Drag down to close"
+            onClick={(event) => event.preventDefault()}
           >
-            ✕
+            <span className="h-1.5 w-12 rounded-full bg-white/30" aria-hidden />
           </button>
+
+          <div className="flex w-full items-center justify-between gap-3 pt-1">
+            <div className="min-w-0">
+              <h2 id="new-message-title" className="text-lg font-semibold text-white">
+                New Message
+              </h2>
+              <p className="mt-1 text-xs uppercase tracking-[0.25em] text-white/35">
+                Choose a rider
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/60 hover:border-[#b4141e]/60 hover:text-white"
+              aria-label="Close new message"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="shrink-0 px-4 py-2.5">

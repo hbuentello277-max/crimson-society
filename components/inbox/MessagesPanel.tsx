@@ -299,12 +299,14 @@ function buildConversations(
 
 type MessagesPanelProps = {
   embedded?: boolean;
+  inboxHeaderOffsetPx?: number;
   newMessageRequestId?: number;
   onThreadActiveChange?: (active: boolean) => void;
 };
 
 export default function MessagesPanel({
   embedded = false,
+  inboxHeaderOffsetPx = 0,
   newMessageRequestId = 0,
   onThreadActiveChange,
 }: MessagesPanelProps) {
@@ -1140,7 +1142,7 @@ export default function MessagesPanel({
         )}
 
         {embedded && (
-          <div className="shrink-0 border-b border-white/10 bg-black px-3 pb-3 pt-2">
+          <div className="shrink-0 border-b border-white/10 bg-black px-3 pb-3 pt-1">
             <div className={`flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2.5 ${CS_FOCUS_RING}`}>
               <span className="text-white/40">⌕</span>
               <input
@@ -1281,6 +1283,7 @@ export default function MessagesPanel({
 
       <NewMessageSheet
         open={showNewMessage && !active}
+        headerOffsetPx={inboxHeaderOffsetPx}
         memberSearch={memberSearch}
         suggestions={filteredSuggestions}
         onMemberSearchChange={setMemberSearch}
