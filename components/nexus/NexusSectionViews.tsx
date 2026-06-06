@@ -10,6 +10,7 @@ import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
 import { NexusAlertsCenter } from "@/components/nexus/NexusAlertsCenter";
 import { NexusIncidentsCenter } from "@/components/nexus/NexusIncidentsCenter";
 import { NexusObservationsCenter } from "@/components/nexus/NexusObservationsCenter";
+import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
@@ -276,4 +277,8 @@ export function NexusObservationsView() {
 
 export function NexusWarRoomsView() {
   return <NexusWarRoomsCenter />;
+}
+
+export function NexusRunbooksView() {
+  return <NexusRunbooksCenter />;
 }

@@ -14,6 +14,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const STATUS_ACTIONS: Partial<Record<NexusWarRoomStatus, NexusWarRoomStatus>> = {
@@ -77,6 +78,15 @@ export function WarRoomDetail({ warRoomId }: { warRoomId: string }) {
     >
       {!loading && data ? (
         <div className="space-y-4">
+          <NexusRecommendedRunbooks
+            context={{
+              source: "war_room",
+              category: "infra",
+              severity: data.war_room.severity,
+              title: data.war_room.title,
+            }}
+          />
+
           <NexusPanel title="Incident Summary">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">

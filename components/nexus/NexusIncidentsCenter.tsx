@@ -19,6 +19,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type IncidentTab = "open" | "investigating" | "mitigated" | "resolved";
@@ -182,6 +183,7 @@ function IncidentCard({
   const createKey = `war-room-create-${incident.id}`;
 
   return (
+    <div className="space-y-3">
     <NexusPanel>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
@@ -252,5 +254,16 @@ function IncidentCard({
         </div>
       </div>
     </NexusPanel>
+    {showActions ? (
+      <NexusRecommendedRunbooks
+        context={{
+          source: "incident",
+          category: incident.severity === "critical" ? "infra" : "mission",
+          severity: incident.severity,
+          title: incident.title,
+        }}
+      />
+    ) : null}
+    </div>
   );
 }

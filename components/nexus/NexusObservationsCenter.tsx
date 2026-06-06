@@ -22,6 +22,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function NexusObservationsCenter() {
@@ -310,6 +311,16 @@ function ObservationDetailPanel({
               </pre>
             </div>
           ) : null}
+
+          <NexusRecommendedRunbooks
+            context={{
+              source: "observation",
+              category: observation.category,
+              severity: observation.severity,
+              rule_id: observation.rule_id,
+              title: observation.title,
+            }}
+          />
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import {
   NexusNavInsightsIcon,
   NexusNavMetricsIcon,
   NexusNavOverviewIcon,
+  NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
   NexusNavWorkflowIcon,
 } from "@/components/nexus/NexusNavIcons";
@@ -57,6 +58,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/war-rooms",
     label: "War Rooms",
     icon: NexusNavWarRoomsIcon,
+  },
+  {
+    href: "/admin/nexus/runbooks",
+    label: "Runbooks",
+    icon: NexusNavRunbooksIcon,
   },
 ] as const;
 

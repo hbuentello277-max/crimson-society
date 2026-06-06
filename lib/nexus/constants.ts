@@ -67,6 +67,23 @@ export const NEXUS_WAR_ROOM_STATUSES = ["open", "active", "resolved", "archived"
 
 export type NexusWarRoomStatus = (typeof NEXUS_WAR_ROOM_STATUSES)[number];
 
+/** nexus_runbooks.category values. */
+export const NEXUS_RUNBOOK_CATEGORIES = [
+  "infrastructure",
+  "user_workflows",
+  "revenue",
+  "growth",
+  "security",
+  "operations",
+] as const;
+
+export type NexusRunbookCategory = (typeof NEXUS_RUNBOOK_CATEGORIES)[number];
+
+/** nexus_runbooks.status values. */
+export const NEXUS_RUNBOOK_STATUSES = ["active", "archived"] as const;
+
+export type NexusRunbookStatus = (typeof NEXUS_RUNBOOK_STATUSES)[number];
+
 /** nexus_observations.status values. */
 export const NEXUS_OBSERVATION_STATUSES = [
   "active",

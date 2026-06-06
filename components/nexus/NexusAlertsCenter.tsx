@@ -13,6 +13,11 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
+import {
+  inferIntegrationFromAlert,
+  inferWorkflowFromAlert,
+} from "@/lib/runbooks/suggestions";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type AlertTab = "active" | "acknowledged" | "resolved";
@@ -113,7 +118,8 @@ export function NexusAlertsCenter() {
                 const actionPrefix = `alert-${alert.id}`;
 
                 return (
-                  <NexusPanel key={alert.id}>
+                  <div key={alert.id} className="space-y-3">
+                  <NexusPanel>
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -199,6 +205,28 @@ export function NexusAlertsCenter() {
                       ) : null}
                     </div>
                   </NexusPanel>
+                  {tab !== "resolved" ? (
+                    <NexusRecommendedRunbooks
+                      context={{
+                        source: "alert",
+                        category: alert.category,
+                        severity: alert.severity,
+                        rule_id: alert.rule_id,
+                        integration_slug: inferIntegrationFromAlert({
+                          rule_id: alert.rule_id,
+                          category: alert.category,
+                          title: alert.title,
+                          metadata: alert.metadata,
+                        }),
+                        workflow_slug: inferWorkflowFromAlert({
+                          rule_id: alert.rule_id,
+                          title: alert.title,
+                        }),
+                        title: alert.title,
+                      }}
+                    />
+                  ) : null}
+                  </div>
                 );
               })}
             </div>
