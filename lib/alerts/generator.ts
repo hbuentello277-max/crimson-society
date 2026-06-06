@@ -15,7 +15,8 @@ type AlertRow = {
   created_at: string;
 };
 
-export async function findActiveAlertByDedupeKey(
+/** Open triage alerts (active or owner-acknowledged) for dedupe upserts. */
+export async function findOpenAlertByDedupeKey(
   admin: SupabaseClient,
   dedupeKey: string,
 ): Promise<AlertRow | null> {
@@ -23,7 +24,9 @@ export async function findActiveAlertByDedupeKey(
     .from("nexus_alerts")
     .select("id, status, metadata, created_at")
     .eq("dedupe_key", dedupeKey)
-    .eq("status", "active")
+    .in("status", ["active", "acknowledged"])
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error || !data) {
@@ -38,7 +41,7 @@ export async function upsertFiringAlert(
   candidate: AlertCandidate,
 ): Promise<{ action: "created" | "updated"; alertId: string; eventEmitted: boolean }> {
   const now = new Date().toISOString();
-  const existing = await findActiveAlertByDedupeKey(admin, candidate.dedupe_key);
+  const existing = await findOpenAlertByDedupeKey(admin, candidate.dedupe_key);
 
   if (existing) {
     const firstSeen =
@@ -209,7 +212,7 @@ export async function processRecovery(
     metadata: recovery.evidence,
   });
 
-  const existingNotice = await findActiveAlertByDedupeKey(admin, recovery.recovery_dedupe_key);
+  const existingNotice = await findOpenAlertByDedupeKey(admin, recovery.recovery_dedupe_key);
   let noticeCreated = false;
 
   if (!existingNotice) {
