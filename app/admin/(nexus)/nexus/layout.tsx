@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { NexusShell } from "@/components/nexus/NexusShell";
 import { getOwnerSession } from "@/lib/nexus/auth";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +19,5 @@ export default async function NexusLayout({
     redirect("/profile");
   }
 
-  return children;
+  return <NexusShell>{children}</NexusShell>;
 }
