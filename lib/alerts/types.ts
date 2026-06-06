@@ -146,6 +146,10 @@ export type NexusAlertEngineResult = {
   alertsResolved: number;
   recoveriesEmitted: number;
   eventsEmitted: number;
+  incidentsCreated: number;
+  incidentsUpdated: number;
+  alertsLinkedToIncidents: number;
+  suggestResolveIncidentIds: string[];
   error?: string;
 };
 
