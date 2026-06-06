@@ -110,3 +110,13 @@ export function NexusNavCommandsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavReportsIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 4.5h10v11H5z" />
+      <path d="M7.5 8h5M7.5 10.5h5M7.5 13h3" strokeLinecap="round" />
+      <path d="M12 4.5V3.5h2v1" strokeLinecap="round" />
+    </IconBase>
+  );
+}

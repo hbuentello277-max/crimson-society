@@ -11,6 +11,7 @@ import { NexusAlertsCenter } from "@/components/nexus/NexusAlertsCenter";
 import { NexusIncidentsCenter } from "@/components/nexus/NexusIncidentsCenter";
 import { NexusObservationsCenter } from "@/components/nexus/NexusObservationsCenter";
 import { NexusCommandsCenter } from "@/components/nexus/NexusCommandsCenter";
+import { NexusReportsCenter } from "@/components/nexus/NexusReportsCenter";
 import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -286,4 +287,8 @@ export function NexusRunbooksView() {
 
 export function NexusCommandsView() {
   return <NexusCommandsCenter />;
+}
+
+export function NexusReportsView() {
+  return <NexusReportsCenter />;
 }
