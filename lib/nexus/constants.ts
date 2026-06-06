@@ -20,6 +20,7 @@ export const NEXUS_EVENT_CATEGORIES = [
   "commerce",
   "infra",
   "mission",
+  "recovery",
 ] as const;
 
 export type NexusEventCategory = (typeof NEXUS_EVENT_CATEGORIES)[number];
