@@ -216,3 +216,47 @@ export type NexusObservationsSummary = {
   active: NexusObservationSummaryRow[];
   recent_history: NexusObservationSummaryRow[];
 };
+
+export type ObservationEvidenceEventRef = {
+  event_id: string;
+  relevance: "primary" | "supporting";
+  event_type: string;
+  category: string;
+  severity: NexusSeverity;
+  title: string;
+  occurred_at: string;
+};
+
+export type ObservationEvidenceMetricRef = {
+  snapshot_id: string;
+  role: "baseline" | "current" | "comparison";
+  metric_key: string;
+  value: number;
+  previous_value: number | null;
+  period_start: string;
+};
+
+export type ObservationEvidenceAlertRef = {
+  alert_id: string;
+  relationship: "triggered_by" | "related" | "escalated_to";
+  title: string;
+  severity: NexusSeverity;
+  status: string;
+  category: string;
+};
+
+export type NexusObservationDetail = NexusObservationSummaryRow & {
+  source: string;
+  dismissed_at: string | null;
+  dismissed_by: string | null;
+  superseded_by: string | null;
+  war_room_id: string | null;
+  owner_notes_count: number;
+  evidence_links: {
+    events: ObservationEvidenceEventRef[];
+    metrics: ObservationEvidenceMetricRef[];
+    alerts: ObservationEvidenceAlertRef[];
+  };
+};
+
+export type ObservationsListView = "active" | "history" | "all";
