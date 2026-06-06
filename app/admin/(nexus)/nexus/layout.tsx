@@ -1,14 +1,22 @@
+import { redirect } from "next/navigation";
+import { getOwnerSession } from "@/lib/nexus/auth";
+
 export const dynamic = "force-dynamic";
 
-/**
- * Nexus owner gate — placeholder for Phase 1+.
- * TODO: requireOwnerSession() — platform owner only (is_platform_owner).
- * Staff admin access must not grant entry to /admin/nexus.
- */
-export default function NexusLayout({
+export default async function NexusLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const result = await getOwnerSession();
+
+  if (!result.ok) {
+    if (result.reason === "unauthenticated") {
+      redirect("/login");
+    }
+
+    redirect("/profile");
+  }
+
   return children;
 }
