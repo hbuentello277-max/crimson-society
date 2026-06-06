@@ -61,10 +61,10 @@ export function NexusPanelHeader({
 
 export function NexusLiveIndicator() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-[#b4141e]/40 bg-[#b4141e]/10 px-2 py-1 text-[8px] uppercase tracking-[0.18em] text-[#f1c3c7] sm:text-[9px]">
-      <span className="relative flex h-1.5 w-1.5">
+    <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-white sm:text-[11px]">
+      <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#b4141e] opacity-60" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#b4141e]" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#b4141e]" />
       </span>
       Live
     </span>
@@ -169,8 +169,12 @@ export function NexusRefreshButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={() => void onClick()}
-      className="rounded border border-[#b4141e]/35 bg-black/40 px-2 py-0.5 text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
+      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#b4141e]/40 bg-black/50 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
     >
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+        <path d="M13 3v3H10M3 13V10h3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12.5 6.5A5 5 0 0 0 4 4.5M3.5 9.5A5 5 0 0 0 12 11.5" strokeLinecap="round" />
+      </svg>
       Sync
     </button>
   );

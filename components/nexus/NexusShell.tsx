@@ -3,17 +3,55 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  NexusNavAlertsIcon,
+  NexusNavIncidentsIcon,
+  NexusNavInfraIcon,
+  NexusNavInsightsIcon,
+  NexusNavMetricsIcon,
+  NexusNavOverviewIcon,
+  NexusNavWorkflowIcon,
+} from "@/components/nexus/NexusNavIcons";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 
 const NAV_ITEMS = [
-  { href: "/admin/nexus", label: NEXUS_LABELS.operationsOverview, short: "OVR", exact: true },
-  { href: "/admin/nexus/system-health", label: NEXUS_LABELS.infrastructure, short: "INF" },
-  { href: "/admin/nexus/mission-health", label: NEXUS_LABELS.userWorkflows, short: "WFL" },
-  { href: "/admin/nexus/metrics", label: "Metrics", short: "MET" },
-  { href: "/admin/nexus/alerts", label: "Alerts", short: "ALT" },
-  { href: "/admin/nexus/incidents", label: "Incidents", short: "INC" },
-  { href: "/admin/nexus/observations", label: NEXUS_LABELS.insights, short: "INS" },
+  {
+    href: "/admin/nexus",
+    label: "Overview",
+    icon: NexusNavOverviewIcon,
+    exact: true,
+  },
+  {
+    href: "/admin/nexus/system-health",
+    label: "Infra",
+    icon: NexusNavInfraIcon,
+  },
+  {
+    href: "/admin/nexus/mission-health",
+    label: "Workflows",
+    icon: NexusNavWorkflowIcon,
+  },
+  {
+    href: "/admin/nexus/metrics",
+    label: "Metrics",
+    icon: NexusNavMetricsIcon,
+  },
+  {
+    href: "/admin/nexus/alerts",
+    label: "Alerts",
+    icon: NexusNavAlertsIcon,
+  },
+  {
+    href: "/admin/nexus/incidents",
+    label: "Incidents",
+    icon: NexusNavIncidentsIcon,
+  },
+  {
+    href: "/admin/nexus/observations",
+    label: NEXUS_LABELS.insights,
+    icon: NexusNavInsightsIcon,
+  },
 ] as const;
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -31,20 +69,22 @@ function NavLink({
 }: {
   item: (typeof NAV_ITEMS)[number];
   pathname: string;
-  variant: "rail" | "bar";
+  variant: "rail" | "chip";
 }) {
   const active = isActive(pathname, item.href, "exact" in item ? item.exact : false);
+  const Icon = item.icon;
 
   if (variant === "rail") {
     return (
       <Link
         href={item.href}
-        className={`block rounded border-l-2 px-2 py-1.5 text-[9px] uppercase tracking-[0.14em] transition ${
+        className={`flex min-h-10 items-center gap-2 rounded border-l-2 px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition ${
           active
             ? "border-[#b4141e] bg-[#b4141e]/15 text-[#f1c3c7]"
             : "border-transparent text-zinc-500 hover:border-[#b4141e]/40 hover:bg-[#b4141e]/5 hover:text-zinc-300"
         }`}
       >
+        <Icon className="h-4 w-4 shrink-0" />
         {item.label}
       </Link>
     );
@@ -53,13 +93,14 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className={`shrink-0 rounded border px-2 py-1 text-[8px] uppercase tracking-[0.12em] ${
+      className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] transition ${
         active
-          ? "border-[#b4141e]/70 bg-[#b4141e]/20 text-[#f1c3c7]"
-          : "border-[#b4141e]/15 text-zinc-500"
+          ? "border-[#b4141e]/70 bg-[#b4141e]/25 text-[#f1c3c7] shadow-[0_0_16px_rgba(180,20,30,0.2)]"
+          : "border-[#b4141e]/20 bg-[#0a0608]/90 text-zinc-400 hover:border-[#b4141e]/40 hover:text-zinc-200"
       }`}
     >
-      {item.short}
+      <Icon className="h-4 w-4 shrink-0" />
+      {item.label}
     </Link>
   );
 }
@@ -84,55 +125,57 @@ export function NexusShell({ children }: { children: ReactNode }) {
       />
 
       <div className="relative flex min-h-screen">
-        <aside className="fixed bottom-0 left-0 top-0 z-30 hidden w-36 flex-col border-r border-[#b4141e]/25 bg-[#010101]/95 pt-[calc(env(safe-area-inset-top)+3.5rem)] backdrop-blur-md lg:flex">
-          <div className="border-b border-[#b4141e]/15 px-2 py-2">
-            <p className="text-[8px] uppercase tracking-[0.28em] text-[#e87a82]">Command</p>
-            <p className="text-[9px] font-medium text-white">Rail</p>
+        <aside className="fixed bottom-0 left-0 top-0 z-30 hidden w-44 flex-col border-r border-[#b4141e]/25 bg-[#010101]/95 pt-[calc(env(safe-area-inset-top)+3.5rem)] backdrop-blur-md lg:flex">
+          <div className="border-b border-[#b4141e]/15 px-3 py-3">
+            <p className="text-[9px] uppercase tracking-[0.28em] text-[#e87a82]">Command</p>
+            <p className="text-sm font-medium text-white">Rail</p>
           </div>
-          <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
             {NAV_ITEMS.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} variant="rail" />
             ))}
           </nav>
-          <div className="border-t border-[#b4141e]/15 p-2">
+          <div className="border-t border-[#b4141e]/15 p-3">
             <Link
               href="/admin"
-              className="block rounded border border-[#b4141e]/30 px-2 py-1.5 text-center text-[8px] uppercase tracking-[0.14em] text-[#f1c3c7] hover:bg-[#b4141e]/10"
+              className="flex min-h-10 items-center justify-center rounded-lg border border-[#b4141e]/30 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:bg-[#b4141e]/10"
             >
               ← Control Room
             </Link>
           </div>
         </aside>
 
-        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:pl-36">
-          <header className="sticky top-0 z-40 border-b border-[#b4141e]/30 bg-[#010101]/95 px-2 pb-1.5 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-md sm:px-3 lg:py-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:pl-44">
+          <header className="sticky top-0 z-40 border-b border-[#b4141e]/30 bg-[#010101]/95 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-md sm:px-4 lg:py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
                 <Link
                   href="/admin"
-                  className="inline-flex shrink-0 items-center rounded border border-[#b4141e]/40 bg-black/60 px-2 py-1 text-[8px] uppercase tracking-[0.14em] text-[#f1c3c7] lg:hidden"
+                  className="mt-1 inline-flex min-h-10 shrink-0 items-center rounded-lg border border-[#b4141e]/40 bg-black/60 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:bg-[#b4141e]/10 lg:hidden"
                 >
                   ← Room
                 </Link>
-                <div className="min-w-0 border-l border-[#b4141e]/40 pl-2">
-                  <p className="truncate text-[8px] uppercase tracking-[0.24em] text-[#e87a82]">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-[#e87a82] sm:text-xs">
                     Project Nexus
                   </p>
-                  <h1 className="truncate font-serif text-sm leading-tight text-white sm:text-base">
+                  <h1 className="mt-0.5 font-serif text-2xl leading-tight text-white sm:text-3xl">
                     Operations Console
                   </h1>
                 </div>
               </div>
-              <NexusLiveIndicator />
+              <div className="shrink-0 pt-1">
+                <NexusLiveIndicator />
+              </div>
             </div>
-            <nav className="mt-1.5 flex gap-1 overflow-x-auto pb-0.5 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {NAV_ITEMS.map((item) => (
-                <NavLink key={item.href} item={item} pathname={pathname} variant="bar" />
+                <NavLink key={item.href} item={item} pathname={pathname} variant="chip" />
               ))}
             </nav>
           </header>
 
-          <div className="flex min-h-0 flex-1 flex-col px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-3 lg:py-3">
+          <div className="flex min-h-0 flex-1 flex-col px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-4 lg:py-4">
             {children}
           </div>
         </div>
