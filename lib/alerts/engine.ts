@@ -17,6 +17,7 @@ import {
 } from "@/lib/alerts/generator";
 import { computeImpactForRuleMatch } from "@/lib/alerts/impact";
 import { detectRecoveries } from "@/lib/alerts/recovery";
+import { runIncidentEscalationPass } from "@/lib/incidents/engine";
 import type { AlertRuleRow, NexusAlertEngineResult, ScopeState } from "@/lib/alerts/types";
 
 function cloneScopeState(state: Record<string, ScopeState>): Record<string, ScopeState> {
@@ -82,6 +83,10 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
     let alertsResolved = 0;
     let recoveriesEmitted = 0;
     let eventsEmitted = 0;
+    let incidentsCreated = 0;
+    let incidentsUpdated = 0;
+    let alertsLinkedToIncidents = 0;
+    let suggestResolveIncidentIds: string[] = [];
     const rulesSkipped: Array<{ rule_id: string; reason: string }> = [];
 
     const failingWorkflowCount = countFailingWorkflows(context);
@@ -193,6 +198,16 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
 
     await persistEvaluationState(admin, rules, context.evaluation_state);
 
+    const escalation = await runIncidentEscalationPass(admin, {
+      evaluated_at: evaluatedAt,
+      context,
+    });
+    incidentsCreated = escalation.incidentsCreated;
+    incidentsUpdated = escalation.incidentsUpdated;
+    alertsLinkedToIncidents = escalation.alertsLinked;
+    suggestResolveIncidentIds = escalation.suggestResolveIncidentIds;
+    eventsEmitted += escalation.eventsEmitted;
+
     const summaryEvent = await emitNexusEvent({
       source: "collector",
       category: "infra",
@@ -207,6 +222,9 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
         alerts_resolved: alertsResolved,
         recoveries_emitted: recoveriesEmitted,
         rules_skipped: rulesSkipped,
+        incidents_created: incidentsCreated,
+        incidents_updated: incidentsUpdated,
+        alerts_linked_to_incidents: alertsLinkedToIncidents,
       },
       occurredAt: evaluatedAt,
     });
@@ -226,6 +244,9 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
         alerts_resolved: alertsResolved,
         recoveries_emitted: recoveriesEmitted,
         rules_skipped: rulesSkipped,
+        incidents_created: incidentsCreated,
+        incidents_updated: incidentsUpdated,
+        alerts_linked_to_incidents: alertsLinkedToIncidents,
       },
     });
 
@@ -239,6 +260,10 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
       alertsResolved,
       recoveriesEmitted,
       eventsEmitted,
+      incidentsCreated,
+      incidentsUpdated,
+      alertsLinkedToIncidents,
+      suggestResolveIncidentIds,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "alert engine failed";
@@ -254,6 +279,10 @@ export async function runNexusAlertEngine(): Promise<NexusAlertEngineResult> {
       alertsResolved: 0,
       recoveriesEmitted: 0,
       eventsEmitted: 0,
+      incidentsCreated: 0,
+      incidentsUpdated: 0,
+      alertsLinkedToIncidents: 0,
+      suggestResolveIncidentIds: [],
       error: message,
     };
   }

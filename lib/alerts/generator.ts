@@ -188,7 +188,16 @@ export async function processRecovery(
   recovery: RecoveryCandidate,
 ): Promise<{ resolved: boolean; noticeCreated: boolean; eventEmitted: boolean }> {
   let resolved = false;
+  let incidentId: string | null = null;
+
   if (recovery.original_alert_id) {
+    const { data: originalAlert } = await admin
+      .from("nexus_alerts")
+      .select("incident_id")
+      .eq("id", recovery.original_alert_id)
+      .maybeSingle();
+
+    incidentId = (originalAlert?.incident_id as string | null) ?? null;
     resolved = await resolveAlertById(admin, recovery.original_alert_id, "auto_recovery");
   }
 
@@ -207,6 +216,7 @@ export async function processRecovery(
       current_status: recovery.current_status,
       duration_minutes: recovery.duration_minutes,
       original_alert_id: recovery.original_alert_id,
+      incident_id: incidentId,
       dedupe_key: recovery.dedupe_key,
     },
     metadata: recovery.evidence,

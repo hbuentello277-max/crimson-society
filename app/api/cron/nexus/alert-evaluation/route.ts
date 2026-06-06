@@ -25,6 +25,10 @@ export async function GET(request: Request) {
       alerts_resolved: result.alertsResolved,
       recoveries_emitted: result.recoveriesEmitted,
       events_emitted: result.eventsEmitted,
+      incidents_created: result.incidentsCreated,
+      incidents_updated: result.incidentsUpdated,
+      alerts_linked_to_incidents: result.alertsLinkedToIncidents,
+      suggest_resolve_incident_ids: result.suggestResolveIncidentIds,
       rules_skipped: result.rulesSkipped,
       error: result.error ?? null,
     },
@@ -51,5 +55,9 @@ export async function GET(request: Request) {
     alerts_resolved: result.alertsResolved,
     recoveries_emitted: result.recoveriesEmitted,
     events_emitted: result.eventsEmitted,
+    incidents_created: result.incidentsCreated,
+    incidents_updated: result.incidentsUpdated,
+    alerts_linked_to_incidents: result.alertsLinkedToIncidents,
+    suggest_resolve_incident_ids: result.suggestResolveIncidentIds,
   });
 }
