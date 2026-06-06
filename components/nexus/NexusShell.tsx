@@ -4,15 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
+import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 
 const NAV_ITEMS = [
-  { href: "/admin/nexus", label: "Operations Overview", short: "OVR", exact: true },
-  { href: "/admin/nexus/system-health", label: "Infrastructure", short: "INF" },
-  { href: "/admin/nexus/mission-health", label: "User Workflows", short: "WFL" },
+  { href: "/admin/nexus", label: NEXUS_LABELS.operationsOverview, short: "OVR", exact: true },
+  { href: "/admin/nexus/system-health", label: NEXUS_LABELS.infrastructure, short: "INF" },
+  { href: "/admin/nexus/mission-health", label: NEXUS_LABELS.userWorkflows, short: "WFL" },
   { href: "/admin/nexus/metrics", label: "Metrics", short: "MET" },
   { href: "/admin/nexus/alerts", label: "Alerts", short: "ALT" },
   { href: "/admin/nexus/incidents", label: "Incidents", short: "INC" },
-  { href: "/admin/nexus/observations", label: "Insights", short: "INS" },
+  { href: "/admin/nexus/observations", label: NEXUS_LABELS.insights, short: "INS" },
 ] as const;
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -118,7 +119,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
                     Project Nexus
                   </p>
                   <h1 className="truncate font-serif text-sm leading-tight text-white sm:text-base">
-                    Crimson Command Center
+                    Operations Console
                   </h1>
                 </div>
               </div>

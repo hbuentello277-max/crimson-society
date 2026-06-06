@@ -22,7 +22,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
-import { formatNexusDisplayText } from "@/lib/nexus/terminology";
+import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function NexusObservationsCenter() {
   const { data, error, loading, refresh } = useNexusFetch<NexusObservationsSummary>(
@@ -60,8 +60,8 @@ export function NexusObservationsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Insights"
-      description="Priority-ranked insights with confidence scoring and owner triage actions."
+      title={NEXUS_LABELS.insightsCenter}
+      description="Conclusions, patterns, and intelligence generated from platform data."
       loading={loading}
       error={error}
       onRefresh={refresh}

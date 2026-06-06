@@ -13,7 +13,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
-import { formatNexusDisplayText } from "@/lib/nexus/terminology";
+import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type AlertTab = "active" | "acknowledged" | "resolved";
 
@@ -72,7 +72,7 @@ export function NexusAlertsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Alerts"
+      title={NEXUS_LABELS.alertsCenter}
       description="Triage platform alerts by impact, acknowledge investigations, and resolve or suppress noise."
       loading={loading}
       error={error}

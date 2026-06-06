@@ -17,6 +17,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
+import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 
 type HealthPayload = {
   system?: { status?: string; checked_at?: string | null };
@@ -70,8 +71,8 @@ export function NexusSystemHealthView() {
 
   return (
     <NexusSectionFrame
-      title="Infrastructure"
-      description="Integration probes, infrastructure status, and latency telemetry."
+      title={NEXUS_LABELS.infrastructure}
+      description="Platform systems, integrations, uptime probes, and service latency."
       loading={loading}
       error={error}
       onRefresh={refresh}
@@ -141,16 +142,19 @@ export function NexusMissionHealthView() {
 
   return (
     <NexusSectionFrame
-      title="User Workflows"
-      description="User workflow reliability, success rates, and critical workflows status."
+      title={NEXUS_LABELS.userWorkflows}
+      description="Signup, login, posting, meets, messaging, and Blackcard purchase reliability."
       loading={loading}
       error={error}
       onRefresh={refresh}
     >
       <div className="grid gap-4 md:grid-cols-3">
-        <NexusMetricCard label="Workflow Score" value={formatNumber(data?.score)} />
         <NexusMetricCard
-          label="Workflow Status"
+          label={NEXUS_LABELS.workflowHealthScore}
+          value={formatNumber(data?.score)}
+        />
+        <NexusMetricCard
+          label={NEXUS_LABELS.workflowStatus}
           value={<NexusStatusBadge label={data?.status ?? "unknown"} />}
         />
         <NexusMetricCard

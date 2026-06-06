@@ -14,7 +14,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
-import { formatNexusDisplayText } from "@/lib/nexus/terminology";
+import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type IncidentTab = "open" | "investigating" | "mitigated" | "resolved";
 
@@ -71,7 +71,7 @@ export function NexusIncidentsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Incidents"
+      title={NEXUS_LABELS.incidentsCenter}
       description="Operational incident triage with impact scoring, root-cause context, and linked alert visibility."
       loading={loading}
       error={error}

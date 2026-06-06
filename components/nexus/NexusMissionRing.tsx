@@ -1,5 +1,7 @@
 "use client";
 
+import { NEXUS_LABELS } from "@/lib/nexus/terminology";
+
 type NexusMissionRingProps = {
   score: number | null | undefined;
   status?: string;
@@ -73,8 +75,12 @@ export function NexusMissionRing({ score, status = "unknown", size = 88 }: Nexus
         <p className="text-lg font-semibold leading-none text-white">
           {typeof score === "number" && Number.isFinite(score) ? score : "—"}
         </p>
-        <p className="mt-0.5 text-[7px] uppercase tracking-[0.14em] text-zinc-500">Workflow Score</p>
-        <p className="mt-0.5 max-w-[70%] truncate text-[7px] capitalize text-[#e87a82]">{status}</p>
+        <p className="mt-0.5 text-[7px] uppercase tracking-[0.14em] text-zinc-500">
+          {NEXUS_LABELS.workflowHealthScore}
+        </p>
+        <p className="mt-0.5 max-w-[70%] truncate text-[7px] capitalize text-[#e87a82]">
+          {NEXUS_LABELS.workflowStatus}: {status}
+        </p>
       </div>
     </div>
   );
