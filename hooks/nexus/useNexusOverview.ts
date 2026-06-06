@@ -9,6 +9,7 @@ type OverviewPayload = {
   alerts: Record<string, unknown> | null;
   incidents: Record<string, unknown> | null;
   observations: Record<string, unknown> | null;
+  events: Record<string, unknown> | null;
 };
 
 type OverviewState = {
@@ -25,6 +26,7 @@ const ENDPOINTS = [
   { key: "alerts", path: "/api/nexus/alerts" },
   { key: "incidents", path: "/api/nexus/incidents" },
   { key: "observations", path: "/api/nexus/observations?view=active" },
+  { key: "events", path: "/api/nexus/events?limit=10" },
 ] as const;
 
 async function fetchEndpoint(path: string) {
@@ -48,6 +50,7 @@ export function useNexusOverview(): OverviewState {
     alerts: null,
     incidents: null,
     observations: null,
+    events: null,
   });
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +69,7 @@ export function useNexusOverview(): OverviewState {
       alerts: null,
       incidents: null,
       observations: null,
+      events: null,
     };
     const nextErrors: string[] = [];
 

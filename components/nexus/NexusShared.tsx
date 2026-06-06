@@ -5,18 +5,66 @@ import Link from "next/link";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
 
+export const NEXUS_FRAME_CLASS =
+  "overflow-hidden rounded-lg border border-[#b4141e]/35 bg-[#060405]/95 shadow-[0_0_32px_rgba(180,20,30,0.12),inset_0_1px_0_rgba(255,255,255,0.05)]";
+
 export const NEXUS_PANEL_CLASS =
-  "rounded-xl border border-[#b4141e]/25 bg-[#080506]/90 shadow-[0_0_20px_rgba(180,20,30,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]";
+  "border-[#b4141e]/15 bg-[#080506]/80";
 
 export const NEXUS_STAT_CARD_CLASS =
-  "rounded-xl border border-[#b4141e]/30 bg-[#0a0608]/95 p-4 shadow-[0_0_16px_rgba(180,20,30,0.1)]";
+  "rounded-md border border-[#b4141e]/25 bg-[#0a0608]/90 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
+
+export function NexusCommandFrame({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`${NEXUS_FRAME_CLASS} ${className}`}>
+      <div
+        aria-hidden
+        className="pointer-events-none h-px bg-gradient-to-r from-transparent via-[#b4141e]/60 to-transparent"
+      />
+      {children}
+    </div>
+  );
+}
+
+export function NexusPanelHeader({
+  title,
+  href,
+  action,
+}: {
+  title: string;
+  href?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-[#b4141e]/15 px-3 py-2">
+      <h2 className="text-[9px] uppercase tracking-[0.26em] text-[#e87a82]">{title}</h2>
+      <div className="flex items-center gap-2">
+        {action}
+        {href ? (
+          <Link
+            href={href}
+            className="text-[9px] uppercase tracking-[0.16em] text-zinc-500 transition hover:text-[#f1c3c7]"
+          >
+            Open
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export function NexusLiveIndicator() {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7]">
-      <span className="relative flex h-2 w-2">
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-[#b4141e]/40 bg-[#b4141e]/10 px-2 py-1 text-[8px] uppercase tracking-[0.18em] text-[#f1c3c7] sm:text-[9px]">
+      <span className="relative flex h-1.5 w-1.5">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#b4141e] opacity-60" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#b4141e]" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#b4141e]" />
       </span>
       Live
     </span>
@@ -28,26 +76,18 @@ export function NexusCommandPanel({
   href,
   children,
   className = "",
+  action,
 }: {
   title: string;
   href?: string;
   children: ReactNode;
   className?: string;
+  action?: ReactNode;
 }) {
   return (
-    <section className={`${NEXUS_PANEL_CLASS} p-4 md:p-5 ${className}`}>
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#b4141e]/15 pb-3">
-        <h2 className="text-[11px] uppercase tracking-[0.28em] text-[#e87a82]">{title}</h2>
-        {href ? (
-          <Link
-            href={href}
-            className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:text-[#f1c3c7]"
-          >
-            View all
-          </Link>
-        ) : null}
-      </div>
-      {children}
+    <section className={`${NEXUS_PANEL_CLASS} ${className}`}>
+      <NexusPanelHeader title={title} href={href} action={action} />
+      <div className="p-3">{children}</div>
     </section>
   );
 }
@@ -58,33 +98,70 @@ export function NexusStatCard({
   sublabel,
   href,
   badge,
+  compact = false,
 }: {
   label: string;
   value: ReactNode;
   sublabel?: string;
   href?: string;
   badge?: ReactNode;
+  compact?: boolean;
 }) {
   const inner = (
     <>
-      <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">{label}</p>
-      <div className="mt-2 flex flex-wrap items-end gap-2">
-        <p className="text-2xl font-semibold text-white md:text-3xl">{value}</p>
+      <p className="truncate text-[8px] uppercase tracking-[0.2em] text-[#e87a82] sm:text-[9px]">
+        {label}
+      </p>
+      <div className={`mt-1 flex items-center gap-1.5 ${compact ? "" : "flex-wrap"}`}>
+        <p className={`font-semibold text-white ${compact ? "text-base sm:text-lg" : "text-2xl md:text-3xl"}`}>
+          {value}
+        </p>
         {badge}
       </div>
-      {sublabel ? <p className="mt-1.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">{sublabel}</p> : null}
+      {sublabel ? (
+        <p className="mt-0.5 truncate text-[8px] uppercase tracking-[0.12em] text-zinc-500 sm:text-[9px]">
+          {sublabel}
+        </p>
+      ) : null}
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className={`${NEXUS_STAT_CARD_CLASS} block transition hover:border-[#b4141e]/55`}>
+      <Link
+        href={href}
+        className={`${NEXUS_STAT_CARD_CLASS} block transition hover:border-[#b4141e]/50 hover:bg-[#b4141e]/5`}
+      >
         {inner}
       </Link>
     );
   }
 
   return <div className={NEXUS_STAT_CARD_CLASS}>{inner}</div>;
+}
+
+export function NexusMiniStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: ReactNode;
+  tone?: "default" | "critical" | "warning";
+}) {
+  const toneClass =
+    tone === "critical"
+      ? "border-red-500/30 bg-red-500/5"
+      : tone === "warning"
+        ? "border-amber-500/30 bg-amber-500/5"
+        : "border-[#b4141e]/20 bg-black/40";
+
+  return (
+    <div className={`rounded-md border px-2 py-1.5 text-center ${toneClass}`}>
+      <p className="text-sm font-semibold text-white">{value}</p>
+      <p className="mt-0.5 text-[8px] uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+    </div>
+  );
 }
 
 export function NexusRefreshButton({ onClick }: { onClick: () => void }) {
