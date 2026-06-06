@@ -13,6 +13,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type AlertTab = "active" | "acknowledged" | "resolved";
 
@@ -71,7 +72,7 @@ export function NexusAlertsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Alert Center"
+      title="Alerts"
       description="Triage platform alerts by impact, acknowledge investigations, and resolve or suppress noise."
       loading={loading}
       error={error}
@@ -128,8 +129,12 @@ export function NexusAlertsCenter() {
                             Impact {alert.impact_score}
                           </span>
                         </div>
-                        <p className="mt-3 text-lg font-medium text-white">{alert.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-400">{alert.message}</p>
+                        <p className="mt-3 text-lg font-medium text-white">
+                          {formatNexusDisplayText(alert.title)}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-400">
+                          {formatNexusDisplayText(alert.message)}
+                        </p>
                         <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
                           Opened {formatRelativeTime(alert.created_at)} · Updated{" "}
                           {formatDateTime(alert.updated_at)}

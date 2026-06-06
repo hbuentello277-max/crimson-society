@@ -27,6 +27,7 @@ import { NexusPriorityBadge } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
 import { NexusLoadingPanel, NexusRefreshButton } from "@/components/nexus/NexusShared";
 import { useNexusOverview } from "@/hooks/nexus/useNexusOverview";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type HealthPayload = {
   system?: { status?: string; checked_at?: string | null };
@@ -176,14 +177,14 @@ export function NexusOverviewDashboard() {
 
       <div className="flex shrink-0 gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <NexusStatusChip
-          label="System"
+          label="Infrastructure"
           value={<span className="capitalize">{systemStatus}</span>}
           href="/admin/nexus/system-health"
           pulse
           tone={systemTone(systemStatus)}
         />
         <NexusStatusChip
-          label="Mission"
+          label="Workflow Score"
           value={formatNumber(mission?.score)}
           href="/admin/nexus/mission-health"
           tone={systemTone(mission?.status ?? "unknown")}
@@ -201,7 +202,7 @@ export function NexusOverviewDashboard() {
           tone={(incidents?.open?.length ?? 0) > 0 ? "warning" : "default"}
         />
         <NexusStatusChip
-          label="Intel"
+          label="Insights"
           value={formatNumber(observations?.counts?.active)}
           href="/admin/nexus/observations"
         />
@@ -216,7 +217,7 @@ export function NexusOverviewDashboard() {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 overflow-hidden lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,0.9fr)] lg:grid-rows-1">
         <NexusDensePanel
-          title="Mission Control"
+          title="Workflow Monitor"
           href="/admin/nexus/mission-health"
           className="min-h-0 lg:row-span-1"
           bodyClassName="flex flex-col items-center justify-center gap-1 overflow-y-auto"
@@ -277,7 +278,7 @@ export function NexusOverviewDashboard() {
 
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-1">
         <NexusDensePanel
-          title="Intelligence"
+          title="Insights"
           href="/admin/nexus/observations"
           className="min-h-0"
           bodyClassName="space-y-1 overflow-y-auto"
@@ -293,9 +294,13 @@ export function NexusOverviewDashboard() {
                   <NexusPriorityBadge tier={obs.priority_tier} />
                   <span className="text-[8px] text-zinc-600">{Math.round(obs.confidence * 100)}%</span>
                 </div>
-                <p className="line-clamp-1 text-[10px] text-white">{obs.title}</p>
+                <p className="line-clamp-1 text-[10px] text-white">
+                  {formatNexusDisplayText(obs.title)}
+                </p>
                 {obs.summary ? (
-                  <p className="line-clamp-1 text-[9px] text-zinc-500">{obs.summary}</p>
+                  <p className="line-clamp-1 text-[9px] text-zinc-500">
+                    {formatNexusDisplayText(obs.summary)}
+                  </p>
                 ) : null}
               </div>
             ))
@@ -319,7 +324,7 @@ export function NexusOverviewDashboard() {
           {(alerts?.active ?? []).slice(0, 2).map((alert) => (
             <NexusFeedRow
               key={alert.id}
-              title={alert.title}
+              title={formatNexusDisplayText(alert.title)}
               meta="alert"
               severity={alert.severity}
               time={formatRelativeTime(alert.updated_at)}
@@ -328,7 +333,7 @@ export function NexusOverviewDashboard() {
           {(incidents?.open ?? []).slice(0, 1).map((inc) => (
             <NexusFeedRow
               key={inc.id}
-              title={inc.title}
+              title={formatNexusDisplayText(inc.title)}
               meta="incident"
               severity={inc.severity}
               time={formatRelativeTime(inc.started_at)}
@@ -363,7 +368,7 @@ export function NexusOverviewDashboard() {
           <div className="mt-1 grid grid-cols-2 gap-0.5">
             <NexusMicroRow label="Meets today" value={formatNumber(metrics?.activity?.meets_today)} />
             <NexusMicroRow
-              label="System health"
+              label="Infrastructure"
               badge={systemStatus}
               alert={systemTone(systemStatus) === "critical"}
             />
@@ -384,7 +389,7 @@ export function NexusOverviewDashboard() {
             (events?.events ?? []).slice(0, 8).map((event) => (
               <NexusFeedRow
                 key={event.id}
-                title={event.title}
+                title={formatNexusDisplayText(event.title)}
                 meta={event.category}
                 severity={event.severity}
                 time={formatRelativeTime(event.occurred_at)}
@@ -397,7 +402,7 @@ export function NexusOverviewDashboard() {
 
       {!hasData ? (
         <NexusEmptyState
-          title="No Nexus intelligence"
+          title="No Nexus data"
           description="Verify owner access and collectors."
         />
       ) : null}

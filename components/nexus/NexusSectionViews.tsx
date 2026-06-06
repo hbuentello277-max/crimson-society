@@ -70,7 +70,7 @@ export function NexusSystemHealthView() {
 
   return (
     <NexusSectionFrame
-      title="System Health"
+      title="Infrastructure"
       description="Integration probes, infrastructure status, and latency telemetry."
       loading={loading}
       error={error}
@@ -141,27 +141,27 @@ export function NexusMissionHealthView() {
 
   return (
     <NexusSectionFrame
-      title="Mission Health"
-      description="Member workflow reliability, success rates, and mission-critical status."
+      title="User Workflows"
+      description="User workflow reliability, success rates, and critical workflows status."
       loading={loading}
       error={error}
       onRefresh={refresh}
     >
       <div className="grid gap-4 md:grid-cols-3">
-        <NexusMetricCard label="Mission score" value={formatNumber(data?.score)} />
+        <NexusMetricCard label="Workflow Score" value={formatNumber(data?.score)} />
         <NexusMetricCard
-          label="Status"
+          label="Workflow Status"
           value={<NexusStatusBadge label={data?.status ?? "unknown"} />}
         />
         <NexusMetricCard
-          label="Mission critical"
+          label="Critical Workflows"
           value={data?.mission_critical ? "Yes" : "No"}
           hint={`Checked ${formatDateTime(data?.checked_at)}`}
         />
       </div>
 
       {workflows.length === 0 ? (
-        <NexusEmptyState title="No mission workflow data" />
+        <NexusEmptyState title="No user workflow data" />
       ) : (
         <div className="grid gap-3">
           {workflows.map((workflow) => (

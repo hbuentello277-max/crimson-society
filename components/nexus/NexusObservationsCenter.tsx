@@ -22,6 +22,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function NexusObservationsCenter() {
   const { data, error, loading, refresh } = useNexusFetch<NexusObservationsSummary>(
@@ -59,8 +60,8 @@ export function NexusObservationsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Observation Center"
-      description="Priority-ranked intelligence interpretations with confidence scoring and owner triage actions."
+      title="Insights"
+      description="Priority-ranked insights with confidence scoring and owner triage actions."
       loading={loading}
       error={error}
       onRefresh={refresh}
@@ -88,7 +89,7 @@ export function NexusObservationsCenter() {
 
           {observations.length === 0 ? (
             <NexusListEmpty
-              title="No active observations"
+              title="No active insights"
               description="No significant patterns detected right now."
             />
           ) : (
@@ -120,7 +121,7 @@ export function NexusObservationsCenter() {
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 px-5 py-10 text-center">
                     <p className="text-sm text-zinc-400">
-                      Select an observation to view evidence and linked signals.
+                      Select an insight to view evidence and linked signals.
                     </p>
                   </div>
                 )}
@@ -170,8 +171,12 @@ function ObservationRow({
                 {evidenceTotal} evidence
               </span>
             </div>
-            <p className="mt-3 text-lg font-medium text-white">{observation.title}</p>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">{observation.summary}</p>
+            <p className="mt-3 text-lg font-medium text-white">
+              {formatNexusDisplayText(observation.title)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              {formatNexusDisplayText(observation.summary)}
+            </p>
             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
               {observation.observation_type} · {observation.category} ·{" "}
               {formatRelativeTime(observation.occurred_at)}
@@ -221,7 +226,7 @@ function ObservationDetailPanel({
   return (
     <div className="rounded-2xl border border-[#b4141e]/30 bg-black/40 p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="font-serif text-xl text-white">Observation Details</h3>
+        <h3 className="font-serif text-xl text-white">Insight Details</h3>
         <button
           type="button"
           onClick={onClose}
@@ -236,7 +241,7 @@ function ObservationDetailPanel({
       ) : error ? (
         <p className="text-sm text-red-300">{error}</p>
       ) : !observation ? (
-        <p className="text-sm text-zinc-500">Observation not found.</p>
+        <p className="text-sm text-zinc-500">Insight not found.</p>
       ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -246,8 +251,12 @@ function ObservationDetailPanel({
           </div>
 
           <div>
-            <p className="text-lg font-medium text-white">{observation.title}</p>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">{observation.summary}</p>
+            <p className="text-lg font-medium text-white">
+              {formatNexusDisplayText(observation.title)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              {formatNexusDisplayText(observation.summary)}
+            </p>
           </div>
 
           <NexusConfidenceIndicator value={observation.confidence} />
@@ -279,7 +288,7 @@ function ObservationDetailPanel({
               <EvidenceGroup
                 title="Alerts"
                 items={observation.evidence_links.alerts.map(
-                  (item) => `${item.title} · ${item.severity}`,
+                  (item) => `${formatNexusDisplayText(item.title)} · ${item.severity}`,
                 )}
               />
               <EvidenceGroup

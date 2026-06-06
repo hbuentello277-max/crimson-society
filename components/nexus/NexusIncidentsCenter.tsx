@@ -14,6 +14,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type IncidentTab = "open" | "investigating" | "mitigated" | "resolved";
 
@@ -70,7 +71,7 @@ export function NexusIncidentsCenter() {
 
   return (
     <NexusSectionFrame
-      title="Incident Center"
+      title="Incidents"
       description="Operational incident triage with impact scoring, root-cause context, and linked alert visibility."
       loading={loading}
       error={error}
@@ -146,16 +147,20 @@ function IncidentCard({
               {incident.linked_alert_count} linked alerts
             </span>
           </div>
-          <p className="mt-3 text-lg font-medium text-white">{incident.title}</p>
+          <p className="mt-3 text-lg font-medium text-white">
+            {formatNexusDisplayText(incident.title)}
+          </p>
           {incident.impact_summary ? (
-            <p className="mt-2 text-sm leading-6 text-zinc-400">{incident.impact_summary}</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              {formatNexusDisplayText(incident.impact_summary)}
+            </p>
           ) : null}
           {incident.root_cause ? (
             <p className="mt-3 text-sm text-zinc-300">
               <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
                 Root cause ·{" "}
               </span>
-              {incident.root_cause}
+              {formatNexusDisplayText(incident.root_cause)}
             </p>
           ) : null}
           <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">

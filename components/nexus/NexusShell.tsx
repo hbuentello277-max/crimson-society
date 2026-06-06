@@ -6,13 +6,13 @@ import type { ReactNode } from "react";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
 
 const NAV_ITEMS = [
-  { href: "/admin/nexus", label: "Overview", short: "OVR", exact: true },
-  { href: "/admin/nexus/system-health", label: "Systems", short: "SYS" },
-  { href: "/admin/nexus/mission-health", label: "Mission", short: "MSN" },
+  { href: "/admin/nexus", label: "Operations Overview", short: "OVR", exact: true },
+  { href: "/admin/nexus/system-health", label: "Infrastructure", short: "INF" },
+  { href: "/admin/nexus/mission-health", label: "User Workflows", short: "WFL" },
   { href: "/admin/nexus/metrics", label: "Metrics", short: "MET" },
   { href: "/admin/nexus/alerts", label: "Alerts", short: "ALT" },
   { href: "/admin/nexus/incidents", label: "Incidents", short: "INC" },
-  { href: "/admin/nexus/observations", label: "Intel", short: "INT" },
+  { href: "/admin/nexus/observations", label: "Insights", short: "INS" },
 ] as const;
 
 function isActive(pathname: string, href: string, exact?: boolean) {
