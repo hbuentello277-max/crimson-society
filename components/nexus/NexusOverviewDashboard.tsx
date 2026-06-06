@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { NexusAlertSummaryRow } from "@/lib/alerts/types";
 import type { NexusIncidentSummaryRow } from "@/lib/incidents/types";
 import type { NexusObservationSummaryRow } from "@/lib/observations/types";
@@ -210,7 +211,7 @@ function buildInsightCards(
   return cards.slice(0, 4);
 }
 
-export function NexusOverviewDashboard() {
+export function NexusOverviewDashboard({ showFounderLink = false }: { showFounderLink?: boolean }) {
   const { data, errors, loading, refresh } = useNexusOverview();
 
   const health = data.health as HealthPayload | null;
@@ -250,6 +251,16 @@ export function NexusOverviewDashboard() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">
+      {showFounderLink ? (
+        <div className="flex items-center justify-start">
+          <Link
+            href="/admin/nexus"
+            className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
+          >
+            Founder
+          </Link>
+        </div>
+      ) : null}
       <NexusDensePanel
         title={NEXUS_LABELS.operationsOverview}
         collapsible

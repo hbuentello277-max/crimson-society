@@ -17,6 +17,16 @@ function IconBase({ className, children }: { className?: string; children: React
   );
 }
 
+export function NexusNavFounderIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="10" cy="10" r="6.5" />
+      <circle cx="10" cy="10" r="3.5" strokeOpacity={0.55} />
+      <path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export function NexusNavOverviewIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

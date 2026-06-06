@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   NexusNavAlertsIcon,
   NexusNavCommandsIcon,
+  NexusNavFounderIcon,
   NexusNavIncidentsIcon,
   NexusNavInfraIcon,
   NexusNavInsightsIcon,
@@ -24,6 +25,12 @@ import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 const NAV_ITEMS = [
   {
     href: "/admin/nexus",
+    label: "Founder",
+    icon: NexusNavFounderIcon,
+    exact: true,
+  },
+  {
+    href: "/admin/nexus/overview",
     label: "Overview",
     icon: NexusNavOverviewIcon,
     exact: true,
