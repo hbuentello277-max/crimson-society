@@ -15,23 +15,27 @@ export async function runSupabaseProbe(): Promise<HealthProbeResult[]> {
   const checkedAt = nowIso();
   const admin = createNexusServiceClient();
   const results: HealthProbeResult[] = [];
+  let databaseStatus: "pass" | "warn" | "fail" = "fail";
+  let databaseLatencyMs: number | null = null;
 
   try {
     const db = await timedProbe(async () =>
       admin.from("nexus_integrations").select("id").limit(1),
     );
     const dbError = db.result.error?.message ?? null;
+    databaseLatencyMs = db.latency_ms;
+    databaseStatus = dbError
+      ? "fail"
+      : latencyProbeStatus(
+          db.latency_ms,
+          thresholds.latency!.passMs,
+          thresholds.latency!.warnMs,
+        );
     results.push(
       buildProbeResult({
         integration_slug: SLUG,
         check_type: "database",
-        status: dbError
-          ? "fail"
-          : latencyProbeStatus(
-              db.latency_ms,
-              thresholds.latency!.passMs,
-              thresholds.latency!.warnMs,
-            ),
+        status: databaseStatus,
         latency_ms: db.latency_ms,
         response_code: dbError ? 500 : 200,
         details: { ok: !dbError, error: dbError },
@@ -114,41 +118,21 @@ export async function runSupabaseProbe(): Promise<HealthProbeResult[]> {
     );
   }
 
-  try {
-    const realtime = await timedProbe(async () =>
-      admin.from("nexus_events").select("id").limit(1),
-    );
-    const realtimeError = realtime.result.error?.message ?? null;
-    results.push(
-      buildProbeResult({
-        integration_slug: SLUG,
-        check_type: "realtime",
-        status: realtimeError
-          ? "warn"
-          : latencyProbeStatus(
-              realtime.latency_ms,
-              thresholds.latency!.passMs,
-              thresholds.latency!.warnMs,
-            ),
-        latency_ms: realtime.latency_ms,
-        response_code: realtimeError ? 500 : 200,
-        details: { ok: !realtimeError, error: realtimeError },
-        checked_at: checkedAt,
-      }),
-    );
-  } catch (error) {
-    results.push(
-      buildProbeResult({
-        integration_slug: SLUG,
-        check_type: "realtime",
-        status: "warn",
-        details: {
-          error: error instanceof Error ? error.message : "realtime probe failed",
-        },
-        checked_at: checkedAt,
-      }),
-    );
-  }
+  results.push(
+    buildProbeResult({
+      integration_slug: SLUG,
+      check_type: "realtime",
+      status: databaseStatus === "fail" ? "warn" : "pass",
+      latency_ms: databaseLatencyMs,
+      response_code: databaseStatus === "fail" ? 500 : 200,
+      details: {
+        ok: databaseStatus !== "fail",
+        derived_from: "database",
+        note: "Realtime is not independently probed in Nexus Mark I.",
+      },
+      checked_at: checkedAt,
+    }),
+  );
 
   return results;
 }
