@@ -5,12 +5,94 @@ import Link from "next/link";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
 
+export const NEXUS_PANEL_CLASS =
+  "rounded-xl border border-[#b4141e]/25 bg-[#080506]/90 shadow-[0_0_20px_rgba(180,20,30,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]";
+
+export const NEXUS_STAT_CARD_CLASS =
+  "rounded-xl border border-[#b4141e]/30 bg-[#0a0608]/95 p-4 shadow-[0_0_16px_rgba(180,20,30,0.1)]";
+
+export function NexusLiveIndicator() {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-[#f1c3c7]">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#b4141e] opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#b4141e]" />
+      </span>
+      Live
+    </span>
+  );
+}
+
+export function NexusCommandPanel({
+  title,
+  href,
+  children,
+  className = "",
+}: {
+  title: string;
+  href?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`${NEXUS_PANEL_CLASS} p-4 md:p-5 ${className}`}>
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#b4141e]/15 pb-3">
+        <h2 className="text-[11px] uppercase tracking-[0.28em] text-[#e87a82]">{title}</h2>
+        {href ? (
+          <Link
+            href={href}
+            className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 transition hover:text-[#f1c3c7]"
+          >
+            View all
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function NexusStatCard({
+  label,
+  value,
+  sublabel,
+  href,
+  badge,
+}: {
+  label: string;
+  value: ReactNode;
+  sublabel?: string;
+  href?: string;
+  badge?: ReactNode;
+}) {
+  const inner = (
+    <>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">{label}</p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <p className="text-2xl font-semibold text-white md:text-3xl">{value}</p>
+        {badge}
+      </div>
+      {sublabel ? <p className="mt-1.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">{sublabel}</p> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={`${NEXUS_STAT_CARD_CLASS} block transition hover:border-[#b4141e]/55`}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return <div className={NEXUS_STAT_CARD_CLASS}>{inner}</div>;
+}
+
 export function NexusRefreshButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={() => void onClick()}
-      className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+      className="rounded-full border border-[#b4141e]/35 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
     >
       Refresh
     </button>
@@ -66,7 +148,7 @@ export function NexusLoadingPanel({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.02] p-5"
+          className="animate-pulse rounded-xl border border-[#b4141e]/20 bg-[#080506]/80 p-5"
         >
           <div className="h-3 w-24 rounded-full bg-white/10" />
           <div className="mt-4 h-5 w-2/3 rounded-full bg-white/10" />
@@ -224,10 +306,10 @@ export function NexusPanel({
   footer?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4 md:p-5">
+    <div className={`${NEXUS_PANEL_CLASS} p-4 md:p-5`}>
       {title ? <h3 className="mb-4 font-medium text-white">{title}</h3> : null}
       {children}
-      {footer ? <div className="mt-4 border-t border-white/10 pt-4">{footer}</div> : null}
+      {footer ? <div className="mt-4 border-t border-[#b4141e]/15 pt-4">{footer}</div> : null}
     </div>
   );
 }

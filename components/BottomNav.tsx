@@ -393,6 +393,7 @@ export default function BottomNav() {
 
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;
+  if (pathname.startsWith("/admin")) return null;
   if (pathname.startsWith("/messages/")) return null;
   if (profileStatus === "deletion_pending") return null;
 

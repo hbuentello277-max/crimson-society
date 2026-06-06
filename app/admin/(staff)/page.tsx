@@ -838,9 +838,14 @@ function AdminPageContent() {
               </div>
             )}
 
-            <div className="mt-8 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {profile?.is_platform_owner === true ? <AdminNexusEntryCard /> : null}
+            {profile?.is_platform_owner === true ? (
+              <div className="mt-8">
+                <AdminNexusEntryCard />
+              </div>
+            ) : null}
+
+            <div className="mt-12 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     eyebrow: "Blackcard",
