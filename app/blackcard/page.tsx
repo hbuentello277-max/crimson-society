@@ -24,6 +24,36 @@ import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
 import { supabase } from "@/lib/supabase";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
 
+function formatMembershipDate(value?: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function membershipStatusLine({
+  isAdmin,
+  membership,
+}: {
+  isAdmin: boolean;
+  membership: ReturnType<typeof useBlackcardAccess>["membership"];
+}) {
+  if (isAdmin) return "Admin Blackcard Access · active";
+
+  const plan = formatMembershipPlanType(membership?.plan_type);
+  const status = membership?.status ?? "active";
+  const periodEnd = formatMembershipDate(membership?.current_period_end);
+
+  if (!periodEnd) return `${plan} · ${status}`;
+
+  const periodAction = membership?.cancel_at_period_end
+    ? "Cancels on"
+    : "Renews on";
+
+  return `${plan} · ${status} · ${periodAction} ${periodEnd}`;
+}
+
 function CheckoutButton({
   planType,
   label,
@@ -220,12 +250,7 @@ export default function BlackcardPage() {
                   Membership on record
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  {isAdmin
-                    ? "Admin Blackcard Access · active"
-                    : `${formatMembershipPlanType(membership?.plan_type)} · ${membership?.status}`}
-                  {!isAdmin && membership?.current_period_end
-                    ? ` · renews ${new Date(membership.current_period_end).toLocaleDateString()}`
-                    : ""}
+                  {membershipStatusLine({ isAdmin, membership })}
                 </p>
               </div>
             </div>

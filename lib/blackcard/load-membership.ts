@@ -19,7 +19,9 @@ export async function loadActiveMembership(
 
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("status, plan_type, current_period_end, created_at")
+    .select(
+      "status, plan_type, current_period_end, cancel_at_period_end, cancel_at, canceled_at, created_at",
+    )
     .eq("user_id", resolvedUserId)
     .in("status", ["active", "trialing"])
     .or(

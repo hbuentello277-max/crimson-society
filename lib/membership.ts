@@ -19,6 +19,9 @@ export type MembershipRow = {
   status: SubscriptionStatus;
   plan_type: string | null;
   current_period_end: string | null;
+  cancel_at_period_end?: boolean;
+  cancel_at?: string | null;
+  canceled_at?: string | null;
   created_at?: string | null;
 };
 

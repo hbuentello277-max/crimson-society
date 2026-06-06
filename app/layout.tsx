@@ -6,6 +6,7 @@ import CartDrawer from "@/components/CartDrawer";
 import CartToast from "@/components/CartToast";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DeletionPendingGate } from "@/components/DeletionPendingGate";
+import { RestrictedAccountGate } from "@/components/RestrictedAccountGate";
 
 const serif = Cormorant_Garamond({
   subsets: ["latin"],
@@ -56,7 +57,9 @@ export default function RootLayout({
       <body className="h-full w-full max-w-full overflow-x-hidden bg-[#050505] font-sans text-white antialiased">
         <AuthProvider>
           <DeletionPendingGate>
-            {children}
+            <RestrictedAccountGate>
+              {children}
+            </RestrictedAccountGate>
           </DeletionPendingGate>
           <BottomNav />
           <CartDrawer />
