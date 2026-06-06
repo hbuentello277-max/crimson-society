@@ -16,7 +16,7 @@ import { AdminMembershipControls } from "@/components/admin/AdminMembershipContr
 import type { MembershipRow } from "@/lib/membership";
 
 type UserRole = "user" | "moderator" | "admin";
-type UserStatus = "active" | "limited" | "suspended" | "blocked";
+type UserStatus = "active" | "limited" | "suspended" | "blocked" | "deletion_pending" | "deleted";
 type MembershipTier = "regular" | "blackcard" | "founding";
 
 type AdminProfile = {
@@ -283,7 +283,7 @@ function AdminPageContent() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, created_at",
+        "id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, created_at",
       )
       .order("created_at", { ascending: true });
 
@@ -730,6 +730,53 @@ function AdminPageContent() {
     }
   }
 
+  async function removeProfile(profileId: string) {
+    const target = profiles.find((item) => item.id === profileId);
+    if (!target) return;
+
+    const identity = target.username || target.display_name || target.email || profileId.slice(0, 8);
+    const confirmed = window.confirm(
+      `Remove @${identity} from the app? This deactivates and hides the profile, but preserves order, message, and moderation history.`,
+    );
+
+    if (!confirmed) return;
+
+    setSavingId(profileId);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const response = await fetch("/api/admin/profiles/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId,
+          confirmation: "REMOVE_PROFILE",
+        }),
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | { error?: string; profile?: AdminProfile }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Profile removal failed.");
+      }
+
+      if (result?.profile) {
+        setProfiles((current) =>
+          current.map((item) => (item.id === profileId ? { ...item, ...result.profile } : item)),
+        );
+      }
+
+      setSuccessMsg("Profile removed from normal app surfaces.");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Profile removal failed.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-black text-white">
@@ -1094,11 +1141,12 @@ function AdminPageContent() {
                 <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">{profileCountLabel}</span>
               </div>
 
-              <div className="mb-3 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_150px_170px_170px]">
+              <div className="mb-3 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_150px_170px_170px_130px]">
                 <span>Member</span>
                 <span>Role</span>
                 <span>Status</span>
                 <span>Membership</span>
+                <span>Remove</span>
               </div>
 
               <div className="space-y-2.5">
@@ -1147,7 +1195,7 @@ function AdminPageContent() {
                   return (
                     <div
                       key={item.id}
-                      className="grid gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-4 py-3.5 md:grid-cols-[1fr_150px_170px_170px] md:items-center"
+                      className="grid gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.02] px-4 py-3.5 md:grid-cols-[1fr_150px_170px_170px_130px] md:items-center"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1217,9 +1265,24 @@ function AdminPageContent() {
                         <option value="blocked" className="bg-black text-white">
                           blocked
                         </option>
+                        <option value="deletion_pending" className="bg-black text-white">
+                          deletion pending
+                        </option>
+                        <option value="deleted" className="bg-black text-white">
+                          deleted
+                        </option>
                       </select>
 
                       {membershipControl}
+
+                      <button
+                        type="button"
+                        disabled={isSaving || isSelf || isAdminAccount || effectiveStatus === "deleted"}
+                        onClick={() => void removeProfile(item.id)}
+                        className="min-h-10 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs uppercase tracking-[0.16em] text-red-300 transition hover:border-red-400/50 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {effectiveStatus === "deleted" ? "Removed" : "Remove"}
+                      </button>
                     </div>
                   );
                 })}

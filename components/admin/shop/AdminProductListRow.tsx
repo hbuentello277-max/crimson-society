@@ -25,6 +25,8 @@ function statusLabel(status: Product["status"]) {
       return "Waitlist";
     case "coming_soon":
       return "Coming soon";
+    case "archived":
+      return "Archived";
   }
 }
 
@@ -37,7 +39,11 @@ export function AdminProductListRow({ product, onEdit }: Props) {
   const badge = getInventoryBadgeLevel(available);
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20">
+    <div className={`flex items-center gap-4 rounded-2xl border p-3 transition hover:border-white/20 ${
+      product.status === "archived"
+        ? "border-white/5 bg-white/[0.01] opacity-70"
+        : "border-white/10 bg-white/[0.02]"
+    }`}>
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
         <Image src={thumb} alt="" fill sizes="56px" className="object-cover" />
       </div>
@@ -59,6 +65,11 @@ export function AdminProductListRow({ product, onEdit }: Props) {
           >
             {inventoryBadgeLabel(badge)}
           </span>
+          {product.status === "archived" ? (
+            <span className="rounded-full border border-zinc-600/40 bg-zinc-800/40 px-2 py-0.5 text-[8px] uppercase tracking-[0.14em] text-zinc-400">
+              Archived
+            </span>
+          ) : null}
         </div>
 
         <p className="mt-1 text-xs text-zinc-500">

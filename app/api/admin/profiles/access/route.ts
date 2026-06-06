@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 
 const ROLES = new Set(["user", "moderator", "admin"]);
-const STATUSES = new Set(["active", "suspended", "limited", "blocked"]);
+const STATUSES = new Set(["active", "suspended", "limited", "blocked", "deletion_pending", "deleted"]);
 
 export async function POST(request: Request) {
   const auth = await requireAdminSession();

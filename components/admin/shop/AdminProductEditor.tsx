@@ -29,6 +29,7 @@ const STATUS_OPTIONS: { value: ProductStatus; label: string }[] = [
   { value: "out_of_stock", label: "Out of stock" },
   { value: "waitlist", label: "Waitlist" },
   { value: "coming_soon", label: "Coming soon" },
+  { value: "archived", label: "Archived" },
 ];
 
 type Draft = Partial<Product> & {
@@ -450,7 +451,7 @@ export function AdminProductEditor({
               onClick={onDelete}
               className="w-full rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-red-300"
             >
-              Delete product
+              Archive product
             </button>
           ) : null}
         </div>

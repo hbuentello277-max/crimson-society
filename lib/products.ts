@@ -9,7 +9,8 @@ export type ProductStatus =
   | "in_stock"
   | "out_of_stock"
   | "waitlist"
-  | "coming_soon";
+  | "coming_soon"
+  | "archived";
 
 export type ProductBadge = "new" | "low-stock" | "sold-out" | "best" | null;
 
@@ -86,6 +87,7 @@ export async function fetchProducts(options?: { productType?: ProductType | "all
   let query = supabase
     .from("products")
     .select("*")
+    .neq("status", "archived")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -110,6 +112,7 @@ export async function fetchCreditRewardProducts() {
     .select("*")
     .eq("product_type", "credit_reward")
     .neq("status", "coming_soon")
+    .neq("status", "archived")
     .order("sort_order", { ascending: true })
     .order("credit_cost", { ascending: true });
 

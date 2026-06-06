@@ -22,6 +22,7 @@ type Member = {
   photo: string | null;
   bio: string;
   mutualCount: number;
+  mutualAvatars: { id: string; name: string; photo: string | null }[];
   suggestionReason: string;
 };
 
@@ -63,13 +64,10 @@ type BlockRow = {
   blocked_id: string;
 };
 
-const FILTERS = ["All", "Street", "Track", "Touring", "Stunt", "Cruiser"];
 const RIDER_TABS = [
-  { key: "all", label: "All Riders" },
   { key: "following", label: "Following" },
-  { key: "favorites", label: "Favorites ⭐" },
 ] as const;
-type RiderTab = (typeof RIDER_TABS)[number]["key"];
+type RiderTab = "suggested" | (typeof RIDER_TABS)[number]["key"];
 
 const PROFILE_BASE_SELECT =
   "id, username, display_name, full_name, profile_image_url, avatar_url, bio, location";
@@ -161,10 +159,9 @@ export default function ConnectPage() {
   const userId = session?.user?.id ?? null;
   const [members, setMembers] = useState<Member[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
-  const [filter, setFilter] = useState("All");
-  const [riderTab, setRiderTab] = useState<RiderTab>("all");
+  const [riderTab, setRiderTab] = useState<RiderTab>("suggested");
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,7 +204,7 @@ export default function ConnectPage() {
     setLoading(true);
     setErrorMsg("");
 
-    const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse, followsResponse, favoritesResponse] =
+    const [profilesResponse, motorcyclesResponse, connectionsResponse, blocksResponse, followsResponse] =
       await Promise.all([
         (async () => {
           const discoveryResponse = await supabase
@@ -237,7 +234,6 @@ export default function ConnectPage() {
           .select("blocker_id, blocked_id")
           .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
         supabase.from("user_follows").select("following_id").eq("follower_id", userId),
-        supabase.from("favorite_riders").select("favorite_user_id, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
       ]);
 
     if (profilesResponse.error || connectionsResponse.error || blocksResponse.error) {
@@ -257,6 +253,7 @@ export default function ConnectPage() {
     const connections = ((connectionsResponse.data || []) as ConnectionRow[]) || [];
     const blocks = ((blocksResponse.data || []) as BlockRow[]) || [];
     const motorcycleMap = new Map(motorcycles.map((bike) => [bike.user_id, bike]));
+    const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
@@ -298,6 +295,20 @@ export default function ConnectPage() {
       .map((profile) => {
         const bike = motorcycleMap.get(profile.id);
         const mutualCount = mutualCountFor(profile.id, acceptedConnections, myConnectionIds);
+        const mutualAvatars = acceptedConnections
+          .filter((connection) => connection.requester_id === profile.id || connection.addressee_id === profile.id)
+          .map((connection) =>
+            connection.requester_id === profile.id ? connection.addressee_id : connection.requester_id,
+          )
+          .filter((id) => myConnectionIds.has(id))
+          .map((id) => profileMap.get(id))
+          .filter((mutual): mutual is ProfileRow => Boolean(mutual))
+          .slice(0, 3)
+          .map((mutual) => ({
+            id: mutual.id,
+            name: displayName(mutual),
+            photo: avatarFor(mutual),
+          }));
 
         return {
           id: profile.id,
@@ -310,32 +321,16 @@ export default function ConnectPage() {
           photo: avatarFor(profile),
           bio: profile.bio || "Crimson Society rider.",
           mutualCount,
+          mutualAvatars,
           suggestionReason: suggestionReasonFor(profile, myProfile, mutualCount),
         };
       })
       .sort((a, b) => b.mutualCount - a.mutualCount || a.name.localeCompare(b.name));
 
-    const favoriteOrder = new Map(
-      ((favoritesResponse.data || []) as { favorite_user_id: string; created_at: string }[]).map(
-        (row, index) => [row.favorite_user_id, index] as const,
-      ),
-    );
-
     setFollowingIds(
       new Set(((followsResponse.data || []) as { following_id: string }[]).map((row) => row.following_id)),
     );
-    setFavoriteIds(new Set(favoriteOrder.keys()));
-
-    setMembers(
-      nextMembers.sort((a, b) => {
-        const aFavorite = favoriteOrder.get(a.id);
-        const bFavorite = favoriteOrder.get(b.id);
-        if (aFavorite !== undefined && bFavorite !== undefined) return aFavorite - bFavorite;
-        if (aFavorite !== undefined) return -1;
-        if (bFavorite !== undefined) return 1;
-        return b.mutualCount - a.mutualCount || a.name.localeCompare(b.name);
-      }),
-    );
+    setMembers(nextMembers);
     setStatuses(statusMap);
     setLoading(false);
   }, [userId]);
@@ -459,10 +454,8 @@ export default function ConnectPage() {
     () =>
       members.filter((m) => {
         const matchesTab =
-          riderTab === "all" ||
-          (riderTab === "following" && followingIds.has(m.id)) ||
-          (riderTab === "favorites" && favoriteIds.has(m.id));
-        const matchesFilter = filter === "All" || m.style.includes(filter);
+          riderTab === "suggested" || (riderTab === "following" && followingIds.has(m.id));
+        const isVisibleSuggestion = !dismissedIds.has(m.id);
         const q = query.trim().toLowerCase();
         const matchesQuery =
           !q ||
@@ -471,15 +464,17 @@ export default function ConnectPage() {
           m.city.toLowerCase().includes(q) ||
           m.bike.toLowerCase().includes(q);
 
-        return matchesTab && matchesFilter && matchesQuery;
+        return matchesTab && isVisibleSuggestion && matchesQuery;
       }),
-    [favoriteIds, filter, followingIds, members, query, riderTab],
+    [dismissedIds, followingIds, members, query, riderTab],
   );
 
   const suggested = useMemo(
-    () => filtered.filter((member) => statuses[member.id] !== "connected").slice(0, 5),
+    () => filtered.filter((member) => statuses[member.id] !== "connected"),
     [filtered, statuses],
   );
+
+  const visibleMembers = riderTab === "suggested" ? suggested : filtered;
 
   const openMember = openId ? members.find((m) => m.id === openId) ?? null : null;
 
@@ -509,24 +504,13 @@ export default function ConnectPage() {
           <span className="text-xs uppercase tracking-[0.4em] text-zinc-600">Pillar I</span>
         </div>
 
-        <header className="mt-10 text-center">
-          <div className="mx-auto flex items-center justify-center gap-4">
-            <span className="h-px w-12 bg-white/20" />
-            <span className="text-xl text-[#b4141e]">✦</span>
-            <span className="h-px w-12 bg-white/20" />
-          </div>
-
-          <h1 className="mt-6 font-serif text-7xl leading-none">Connect</h1>
-
-          <p className="mt-4 font-serif text-3xl italic text-[#e87a82]">Find riders near you.</p>
-
-          <p className="mx-auto font-serif text-[17px] leading-relaxed text-zinc-400">
-            Browse the Order. Request a ride. Build your inner circle.
-          </p>
+        <header className="mt-8">
+          <h1 className="font-serif text-5xl leading-none text-white">Connect</h1>
+          <p className="mt-2 text-sm text-zinc-500">Find riders by name or city.</p>
         </header>
 
-        <section className="mt-10 scroll-mt-[calc(env(safe-area-inset-top)+1rem)]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.02] px-4 py-4 backdrop-blur-sm sm:px-5">
+        <section className="mt-7 scroll-mt-[calc(env(safe-area-inset-top)+1rem)]">
+          <div className="space-y-3">
             <div>
               <input
                 value={query}
@@ -536,7 +520,14 @@ export default function ConnectPage() {
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setRiderTab("suggested")}
+                className={csPill(riderTab === "suggested")}
+              >
+                Riders You May Know
+              </button>
               {RIDER_TABS.map((tab) => (
                 <button
                   key={tab.key}
@@ -549,24 +540,8 @@ export default function ConnectPage() {
               ))}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-1.5 sm:gap-2">
-              {FILTERS.map((f) => {
-                const active = filter === f;
-
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={csPill(active)}
-                  >
-                    {f}
-                  </button>
-                );
-              })}
-            </div>
-
-            <p className="mt-4 text-[11px] uppercase tracking-[0.34em] text-zinc-500">
-              {filtered.length} {filtered.length === 1 ? "Rider" : "Riders"}
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              {visibleMembers.length} {visibleMembers.length === 1 ? "Rider" : "Riders"}
             </p>
           </div>
         </section>
@@ -577,72 +552,13 @@ export default function ConnectPage() {
           </div>
         )}
 
-        {suggested.length > 0 && (
-          <section className="mt-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
-            <p className="text-[11px] uppercase tracking-[0.34em] text-[#e87a82]">
-              People You May Know
-            </p>
+        <div className="mt-7 flex items-center justify-between gap-3">
+          <h2 className="text-[12px] uppercase tracking-[0.22em] text-[#e87a82]">
+            {riderTab === "following" ? "Following" : "Riders You May Know"}
+          </h2>
+        </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {suggested.slice(0, 4).map((member) => {
-                const profileHref = profileHrefFromHandle(member.handle);
-
-                const cardContent = (
-                  <>
-                    <div className={`relative h-12 w-12 shrink-0 ${CS_AVATAR_RING}`}>
-                      {member.photo ? (
-                        <Image
-                          src={member.photo}
-                          alt={member.name}
-                          fill
-                          sizes="48px"
-                          className="object-cover"
-                          unoptimized={member.photo.includes("supabase")}
-                        />
-                      ) : (
-                        <div className={`${CS_AVATAR_FALLBACK} text-lg`}>
-                          {member.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-white">{member.name}</p>
-                      <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                        {member.suggestionReason}
-                      </p>
-                    </div>
-                  </>
-                );
-
-                if (!profileHref) {
-                  return (
-                    <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => setOpenId(member.id)}
-                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
-                    >
-                      {cardContent}
-                    </button>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={member.id}
-                    href={profileHref}
-                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#b4141e]/40"
-                  >
-                    {cardContent}
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        <ul className="mt-5 space-y-4">
+        <ul className="mt-3 space-y-3">
           {loading &&
             Array.from({ length: 4 }).map((_, index) => (
               <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
@@ -658,7 +574,7 @@ export default function ConnectPage() {
             ))}
 
           {!loading &&
-            filtered.map((m, index) => {
+            visibleMembers.map((m, index) => {
               const status = statuses[m.id] ?? "none";
               const profileHref = profileHrefFromHandle(m.handle);
 
@@ -684,44 +600,38 @@ export default function ConnectPage() {
 
               const textContent = (
                 <>
-                  <h3 className="truncate font-serif text-2xl leading-tight text-white">{m.name}</h3>
+                  <h3 className="truncate text-base font-semibold leading-tight text-white">{m.name}</h3>
 
-                  <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.08em] text-zinc-500">
+                  <p className="mt-0.5 truncate text-xs text-zinc-500">
                     {m.handle}
                   </p>
 
-                  <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.06em] text-zinc-500">
+                  <p className="mt-0.5 truncate text-xs text-zinc-500">
                     {m.city}
                   </p>
 
-                  <p className="mt-1 truncate text-sm text-zinc-400">{m.bike}</p>
-
-                  {m.mutualCount > 0 && (
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#e87a82]">
-                      {m.mutualCount} mutual
-                    </p>
-                  )}
+                  <p className="mt-1 truncate text-xs text-zinc-400">{m.bike}</p>
                 </>
               );
 
               return (
                 <li
                   key={m.id}
-                  className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4 transition hover:border-white/20"
+                  className="rounded-2xl border border-white/10 bg-white/[0.025] p-3.5 transition hover:border-white/20"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3">
                     {profileHref ? (
                       <Link
                         href={profileHref}
                         prefetch
-                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105 sm:h-16 sm:w-16`}
+                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105`}
                       >
                         {avatarContent}
                       </Link>
                     ) : (
                       <button
                         onClick={() => setOpenId(m.id)}
-                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105 sm:h-16 sm:w-16`}
+                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105`}
                       >
                         {avatarContent}
                       </button>
@@ -737,52 +647,86 @@ export default function ConnectPage() {
                       </button>
                     )}
 
-                    <button
-                      onClick={() =>
-                        status === "pending" ? handleCancelRequest(m.id) : handleConnect(m.id)
-                      }
-                      disabled={status === "connected"}
-                      className={`shrink-0 rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.1em] transition sm:px-4 ${
-                        status === "connected"
-                          ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <button
+                        onClick={() =>
+                          status === "pending" ? handleCancelRequest(m.id) : handleConnect(m.id)
+                        }
+                        disabled={status === "connected"}
+                        className={`rounded-full border px-3 py-2 text-[10px] font-medium uppercase tracking-[0.08em] transition ${
+                          status === "connected"
+                            ? "cursor-default border-[#b4141e]/40 bg-[#b4141e]/10 text-[#e87a82]"
+                            : status === "pending"
+                              ? "border-white/20 text-zinc-300 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                              : status === "requested"
+                                ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
+                                : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
+                        }`}
+                      >
+                        {status === "connected"
+                          ? "Connected"
                           : status === "pending"
-                            ? "border-white/20 text-zinc-300 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
+                            ? "Pending"
                             : status === "requested"
-                              ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
-                              : "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
-                      }`}
-                    >
-                      {status === "connected"
-                        ? "Connected"
-                        : status === "pending"
-                          ? "Pending"
-                          : status === "requested"
-                            ? "Accept"
-                            : "Connect"}
-                    </button>
+                              ? "Accept"
+                              : "Connect"}
+                      </button>
+
+                      {riderTab === "suggested" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDismissedIds((current) => new Set(current).add(m.id))
+                          }
+                          className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.08em] text-zinc-500 transition hover:border-white/25 hover:text-zinc-300"
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    {m.style.map((s) => (
-                      <span
-                        key={s}
-                        className="max-w-full truncate rounded-full border border-white/10 px-2.5 py-1 text-[9px] uppercase tracking-[0.08em] text-zinc-500"
-                      >
-                        {s}
-                      </span>
-                    ))}
+                  <div className="mt-3 flex min-w-0 items-center gap-2 pl-[4.25rem]">
+                    {m.mutualAvatars.length > 0 ? (
+                      <div className="flex -space-x-2">
+                        {m.mutualAvatars.map((mutual) => (
+                          <div
+                            key={mutual.id}
+                            className="relative h-6 w-6 overflow-hidden rounded-full border border-black bg-zinc-900"
+                            title={mutual.name}
+                          >
+                            {mutual.photo ? (
+                              <Image
+                                src={mutual.photo}
+                                alt={mutual.name}
+                                fill
+                                sizes="24px"
+                                className="object-cover"
+                                unoptimized={mutual.photo.includes("supabase")}
+                              />
+                            ) : (
+                              <div className={`${CS_AVATAR_FALLBACK} text-[10px]`}>
+                                {mutual.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
 
-                    <span className="max-w-full truncate rounded-full border border-white/5 px-2.5 py-1 text-[9px] uppercase tracking-[0.08em] text-zinc-600 sm:ml-auto">
-                      {m.suggestionReason}
-                    </span>
+                    <p className="min-w-0 truncate text-xs text-zinc-500">
+                      {m.mutualCount > 0
+                        ? `${m.mutualCount} mutual rider${m.mutualCount === 1 ? "" : "s"}`
+                        : m.suggestionReason}
+                    </p>
                   </div>
                 </li>
               );
             })}
 
-          {!loading && filtered.length === 0 && (
+          {!loading && visibleMembers.length === 0 && (
             <li className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
-              <p className="text-base text-zinc-500">No riders match. Try a different filter.</p>
+              <p className="text-base text-zinc-500">No riders match. Try a different search.</p>
             </li>
           )}
         </ul>

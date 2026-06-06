@@ -25,6 +25,7 @@ export async function GET(request: Request) {
         .select(PRODUCT_COLUMNS)
         .eq("product_type", "credit_reward")
         .neq("status", "coming_soon")
+        .neq("status", "archived")
         .not("credit_reward_id", "is", null)
         .order("sort_order", { ascending: true })
         .order("credit_cost", { ascending: true }),
@@ -98,7 +99,7 @@ export async function GET(request: Request) {
         inventory_remaining: outOfStock ? 0 : row.inventory_remaining,
         size_inventory: parseSizeInventory(row.size_inventory),
         requires_shirt_size: Boolean(row.requires_shirt_size),
-        is_active: row.status !== "coming_soon",
+        is_active: row.status !== "coming_soon" && row.status !== "archived",
         sort_order: row.sort_order ?? 0,
       };
     });

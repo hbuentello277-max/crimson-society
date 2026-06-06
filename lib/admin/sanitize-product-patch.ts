@@ -6,6 +6,7 @@ const PRODUCT_STATUSES: ProductStatus[] = [
   "out_of_stock",
   "waitlist",
   "coming_soon",
+  "archived",
 ];
 
 const PRODUCT_TYPES: ProductType[] = ["cash_product", "credit_reward"];

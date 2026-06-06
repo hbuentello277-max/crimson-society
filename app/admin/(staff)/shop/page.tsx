@@ -287,15 +287,26 @@ function AdminShopPageInner() {
     closeEditor();
   }
 
-  async function deleteProduct(id: string) {
-    const confirmed = window.confirm("Delete this product?");
+  async function archiveProduct(id: string) {
+    const confirmed = window.confirm(
+      "Archive this product? It will disappear from the customer shop, but order history will keep its product reference.",
+    );
     if (!confirmed) return;
 
     setSavingId(id);
     setErrorMsg("");
     setSuccessMsg("");
 
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { data, error } = await supabase
+      .from("products")
+      .update({
+        status: "archived",
+        badge: null,
+        sort_order: 9999,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
 
     if (error) {
       setErrorMsg(error.message);
@@ -303,8 +314,10 @@ function AdminShopPageInner() {
       return;
     }
 
-    setProducts((prev) => prev.filter((product) => product.id !== id));
-    setSuccessMsg("Product deleted.");
+    setProducts((prev) =>
+      prev.map((product) => (product.id === id ? ((data as Product) ?? { ...product, status: "archived" }) : product)),
+    );
+    setSuccessMsg("Product archived and hidden from the customer shop.");
     setSavingId(null);
     closeEditor();
   }
@@ -417,7 +430,7 @@ function AdminShopPageInner() {
                     disabled={savingId === editingProduct.id}
                     onBack={closeEditor}
                     onSave={(patch) => updateProduct(editingProduct.id, patch)}
-                    onDelete={() => void deleteProduct(editingProduct.id)}
+                    onDelete={() => void archiveProduct(editingProduct.id)}
                   />
                 ) : null}
 
