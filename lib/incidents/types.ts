@@ -91,3 +91,27 @@ export type NexusIncidentsSummary = {
 export type IncidentOwnerNote = NexusOwnerNote;
 
 export type IncidentDbStatus = NexusIncidentStatus;
+
+export type CreateIncidentRpcResult = {
+  ok: boolean;
+  created?: boolean;
+  incident_id?: string;
+  idempotent?: boolean;
+  error?: string;
+  code?: string;
+  alert_id?: string;
+};
+
+export type CreateIncidentFromAlertsResult =
+  | {
+      ok: true;
+      incident: IncidentDbRow;
+      created: boolean;
+      idempotent: boolean;
+      eventEmitted: boolean;
+    }
+  | {
+      ok: false;
+      error: string;
+      eventEmitted: boolean;
+    };
