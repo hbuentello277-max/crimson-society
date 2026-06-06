@@ -6,6 +6,10 @@ const BASE_BY_CLASS: Record<ConfidenceInputs["rule_class"], number> = {
   integration_probe: 0.91,
   absence_summary: 0.95,
   revenue_summary: 0.84,
+  deploy_correlation: 0.72,
+  milestone: 0.97,
+  regression: 0.84,
+  anomaly: 0.8,
 };
 
 export function computeObservationConfidence(inputs: ConfidenceInputs): number {

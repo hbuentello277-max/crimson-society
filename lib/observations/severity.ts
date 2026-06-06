@@ -64,5 +64,26 @@ export function selectObservationSeverity(inputs: SeverityInputs): NexusSeverity
     return "info";
   }
 
+  if (inputs.rule_id === "obs.deploy.correlation") {
+    const delta = Math.abs(inputs.metric_delta_pct ?? 0);
+    return delta >= 25 ? "warning" : "info";
+  }
+
+  if (inputs.rule_id === "obs.revenue.decline" || inputs.rule_id === "obs.mission.health.regression") {
+    const delta = Math.abs(inputs.metric_delta_pct ?? 0);
+    if (delta >= 20) {
+      return "warning";
+    }
+    return "info";
+  }
+
+  if (inputs.rule_id === "obs.activity.push_failed.anomaly") {
+    return "warning";
+  }
+
+  if (inputs.rule_id === "obs.growth.users.milestone") {
+    return "info";
+  }
+
   return "info";
 }

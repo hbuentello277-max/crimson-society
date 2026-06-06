@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       observations_created: result.observationsCreated,
       observations_superseded: result.observationsSuperseded,
       observations_expired: result.observationsExpired,
+      observations_cleaned: result.observationsCleaned,
       events_emitted: result.eventsEmitted,
       rules_skipped: result.rulesSkipped,
       error: result.error ?? null,
@@ -48,6 +49,7 @@ export async function GET(request: Request) {
     observations_created: result.observationsCreated,
     observations_superseded: result.observationsSuperseded,
     observations_expired: result.observationsExpired,
+    observations_cleaned: result.observationsCleaned,
     events_emitted: result.eventsEmitted,
   });
 }

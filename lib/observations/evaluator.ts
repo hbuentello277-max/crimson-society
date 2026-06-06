@@ -3,6 +3,13 @@ import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
 import { isSourceStale } from "@/lib/observations/context";
 import { isoWeekKey } from "@/lib/observations/deduplication";
 import { safeProbeDetails } from "@/lib/monitoring/redact";
+import {
+  evaluateDeployCorrelation,
+  evaluateGrowthUsersMilestone,
+  evaluateMissionHealthRegression,
+  evaluatePushFailedAnomaly,
+  evaluateRevenueDecline,
+} from "@/lib/observations/evaluator-phase8c";
 import type {
   ObservationEvaluationContext,
   ObservationEvaluationOutcome,
@@ -48,6 +55,41 @@ export const OBSERVATION_RULES: ObservationRule[] = [
     name: "Critical Incidents Clear Summary",
     category: "infra",
     observation_type: "summary",
+    enabled: true,
+  },
+  {
+    rule_id: "obs.deploy.correlation",
+    name: "Post-Deploy Metric Correlation",
+    category: "deployment",
+    observation_type: "correlation",
+    enabled: true,
+  },
+  {
+    rule_id: "obs.revenue.decline",
+    name: "Revenue MRR Regression",
+    category: "revenue",
+    observation_type: "regression",
+    enabled: true,
+  },
+  {
+    rule_id: "obs.growth.users.milestone",
+    name: "Total Users Milestone",
+    category: "growth",
+    observation_type: "milestone",
+    enabled: true,
+  },
+  {
+    rule_id: "obs.activity.push_failed.anomaly",
+    name: "Push Failure Anomaly",
+    category: "activity",
+    observation_type: "anomaly",
+    enabled: true,
+  },
+  {
+    rule_id: "obs.mission.health.regression",
+    name: "Mission Health Regression",
+    category: "mission",
+    observation_type: "regression",
     enabled: true,
   },
 ];
@@ -467,6 +509,16 @@ export function evaluateObservationRule(
       return evaluateGrowthSignupsTrend(rule, context);
     case "obs.infra.incidents.clear.summary":
       return evaluateIncidentsClearSummary(rule, context);
+    case "obs.deploy.correlation":
+      return evaluateDeployCorrelation(rule, context);
+    case "obs.revenue.decline":
+      return evaluateRevenueDecline(rule, context);
+    case "obs.growth.users.milestone":
+      return evaluateGrowthUsersMilestone(rule, context);
+    case "obs.activity.push_failed.anomaly":
+      return evaluatePushFailedAnomaly(rule, context);
+    case "obs.mission.health.regression":
+      return evaluateMissionHealthRegression(rule, context);
     default:
       return [{ kind: "skipped", reason: `unknown rule ${rule.rule_id}` }];
   }
