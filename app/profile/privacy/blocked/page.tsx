@@ -82,9 +82,17 @@ export default function BlockedMembersPage() {
     const profileById = new Map(
       ((profiles ?? []) as BlockedProfile[]).map((profile) => [profile.id, profile]),
     );
-    const ordered = blockedIds
-      .map((id) => profileById.get(id))
-      .filter((profile): profile is BlockedProfile => Boolean(profile));
+    const ordered = blockedIds.map(
+      (id) =>
+        profileById.get(id) ?? {
+          id,
+          username: null,
+          display_name: null,
+          full_name: null,
+          profile_image_url: null,
+          avatar_url: null,
+        },
+    );
 
     setRows(ordered);
     setLoading(false);

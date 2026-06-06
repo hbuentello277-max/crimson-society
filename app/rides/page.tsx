@@ -834,17 +834,21 @@ if (active) {
 for (const attendee of typedAttendanceRows) {
   const profile = profileMap.get(attendee.user_id);
 
-  if (!profile) continue;
-
-  const rider: Rider = {
-    name:
-      profile.display_name?.trim() ||
-      profile.full_name?.trim() ||
-      profile.username?.trim() ||
-      "Crimson Member",
-    photo: profile.profile_image_url || profile.avatar_url || DEFAULT_HOST_PHOTO,
-    username: profile.username,
-  };
+  const rider: Rider = profile
+    ? {
+        name:
+          profile.display_name?.trim() ||
+          profile.full_name?.trim() ||
+          profile.username?.trim() ||
+          "Crimson Member",
+        photo: profile.profile_image_url || profile.avatar_url || DEFAULT_HOST_PHOTO,
+        username: profile.username,
+      }
+    : {
+        name: "Crimson Member",
+        photo: DEFAULT_HOST_PHOTO,
+        username: null,
+      };
 
   const current = attendeesByRide.get(attendee.ride_id) || [];
   attendeesByRide.set(attendee.ride_id, [...current, rider]);
