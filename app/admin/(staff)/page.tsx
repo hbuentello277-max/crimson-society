@@ -11,6 +11,7 @@ import {
   type UserReportTargetType,
 } from "@/lib/user-reports";
 import { AdminDeletionQueueSection } from "@/components/admin/AdminDeletionQueueSection";
+import { AdminNexusEntryCard } from "@/components/admin/AdminNexusEntryCard";
 import { AdminRecentMeetsSection } from "@/components/admin/AdminRecentMeetsSection";
 import { AdminMembershipControls } from "@/components/admin/AdminMembershipControls";
 import type { MembershipRow } from "@/lib/membership";
@@ -836,6 +837,8 @@ function AdminPageContent() {
                 <p className="text-sm text-emerald-300">{successMsg}</p>
               </div>
             )}
+
+            {profile?.is_platform_owner === true ? <AdminNexusEntryCard /> : null}
 
             <div className="mt-8 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
