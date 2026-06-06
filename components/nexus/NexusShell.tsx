@@ -10,6 +10,7 @@ import {
   NexusNavInsightsIcon,
   NexusNavMetricsIcon,
   NexusNavOverviewIcon,
+  NexusNavWarRoomsIcon,
   NexusNavWorkflowIcon,
 } from "@/components/nexus/NexusNavIcons";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
@@ -51,6 +52,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/observations",
     label: NEXUS_LABELS.insights,
     icon: NexusNavInsightsIcon,
+  },
+  {
+    href: "/admin/nexus/war-rooms",
+    label: "War Rooms",
+    icon: NexusNavWarRoomsIcon,
   },
 ] as const;
 

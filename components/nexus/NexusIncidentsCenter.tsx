@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { NexusIncidentSummaryRow, NexusIncidentsSummary } from "@/lib/incidents/types";
 import type { NexusIncidentStatus } from "@/lib/nexus/constants";
+import type { NexusWarRoomsSummary } from "@/lib/war-room/types";
+import { shouldSuggestWarRoomForIncident } from "@/lib/war-room/suggestion";
 import { formatDateTime, formatRelativeTime } from "@/lib/nexus/format";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
 import { useNexusMutation } from "@/hooks/nexus/useNexusMutation";
+import { useNexusPost } from "@/hooks/nexus/useNexusPost";
 import {
   NexusActionButton,
   NexusListEmpty,
@@ -25,11 +30,26 @@ const NEXT_STATUS: Partial<Record<NexusIncidentStatus, NexusIncidentStatus>> = {
 };
 
 export function NexusIncidentsCenter() {
+  const router = useRouter();
   const { data, error, loading, refresh } = useNexusFetch<NexusIncidentsSummary>(
     "/api/nexus/incidents",
   );
+  const {
+    data: warRoomsData,
+    loading: warRoomsLoading,
+    refresh: refreshWarRooms,
+  } = useNexusFetch<NexusWarRoomsSummary>("/api/nexus/war-rooms");
   const { mutate, isPending } = useNexusMutation();
+  const { post, isPending: isPostPending } = useNexusPost();
   const [tab, setTab] = useState<IncidentTab>("open");
+
+  const warRoomByIncident = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const room of [...(warRoomsData?.open ?? []), ...(warRoomsData?.recent_history ?? [])]) {
+      map.set(room.incident_id, room.id);
+    }
+    return map;
+  }, [warRoomsData]);
 
   const open = data?.open ?? [];
   const history = data?.recent_history ?? [];
@@ -54,6 +74,19 @@ export function NexusIncidentsCenter() {
     }
   }
 
+  async function createWarRoom(incident: NexusIncidentSummaryRow) {
+    const result = await post<{ war_room?: { id: string } }>(
+      "/api/nexus/war-rooms",
+      { incident_id: incident.id },
+      `war-room-create-${incident.id}`,
+    );
+
+    if (result.ok && result.data?.war_room?.id) {
+      await Promise.all([refresh(), refreshWarRooms()]);
+      router.push(`/admin/nexus/war-rooms/${result.data.war_room.id}`);
+    }
+  }
+
   const tabs = [
     { id: "open" as const, label: "Open", count: data?.counts.open ?? 0 },
     {
@@ -73,11 +106,13 @@ export function NexusIncidentsCenter() {
     <NexusSectionFrame
       title={NEXUS_LABELS.incidentsCenter}
       description="Operational incident triage with impact scoring, root-cause context, and linked alert visibility."
-      loading={loading}
+      loading={loading || warRoomsLoading}
       error={error}
-      onRefresh={refresh}
+      onRefresh={async () => {
+        await Promise.all([refresh(), refreshWarRooms()]);
+      }}
     >
-      {!loading ? (
+      {!loading && !warRoomsLoading ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {tabs.map((item) => (
@@ -106,8 +141,12 @@ export function NexusIncidentsCenter() {
                 <IncidentCard
                   key={incident.id}
                   incident={incident}
+                  warRoomId={warRoomByIncident.get(incident.id)}
+                  suggestWarRoom={shouldSuggestWarRoomForIncident(incident)}
                   isPending={isPending}
+                  isPostPending={isPostPending}
                   onAdvance={(status) => void updateStatus(incident.id, status)}
+                  onCreateWarRoom={() => void createWarRoom(incident)}
                   showActions={tab !== "resolved"}
                 />
               ))}
@@ -121,17 +160,26 @@ export function NexusIncidentsCenter() {
 
 function IncidentCard({
   incident,
+  warRoomId,
+  suggestWarRoom,
   isPending,
+  isPostPending,
   onAdvance,
+  onCreateWarRoom,
   showActions,
 }: {
   incident: NexusIncidentSummaryRow;
+  warRoomId?: string;
+  suggestWarRoom: boolean;
   isPending: (key: string) => boolean;
+  isPostPending: (key: string) => boolean;
   onAdvance: (status: NexusIncidentStatus) => void;
+  onCreateWarRoom: () => void;
   showActions: boolean;
 }) {
   const nextStatus = NEXT_STATUS[incident.status];
   const actionKey = `incident-${incident.id}-${nextStatus ?? "none"}`;
+  const createKey = `war-room-create-${incident.id}`;
 
   return (
     <NexusPanel>
@@ -140,6 +188,11 @@ function IncidentCard({
           <div className="flex flex-wrap items-center gap-2">
             <NexusStatusBadge label={incident.severity} />
             <NexusStatusBadge label={incident.status} />
+            {suggestWarRoom && !warRoomId ? (
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-amber-200">
+                War room suggested
+              </span>
+            ) : null}
             <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
               Impact {incident.impact_score}
             </span>
@@ -172,14 +225,31 @@ function IncidentCard({
           </p>
         </div>
 
-        {showActions && nextStatus ? (
-          <NexusActionButton
-            label={isPending(actionKey) ? "Saving" : `Mark ${nextStatus}`}
-            disabled={isPending(actionKey)}
-            variant="primary"
-            onClick={() => onAdvance(nextStatus)}
-          />
-        ) : null}
+        <div className="flex flex-col gap-2">
+          {warRoomId ? (
+            <Link
+              href={`/admin/nexus/war-rooms/${warRoomId}`}
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/25"
+            >
+              Enter War Room
+            </Link>
+          ) : showActions ? (
+            <NexusActionButton
+              label={isPostPending(createKey) ? "Opening" : "Open War Room"}
+              disabled={isPostPending(createKey)}
+              variant="primary"
+              onClick={onCreateWarRoom}
+            />
+          ) : null}
+
+          {showActions && nextStatus ? (
+            <NexusActionButton
+              label={isPending(actionKey) ? "Saving" : `Mark ${nextStatus}`}
+              disabled={isPending(actionKey)}
+              onClick={() => onAdvance(nextStatus)}
+            />
+          ) : null}
+        </div>
       </div>
     </NexusPanel>
   );

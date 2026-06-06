@@ -81,3 +81,12 @@ export function NexusNavInsightsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavWarRoomsIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="3" y="4" width="14" height="10" rx="1.5" />
+      <path d="M7 8h6M7 11h4" strokeLinecap="round" />
+    </IconBase>
+  );
+}

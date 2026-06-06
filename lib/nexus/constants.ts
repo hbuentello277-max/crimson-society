@@ -62,6 +62,11 @@ export const NEXUS_INCIDENT_STATUSES = [
 
 export type NexusIncidentStatus = (typeof NEXUS_INCIDENT_STATUSES)[number];
 
+/** nexus_war_rooms.status values. */
+export const NEXUS_WAR_ROOM_STATUSES = ["open", "active", "resolved", "archived"] as const;
+
+export type NexusWarRoomStatus = (typeof NEXUS_WAR_ROOM_STATUSES)[number];
+
 /** nexus_observations.status values. */
 export const NEXUS_OBSERVATION_STATUSES = [
   "active",
