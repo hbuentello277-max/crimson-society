@@ -10,6 +10,7 @@ import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
 import { NexusAlertsCenter } from "@/components/nexus/NexusAlertsCenter";
 import { NexusIncidentsCenter } from "@/components/nexus/NexusIncidentsCenter";
 import { NexusObservationsCenter } from "@/components/nexus/NexusObservationsCenter";
+import { NexusCommandsCenter } from "@/components/nexus/NexusCommandsCenter";
 import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -281,4 +282,8 @@ export function NexusWarRoomsView() {
 
 export function NexusRunbooksView() {
   return <NexusRunbooksCenter />;
+}
+
+export function NexusCommandsView() {
+  return <NexusCommandsCenter />;
 }

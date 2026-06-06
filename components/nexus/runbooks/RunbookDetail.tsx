@@ -14,6 +14,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedCommands } from "@/components/nexus/commands/NexusRecommendedCommands";
 import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 function categoryLabel(category: string) {
@@ -69,6 +70,8 @@ export function RunbookDetail({ runbookId }: { runbookId: string }) {
     >
       {!loading && data ? (
         <div className="space-y-4">
+          <NexusRecommendedCommands filters={{ runbook_id: runbookId }} />
+
           <NexusPanel title="Overview">
             <p className="text-sm leading-7 text-zinc-300">
               {formatNexusDisplayText(data.runbook.description)}

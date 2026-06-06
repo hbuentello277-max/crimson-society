@@ -19,6 +19,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedCommands } from "@/components/nexus/commands/NexusRecommendedCommands";
 import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
@@ -255,14 +256,17 @@ function IncidentCard({
       </div>
     </NexusPanel>
     {showActions ? (
-      <NexusRecommendedRunbooks
-        context={{
-          source: "incident",
-          category: incident.severity === "critical" ? "infra" : "mission",
-          severity: incident.severity,
-          title: incident.title,
-        }}
-      />
+      <>
+        <NexusRecommendedCommands filters={{ incident_id: incident.id }} />
+        <NexusRecommendedRunbooks
+          context={{
+            source: "incident",
+            category: incident.severity === "critical" ? "infra" : "mission",
+            severity: incident.severity,
+            title: incident.title,
+          }}
+        />
+      </>
     ) : null}
     </div>
   );

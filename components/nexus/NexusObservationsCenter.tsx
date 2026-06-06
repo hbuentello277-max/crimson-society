@@ -22,6 +22,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedCommands } from "@/components/nexus/commands/NexusRecommendedCommands";
 import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
@@ -312,6 +313,7 @@ function ObservationDetailPanel({
             </div>
           ) : null}
 
+          <NexusRecommendedCommands filters={{ observation_id: observation.id }} />
           <NexusRecommendedRunbooks
             context={{
               source: "observation",

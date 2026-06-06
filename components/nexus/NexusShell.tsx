@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   NexusNavAlertsIcon,
+  NexusNavCommandsIcon,
   NexusNavIncidentsIcon,
   NexusNavInfraIcon,
   NexusNavInsightsIcon,
@@ -63,6 +64,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/runbooks",
     label: "Runbooks",
     icon: NexusNavRunbooksIcon,
+  },
+  {
+    href: "/admin/nexus/commands",
+    label: "Commands",
+    icon: NexusNavCommandsIcon,
   },
 ] as const;
 

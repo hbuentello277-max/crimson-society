@@ -13,6 +13,7 @@ import {
   NexusTabFilter,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedCommands } from "@/components/nexus/commands/NexusRecommendedCommands";
 import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import {
   inferIntegrationFromAlert,
@@ -206,25 +207,28 @@ export function NexusAlertsCenter() {
                     </div>
                   </NexusPanel>
                   {tab !== "resolved" ? (
-                    <NexusRecommendedRunbooks
-                      context={{
-                        source: "alert",
-                        category: alert.category,
-                        severity: alert.severity,
-                        rule_id: alert.rule_id,
-                        integration_slug: inferIntegrationFromAlert({
-                          rule_id: alert.rule_id,
+                    <>
+                      <NexusRecommendedCommands filters={{ alert_id: alert.id }} />
+                      <NexusRecommendedRunbooks
+                        context={{
+                          source: "alert",
                           category: alert.category,
-                          title: alert.title,
-                          metadata: alert.metadata,
-                        }),
-                        workflow_slug: inferWorkflowFromAlert({
+                          severity: alert.severity,
                           rule_id: alert.rule_id,
+                          integration_slug: inferIntegrationFromAlert({
+                            rule_id: alert.rule_id,
+                            category: alert.category,
+                            title: alert.title,
+                            metadata: alert.metadata,
+                          }),
+                          workflow_slug: inferWorkflowFromAlert({
+                            rule_id: alert.rule_id,
+                            title: alert.title,
+                          }),
                           title: alert.title,
-                        }),
-                        title: alert.title,
-                      }}
-                    />
+                        }}
+                      />
+                    </>
                   ) : null}
                   </div>
                 );

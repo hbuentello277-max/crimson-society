@@ -14,6 +14,7 @@ import {
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import { NexusRecommendedCommands } from "@/components/nexus/commands/NexusRecommendedCommands";
 import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecommendedRunbooks";
 import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
@@ -78,6 +79,7 @@ export function WarRoomDetail({ warRoomId }: { warRoomId: string }) {
     >
       {!loading && data ? (
         <div className="space-y-4">
+          <NexusRecommendedCommands filters={{ war_room_id: warRoomId }} />
           <NexusRecommendedRunbooks
             context={{
               source: "war_room",
