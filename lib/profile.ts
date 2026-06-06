@@ -6,6 +6,7 @@ export type AppProfile = {
   role: string | null;
   status: string | null;
   is_admin: boolean | null;
+  is_platform_owner?: boolean | null;
   username: string | null;
   display_name: string | null;
   full_name: string | null;
