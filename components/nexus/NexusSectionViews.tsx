@@ -1,124 +1,163 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { NexusHealthIntegrationSummary } from "@/lib/monitoring/health-summary";
+import {
+  formatDateTime,
+  formatNumber,
+  integrationDisplayName,
+} from "@/lib/nexus/format";
+import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
+import { NexusAlertsCenter } from "@/components/nexus/NexusAlertsCenter";
+import { NexusIncidentsCenter } from "@/components/nexus/NexusIncidentsCenter";
+import { NexusObservationsCenter } from "@/components/nexus/NexusObservationsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
+import {
+  NexusMetricCard,
+  NexusSectionFrame,
+} from "@/components/nexus/NexusShared";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
 
-function SectionFrame({
-  title,
-  description,
-  loading,
-  error,
-  onRefresh,
-  children,
-}: {
-  title: string;
-  description: string;
-  loading: boolean;
-  error: string | null;
-  onRefresh: () => Promise<void>;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">{description}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void onRefresh()}
-          className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-        >
-          Refresh
-        </button>
-      </div>
+type HealthPayload = {
+  system?: { status?: string; checked_at?: string | null };
+  integrations?: NexusHealthIntegrationSummary[];
+};
 
-      {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-          {error}
-        </div>
-      ) : null}
+type MissionPayload = {
+  score?: number;
+  status?: string;
+  mission_critical?: boolean;
+  checked_at?: string | null;
+  workflows?: Array<{
+    slug: string;
+    display_name: string;
+    category: string;
+    workflow_status: string;
+    workflow_score: number | null;
+    success_rate_1h: number | null;
+    failure_count_1h: number | null;
+    success_count_1h: number | null;
+  }>;
+};
 
-      {loading ? (
-        <div className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-          <div className="h-4 w-40 rounded-full bg-white/10" />
-          <div className="mt-4 h-20 rounded-2xl bg-white/10" />
-        </div>
-      ) : (
-        children
-      )}
-    </section>
-  );
+type MetricsPayload = Record<string, Record<string, unknown> | undefined>;
+
+function integrationRows(integrations: NexusHealthIntegrationSummary[]) {
+  const bySlug = new Map(integrations.map((item) => [item.slug, item]));
+
+  return NEXUS_INTEGRATION_SLUGS.map((slug) => {
+    const row = bySlug.get(slug);
+    return (
+      row ?? {
+        id: slug,
+        slug,
+        display_name: integrationDisplayName(slug),
+        status: "unknown",
+        last_check_at: null,
+        last_healthy_at: null,
+        latency_ms: null,
+        error_message: null,
+        metadata: {},
+      }
+    );
+  });
 }
 
 export function NexusSystemHealthView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/health",
-  );
-  const integrations = (data?.integrations as Array<Record<string, unknown>> | undefined) ?? [];
-  const system = data?.system as Record<string, unknown> | undefined;
+  const { data, error, loading, refresh } = useNexusFetch<HealthPayload>("/api/nexus/health");
+  const integrations = integrationRows(data?.integrations ?? []);
+  const system = data?.system;
 
   return (
-    <SectionFrame
+    <NexusSectionFrame
       title="System Health"
-      description="Integration probes, infrastructure status, and latest health checks."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {integrations.length === 0 ? (
-        <NexusEmptyState title="No integration health data" />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {integrations.map((integration) => (
-            <div
-              key={String(integration.id)}
-              className="rounded-2xl border border-white/10 bg-black/25 p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-medium text-white">{String(integration.display_name)}</p>
-                <NexusStatusBadge label={String(integration.status)} />
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">{String(integration.slug)}</p>
-              {integration.error_message ? (
-                <p className="mt-3 text-sm text-red-300">{String(integration.error_message)}</p>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-      {system?.checked_at ? (
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-          Last checked {String(system.checked_at)}
-        </p>
-      ) : null}
-    </SectionFrame>
-  );
-}
-
-export function NexusMissionHealthView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/mission-health",
-  );
-  const workflows = (data?.workflows as Array<Record<string, unknown>> | undefined) ?? [];
-
-  return (
-    <SectionFrame
-      title="Mission Health"
-      description="Member workflow reliability, success rates, and mission-critical status."
+      description="Integration probes, infrastructure status, and latency telemetry."
       loading={loading}
       error={error}
       onRefresh={refresh}
     >
       <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <NexusStatusBadge label={String(data?.status ?? "unknown")} />
-          <p className="text-3xl font-semibold text-white">{String(data?.score ?? "—")}</p>
-          <p className="text-sm text-zinc-500">Mission score</p>
+          <NexusStatusBadge label={system?.status ?? "unknown"} />
+          <p className="text-3xl font-semibold capitalize text-white">
+            {system?.status ?? "unknown"}
+          </p>
         </div>
+        <p className="mt-2 text-xs text-zinc-500">
+          Last system check {formatDateTime(system?.checked_at)}
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {integrations.map((integration) => (
+          <div
+            key={integration.slug}
+            className="rounded-2xl border border-white/10 bg-black/25 p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-medium text-white">
+                {integrationDisplayName(integration.slug)}
+              </p>
+              <NexusStatusBadge label={integration.status} />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <MetricLine
+                label="Latency"
+                value={
+                  integration.latency_ms != null ? `${integration.latency_ms}ms` : "—"
+                }
+              />
+              <MetricLine label="Last check" value={formatDateTime(integration.last_check_at)} />
+              <MetricLine
+                label="Last healthy"
+                value={formatDateTime(integration.last_healthy_at)}
+              />
+              <MetricLine label="Slug" value={integration.slug} />
+            </div>
+            {integration.error_message ? (
+              <p className="mt-3 text-sm text-red-300">{integration.error_message}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </NexusSectionFrame>
+  );
+}
+
+function MetricLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-1 text-sm text-zinc-300">{value}</p>
+    </div>
+  );
+}
+
+export function NexusMissionHealthView() {
+  const { data, error, loading, refresh } = useNexusFetch<MissionPayload>(
+    "/api/nexus/mission-health",
+  );
+  const workflows = data?.workflows ?? [];
+
+  return (
+    <NexusSectionFrame
+      title="Mission Health"
+      description="Member workflow reliability, success rates, and mission-critical status."
+      loading={loading}
+      error={error}
+      onRefresh={refresh}
+    >
+      <div className="grid gap-4 md:grid-cols-3">
+        <NexusMetricCard label="Mission score" value={formatNumber(data?.score)} />
+        <NexusMetricCard
+          label="Status"
+          value={<NexusStatusBadge label={data?.status ?? "unknown"} />}
+        />
+        <NexusMetricCard
+          label="Mission critical"
+          value={data?.mission_critical ? "Yes" : "No"}
+          hint={`Checked ${formatDateTime(data?.checked_at)}`}
+        />
       </div>
 
       {workflows.length === 0 ? (
@@ -127,18 +166,23 @@ export function NexusMissionHealthView() {
         <div className="grid gap-3">
           {workflows.map((workflow) => (
             <div
-              key={String(workflow.slug)}
+              key={workflow.slug}
               className="rounded-2xl border border-white/10 bg-black/25 p-4"
             >
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="font-medium text-white">{String(workflow.display_name)}</p>
-                  <p className="text-xs text-zinc-500">{String(workflow.slug)}</p>
+                  <p className="font-medium text-white">{workflow.display_name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {workflow.slug} · {workflow.category}
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <NexusStatusBadge label={String(workflow.workflow_status)} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <NexusStatusBadge label={workflow.workflow_status} />
                   <span className="text-xs text-zinc-400">
-                    Score {String(workflow.workflow_score ?? "—")}
+                    Score {workflow.workflow_score ?? "—"}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    1h success {workflow.success_rate_1h ?? "—"}%
                   </span>
                 </div>
               </div>
@@ -146,14 +190,12 @@ export function NexusMissionHealthView() {
           ))}
         </div>
       )}
-    </SectionFrame>
+    </NexusSectionFrame>
   );
 }
 
 export function NexusMetricsView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/metrics",
-  );
+  const { data, error, loading, refresh } = useNexusFetch<MetricsPayload>("/api/nexus/metrics");
 
   const sections = [
     { key: "revenue", label: "Revenue" },
@@ -163,7 +205,7 @@ export function NexusMetricsView() {
   ] as const;
 
   return (
-    <SectionFrame
+    <NexusSectionFrame
       title="Metrics"
       description="Revenue, growth, Blackcard membership, and platform activity snapshots."
       loading={loading}
@@ -175,7 +217,7 @@ export function NexusMetricsView() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {sections.map((section) => {
-            const metrics = data[section.key] as Record<string, unknown> | undefined;
+            const metrics = data[section.key];
             const entries = metrics
               ? Object.entries(metrics).filter(
                   ([key, value]) => key !== "warnings" && typeof value !== "object",
@@ -211,131 +253,18 @@ export function NexusMetricsView() {
           })}
         </div>
       )}
-    </SectionFrame>
+    </NexusSectionFrame>
   );
 }
 
 export function NexusAlertsView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/alerts",
-  );
-  const active = (data?.active as Array<Record<string, unknown>> | undefined) ?? [];
-
-  return (
-    <SectionFrame
-      title="Alerts"
-      description="Active owner triage alerts ranked by impact and severity."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {active.length === 0 ? (
-        <NexusEmptyState title="No active alerts" description="The alert queue is clear." />
-      ) : (
-        <div className="space-y-3">
-          {active.map((alert) => (
-            <div
-              key={String(alert.id)}
-              className="rounded-2xl border border-white/10 bg-black/25 p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <NexusStatusBadge label={String(alert.severity)} />
-                <NexusStatusBadge label={String(alert.status)} tone="neutral" />
-                <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                  {String(alert.category)}
-                </span>
-              </div>
-              <p className="mt-3 font-medium text-white">{String(alert.title)}</p>
-              <p className="mt-2 text-sm text-zinc-400">{String(alert.message)}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </SectionFrame>
-  );
+  return <NexusAlertsCenter />;
 }
 
 export function NexusIncidentsView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/incidents",
-  );
-  const open = (data?.open as Array<Record<string, unknown>> | undefined) ?? [];
-
-  return (
-    <SectionFrame
-      title="Incidents"
-      description="Open operational incidents and linked alert context."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {open.length === 0 ? (
-        <NexusEmptyState title="No open incidents" description="Operations are stable." />
-      ) : (
-        <div className="space-y-3">
-          {open.map((incident) => (
-            <div
-              key={String(incident.id)}
-              className="rounded-2xl border border-white/10 bg-black/25 p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <NexusStatusBadge label={String(incident.severity)} />
-                <NexusStatusBadge label={String(incident.status)} />
-              </div>
-              <p className="mt-3 font-medium text-white">{String(incident.title)}</p>
-              <p className="mt-2 text-sm text-zinc-400">
-                Impact score {String(incident.impact_score ?? "—")} ·{" "}
-                {String(incident.linked_alert_count ?? 0)} linked alerts
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </SectionFrame>
-  );
+  return <NexusIncidentsCenter />;
 }
 
 export function NexusObservationsView() {
-  const { data, error, loading, refresh } = useNexusFetch<Record<string, unknown>>(
-    "/api/nexus/observations?view=active",
-  );
-  const active = (data?.active as Array<Record<string, unknown>> | undefined) ?? [];
-
-  return (
-    <SectionFrame
-      title="Observations"
-      description="Rule-engine interpretations of platform signals with confidence scoring."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {active.length === 0 ? (
-        <NexusEmptyState
-          title="No active observations"
-          description="No significant patterns detected right now."
-        />
-      ) : (
-        <div className="space-y-3">
-          {active.map((observation) => (
-            <div
-              key={String(observation.id)}
-              className="rounded-2xl border border-white/10 bg-black/25 p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <NexusStatusBadge label={String(observation.severity)} />
-                <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                  {String(observation.observation_type)} · {String(observation.category)}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                  {Math.round(Number(observation.confidence ?? 0) * 100)}% confidence
-                </span>
-              </div>
-              <p className="mt-3 font-medium text-white">{String(observation.title)}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">{String(observation.summary)}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </SectionFrame>
-  );
+  return <NexusObservationsCenter />;
 }

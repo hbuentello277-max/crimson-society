@@ -27,30 +27,22 @@ export function NexusShell({ children }: { children: ReactNode }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-5 py-8 md:px-6 md:py-10">
-        <div className="flex flex-col gap-4 border-b border-white/10 pb-6 md:flex-row md:items-end md:justify-between">
+      <div className="mx-auto max-w-7xl px-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-[calc(env(safe-area-inset-top)+2rem)] md:px-6 md:pb-10 md:pt-10">
+        <div className="flex flex-col gap-4 border-b border-[#b4141e]/20 pb-6 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">Project Nexus</p>
             <h1 className="mt-2 font-serif text-3xl text-white md:text-4xl">Command Center</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Live operational intelligence for the Crimson Society platform.
+              Operational brain of Crimson Society — live health, triage, and intelligence.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin"
-              className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-zinc-300 transition hover:border-white/30"
-            >
-              Admin
-            </Link>
-            <Link
-              href="/profile"
-              className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-zinc-300 transition hover:border-white/30"
-            >
-              Profile
-            </Link>
-          </div>
+          <Link
+            href="/admin"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black/30 px-5 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
+          >
+            Admin Control Room
+          </Link>
         </div>
 
         <nav className="mt-6 flex gap-2 overflow-x-auto pb-1">
