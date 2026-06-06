@@ -120,3 +120,13 @@ export function NexusNavReportsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavBriefingsIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 5.5h10v9H5z" strokeLinejoin="round" />
+      <path d="M7.5 9h5M7.5 11.5h3.5" strokeLinecap="round" />
+      <path d="M8 5.5V4h4v1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
