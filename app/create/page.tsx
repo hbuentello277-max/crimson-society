@@ -87,9 +87,8 @@ export default function CreatePage() {
     setTaggableLoading(true);
 
     const { data, error } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id, username, display_name, full_name, profile_image_url, avatar_url")
-      .eq("status", "active")
       .neq("id", userId)
       .order("display_name", { ascending: true })
       .limit(40);

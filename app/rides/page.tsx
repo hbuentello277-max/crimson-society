@@ -817,7 +817,7 @@ if (active) {
 );
 
       const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id, username, display_name, full_name, profile_image_url, avatar_url")
       .in("id", profileIds);
 
@@ -1243,7 +1243,7 @@ let duration: string | null = newRide.duration || null;
       }
 
       const { data: profile } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("id, username, display_name, full_name, profile_image_url, avatar_url")
         .eq("id", session.user.id)
         .maybeSingle();
