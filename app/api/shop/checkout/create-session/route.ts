@@ -33,6 +33,23 @@ export async function POST(request: Request) {
     data: { user: authUser },
   } = await auth.supabase.auth.getUser();
 
+  const { data: profile, error: profileError } = await auth.supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", auth.userId)
+    .maybeSingle();
+
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  }
+
+  if (!profile || profile.status !== "active") {
+    return NextResponse.json(
+      { error: "Your account is not eligible for checkout." },
+      { status: 403 },
+    );
+  }
+
   const admin = createAdminServiceClient();
 
   const result = await createMerchCheckoutSession({
