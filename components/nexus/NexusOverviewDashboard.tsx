@@ -167,7 +167,7 @@ export function NexusOverviewDashboard() {
   const hasData = health || mission || metrics || alerts || incidents || observations || events;
 
   return (
-    <div className="flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5.5rem)] min-h-[32rem] flex-col gap-1 overflow-hidden lg:h-[calc(100dvh-env(safe-area-inset-top)-4.5rem)]">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-2 rounded border border-[#b4141e]/25 bg-[#060405]/90 px-2 py-1">
         <p className="truncate text-[8px] uppercase tracking-[0.14em] text-zinc-500">
           {NEXUS_LABELS.operationsOverview} · Sync {formatDateTime(lastUpdated)}

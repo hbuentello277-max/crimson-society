@@ -50,9 +50,11 @@ function getProfileLabel(id: string | null | undefined, profileMap: Map<string, 
 export function AdminDeletionQueueSection({
   enabled,
   highlightRequestId,
+  bare = false,
 }: {
   enabled: boolean;
   highlightRequestId?: string | null;
+  bare?: boolean;
 }) {
   const [requests, setRequests] = useState<AccountDeletionRequest[]>([]);
   const [profiles, setProfiles] = useState<Map<string, AdminProfile>>(new Map());
@@ -170,15 +172,17 @@ export function AdminDeletionQueueSection({
 
   if (!enabled) return null;
 
-  return (
-    <div id="admin-deletion-requests" className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <div className="mb-4">
-        <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
-        <p className="mt-2 text-xs leading-5 text-zinc-500">
-          Approve deletion cancels active Stripe subscriptions, deletes user content and media,
-          removes the auth account, and writes a compliance audit entry.
-        </p>
-      </div>
+  const panel = (
+    <>
+      {!bare ? (
+        <div className="mb-4">
+          <h3 className="font-serif text-2xl text-white">Account Deletion Requests</h3>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            Approve deletion cancels active Stripe subscriptions, deletes user content and media,
+            removes the auth account, and writes a compliance audit entry.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {([
@@ -276,6 +280,16 @@ export function AdminDeletionQueueSection({
           ))}
         </div>
       )}
+    </>
+  );
+
+  if (bare) {
+    return panel;
+  }
+
+  return (
+    <div id="admin-deletion-requests" className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      {panel}
     </div>
   );
 }

@@ -31,6 +31,7 @@ type Props = {
   profiles: AdminProfile[];
   subscriptionsByUserId: Record<string, SubscriptionRow | null>;
   savingId: string | null;
+  bare?: boolean;
   onAction: (
     profileId: string,
     action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration" | "grant_founding" | "revoke_founding",
@@ -59,6 +60,7 @@ export function AdminMembershipControls({
   profiles,
   subscriptionsByUserId,
   savingId,
+  bare = false,
   onAction,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -77,22 +79,24 @@ export function AdminMembershipControls({
     });
   }, [profiles, query, tierFilter, subscriptionsByUserId]);
 
-  return (
-    <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
-            User Management
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold">Membership Controls</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-            Grant, revoke, or extend Blackcard access for beta testing, promotions, and manual
-            corrections. Admin overrides stack on top of Stripe subscriptions.
-          </p>
+  const content = (
+    <>
+      {!bare ? (
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
+              User Management
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold">Membership Controls</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              Grant, revoke, or extend Blackcard access for beta testing, promotions, and manual
+              corrections. Admin overrides stack on top of Stripe subscriptions.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+      <div className={`flex flex-col gap-3 sm:flex-row ${bare ? "" : "mt-5"}`}>
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -250,6 +254,16 @@ export function AdminMembershipControls({
           );
         })}
       </div>
+    </>
+  );
+
+  if (bare) {
+    return content;
+  }
+
+  return (
+    <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
+      {content}
     </section>
   );
 }

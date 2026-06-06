@@ -10,6 +10,7 @@ import {
   userReportTargetLabel,
   type UserReportTargetType,
 } from "@/lib/user-reports";
+import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
 import { AdminDeletionQueueSection } from "@/components/admin/AdminDeletionQueueSection";
 import { AdminNexusEntryCard } from "@/components/admin/AdminNexusEntryCard";
 import { AdminRecentMeetsSection } from "@/components/admin/AdminRecentMeetsSection";
@@ -886,20 +887,13 @@ function AdminPageContent() {
               </div>
             </div>
 
-            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
-                    Social + Blackcard Phase 2
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold">Engagement Stats</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                    Monitor favorites, host meet subscriptions, and Blackcard-exclusive meet adoption.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <AdminAccordionSection
+              title="Engagement Stats"
+              eyebrow="Social + Blackcard Phase 2"
+              summary={`${socialStats.favorites} favorites`}
+              description="Monitor favorites, host meet subscriptions, and Blackcard-exclusive meet adoption."
+            >
+              <div className="grid gap-3 md:grid-cols-3">
                 {[
                   { label: "Favorite riders", value: socialStats.favorites },
                   { label: "Meet notify subs", value: socialStats.meetSubscriptions },
@@ -913,31 +907,25 @@ function AdminPageContent() {
                   </div>
                 ))}
               </div>
-            </section>
+            </AdminAccordionSection>
 
-            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
-                    Launch Safety
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold">Moderation Dashboard</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                    Review reports, deletion requests, recent posts, and active meet activity. Use the
-                    queue actions to update report and deletion-request status. Approving deletion cancels Stripe, removes user content, deletes the auth account, and retains moderation audit records.
-                  </p>
-                </div>
+            <AdminAccordionSection
+              title="Moderation Dashboard"
+              eyebrow="Launch Safety"
+              summary={`${pendingReportCount} reports · ${pendingDeletionCount} deletions`}
+              description="Review reports, deletion requests, recent posts, and active meet activity."
+              headerAction={
                 <button
                   type="button"
                   onClick={() => void fetchModerationData()}
                   disabled={moderationLoading}
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {moderationLoading ? "Loading" : "Refresh"}
                 </button>
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-4">
+              }
+            >
+              <div className="grid gap-3 md:grid-cols-4">
                 {[
                   { label: "Pending reports", value: pendingReportCount },
                   { label: "Deletion requests", value: pendingDeletionCount },
@@ -959,44 +947,42 @@ function AdminPageContent() {
                 ))}
               </div>
 
-              {moderationError && (
-                <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+              {moderationError ? (
+                <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
                   {moderationError}
                 </div>
-              )}
+              ) : null}
+            </AdminAccordionSection>
 
-              {moderationLoading ? (
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  {[0, 1, 2, 3].map((item) => (
-                    <div key={item} className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                      <div className="animate-pulse space-y-3">
-                        <div className="h-3 w-24 rounded-full bg-white/10" />
-                        <div className="h-5 w-56 max-w-full rounded-full bg-white/10" />
-                        <div className="h-3 w-full rounded-full bg-white/10" />
-                        <div className="h-3 w-2/3 rounded-full bg-white/10" />
-                      </div>
-                    </div>
-                  ))}
+            {moderationLoading ? (
+              <div className="mt-6 rounded-2xl border border-[#b4141e]/20 bg-[#060405]/80 p-5">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-3 w-32 rounded-full bg-white/10" />
+                  <div className="h-4 w-full max-w-md rounded-full bg-white/10" />
                 </div>
-              ) : (
-                <div className="mt-5 grid gap-4 xl:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="mb-4">
-                      <h3 className="font-serif text-2xl text-white">Reports Queue</h3>
-                    </div>
+              </div>
+            ) : (
+              <>
+                <AdminAccordionSection
+                  title="Reports Queue"
+                  summary={`${pendingReportCount} pending`}
+                  description="User-submitted reports awaiting review or resolution."
+                >
+                  {reports.length === 0 ? (
+                    <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
+                      No reports have been submitted.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {reports.map((report) => {
+                        const targetType = getAdminReportTargetType(report);
+                        const targetRef = formatAdminReportTargetRef(report, reportedMessageTypes);
 
-                    {reports.length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
-                        No reports have been submitted.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {reports.map((report) => {
-                          const targetType = getAdminReportTargetType(report);
-                          const targetRef = formatAdminReportTargetRef(report, reportedMessageTypes);
-
-                          return (
-                          <div key={report.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+                        return (
+                          <div
+                            key={report.id}
+                            className="rounded-xl border border-white/10 bg-white/[0.025] p-4"
+                          >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-sm font-semibold text-white">
                                 {report.reason || "Report"}
@@ -1017,15 +1003,15 @@ function AdminPageContent() {
                                 : ""}
                               {targetRef ? ` • ${targetRef}` : ""}
                             </p>
-                            {report.details && (
+                            {report.details ? (
                               <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
                                 {report.details}
                               </p>
-                            )}
+                            ) : null}
                             <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
                               {formatAdminDate(report.created_at)}
                             </p>
-                            {!isReportClosed(report.status) && (
+                            {!isReportClosed(report.status) ? (
                               <div className="mt-4 flex flex-wrap gap-2">
                                 <button
                                   type="button"
@@ -1052,102 +1038,120 @@ function AdminPageContent() {
                                   Dismiss
                                 </button>
                               </div>
-                            )}
+                            ) : null}
                           </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </AdminAccordionSection>
 
+                <AdminAccordionSection
+                  id="admin-deletion-requests"
+                  title="Account Deletion Requests"
+                  summary={`${pendingDeletionCount} pending`}
+                  description="Approve deletion cancels Stripe, removes user content, and deletes the auth account."
+                  defaultOpen={searchParams.get("section") === "deletion"}
+                >
                   <AdminDeletionQueueSection
+                    bare
                     enabled={isAdmin && !moderationLoading}
                     highlightRequestId={searchParams.get("request")}
                   />
+                </AdminAccordionSection>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <h3 className="mb-4 font-serif text-2xl text-white">Recent Posts</h3>
-                    {recentPosts.length === 0 ? (
-                      <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
-                        No recent posts to review.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentPosts.map((post) => (
-                          <div key={post.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-white">
-                                {getProfileLabel(post.user_id, moderationProfiles)}
-                              </p>
-                              <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                                {post.post_type || "post"} • {post.media_status || "ready"}
-                              </span>
-                            </div>
-                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
-                              {post.caption || post.location || "No caption"}
+                <AdminAccordionSection
+                  title="Recent Posts"
+                  summary={`${recentPosts.length} posts`}
+                  description="Latest community posts for moderation review."
+                >
+                  {recentPosts.length === 0 ? (
+                    <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
+                      No recent posts to review.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentPosts.map((post) => (
+                        <div
+                          key={post.id}
+                          className="rounded-xl border border-white/10 bg-white/[0.025] p-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-white">
+                              {getProfileLabel(post.user_id, moderationProfiles)}
                             </p>
-                            <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
-                              {formatAdminDate(post.created_at)}
-                            </p>
+                            <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                              {post.post_type || "post"} • {post.media_status || "ready"}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
+                            {post.caption || post.location || "No caption"}
+                          </p>
+                          <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                            {formatAdminDate(post.created_at)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </AdminAccordionSection>
 
+                <AdminAccordionSection
+                  title="Recent Meets"
+                  summary={`${recentRides.length} meets`}
+                  description="Recently scheduled meets available for host moderation."
+                >
                   <AdminRecentMeetsSection
+                    bare
                     rides={recentRides}
                     profiles={moderationProfiles}
                     onRideDeleted={(rideId) =>
                       setRecentRides((current) => current.filter((ride) => ride.id !== rideId))
                     }
                   />
-                </div>
-              )}
-            </section>
+                </AdminAccordionSection>
+              </>
+            )}
 
-            <AdminMembershipControls
-              profiles={profiles}
-              subscriptionsByUserId={subscriptionsByUserId}
-              savingId={savingId}
-              onAction={runMembershipAction}
-            />
+            <AdminAccordionSection
+              title="Membership Controls"
+              eyebrow="User Management"
+              summary={`${profiles.length} members`}
+              description="Grant, revoke, or extend Blackcard access for beta testing and manual corrections."
+            >
+              <AdminMembershipControls
+                bare
+                profiles={profiles}
+                subscriptionsByUserId={subscriptionsByUserId}
+                savingId={savingId}
+                onAction={runMembershipAction}
+              />
+            </AdminAccordionSection>
 
-            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-              <div className="grid gap-4 md:grid-cols-[1fr_1.2fr] md:items-center">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">
-                    User Management
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold">Quick Actions</h2>
-                  <p className="mt-2 text-sm leading-6 text-zinc-500">
-                    Role, status, and Blackcard membership controls are available in the Profiles table below.
-                  </p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    { label: "Admins", value: profiles.filter((item) => item.role === "admin").length },
-                    { label: "Moderators", value: profiles.filter((item) => item.role === "moderator").length },
-                    { label: "Blackcard", value: profiles.filter((item) => getMembershipTier(item) === "blackcard").length },
-                    { label: "Founding", value: profiles.filter((item) => getMembershipTier(item) === "founding").length },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                      <p className="text-2xl font-semibold text-white">{item.value}</p>
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                        {item.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+            <AdminAccordionSection
+              title="Quick Actions"
+              eyebrow="User Management"
+              summary={`${profiles.filter((item) => item.role === "admin").length} admins`}
+              description="Role, status, and Blackcard membership controls are available in the Profiles table."
+            >
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: "Admins", value: profiles.filter((item) => item.role === "admin").length },
+                  { label: "Moderators", value: profiles.filter((item) => item.role === "moderator").length },
+                  { label: "Blackcard", value: profiles.filter((item) => getMembershipTier(item) === "blackcard").length },
+                  { label: "Founding", value: profiles.filter((item) => getMembershipTier(item) === "founding").length },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                    <p className="text-2xl font-semibold text-white">{item.value}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
               </div>
-            </section>
+            </AdminAccordionSection>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-2xl font-semibold">Profiles</h2>
-                <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">{profileCountLabel}</span>
-              </div>
-
+            <AdminAccordionSection title="Profiles" summary={profileCountLabel}>
               <div className="mb-3 hidden gap-4 px-4 text-[10px] uppercase tracking-[0.25em] text-zinc-500 md:grid md:grid-cols-[1fr_150px_170px_170px_130px]">
                 <span>Member</span>
                 <span>Role</span>
@@ -1294,7 +1298,7 @@ function AdminPageContent() {
                   );
                 })}
               </div>
-            </div>
+            </AdminAccordionSection>
           </>
         )}
       </div>

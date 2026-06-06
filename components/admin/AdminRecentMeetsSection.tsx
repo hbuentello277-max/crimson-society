@@ -38,10 +38,12 @@ export function AdminRecentMeetsSection({
   rides,
   profiles,
   onRideDeleted,
+  bare = false,
 }: {
   rides: RecentRide[];
   profiles: Map<string, AdminProfile>;
   onRideDeleted: (rideId: string) => void;
+  bare?: boolean;
 }) {
   const [deleteTarget, setDeleteTarget] = useState<RecentRide | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,10 +75,9 @@ export function AdminRecentMeetsSection({
     }
   }
 
-  return (
+  const list = (
     <>
-      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-        <h3 className="mb-4 font-serif text-2xl text-white">Recent Meets</h3>
+      {!bare ? <h3 className="mb-4 font-serif text-2xl text-white">Recent Meets</h3> : null}
         {error ? (
           <p className="mb-3 rounded-xl border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-3 text-sm text-[#f0c9ce]">
             {error}
@@ -115,7 +116,16 @@ export function AdminRecentMeetsSection({
             ))}
           </div>
         )}
-      </div>
+    </>
+  );
+
+  return (
+    <>
+      {bare ? (
+        list
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-4">{list}</div>
+      )}
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">

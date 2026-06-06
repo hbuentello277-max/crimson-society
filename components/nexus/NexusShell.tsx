@@ -104,8 +104,8 @@ export function NexusShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-36">
-          <header className="sticky top-0 z-40 border-b border-[#b4141e]/30 bg-[#010101]/95 px-2 py-1.5 backdrop-blur-md sm:px-3">
+        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:pl-36">
+          <header className="sticky top-0 z-40 border-b border-[#b4141e]/30 bg-[#010101]/95 px-2 pb-1.5 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-md sm:px-3 lg:py-1.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 <Link
@@ -132,7 +132,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
             </nav>
           </header>
 
-          <div className="min-h-0 flex-1 px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-3 lg:py-3">
+          <div className="flex min-h-0 flex-1 flex-col px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-3 lg:py-3">
             {children}
           </div>
         </div>
