@@ -43,7 +43,8 @@ export function FounderHero({
       <div className="relative flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Nexus Command Center</p>
-          <p className="mt-1 text-xs text-zinc-500">Real-time platform telemetry</p>
+          <p className="mt-1 text-sm leading-snug text-zinc-200">Crimson Society</p>
+          <p className="text-sm leading-snug text-zinc-400">Operating System</p>
         </div>
         <Link
           href="/admin/nexus/overview"

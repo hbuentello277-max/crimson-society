@@ -131,9 +131,6 @@ export function NexusRing({ status, size = 280 }: NexusRingProps) {
         >
           NEXUS
         </motion.p>
-        <p className="mt-2 max-w-[11rem] text-[9px] uppercase tracking-[0.22em] text-zinc-400 sm:max-w-none sm:text-[10px]">
-          Crimson Society Operating System
-        </p>
       </div>
     </div>
   );

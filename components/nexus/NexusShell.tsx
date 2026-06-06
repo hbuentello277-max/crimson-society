@@ -150,6 +150,8 @@ function NavLink({
 
 export function NexusShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const founderHome = pathname === "/admin/nexus";
+  const showSectionNav = !founderHome;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#010101] text-white">
@@ -168,27 +170,31 @@ export function NexusShell({ children }: { children: ReactNode }) {
       />
 
       <div className="relative flex min-h-screen">
-        <aside className="fixed bottom-0 left-0 top-0 z-30 hidden w-44 flex-col border-r border-[#b4141e]/25 bg-[#010101]/95 pt-[calc(env(safe-area-inset-top)+3.5rem)] backdrop-blur-md lg:flex">
-          <div className="border-b border-[#b4141e]/15 px-3 py-3">
-            <p className="text-[9px] uppercase tracking-[0.28em] text-[#e87a82]">Command</p>
-            <p className="text-sm font-medium text-white">Rail</p>
-          </div>
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-            {NAV_ITEMS.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} variant="rail" />
-            ))}
-          </nav>
-          <div className="border-t border-[#b4141e]/15 p-3">
-            <Link
-              href="/admin"
-              className="flex min-h-10 items-center justify-center rounded-lg border border-[#b4141e]/30 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:bg-[#b4141e]/10"
-            >
-              ← Control Room
-            </Link>
-          </div>
-        </aside>
+        {showSectionNav ? (
+          <aside className="fixed bottom-0 left-0 top-0 z-30 hidden w-44 flex-col border-r border-[#b4141e]/25 bg-[#010101]/95 pt-[calc(env(safe-area-inset-top)+3.5rem)] backdrop-blur-md lg:flex">
+            <div className="border-b border-[#b4141e]/15 px-3 py-3">
+              <p className="text-[9px] uppercase tracking-[0.28em] text-[#e87a82]">Command</p>
+              <p className="text-sm font-medium text-white">Rail</p>
+            </div>
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+              {NAV_ITEMS.map((item) => (
+                <NavLink key={item.href} item={item} pathname={pathname} variant="rail" />
+              ))}
+            </nav>
+            <div className="border-t border-[#b4141e]/15 p-3">
+              <Link
+                href="/admin"
+                className="flex min-h-10 items-center justify-center rounded-lg border border-[#b4141e]/30 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:bg-[#b4141e]/10"
+              >
+                ← Control Room
+              </Link>
+            </div>
+          </aside>
+        ) : null}
 
-        <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col lg:pl-44">
+        <div
+          className={`flex min-h-[100dvh] min-w-0 flex-1 flex-col ${showSectionNav ? "lg:pl-44" : ""}`}
+        >
           <header className="sticky top-0 z-40 border-b border-[#b4141e]/30 bg-[#010101]/95 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-md sm:px-4 lg:py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -211,11 +217,13 @@ export function NexusShell({ children }: { children: ReactNode }) {
                 <NexusLiveIndicator />
               </div>
             </div>
-            <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {NAV_ITEMS.map((item) => (
-                <NavLink key={item.href} item={item} pathname={pathname} variant="chip" />
-              ))}
-            </nav>
+            {showSectionNav ? (
+              <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {NAV_ITEMS.map((item) => (
+                  <NavLink key={item.href} item={item} pathname={pathname} variant="chip" />
+                ))}
+              </nav>
+            ) : null}
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-4 lg:py-4">
