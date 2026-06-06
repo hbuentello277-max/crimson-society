@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseOwnerNotes } from "@/lib/alerts/notes";
+import {
+  computePriorityScore,
+  getPriorityTier,
+  type ObservationPriorityTier,
+} from "@/lib/observations/priority";
 import type {
   NexusObservationDetail,
   NexusObservationSummaryRow,
@@ -10,19 +15,6 @@ import type {
 } from "@/lib/observations/types";
 import type { NexusSeverity } from "@/lib/nexus/constants";
 
-function priorityScore(
-  confidence: number,
-  severity: NexusSeverity,
-  occurredAt: string,
-  collectedAt: string,
-): number {
-  const severityWeight = severity === "critical" ? 2 : severity === "warning" ? 1.5 : 1;
-  const ageMs = new Date(collectedAt).getTime() - new Date(occurredAt).getTime();
-  const recencyFactor =
-    ageMs < 60 * 60_000 ? 1 : ageMs < 6 * 60 * 60_000 ? 0.9 : ageMs < 24 * 60 * 60_000 ? 0.75 : 0.6;
-  return Math.round(confidence * severityWeight * recencyFactor * 1000) / 1000;
-}
-
 function mapSummaryFields(
   row: Record<string, unknown>,
   collectedAt: string,
@@ -31,6 +23,15 @@ function mapSummaryFields(
   const confidence = Number(row.confidence);
   const severity = row.severity as NexusSeverity;
   const occurredAt = row.occurred_at as string;
+  const metadata = (row.metadata as Record<string, unknown>) ?? {};
+  const priority_score =
+    typeof metadata.priority_score === "number"
+      ? metadata.priority_score
+      : computePriorityScore({ confidence, severity, occurredAt, collectedAt });
+  const priority_tier =
+    (typeof metadata.priority_tier === "string"
+      ? metadata.priority_tier
+      : getPriorityTier(priority_score, severity)) as ObservationPriorityTier;
 
   return {
     id: row.id as string,
@@ -38,7 +39,8 @@ function mapSummaryFields(
     category: row.category as string,
     severity,
     confidence,
-    priority_score: priorityScore(confidence, severity, occurredAt, collectedAt),
+    priority_score,
+    priority_tier,
     title: row.title as string,
     summary: row.summary as string,
     rule_id: (row.rule_id as string | null) ?? null,
@@ -49,7 +51,7 @@ function mapSummaryFields(
     linked_alerts_count: junctionCounts.alerts,
     linked_metrics_count: junctionCounts.metrics,
     evidence: (row.evidence as Record<string, unknown>) ?? {},
-    metadata: (row.metadata as Record<string, unknown>) ?? {},
+    metadata,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };

@@ -4,6 +4,7 @@ import { logNexusActivity } from "@/lib/nexus/activity-log";
 import { safeProbeDetails } from "@/lib/monitoring/redact";
 import { computeObservationConfidence } from "@/lib/observations/confidence";
 import { buildObservationDedupeKey } from "@/lib/observations/deduplication";
+import { buildPriorityMetadata } from "@/lib/observations/priority";
 import { selectObservationSeverity } from "@/lib/observations/severity";
 import type { ObservationCandidate, ObservationMatch } from "@/lib/observations/types";
 
@@ -165,12 +166,19 @@ export async function createObservation(
   candidate: ObservationCandidate,
 ): Promise<{ observationId: string; eventEmitted: boolean; supersededPreviousId: string | null }> {
   const existing = await findActiveObservationByDedupeKey(admin, candidate.dedupe_key);
+  const priority = buildPriorityMetadata({
+    confidence: candidate.confidence,
+    severity: candidate.severity,
+    occurredAt: candidate.occurred_at,
+  });
   const metadata = safeProbeDetails({
     dedupe_key: candidate.dedupe_key,
     scope: candidate.scope,
     scope_id: candidate.scope_id,
     evidence: candidate.evidence,
-    engine_version: "8a",
+    engine_version: "8c",
+    priority_score: priority.priority_score,
+    priority_tier: priority.priority_tier,
   });
 
   const { data, error } = await admin
@@ -266,48 +274,6 @@ export async function emitObservationRuleSkippedEvent(
   });
 
   return event.ok;
-}
-
-export async function expireStaleObservations(
-  admin: SupabaseClient,
-  evaluatedAt: string,
-): Promise<number> {
-  const { data, error } = await admin
-    .from("nexus_observations")
-    .select("id, rule_id, metadata")
-    .eq("status", "active")
-    .not("valid_until", "is", null)
-    .lt("valid_until", evaluatedAt)
-    .limit(100);
-
-  if (error || !data || data.length === 0) {
-    return 0;
-  }
-
-  let expired = 0;
-  for (const row of data) {
-    const metadata = {
-      ...((row.metadata as Record<string, unknown>) ?? {}),
-      expired: true,
-      expired_at: evaluatedAt,
-    };
-
-    const { error: updateError } = await admin
-      .from("nexus_observations")
-      .update({
-        status: "superseded",
-        metadata: safeProbeDetails(metadata),
-        updated_at: evaluatedAt,
-      })
-      .eq("id", row.id as string)
-      .eq("status", "active");
-
-    if (!updateError) {
-      expired += 1;
-    }
-  }
-
-  return expired;
 }
 
 function mapCategoryToEventCategory(

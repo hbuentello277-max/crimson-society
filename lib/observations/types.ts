@@ -16,7 +16,12 @@ export type ObservationRuleId =
   | "obs.infra.integration.diagnosis"
   | "obs.revenue.blackcard.mrr.summary"
   | "obs.growth.signups.trend"
-  | "obs.infra.incidents.clear.summary";
+  | "obs.infra.incidents.clear.summary"
+  | "obs.deploy.correlation"
+  | "obs.revenue.decline"
+  | "obs.growth.users.milestone"
+  | "obs.activity.push_failed.anomaly"
+  | "obs.mission.health.regression";
 
 export type ObservationRule = {
   rule_id: ObservationRuleId;
@@ -78,6 +83,8 @@ export type DeploymentContextSnapshot = {
   environment: string;
   status: string;
   started_at: string;
+  commit_sha: string | null;
+  commit_message: string | null;
 };
 
 export type ObservationEvaluationContext = {
@@ -100,6 +107,7 @@ export type ObservationEvaluationContext = {
   };
   recent_events: EventContextSnapshot[];
   latest_deployment: DeploymentContextSnapshot | null;
+  prior_mission_score: number | null;
 };
 
 export type ObservationMatch = {
@@ -126,7 +134,11 @@ export type ConfidenceInputs = {
     | "multi_workflow_diagnosis"
     | "integration_probe"
     | "absence_summary"
-    | "revenue_summary";
+    | "revenue_summary"
+    | "deploy_correlation"
+    | "milestone"
+    | "regression"
+    | "anomaly";
   complete_evidence: boolean;
   partial_evidence: boolean;
   agreeing_signals: number;
@@ -144,6 +156,8 @@ export type SeverityInputs = {
   open_critical_incidents: number;
   trend_direction?: "improving" | "declining" | "flat";
   is_absence_summary?: boolean;
+  metric_delta_pct?: number;
+  is_milestone?: boolean;
 };
 
 export type ObservationEvaluationOutcome =
@@ -179,6 +193,7 @@ export type NexusObservationEngineResult = {
   observationsCreated: number;
   observationsSuperseded: number;
   observationsExpired: number;
+  observationsCleaned: number;
   eventsEmitted: number;
   error?: string;
 };
@@ -199,6 +214,7 @@ export type NexusObservationSummaryRow = {
   incident_id: string | null;
   linked_alerts_count: number;
   linked_metrics_count: number;
+  priority_tier?: string;
   evidence: Record<string, unknown>;
   metadata: Record<string, unknown>;
   created_at: string;

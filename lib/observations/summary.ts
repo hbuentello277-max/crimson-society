@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  computePriorityScore,
+  getPriorityTier,
+  type ObservationPriorityTier,
+} from "@/lib/observations/priority";
 import type {
   NexusObservationSummaryRow,
   NexusObservationsSummary,
@@ -8,44 +13,6 @@ import type {
 import type { NexusSeverity } from "@/lib/nexus/constants";
 
 const HISTORY_WINDOW_MS = 7 * 24 * 60 * 60_000;
-
-function severityWeight(severity: NexusSeverity): number {
-  if (severity === "critical") {
-    return 2;
-  }
-
-  if (severity === "warning") {
-    return 1.5;
-  }
-
-  return 1;
-}
-
-function recencyFactor(occurredAt: string, collectedAt: string): number {
-  const ageMs = new Date(collectedAt).getTime() - new Date(occurredAt).getTime();
-  if (ageMs < 60 * 60_000) {
-    return 1;
-  }
-
-  if (ageMs < 6 * 60 * 60_000) {
-    return 0.9;
-  }
-
-  if (ageMs < 24 * 60 * 60_000) {
-    return 0.75;
-  }
-
-  return 0.6;
-}
-
-function priorityScore(
-  confidence: number,
-  severity: NexusSeverity,
-  occurredAt: string,
-  collectedAt: string,
-): number {
-  return Math.round(confidence * severityWeight(severity) * recencyFactor(occurredAt, collectedAt) * 1000) / 1000;
-}
 
 async function countJunctions(
   supabase: SupabaseClient,
@@ -78,6 +45,15 @@ function mapObservationRow(
   const occurredAt = row.occurred_at as string;
   const evidence = (row.evidence as Record<string, unknown>) ?? {};
   const metadata = (row.metadata as Record<string, unknown>) ?? {};
+  const storedPriority =
+    typeof metadata.priority_score === "number" ? metadata.priority_score : null;
+  const priority_score =
+    storedPriority ??
+    computePriorityScore({ confidence, severity, occurredAt, collectedAt });
+  const priority_tier =
+    (typeof metadata.priority_tier === "string"
+      ? metadata.priority_tier
+      : getPriorityTier(priority_score, severity)) as ObservationPriorityTier;
 
   return {
     id: row.id as string,
@@ -85,7 +61,8 @@ function mapObservationRow(
     category: row.category as string,
     severity,
     confidence,
-    priority_score: priorityScore(confidence, severity, occurredAt, collectedAt),
+    priority_score,
+    priority_tier,
     title: row.title as string,
     summary: row.summary as string,
     rule_id: (row.rule_id as string | null) ?? null,

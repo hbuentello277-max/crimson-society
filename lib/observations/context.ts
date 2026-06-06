@@ -169,6 +169,7 @@ export async function buildObservationEvaluationContext(
     eventsResult,
     deploymentsResult,
     healthChecksResult,
+    priorMissionScore,
   ] = await Promise.all([
     computeMissionContext(admin),
     admin
@@ -201,7 +202,7 @@ export async function buildObservationEvaluationContext(
       .limit(100),
     admin
       .from("nexus_deployments")
-      .select("id, environment, status, started_at")
+      .select("id, environment, status, started_at, commit_sha, commit_message")
       .gte("started_at", sinceDeployments)
       .order("started_at", { ascending: false })
       .limit(1),
@@ -211,6 +212,7 @@ export async function buildObservationEvaluationContext(
       .gte("checked_at", sinceHealthChecks)
       .order("checked_at", { ascending: false })
       .limit(200),
+    loadPriorMissionScore(admin),
   ]);
 
   if (integrationsResult.error) {
@@ -335,6 +337,8 @@ export async function buildObservationEvaluationContext(
         environment: latestDeploymentRow.environment as string,
         status: latestDeploymentRow.status as string,
         started_at: latestDeploymentRow.started_at as string,
+        commit_sha: (latestDeploymentRow.commit_sha as string | null) ?? null,
+        commit_message: (latestDeploymentRow.commit_message as string | null) ?? null,
       }
     : null;
 
@@ -358,7 +362,27 @@ export async function buildObservationEvaluationContext(
     },
     recent_events,
     latest_deployment,
+    prior_mission_score: priorMissionScore,
   };
+}
+
+async function loadPriorMissionScore(admin: SupabaseClient): Promise<number | null> {
+  const { data } = await admin
+    .from("nexus_observations")
+    .select("evidence")
+    .eq("rule_id", "obs.mission.health.diagnosis")
+    .in("status", ["active", "superseded"])
+    .order("occurred_at", { ascending: false })
+    .limit(2);
+
+  const rows = data ?? [];
+  const priorEvidence =
+    rows.length >= 2
+      ? (rows[1]?.evidence as Record<string, unknown> | undefined)
+      : undefined;
+  const score = priorEvidence?.mission_score;
+
+  return typeof score === "number" && Number.isFinite(score) ? score : null;
 }
 
 export function isSourceStale(lastCheckAt: string | null, evaluatedAt: string): boolean {

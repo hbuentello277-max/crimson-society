@@ -7,8 +7,11 @@ import {
   buildObservationCandidate,
   createObservation,
   emitObservationRuleSkippedEvent,
-  expireStaleObservations,
 } from "@/lib/observations/generator";
+import {
+  cleanupSupersededObservations,
+  expireStaleObservations,
+} from "@/lib/observations/lifecycle";
 import type { NexusObservationEngineResult } from "@/lib/observations/types";
 
 export async function runNexusObservationEngine(): Promise<NexusObservationEngineResult> {
@@ -58,7 +61,11 @@ export async function runNexusObservationEngine(): Promise<NexusObservationEngin
       }
     }
 
-    const observationsExpired = await expireStaleObservations(admin, evaluatedAt);
+    const expiration = await expireStaleObservations(admin, evaluatedAt);
+    const observationsExpired = expiration.expired;
+    eventsEmitted += expiration.eventsEmitted;
+
+    const observationsCleaned = await cleanupSupersededObservations(admin, evaluatedAt);
 
     const summaryEvent = await emitNexusEvent({
       source: "collector",
@@ -72,6 +79,7 @@ export async function runNexusObservationEngine(): Promise<NexusObservationEngin
         observations_created: observationsCreated,
         observations_superseded: observationsSuperseded,
         observations_expired: observationsExpired,
+        observations_cleaned: observationsCleaned,
         rules_skipped: rulesSkipped,
       },
       occurredAt: evaluatedAt,
@@ -90,6 +98,7 @@ export async function runNexusObservationEngine(): Promise<NexusObservationEngin
         observations_created: observationsCreated,
         observations_superseded: observationsSuperseded,
         observations_expired: observationsExpired,
+        observations_cleaned: observationsCleaned,
         rules_skipped: rulesSkipped,
         events_emitted: eventsEmitted,
       },
@@ -103,6 +112,7 @@ export async function runNexusObservationEngine(): Promise<NexusObservationEngin
       observationsCreated,
       observationsSuperseded,
       observationsExpired,
+      observationsCleaned,
       eventsEmitted,
     };
   } catch (error) {
@@ -117,6 +127,7 @@ export async function runNexusObservationEngine(): Promise<NexusObservationEngin
       observationsCreated: 0,
       observationsSuperseded: 0,
       observationsExpired: 0,
+      observationsCleaned: 0,
       eventsEmitted: 0,
       error: message,
     };
