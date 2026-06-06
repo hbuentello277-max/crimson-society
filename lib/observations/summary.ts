@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   NexusObservationSummaryRow,
   NexusObservationsSummary,
+  ObservationsListView,
   ObservationType,
 } from "@/lib/observations/types";
 import type { NexusSeverity } from "@/lib/nexus/constants";
@@ -103,7 +104,9 @@ function mapObservationRow(
 
 export async function getNexusObservationsSummary(
   supabase: SupabaseClient,
+  options?: { view?: ObservationsListView },
 ): Promise<NexusObservationsSummary> {
+  const view = options?.view ?? "all";
   const collected_at = new Date().toISOString();
   const historySince = new Date(Date.now() - HISTORY_WINDOW_MS).toISOString();
 
@@ -160,6 +163,19 @@ export async function getNexusObservationsSummary(
     critical: active.filter((row) => row.severity === "critical").length,
     active: active.length,
   };
+
+  if (view === "active") {
+    return { collected_at, counts, active, recent_history: [] };
+  }
+
+  if (view === "history") {
+    return {
+      collected_at,
+      counts: { info: 0, warning: 0, critical: 0, active: 0 },
+      active: [],
+      recent_history,
+    };
+  }
 
   return {
     collected_at,
