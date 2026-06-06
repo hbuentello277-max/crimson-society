@@ -164,12 +164,22 @@ export function NexusMiniStat({
   );
 }
 
-export function NexusRefreshButton({ onClick }: { onClick: () => void }) {
+export function NexusRefreshButton({
+  onClick,
+  compact = false,
+}: {
+  onClick: () => void;
+  compact?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={() => void onClick()}
-      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#b4141e]/40 bg-black/50 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
+      className={`inline-flex items-center gap-1 rounded-lg border border-[#b4141e]/40 bg-black/50 font-medium uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 ${
+        compact
+          ? "min-h-9 px-2.5 py-1.5 text-[9px]"
+          : "min-h-10 gap-1.5 px-4 py-2 text-[10px] tracking-[0.16em]"
+      }`}
     >
       <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
         <path d="M13 3v3H10M3 13V10h3" strokeLinecap="round" strokeLinejoin="round" />

@@ -50,17 +50,19 @@ export function NexusWorkflowHealthBar({
   const criticalCount = workflows.filter((wf) => isCritical(wf.workflow_status)).length;
 
   return (
-    <div className="w-full space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 items-end gap-[3px]">
+    <div className="w-full min-w-0 space-y-3 overflow-hidden">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-end gap-[2px] sm:gap-[3px]">
           {Array.from({ length: segmentCount }).map((_, index) => (
             <span
               key={index}
-              className={`h-7 w-[5px] shrink-0 rounded-sm ${segmentColor(normalized, index, segmentCount)}`}
+              className={`h-6 w-[3px] shrink-0 rounded-sm sm:h-7 sm:w-[4px] ${segmentColor(normalized, index, segmentCount)}`}
             />
           ))}
         </div>
-        <p className="shrink-0 text-3xl font-semibold leading-none text-white">{displayScore}%</p>
+        <p className="shrink-0 text-2xl font-semibold leading-none text-white sm:text-3xl">
+          {displayScore}%
+        </p>
       </div>
 
       <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">

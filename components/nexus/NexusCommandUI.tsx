@@ -30,15 +30,19 @@ export function NexusOverviewMetricCard({
 
   const inner = (
     <div
-      className={`flex min-h-[88px] flex-col justify-between rounded-xl border border-[#b4141e]/20 border-l-[3px] bg-[#0a0608]/95 p-4 transition ${borderClass} ${
+      className={`flex min-h-[68px] min-w-0 flex-col justify-between rounded-lg border border-[#b4141e]/20 border-l-[3px] bg-[#0a0608]/95 p-2.5 transition sm:min-h-[76px] sm:p-3 ${borderClass} ${
         href ? "hover:border-[#b4141e]/40 hover:bg-[#b4141e]/5" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#e87a82]">{label}</p>
-        {icon ? <span className="text-zinc-500">{icon}</span> : null}
+      <div className="flex items-start justify-between gap-1">
+        <p className="line-clamp-2 text-[9px] uppercase leading-snug tracking-[0.12em] text-[#e87a82] sm:text-[10px] sm:tracking-[0.14em]">
+          {label}
+        </p>
+        {icon ? <span className="shrink-0 text-zinc-500">{icon}</span> : null}
       </div>
-      <p className="mt-2 text-xl font-semibold leading-tight text-white sm:text-2xl">{value}</p>
+      <p className="mt-1.5 truncate text-base font-semibold leading-tight text-white sm:mt-2 sm:text-lg">
+        {value}
+      </p>
     </div>
   );
 
@@ -110,6 +114,7 @@ export function NexusDensePanel({
   defaultOpen = true,
   collapsible = false,
   headerAction,
+  compact = false,
 }: {
   title: string;
   href?: string;
@@ -119,9 +124,17 @@ export function NexusDensePanel({
   defaultOpen?: boolean;
   collapsible?: boolean;
   headerAction?: ReactNode;
+  compact?: boolean;
 }) {
+  const headerPadding = compact ? "px-3 py-2" : "px-4 py-3";
+  const headerMinHeight = compact ? "min-h-10" : "min-h-12";
+  const titleClass = compact
+    ? "text-[10px] uppercase tracking-[0.16em] text-[#e87a82]"
+    : "text-[11px] uppercase tracking-[0.22em] text-[#e87a82]";
+  const bodyPadding = compact ? "p-3" : "p-4";
+
   const headerRight = (
-    <div className="flex items-center gap-3">
+    <div className={`flex items-center ${compact ? "gap-2" : "gap-3"}`}>
       {headerAction}
       {href ? (
         <Link
@@ -151,11 +164,13 @@ export function NexusDensePanel({
         open={defaultOpen}
         className={`group overflow-hidden rounded-xl border border-[#b4141e]/25 bg-[#060405]/90 ${className}`}
       >
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between border-b border-[#b4141e]/15 px-4 py-3 marker:content-none">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-[#e87a82]">{title}</span>
+        <summary
+          className={`flex ${headerMinHeight} cursor-pointer list-none items-center justify-between border-b border-[#b4141e]/15 ${headerPadding} marker:content-none`}
+        >
+          <span className={titleClass}>{title}</span>
           {headerRight}
         </summary>
-        <div className={`min-h-0 p-4 ${bodyClassName}`}>{children}</div>
+        <div className={`min-h-0 ${bodyPadding} ${bodyClassName}`}>{children}</div>
       </details>
     );
   }
@@ -164,11 +179,13 @@ export function NexusDensePanel({
     <section
       className={`flex min-h-0 flex-col overflow-hidden rounded-xl border border-[#b4141e]/25 bg-[#060405]/90 ${className}`}
     >
-      <div className="flex min-h-12 shrink-0 items-center justify-between border-b border-[#b4141e]/15 px-4 py-3">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-[#e87a82]">{title}</span>
+      <div
+        className={`flex ${headerMinHeight} shrink-0 items-center justify-between border-b border-[#b4141e]/15 ${headerPadding}`}
+      >
+        <span className={titleClass}>{title}</span>
         {headerRight}
       </div>
-      <div className={`min-h-0 flex-1 p-4 ${bodyClassName}`}>{children}</div>
+      <div className={`min-h-0 flex-1 ${bodyPadding} ${bodyClassName}`}>{children}</div>
     </section>
   );
 }

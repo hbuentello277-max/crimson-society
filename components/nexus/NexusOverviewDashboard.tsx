@@ -249,27 +249,28 @@ export function NexusOverviewDashboard() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">
       <NexusDensePanel
         title={NEXUS_LABELS.operationsOverview}
         collapsible
+        compact
         defaultOpen
         headerAction={
-          <div className="flex items-center gap-3">
-            <p className="hidden text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:block">
-              Last sync: {formatRelativeTime(lastUpdated) || formatDateTime(lastUpdated)}
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="hidden max-w-[9rem] truncate text-[9px] uppercase tracking-[0.1em] text-zinc-500 sm:block">
+              {formatRelativeTime(lastUpdated) || formatDateTime(lastUpdated)}
             </p>
             {errors.length > 0 ? (
-              <span className="text-[10px] uppercase tracking-[0.1em] text-amber-400">Partial</span>
+              <span className="text-[9px] uppercase tracking-[0.1em] text-amber-400">Partial</span>
             ) : null}
-            <NexusRefreshButton onClick={() => void refresh()} />
+            <NexusRefreshButton compact onClick={() => void refresh()} />
           </div>
         }
       >
-        <p className="mb-4 text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:hidden">
+        <p className="mb-2.5 text-[9px] uppercase tracking-[0.1em] text-zinc-500 sm:hidden">
           Last sync: {formatRelativeTime(lastUpdated) || formatDateTime(lastUpdated)}
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid min-w-0 grid-cols-2 gap-2">
           <NexusOverviewMetricCard
             label={NEXUS_LABELS.infrastructure}
             value={infrastructureChipValue(systemStatus, degradedIntegrations.length)}

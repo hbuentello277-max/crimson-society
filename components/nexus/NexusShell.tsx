@@ -93,13 +93,13 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.12em] transition ${
+      className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-medium uppercase tracking-[0.08em] transition ${
         active
-          ? "border-[#b4141e]/70 bg-[#b4141e]/25 text-[#f1c3c7] shadow-[0_0_16px_rgba(180,20,30,0.2)]"
+          ? "border-[#b4141e]/70 bg-[#b4141e]/25 text-[#f1c3c7] shadow-[0_0_12px_rgba(180,20,30,0.18)]"
           : "border-[#b4141e]/20 bg-[#0a0608]/90 text-zinc-400 hover:border-[#b4141e]/40 hover:text-zinc-200"
       }`}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon className="h-3.5 w-3.5 shrink-0" />
       {item.label}
     </Link>
   );
@@ -168,7 +168,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
                 <NexusLiveIndicator />
               </div>
             </div>
-            <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {NAV_ITEMS.map((item) => (
                 <NavLink key={item.href} item={item} pathname={pathname} variant="chip" />
               ))}
