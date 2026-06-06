@@ -169,9 +169,9 @@ export function NexusRefreshButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={() => void onClick()}
-      className="rounded-full border border-[#b4141e]/35 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
+      className="rounded border border-[#b4141e]/35 bg-black/40 px-2 py-0.5 text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10"
     >
-      Refresh
+      Sync
     </button>
   );
 }
