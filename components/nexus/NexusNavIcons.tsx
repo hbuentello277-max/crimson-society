@@ -234,3 +234,13 @@ export function NexusNavOperationalIntelligenceIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavMissionControlIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M10 3.5 16.5 15.5H3.5L10 3.5Z" strokeLinejoin="round" />
+      <circle cx="10" cy="10.5" r="2.5" />
+      <path d="M10 8v1.5M10 12v1" strokeLinecap="round" />
+    </IconBase>
+  );
+}
