@@ -18,6 +18,7 @@ import { NexusMemoryCenter } from "@/components/nexus/NexusMemoryCenter";
 import { NexusCorrelationsCenter } from "@/components/nexus/NexusCorrelationsCenter";
 import { NexusPlanningCenter } from "@/components/nexus/NexusPlanningCenter";
 import { NexusAutomationCenter } from "@/components/nexus/NexusAutomationCenter";
+import { NexusOperatorCenter } from "@/components/nexus/NexusOperatorCenter";
 import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -321,4 +322,8 @@ export function NexusPlanningView() {
 
 export function NexusAutomationView() {
   return <NexusAutomationCenter />;
+}
+
+export function NexusOperatorView() {
+  return <NexusOperatorCenter />;
 }

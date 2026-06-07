@@ -193,3 +193,14 @@ export function NexusNavAutomationIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavOperatorIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M6 5.5h8v9H6z" />
+      <path d="M8.5 8.5h3M8.5 11h2" strokeLinecap="round" />
+      <path d="M10 5.5V4h2v1.5" strokeLinecap="round" />
+      <circle cx="11" cy="13.5" r="1" />
+    </IconBase>
+  );
+}

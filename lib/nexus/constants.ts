@@ -171,6 +171,33 @@ export const NEXUS_AUTOMATION_STATUSES = [
 
 export type NexusAutomationStatus = (typeof NEXUS_AUTOMATION_STATUSES)[number];
 
+/** nexus_operator_executions.execution_type values. */
+export const NEXUS_OPERATOR_EXECUTION_TYPES = [
+  "refresh_health",
+  "refresh_metrics",
+  "refresh_mission",
+  "refresh_intelligence",
+  "refresh_correlations",
+  "refresh_reports",
+  "refresh_briefings",
+  "refresh_memory",
+  "refresh_planning",
+  "operational_snapshot",
+] as const;
+
+export type NexusOperatorExecutionType = (typeof NEXUS_OPERATOR_EXECUTION_TYPES)[number];
+
+/** nexus_operator_executions.status values. */
+export const NEXUS_OPERATOR_EXECUTION_STATUSES = [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+export type NexusOperatorExecutionStatus = (typeof NEXUS_OPERATOR_EXECUTION_STATUSES)[number];
+
 /** Default owner API rate limits (Mark I in-memory). */
 export const NEXUS_OWNER_API_READ_LIMIT = 60;
 export const NEXUS_OWNER_API_WRITE_LIMIT = 20;
