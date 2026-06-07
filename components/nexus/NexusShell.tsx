@@ -226,7 +226,11 @@ export function NexusShell({ children }: { children: ReactNode }) {
             ) : null}
           </header>
 
-          <div className="flex min-h-0 flex-1 flex-col px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-4 lg:py-4">
+          <div
+            className={`flex min-h-0 flex-1 flex-col px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-4 ${
+              founderHome ? "pt-1 lg:pt-2" : "py-3 lg:py-4"
+            }`}
+          >
             {children}
           </div>
         </div>

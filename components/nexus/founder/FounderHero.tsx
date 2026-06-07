@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import { formatDateTime, formatNumber } from "@/lib/nexus/format";
 import { NexusRing } from "@/components/nexus/founder/NexusRing";
+import { NexusRefreshButton } from "@/components/nexus/NexusShared";
 
 type OrbitMetric = {
   label: string;
@@ -17,12 +18,16 @@ export function FounderHero({
   lastHealthCheck,
   platformState,
   orbitMetrics,
+  onRefresh,
+  partialTelemetry = false,
 }: {
   platformStatus: PlatformRingStatus;
   systemStatus: string;
   lastHealthCheck: string | null;
   platformState: string;
   orbitMetrics: OrbitMetric[];
+  onRefresh: () => void;
+  partialTelemetry?: boolean;
 }) {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
@@ -41,17 +46,22 @@ export function FounderHero({
       />
 
       <div className="relative flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Nexus Command Center</p>
-          <p className="mt-1 text-sm leading-snug text-zinc-200">Crimson Society</p>
-          <p className="text-sm leading-snug text-zinc-400">Operating System</p>
+          <p className="mt-1 text-sm leading-snug text-white">Crimson Society Operating System</p>
+          {partialTelemetry ? (
+            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-amber-400">Partial telemetry</p>
+          ) : null}
         </div>
-        <Link
-          href="/admin/nexus/overview"
-          className="shrink-0 rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
-        >
-          Overview
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <NexusRefreshButton compact onClick={onRefresh} />
+          <Link
+            href="/admin/nexus/overview"
+            className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
+          >
+            Overview
+          </Link>
+        </div>
       </div>
 
       <div className="relative mt-6 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">

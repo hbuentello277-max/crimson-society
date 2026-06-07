@@ -6,7 +6,7 @@ import { FounderSnapshotStrip } from "@/components/nexus/founder/FounderSnapshot
 import { FounderPriorityList } from "@/components/nexus/founder/FounderPriorityList";
 import { FounderOpportunityGrid } from "@/components/nexus/founder/FounderOpportunityGrid";
 import { FounderQuickActions } from "@/components/nexus/founder/FounderQuickActions";
-import { NexusLoadingPanel, NexusRefreshButton } from "@/components/nexus/NexusShared";
+import { NexusLoadingPanel } from "@/components/nexus/NexusShared";
 import { useNexusFounderDashboard } from "@/hooks/nexus/useNexusFounderDashboard";
 
 export function NexusFounderDashboard() {
@@ -49,21 +49,14 @@ export function NexusFounderDashboard() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-2">
-      <div className="flex items-center justify-end">
-        {errors.length > 0 ? (
-          <span className="mr-auto text-[10px] uppercase tracking-[0.14em] text-amber-400">
-            Partial telemetry
-          </span>
-        ) : null}
-        <NexusRefreshButton compact onClick={() => void refresh()} />
-      </div>
-
       <FounderHero
         platformStatus={platformStatus}
         systemStatus={health?.system?.status ?? "unknown"}
         lastHealthCheck={health?.system?.checked_at ?? mission?.checked_at ?? null}
         platformState={platformStatus}
         orbitMetrics={orbitMetrics}
+        onRefresh={() => void refresh()}
+        partialTelemetry={errors.length > 0}
       />
 
       <FounderBriefCard brief={brief} />
