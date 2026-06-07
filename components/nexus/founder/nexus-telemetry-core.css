@@ -1,0 +1,80 @@
+.nexus-telemetry-core {
+  filter: drop-shadow(0 0 20px var(--ntc-glow));
+}
+
+.nexus-telemetry-core .ntc-spin-slow {
+  animation: ntc-spin-slow 24s linear infinite;
+  transform-origin: 150px 150px;
+}
+
+.nexus-telemetry-core .ntc-spin-reverse-slow {
+  animation: ntc-spin-reverse-slow 36s linear infinite;
+  transform-origin: 150px 150px;
+}
+
+.nexus-telemetry-core .ntc-pulse-soft {
+  animation: ntc-pulse-soft 2.8s ease-in-out infinite;
+}
+
+.nexus-telemetry-core .ntc-scan-line {
+  animation: ntc-scan-line var(--ntc-scan-duration, 5s) linear infinite;
+  transform-origin: 150px 150px;
+  mix-blend-mode: screen;
+}
+
+.nexus-telemetry-core .ntc-inner-glow-pulse {
+  animation: ntc-inner-glow-pulse 3.6s ease-in-out infinite;
+}
+
+.nexus-telemetry-core--critical .ntc-inner-glow-pulse,
+.nexus-telemetry-core--critical .ntc-pulse-soft {
+  animation-duration: 1.6s;
+}
+
+@keyframes ntc-spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ntc-spin-reverse-slow {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes ntc-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ntc-scan-line {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ntc-inner-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-telemetry-core .ntc-spin-slow,
+  .nexus-telemetry-core .ntc-spin-reverse-slow,
+  .nexus-telemetry-core .ntc-pulse-soft,
+  .nexus-telemetry-core .ntc-scan-line,
+  .nexus-telemetry-core .ntc-inner-glow-pulse {
+    animation: none;
+  }
+}
