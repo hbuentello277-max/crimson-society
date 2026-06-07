@@ -20,6 +20,7 @@ import { NexusPlanningCenter } from "@/components/nexus/NexusPlanningCenter";
 import { NexusAutomationCenter } from "@/components/nexus/NexusAutomationCenter";
 import { NexusOperatorCenter } from "@/components/nexus/NexusOperatorCenter";
 import { NexusForecastingCenter } from "@/components/nexus/NexusForecastingCenter";
+import { NexusCopilotCenter } from "@/components/nexus/NexusCopilotCenter";
 import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -331,4 +332,8 @@ export function NexusOperatorView() {
 
 export function NexusForecastingView() {
   return <NexusForecastingCenter />;
+}
+
+export function NexusCopilotView() {
+  return <NexusCopilotCenter />;
 }

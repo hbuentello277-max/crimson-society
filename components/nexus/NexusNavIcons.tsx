@@ -213,3 +213,13 @@ export function NexusNavForecastingIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavCopilotIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="10" cy="10" r="4.5" />
+      <path d="M10 5.5V3.5M10 14.5v2M5.5 10H3.5M14.5 10H16.5" strokeLinecap="round" />
+      <path d="M6.8 6.8 5.5 5.5M13.2 6.8 14.5 5.5M6.8 13.2 5.5 14.5M13.2 13.2l1.3 1.3" strokeLinecap="round" />
+    </IconBase>
+  );
+}
