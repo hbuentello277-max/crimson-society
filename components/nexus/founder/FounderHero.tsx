@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
-import { formatDateTime, formatNumber } from "@/lib/nexus/format";
+import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/nexus/format";
 import { NexusRing } from "@/components/nexus/founder/NexusRing";
 import { NexusRefreshButton } from "@/components/nexus/NexusShared";
 
@@ -20,6 +20,8 @@ export function FounderHero({
   orbitMetrics,
   onRefresh,
   partialTelemetry = false,
+  syncing = false,
+  lastSyncedAt = null,
 }: {
   platformStatus: PlatformRingStatus;
   systemStatus: string;
@@ -28,6 +30,8 @@ export function FounderHero({
   orbitMetrics: OrbitMetric[];
   onRefresh: () => void;
   partialTelemetry?: boolean;
+  syncing?: boolean;
+  lastSyncedAt?: string | null;
 }) {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
@@ -53,14 +57,27 @@ export function FounderHero({
             <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-amber-400">Partial telemetry</p>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <NexusRefreshButton compact onClick={onRefresh} />
-          <Link
-            href="/admin/nexus/overview"
-            className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
-          >
-            Overview
-          </Link>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            <NexusRefreshButton
+              compact
+              onClick={onRefresh}
+              loading={syncing}
+              disabled={syncing}
+              loadingLabel="Syncing..."
+            />
+            <Link
+              href="/admin/nexus/overview"
+              className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
+            >
+              Overview
+            </Link>
+          </div>
+          {lastSyncedAt ? (
+            <p className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">
+              Synced {formatRelativeTime(lastSyncedAt) || "just now"} · {formatDateTime(lastSyncedAt)}
+            </p>
+          ) : null}
         </div>
       </div>
 

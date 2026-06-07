@@ -132,6 +132,23 @@ export const NEXUS_ACTOR_TYPES = ["owner", "system", "collector", "ai"] as const
 
 export type NexusActorType = (typeof NEXUS_ACTOR_TYPES)[number];
 
+/** nexus_memory_entries.entry_type values. */
+export const NEXUS_MEMORY_ENTRY_TYPES = [
+  "deployment",
+  "milestone",
+  "growth",
+  "revenue",
+  "incident",
+  "alert",
+  "briefing",
+  "report",
+  "intelligence",
+  "command",
+  "owner_note",
+] as const;
+
+export type NexusMemoryEntryType = (typeof NEXUS_MEMORY_ENTRY_TYPES)[number];
+
 /** Default owner API rate limits (Mark I in-memory). */
 export const NEXUS_OWNER_API_READ_LIMIT = 60;
 export const NEXUS_OWNER_API_WRITE_LIMIT = 20;

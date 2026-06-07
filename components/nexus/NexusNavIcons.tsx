@@ -150,3 +150,14 @@ export function NexusNavIntelligenceIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavMemoryIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 4.5h10v11H5z" />
+      <path d="M7.5 8h5M7.5 10.5h4M7.5 13h3" strokeLinecap="round" />
+      <path d="M8 4.5V3.5h4v1" strokeLinecap="round" />
+      <circle cx="13" cy="6" r="1" fill="currentColor" stroke="none" />
+    </IconBase>
+  );
+}

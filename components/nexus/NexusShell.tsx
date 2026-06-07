@@ -14,6 +14,7 @@ import {
   NexusNavOverviewIcon,
   NexusNavBriefingsIcon,
   NexusNavIntelligenceIcon,
+  NexusNavMemoryIcon,
   NexusNavReportsIcon,
   NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
@@ -37,7 +38,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/nexus/system-health",
-    label: "Infra",
+    label: "Infrastructure",
     icon: NexusNavInfraIcon,
   },
   {
@@ -94,6 +95,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/intelligence",
     label: "Intelligence",
     icon: NexusNavIntelligenceIcon,
+  },
+  {
+    href: "/admin/nexus/memory",
+    label: "Memory",
+    icon: NexusNavMemoryIcon,
   },
 ] as const;
 

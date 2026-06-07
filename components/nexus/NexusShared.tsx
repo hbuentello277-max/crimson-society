@@ -167,25 +167,44 @@ export function NexusMiniStat({
 export function NexusRefreshButton({
   onClick,
   compact = false,
+  loading = false,
+  disabled = false,
+  label = "Sync",
+  loadingLabel = "Syncing...",
 }: {
   onClick: () => void;
   compact?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  label?: string;
+  loadingLabel?: string;
 }) {
+  const isDisabled = disabled || loading;
+
   return (
     <button
       type="button"
       onClick={() => void onClick()}
-      className={`inline-flex items-center gap-1 rounded-lg border border-[#b4141e]/40 bg-black/50 font-medium uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 ${
+      disabled={isDisabled}
+      aria-busy={loading}
+      className={`inline-flex items-center gap-1 rounded-lg border border-[#b4141e]/40 bg-black/50 font-medium uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 disabled:cursor-not-allowed disabled:opacity-50 ${
         compact
           ? "min-h-9 px-2.5 py-1.5 text-[9px]"
           : "min-h-10 gap-1.5 px-4 py-2 text-[10px] tracking-[0.16em]"
       }`}
     >
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <svg
+        viewBox="0 0 16 16"
+        className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        aria-hidden
+      >
         <path d="M13 3v3H10M3 13V10h3" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M12.5 6.5A5 5 0 0 0 4 4.5M3.5 9.5A5 5 0 0 0 12 11.5" strokeLinecap="round" />
       </svg>
-      Sync
+      {loading ? loadingLabel : label}
     </button>
   );
 }
