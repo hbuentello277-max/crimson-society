@@ -1,29 +1,48 @@
 "use client";
 
-import { motion } from "framer-motion";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 
-const STATUS_STYLES: Record<
-  PlatformRingStatus,
-  { glow: string; ring: string; pulse: string; accent: string }
-> = {
+type CoreTone = {
+  label: string;
+  accent: string;
+  accentSoft: string;
+  glow: string;
+  scan: string;
+  nodeGlow: string;
+  segmentOpacity: number;
+  scanDuration: string;
+};
+
+const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
   operational: {
-    glow: "rgba(180,20,30,0.55)",
-    ring: "#b4141e",
-    pulse: "rgba(180,20,30,0.35)",
-    accent: "#e87a82",
+    label: "Operational",
+    accent: "#ff1e2d",
+    accentSoft: "#8b0e16",
+    glow: "rgba(255,30,45,0.54)",
+    scan: "rgba(255,30,45,0.32)",
+    nodeGlow: "rgba(255,56,71,0.74)",
+    segmentOpacity: 0.9,
+    scanDuration: "5s",
   },
   warning: {
-    glow: "rgba(245,158,11,0.45)",
-    ring: "#f59e0b",
-    pulse: "rgba(245,158,11,0.28)",
-    accent: "#fcd34d",
+    label: "Needs Attention",
+    accent: "#ffc107",
+    accentSoft: "#9a6500",
+    glow: "rgba(255,193,7,0.48)",
+    scan: "rgba(255,193,7,0.32)",
+    nodeGlow: "rgba(255,193,7,0.68)",
+    segmentOpacity: 0.86,
+    scanDuration: "4.2s",
   },
   critical: {
-    glow: "rgba(239,68,68,0.55)",
-    ring: "#ef4444",
-    pulse: "rgba(239,68,68,0.38)",
-    accent: "#fca5a5",
+    label: "Critical",
+    accent: "#ff3847",
+    accentSoft: "#9f111c",
+    glow: "rgba(255,56,71,0.68)",
+    scan: "rgba(255,56,71,0.42)",
+    nodeGlow: "rgba(255,56,71,0.9)",
+    segmentOpacity: 1,
+    scanDuration: "2.8s",
   },
 };
 
@@ -32,106 +51,223 @@ type NexusRingProps = {
   size?: number;
 };
 
-export function NexusRing({ status, size = 280 }: NexusRingProps) {
-  const styles = STATUS_STYLES[status];
-  const center = size / 2;
-  const outerRadius = size * 0.42;
-  const midRadius = size * 0.34;
-  const innerRadius = size * 0.26;
+function segmentTransform(index: number) {
+  return `rotate(${index * 30} 150 150)`;
+}
+
+export function NexusRing({ status, size = 260 }: NexusRingProps) {
+  const tone = STATUS_TONES[status] ?? STATUS_TONES.operational;
+  const nodes = [
+    { x: 150, y: 24, line: "M150 12v36", delay: "0s" },
+    { x: 276, y: 150, line: "M252 150h36", delay: "0.45s" },
+    { x: 150, y: 276, line: "M150 252v36", delay: "0.9s" },
+    { x: 24, y: 150, line: "M12 150h36", delay: "1.35s" },
+  ];
 
   return (
-    <div className="relative mx-auto" style={{ width: size, height: size }}>
-      <motion.div
-        className="absolute inset-0 rounded-full"
-        animate={{ opacity: [0.35, 0.7, 0.35], scale: [0.96, 1.04, 0.96] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          background: `radial-gradient(circle, ${styles.pulse} 0%, transparent 68%)`,
-          filter: "blur(8px)",
-        }}
-      />
-
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="relative z-[1]">
-        {[1, 0.72, 0.48].map((scale, index) => (
-          <motion.circle
-            key={scale}
-            cx={center}
-            cy={center}
-            r={outerRadius * scale}
-            fill="none"
-            stroke={styles.ring}
-            strokeOpacity={0.12 + index * 0.06}
-            strokeWidth={index === 0 ? 1.5 : 0.75}
-            animate={{ rotate: index % 2 === 0 ? 360 : -360 }}
-            transition={{ duration: 28 + index * 8, repeat: Infinity, ease: "linear" }}
-            style={{ transformOrigin: `${center}px ${center}px` }}
-          />
-        ))}
-
-        <motion.g
-          animate={{ rotate: 360 }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          style={{ transformOrigin: `${center}px ${center}px` }}
-        >
-          {Array.from({ length: 24 }).map((_, index) => {
-            const angle = (index / 24) * Math.PI * 2;
-            const x1 = center + Math.cos(angle) * (midRadius - 6);
-            const y1 = center + Math.sin(angle) * (midRadius - 6);
-            const x2 = center + Math.cos(angle) * (midRadius + (index % 3 === 0 ? 10 : 4));
-            const y2 = center + Math.sin(angle) * (midRadius + (index % 3 === 0 ? 10 : 4));
-            return (
-              <line
-                key={index}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={styles.ring}
-                strokeOpacity={index % 3 === 0 ? 0.9 : 0.35}
-                strokeWidth={index % 3 === 0 ? 2 : 1}
-              />
-            );
-          })}
-        </motion.g>
+    <div
+      className="nexus-core relative mx-auto aspect-square w-full max-w-[min(68vw,17rem)] sm:max-w-[17.5rem]"
+      style={
+        {
+          "--core-accent": tone.accent,
+          "--core-accent-soft": tone.accentSoft,
+          "--core-glow": tone.glow,
+          "--core-scan": tone.scan,
+          "--core-node-glow": tone.nodeGlow,
+          "--core-segment-opacity": tone.segmentOpacity,
+          "--core-scan-duration": tone.scanDuration,
+          width: size,
+        } as React.CSSProperties
+      }
+      role="img"
+      aria-label={`Nexus telemetry core. Platform status: ${tone.label}.`}
+    >
+      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.84)_42%,transparent_70%)]" />
+      <svg
+        className="relative z-[1] h-full w-full overflow-visible"
+        viewBox="0 0 300 300"
+        fill="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <filter id="nexus-core-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <radialGradient id="nexus-inner-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.09" />
+            <stop offset="48%" stopColor={tone.accent} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={tone.accent} stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="nexus-scan-gradient" x1="150" y1="150" x2="256" y2="98">
+            <stop offset="0%" stopColor={tone.accent} stopOpacity="0" />
+            <stop offset="72%" stopColor={tone.accent} stopOpacity="0.14" />
+            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.66" />
+          </linearGradient>
+        </defs>
 
         <circle
-          cx={center}
-          cy={center}
-          r={innerRadius}
-          fill="rgba(0,0,0,0.55)"
-          stroke={styles.ring}
-          strokeOpacity={0.35}
-          strokeWidth={1}
+          cx="150"
+          cy="150"
+          r="126"
+          stroke="var(--core-accent)"
+          strokeOpacity="0.28"
+          strokeWidth="1.5"
+        />
+        <circle
+          cx="150"
+          cy="150"
+          r="116"
+          stroke="var(--core-accent)"
+          strokeOpacity="0.58"
+          strokeWidth="5"
+          strokeDasharray="58 22"
+          strokeLinecap="round"
+          filter="url(#nexus-core-glow)"
         />
 
-        <motion.circle
-          cx={center}
-          cy={center}
-          r={midRadius}
-          fill="none"
-          stroke={styles.ring}
-          strokeWidth={3}
-          strokeOpacity={0.85}
-          strokeDasharray="12 8 4 8"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
-          style={{ transformOrigin: `${center}px ${center}px` }}
+        <g className="nexus-core__ticks">
+          {Array.from({ length: 96 }).map((_, index) => (
+            <line
+              key={index}
+              x1="150"
+              y1="30"
+              x2="150"
+              y2={index % 6 === 0 ? "38" : "35"}
+              transform={`rotate(${index * 3.75} 150 150)`}
+              stroke="var(--core-accent)"
+              strokeOpacity={index % 6 === 0 ? 0.72 : 0.34}
+              strokeWidth={index % 6 === 0 ? 1.2 : 0.75}
+              strokeLinecap="round"
+            />
+          ))}
+        </g>
+
+        <g className="nexus-core__segments" filter="url(#nexus-core-glow)">
+          {Array.from({ length: 12 }).map((_, index) => (
+            <rect
+              key={index}
+              x="137"
+              y="58"
+              width="26"
+              height="24"
+              rx="3"
+              transform={segmentTransform(index)}
+              fill="rgba(255,255,255,0.84)"
+              stroke="var(--core-accent)"
+              strokeWidth="2"
+              opacity="var(--core-segment-opacity)"
+            />
+          ))}
+        </g>
+
+        <g className="nexus-core__scan">
+          <path
+            d="M150 150 L247 96 A112 112 0 0 1 260 150 Z"
+            fill="url(#nexus-scan-gradient)"
+          />
+          <line
+            x1="150"
+            y1="150"
+            x2="258"
+            y2="104"
+            stroke="var(--core-accent)"
+            strokeOpacity="0.6"
+            strokeWidth="1"
+          />
+        </g>
+
+        <circle
+          className="nexus-core__inner-glow"
+          cx="150"
+          cy="150"
+          r="70"
+          fill="url(#nexus-inner-glow)"
+          stroke="var(--core-accent)"
+          strokeOpacity="0.34"
+          strokeWidth="1.25"
         />
+        <circle
+          cx="150"
+          cy="150"
+          r="58"
+          fill="rgba(0,0,0,0.62)"
+          stroke="var(--core-accent-soft)"
+          strokeOpacity="0.58"
+          strokeWidth="1"
+        />
+
+        {nodes.map((node) => (
+          <g key={`${node.x}-${node.y}`} className="nexus-core__node" style={{ animationDelay: node.delay }}>
+            <path d={node.line} stroke="var(--core-accent)" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx={node.x} cy={node.y} r="9" fill="rgba(0,0,0,0.84)" stroke="var(--core-accent)" strokeWidth="2" />
+            <circle cx={node.x} cy={node.y} r="4.5" fill="white" />
+          </g>
+        ))}
       </svg>
 
-      <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center text-center">
-        <motion.p
-          className="font-sans text-4xl font-semibold tracking-[0.35em] sm:text-5xl"
-          style={{
-            color: styles.accent,
-            textShadow: `0 0 24px ${styles.glow}, 0 0 48px ${styles.glow}`,
-          }}
-          animate={{ opacity: [0.88, 1, 0.88] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-        >
+      <div className="absolute inset-0 z-[2] flex items-center justify-center">
+        <p className="select-none pl-[0.34em] font-sans text-[clamp(1.65rem,8vw,2.9rem)] font-semibold tracking-[0.34em] text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.48)]">
           NEXUS
-        </motion.p>
+        </p>
       </div>
+
+      <style>{`
+        .nexus-core {
+          filter: drop-shadow(0 0 22px var(--core-glow));
+        }
+
+        .nexus-core__segments {
+          animation: nexus-segment-rotate 22s linear infinite;
+          transform-origin: 150px 150px;
+        }
+
+        .nexus-core__scan {
+          animation: nexus-scan-rotate var(--core-scan-duration) linear infinite;
+          transform-origin: 150px 150px;
+          mix-blend-mode: screen;
+        }
+
+        .nexus-core__node {
+          animation: nexus-node-pulse 2.7s ease-in-out infinite;
+          filter: drop-shadow(0 0 8px var(--core-node-glow));
+        }
+
+        .nexus-core__inner-glow {
+          animation: nexus-core-breathe 3.8s ease-in-out infinite;
+          filter: drop-shadow(0 0 16px var(--core-glow));
+        }
+
+        @keyframes nexus-segment-rotate {
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes nexus-scan-rotate {
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes nexus-node-pulse {
+          0%, 100% { opacity: 0.72; transform: scale(0.94); transform-origin: center; }
+          50% { opacity: 1; transform: scale(1.08); transform-origin: center; }
+        }
+
+        @keyframes nexus-core-breathe {
+          0%, 100% { opacity: 0.72; }
+          50% { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .nexus-core__segments,
+          .nexus-core__scan,
+          .nexus-core__node,
+          .nexus-core__inner-glow {
+            animation: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }
