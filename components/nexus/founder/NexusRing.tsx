@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import "./nexus-ring.css";
 
@@ -11,7 +12,7 @@ type CoreTone = {
   scan: string;
   nodeGlow: string;
   segmentOpacity: number;
-  scanDuration: string;
+  scanDuration: number;
 };
 
 const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
@@ -23,7 +24,7 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,30,45,0.32)",
     nodeGlow: "rgba(255,56,71,0.74)",
     segmentOpacity: 0.9,
-    scanDuration: "4.5s",
+    scanDuration: 4.5,
   },
   warning: {
     label: "Needs Attention",
@@ -33,7 +34,7 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,193,7,0.32)",
     nodeGlow: "rgba(255,193,7,0.68)",
     segmentOpacity: 0.86,
-    scanDuration: "3.8s",
+    scanDuration: 3.8,
   },
   critical: {
     label: "Critical",
@@ -43,9 +44,11 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,56,71,0.42)",
     nodeGlow: "rgba(255,56,71,0.9)",
     segmentOpacity: 1,
-    scanDuration: "2.4s",
+    scanDuration: 2.4,
   },
 };
+
+const CORE_ORIGIN = "150px 150px";
 
 export type NexusRingProps = {
   status: PlatformRingStatus;
@@ -59,12 +62,37 @@ function segmentTransform(index: number) {
 
 export function NexusRing({ status, size = 260, className = "" }: NexusRingProps) {
   const tone = STATUS_TONES[status] ?? STATUS_TONES.operational;
+  const reduceMotion = useReducedMotion();
   const nodes = [
-    { x: 150, y: 24, line: "M150 12v36", delay: "0s" },
-    { x: 276, y: 150, line: "M252 150h36", delay: "0.45s" },
-    { x: 150, y: 276, line: "M150 252v36", delay: "0.9s" },
-    { x: 24, y: 150, line: "M12 150h36", delay: "1.35s" },
+    { x: 150, y: 24, line: "M150 12v36", delay: 0 },
+    { x: 276, y: 150, line: "M252 150h36", delay: 0.45 },
+    { x: 150, y: 276, line: "M150 252v36", delay: 0.9 },
+    { x: 24, y: 150, line: "M12 150h36", delay: 1.35 },
   ];
+
+  const spin = (duration: number, reverse = false) =>
+    reduceMotion
+      ? {}
+      : {
+          animate: { rotate: reverse ? -360 : 360 },
+          transition: { duration, repeat: Infinity, ease: "linear" as const },
+        };
+
+  const pulse = (duration: number, delay = 0) =>
+    reduceMotion
+      ? {}
+      : {
+          animate: { opacity: [0.68, 1, 0.68] },
+          transition: { duration, repeat: Infinity, ease: "easeInOut" as const, delay },
+        };
+
+  const nodePulse = (delay: number) =>
+    reduceMotion
+      ? {}
+      : {
+          animate: { opacity: [0.62, 1, 0.62], scale: [0.9, 1.14, 0.9] },
+          transition: { duration: 2.2, repeat: Infinity, ease: "easeInOut" as const, delay },
+        };
 
   return (
     <div
@@ -77,7 +105,6 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           "--core-scan": tone.scan,
           "--core-node-glow": tone.nodeGlow,
           "--core-segment-opacity": tone.segmentOpacity,
-          "--core-scan-duration": tone.scanDuration,
           maxWidth: `min(72vw, ${size}px)`,
         } as React.CSSProperties
       }
@@ -106,12 +133,16 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           </radialGradient>
           <linearGradient id="nexus-scan-gradient" x1="150" y1="150" x2="256" y2="98">
             <stop offset="0%" stopColor={tone.accent} stopOpacity="0" />
-            <stop offset="55%" stopColor={tone.accent} stopOpacity="0.08" />
-            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.78" />
+            <stop offset="55%" stopColor={tone.accent} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.82" />
           </linearGradient>
         </defs>
 
-        <g className="nexus-core__outer-orbit">
+        <motion.g
+          className="nexus-core__outer-orbit"
+          style={{ transformOrigin: CORE_ORIGIN }}
+          {...spin(14)}
+        >
           <circle
             cx="150"
             cy="150"
@@ -131,7 +162,7 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
             strokeLinecap="round"
             filter="url(#nexus-core-glow)"
           />
-        </g>
+        </motion.g>
 
         <g className="nexus-core__ticks">
           {Array.from({ length: 96 }).map((_, index) => (
@@ -150,25 +181,36 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           ))}
         </g>
 
-        <g className="nexus-core__segments" filter="url(#nexus-core-glow)">
-          {Array.from({ length: 12 }).map((_, index) => (
-            <rect
-              key={index}
-              x="137"
-              y="58"
-              width="26"
-              height="24"
-              rx="3"
-              transform={segmentTransform(index)}
-              fill="rgba(255,255,255,0.84)"
-              stroke="var(--core-accent)"
-              strokeWidth="2"
-              opacity="var(--core-segment-opacity)"
-            />
-          ))}
-        </g>
+        <motion.g
+          className="nexus-core__segments"
+          style={{ transformOrigin: CORE_ORIGIN }}
+          filter="url(#nexus-core-glow)"
+          {...spin(12)}
+        >
+          <motion.g {...pulse(2.2)}>
+            {Array.from({ length: 12 }).map((_, index) => (
+              <rect
+                key={index}
+                x="137"
+                y="58"
+                width="26"
+                height="24"
+                rx="3"
+                transform={segmentTransform(index)}
+                fill="rgba(255,255,255,0.84)"
+                stroke="var(--core-accent)"
+                strokeWidth="2"
+                opacity="var(--core-segment-opacity)"
+              />
+            ))}
+          </motion.g>
+        </motion.g>
 
-        <g className="nexus-core__scan">
+        <motion.g
+          className="nexus-core__scan"
+          style={{ transformOrigin: CORE_ORIGIN, mixBlendMode: "screen" }}
+          {...spin(tone.scanDuration)}
+        >
           <path d="M150 150 L247 96 A112 112 0 0 1 260 150 Z" fill="url(#nexus-scan-gradient)" />
           <line
             x1="150"
@@ -176,12 +218,12 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
             x2="258"
             y2="104"
             stroke="var(--core-accent)"
-            strokeOpacity="0.75"
+            strokeOpacity="0.8"
             strokeWidth="1.25"
           />
-        </g>
+        </motion.g>
 
-        <circle
+        <motion.circle
           className="nexus-core__inner-glow"
           cx="150"
           cy="150"
@@ -190,6 +232,8 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           stroke="var(--core-accent)"
           strokeOpacity="0.34"
           strokeWidth="1.25"
+          style={{ transformOrigin: CORE_ORIGIN, filter: "drop-shadow(0 0 16px var(--core-glow))" }}
+          {...pulse(3.2)}
         />
         <circle
           cx="150"
@@ -202,10 +246,14 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
         />
 
         {nodes.map((node) => (
-          <g
+          <motion.g
             key={`${node.x}-${node.y}`}
             className="nexus-core__node"
-            style={{ animationDelay: node.delay }}
+            style={{
+              transformOrigin: `${node.x}px ${node.y}px`,
+              filter: "drop-shadow(0 0 8px var(--core-node-glow))",
+            }}
+            {...nodePulse(node.delay)}
           >
             <path d={node.line} stroke="var(--core-accent)" strokeWidth="1.5" strokeLinecap="round" />
             <circle
@@ -217,13 +265,13 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
               strokeWidth="2"
             />
             <circle cx={node.x} cy={node.y} r="4.5" fill="var(--core-accent)" />
-          </g>
+          </motion.g>
         ))}
       </svg>
 
       <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
         <div className="flex h-[38%] w-[38%] items-center justify-center">
-          <p className="select-none text-center font-sans text-[clamp(0.82rem,4vw,1.55rem)] font-semibold leading-none tracking-[0.08em] text-white sm:text-[clamp(1.2rem,4.8vw,2.1rem)] sm:tracking-[0.16em]">
+          <p className="select-none text-center font-sans text-[clamp(0.95rem,5vw,1.72rem)] font-semibold leading-none tracking-[0.1em] text-white sm:text-[clamp(1.35rem,5.2vw,2.35rem)] sm:tracking-[0.15em]">
             NEXUS
           </p>
         </div>
