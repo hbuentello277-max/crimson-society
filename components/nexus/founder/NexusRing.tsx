@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useEffect, useId, useState } from "react";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import "./nexus-ring.css";
 
@@ -12,7 +13,8 @@ type CoreTone = {
   scan: string;
   nodeGlow: string;
   segmentOpacity: number;
-  scanDuration: number;
+  scanDur: string;
+  scanMotionDur: number;
 };
 
 const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
@@ -24,7 +26,8 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,30,45,0.32)",
     nodeGlow: "rgba(255,56,71,0.74)",
     segmentOpacity: 0.9,
-    scanDuration: 4.5,
+    scanDur: "4.5s",
+    scanMotionDur: 4.5,
   },
   warning: {
     label: "Needs Attention",
@@ -34,7 +37,8 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,193,7,0.32)",
     nodeGlow: "rgba(255,193,7,0.68)",
     segmentOpacity: 0.86,
-    scanDuration: 3.8,
+    scanDur: "3.8s",
+    scanMotionDur: 3.8,
   },
   critical: {
     label: "Critical",
@@ -44,10 +48,13 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,56,71,0.42)",
     nodeGlow: "rgba(255,56,71,0.9)",
     segmentOpacity: 1,
-    scanDuration: 2.4,
+    scanDur: "2.4s",
+    scanMotionDur: 2.4,
   },
 };
 
+const CX = 150;
+const CY = 150;
 const CORE_ORIGIN = "150px 150px";
 
 export type NexusRingProps = {
@@ -57,42 +64,84 @@ export type NexusRingProps = {
 };
 
 function segmentTransform(index: number) {
-  return `rotate(${index * 30} 150 150)`;
+  return `rotate(${index * 30} ${CX} ${CY})`;
 }
 
+function isAppleWebKit() {
+  if (typeof navigator === "undefined") return false;
+  return /AppleWebKit/i.test(navigator.userAgent) && !/Chrome|CriOS|Chromium/i.test(navigator.userAgent);
+}
+
+function SmilRotate({ dur }: { dur: string }) {
+  return (
+    <animateTransform
+      attributeName="transform"
+      attributeType="XML"
+      type="rotate"
+      from={`0 ${CX} ${CY}`}
+      to={`360 ${CX} ${CY}`}
+      dur={dur}
+      repeatCount="indefinite"
+    />
+  );
+}
+
+function SmilOpacityPulse({
+  dur,
+  begin,
+  values = "0.68;1;0.68",
+}: {
+  dur: string;
+  begin?: string;
+  values?: string;
+}) {
+  return (
+    <animate
+      attributeName="opacity"
+      values={values}
+      dur={dur}
+      begin={begin}
+      repeatCount="indefinite"
+    />
+  );
+}
+
+const SPIN_LINEAR = (duration: number) => ({
+  animate: { rotate: 360 },
+  transition: { duration, repeat: Infinity, ease: "linear" as const },
+});
+
+const PULSE_OPACITY = (duration: number, delay = 0) => ({
+  animate: { opacity: [0.68, 1, 0.68] },
+  transition: { duration, repeat: Infinity, ease: "easeInOut" as const, delay },
+});
+
 export function NexusRing({ status, size = 260, className = "" }: NexusRingProps) {
+  const uid = useId().replace(/:/g, "");
   const tone = STATUS_TONES[status] ?? STATUS_TONES.operational;
-  const reduceMotion = useReducedMotion();
+  const [useSmil, setUseSmil] = useState(false);
+
+  useEffect(() => {
+    setUseSmil(isAppleWebKit());
+  }, []);
+
   const nodes = [
-    { x: 150, y: 24, line: "M150 12v36", delay: 0 },
-    { x: 276, y: 150, line: "M252 150h36", delay: 0.45 },
-    { x: 150, y: 276, line: "M150 252v36", delay: 0.9 },
-    { x: 24, y: 150, line: "M12 150h36", delay: 1.35 },
+    { x: 150, y: 24, line: "M150 12v36", delay: 0, begin: "0s" },
+    { x: 276, y: 150, line: "M252 150h36", delay: 0.45, begin: "0.45s" },
+    { x: 150, y: 276, line: "M150 252v36", delay: 0.9, begin: "0.9s" },
+    { x: 24, y: 150, line: "M12 150h36", delay: 1.35, begin: "1.35s" },
   ];
 
-  const spin = (duration: number, reverse = false) =>
-    reduceMotion
-      ? {}
-      : {
-          animate: { rotate: reverse ? -360 : 360 },
-          transition: { duration, repeat: Infinity, ease: "linear" as const },
-        };
-
-  const pulse = (duration: number, delay = 0) =>
-    reduceMotion
-      ? {}
-      : {
-          animate: { opacity: [0.68, 1, 0.68] },
-          transition: { duration, repeat: Infinity, ease: "easeInOut" as const, delay },
-        };
-
-  const nodePulse = (delay: number) =>
-    reduceMotion
-      ? {}
-      : {
-          animate: { opacity: [0.62, 1, 0.62], scale: [0.9, 1.14, 0.9] },
-          transition: { duration: 2.2, repeat: Infinity, ease: "easeInOut" as const, delay },
-        };
+  const OuterOrbitWrapper = useSmil ? "g" : motion.g;
+  const SegmentsWrapper = useSmil ? "g" : motion.g;
+  const ScanWrapper = useSmil ? "g" : motion.g;
+  const SegmentPulseWrapper = useSmil ? "g" : motion.g;
+  const outerMotion = useSmil ? {} : { style: { transformOrigin: CORE_ORIGIN }, ...SPIN_LINEAR(18) };
+  const segmentsMotion = useSmil ? {} : { style: { transformOrigin: CORE_ORIGIN }, ...SPIN_LINEAR(12) };
+  const scanMotion = useSmil
+    ? { style: { mixBlendMode: "screen" as const } }
+    : { style: { transformOrigin: CORE_ORIGIN, mixBlendMode: "screen" as const }, ...SPIN_LINEAR(tone.scanMotionDur) };
+  const segmentPulseMotion = useSmil ? {} : PULSE_OPACITY(2.2);
 
   return (
     <div
@@ -111,7 +160,16 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
       role="img"
       aria-label={`Nexus telemetry core. Platform status: ${tone.label}.`}
     >
-      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.84)_42%,transparent_70%)]" />
+      <motion.div
+        className="absolute inset-0 rounded-full"
+        animate={{ opacity: [0.55, 1, 0.55], scale: [0.97, 1.03, 0.97] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          background:
+            "radial-gradient(circle,rgba(255,255,255,0.05)_0%,rgba(0,0,0,0.84)_42%,transparent_70%)",
+        }}
+      />
+
       <svg
         className="relative z-[1] h-full w-full"
         viewBox="0 0 300 300"
@@ -119,60 +177,62 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
         aria-hidden="true"
       >
         <defs>
-          <filter id="nexus-core-glow" x="-80%" y="-80%" width="260%" height="260%">
+          <filter id={`nexus-core-glow-${uid}`} x="-80%" y="-80%" width="260%" height="260%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <radialGradient id="nexus-inner-glow" cx="50%" cy="50%" r="50%">
+          <radialGradient id={`nexus-inner-glow-${uid}`} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="white" stopOpacity="0.09" />
             <stop offset="48%" stopColor={tone.accent} stopOpacity="0.12" />
             <stop offset="100%" stopColor={tone.accent} stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="nexus-scan-gradient" x1="150" y1="150" x2="256" y2="98">
+          <linearGradient id={`nexus-scan-gradient-${uid}`} x1="150" y1="150" x2="256" y2="98">
             <stop offset="0%" stopColor={tone.accent} stopOpacity="0" />
             <stop offset="55%" stopColor={tone.accent} stopOpacity="0.12" />
             <stop offset="100%" stopColor={tone.accent} stopOpacity="0.82" />
           </linearGradient>
         </defs>
 
-        <motion.g
+        <circle
+          cx={CX}
+          cy={CY}
+          r="126"
+          stroke="var(--core-accent)"
+          strokeOpacity="0.28"
+          strokeWidth="1.5"
+        />
+
+        <OuterOrbitWrapper
           className="nexus-core__outer-orbit"
-          style={{ transformOrigin: CORE_ORIGIN }}
-          {...spin(14)}
+          filter={`url(#nexus-core-glow-${uid})`}
+          {...outerMotion}
         >
+          {useSmil ? <SmilRotate dur="18s" /> : null}
           <circle
-            cx="150"
-            cy="150"
-            r="126"
-            stroke="var(--core-accent)"
-            strokeOpacity="0.28"
-            strokeWidth="1.5"
-          />
-          <circle
-            cx="150"
-            cy="150"
+            cx={CX}
+            cy={CY}
             r="116"
             stroke="var(--core-accent)"
             strokeOpacity="0.58"
             strokeWidth="5"
             strokeDasharray="58 22"
             strokeLinecap="round"
-            filter="url(#nexus-core-glow)"
+            fill="none"
           />
-        </motion.g>
+        </OuterOrbitWrapper>
 
         <g className="nexus-core__ticks">
           {Array.from({ length: 96 }).map((_, index) => (
             <line
               key={index}
-              x1="150"
+              x1={CX}
               y1="30"
-              x2="150"
+              x2={CX}
               y2={index % 6 === 0 ? "38" : "35"}
-              transform={`rotate(${index * 3.75} 150 150)`}
+              transform={`rotate(${index * 3.75} ${CX} ${CY})`}
               stroke="var(--core-accent)"
               strokeOpacity={index % 6 === 0 ? 0.72 : 0.34}
               strokeWidth={index % 6 === 0 ? 1.2 : 0.75}
@@ -181,13 +241,14 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           ))}
         </g>
 
-        <motion.g
+        <SegmentsWrapper
           className="nexus-core__segments"
-          style={{ transformOrigin: CORE_ORIGIN }}
-          filter="url(#nexus-core-glow)"
-          {...spin(12)}
+          filter={`url(#nexus-core-glow-${uid})`}
+          {...segmentsMotion}
         >
-          <motion.g {...pulse(2.2)}>
+          {useSmil ? <SmilRotate dur="12s" /> : null}
+          <SegmentPulseWrapper {...segmentPulseMotion}>
+            {useSmil ? <SmilOpacityPulse dur="2.2s" /> : null}
             {Array.from({ length: 12 }).map((_, index) => (
               <rect
                 key={index}
@@ -203,41 +264,58 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
                 opacity="var(--core-segment-opacity)"
               />
             ))}
-          </motion.g>
-        </motion.g>
+          </SegmentPulseWrapper>
+        </SegmentsWrapper>
 
-        <motion.g
-          className="nexus-core__scan"
-          style={{ transformOrigin: CORE_ORIGIN, mixBlendMode: "screen" }}
-          {...spin(tone.scanDuration)}
-        >
-          <path d="M150 150 L247 96 A112 112 0 0 1 260 150 Z" fill="url(#nexus-scan-gradient)" />
+        <ScanWrapper className="nexus-core__scan" {...scanMotion}>
+          {useSmil ? <SmilRotate dur={tone.scanDur} /> : null}
+          <path
+            d="M150 150 L247 96 A112 112 0 0 1 260 150 Z"
+            fill={`url(#nexus-scan-gradient-${uid})`}
+          />
           <line
-            x1="150"
-            y1="150"
+            x1={CX}
+            y1={CY}
             x2="258"
             y2="104"
             stroke="var(--core-accent)"
             strokeOpacity="0.8"
             strokeWidth="1.25"
           />
-        </motion.g>
+        </ScanWrapper>
 
-        <motion.circle
-          className="nexus-core__inner-glow"
-          cx="150"
-          cy="150"
-          r="70"
-          fill="url(#nexus-inner-glow)"
-          stroke="var(--core-accent)"
-          strokeOpacity="0.34"
-          strokeWidth="1.25"
-          style={{ transformOrigin: CORE_ORIGIN, filter: "drop-shadow(0 0 16px var(--core-glow))" }}
-          {...pulse(3.2)}
-        />
+        {useSmil ? (
+          <circle
+            className="nexus-core__inner-glow"
+            cx={CX}
+            cy={CY}
+            r="70"
+            fill={`url(#nexus-inner-glow-${uid})`}
+            stroke="var(--core-accent)"
+            strokeOpacity="0.34"
+            strokeWidth="1.25"
+            style={{ filter: "drop-shadow(0 0 16px var(--core-glow))" }}
+          >
+            <SmilOpacityPulse dur="3.2s" values="0.62;1;0.62" />
+          </circle>
+        ) : (
+          <motion.circle
+            className="nexus-core__inner-glow"
+            cx={CX}
+            cy={CY}
+            r="70"
+            fill={`url(#nexus-inner-glow-${uid})`}
+            stroke="var(--core-accent)"
+            strokeOpacity="0.34"
+            strokeWidth="1.25"
+            style={{ transformOrigin: CORE_ORIGIN, filter: "drop-shadow(0 0 16px var(--core-glow))" }}
+            {...PULSE_OPACITY(3.2)}
+          />
+        )}
+
         <circle
-          cx="150"
-          cy="150"
+          cx={CX}
+          cy={CY}
           r="58"
           fill="rgba(0,0,0,0.72)"
           stroke="var(--core-accent-soft)"
@@ -245,28 +323,54 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           strokeWidth="1"
         />
 
-        {nodes.map((node) => (
-          <motion.g
-            key={`${node.x}-${node.y}`}
-            className="nexus-core__node"
-            style={{
-              transformOrigin: `${node.x}px ${node.y}px`,
-              filter: "drop-shadow(0 0 8px var(--core-node-glow))",
-            }}
-            {...nodePulse(node.delay)}
-          >
-            <path d={node.line} stroke="var(--core-accent)" strokeWidth="1.5" strokeLinecap="round" />
-            <circle
-              cx={node.x}
-              cy={node.y}
-              r="9"
-              fill="rgba(0,0,0,0.84)"
-              stroke="var(--core-accent)"
-              strokeWidth="2"
-            />
-            <circle cx={node.x} cy={node.y} r="4.5" fill="var(--core-accent)" />
-          </motion.g>
-        ))}
+        {nodes.map((node) =>
+          useSmil ? (
+            <g
+              key={`${node.x}-${node.y}`}
+              className="nexus-core__node"
+              style={{ filter: "drop-shadow(0 0 8px var(--core-node-glow))" }}
+            >
+              <path d={node.line} stroke="var(--core-accent)" strokeWidth="1.5" strokeLinecap="round" />
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r="9"
+                fill="rgba(0,0,0,0.84)"
+                stroke="var(--core-accent)"
+                strokeWidth="2"
+              />
+              <circle cx={node.x} cy={node.y} r="4.5" fill="var(--core-accent)" />
+              <SmilOpacityPulse dur="2.2s" begin={node.begin} values="0.62;1;0.62" />
+            </g>
+          ) : (
+            <motion.g
+              key={`${node.x}-${node.y}`}
+              className="nexus-core__node"
+              style={{
+                transformOrigin: `${node.x}px ${node.y}px`,
+                filter: "drop-shadow(0 0 8px var(--core-node-glow))",
+              }}
+              animate={{ opacity: [0.62, 1, 0.62] }}
+              transition={{
+                duration: 2.2,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: node.delay,
+              }}
+            >
+              <path d={node.line} stroke="var(--core-accent)" strokeWidth="1.5" strokeLinecap="round" />
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r="9"
+                fill="rgba(0,0,0,0.84)"
+                stroke="var(--core-accent)"
+                strokeWidth="2"
+              />
+              <circle cx={node.x} cy={node.y} r="4.5" fill="var(--core-accent)" />
+            </motion.g>
+          ),
+        )}
       </svg>
 
       <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
