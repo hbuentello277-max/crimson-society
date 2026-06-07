@@ -14,6 +14,7 @@ import {
   formatRelativeTime,
   integrationDisplayName,
 } from "@/lib/nexus/format";
+import { isDegradedWorkflowStatus } from "@/lib/mission-health/degraded";
 import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -107,7 +108,7 @@ function isDegraded(status: string) {
 }
 
 function isDegradedWorkflow(status: string) {
-  return ["degraded", "impaired", "critical", "failing"].includes(status.toLowerCase());
+  return isDegradedWorkflowStatus(status);
 }
 
 function systemTone(status: string): "healthy" | "warning" | "critical" | "default" {

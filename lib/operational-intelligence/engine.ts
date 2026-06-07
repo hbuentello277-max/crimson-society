@@ -30,6 +30,7 @@ import type {
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { getExecutiveReportSummary } from "@/lib/reports/summary";
 import { loadReportContext } from "@/lib/reports/context";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 function snapshotInfluence(snapshot: TrendSnapshot, domain: InfluenceRankingItem["domain"]) {
   const direction =
@@ -180,11 +181,7 @@ function buildDrag(
     });
   }
 
-  const degraded = (report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  const degraded = countDegradedWorkflows(report.mission.workflows);
 
   if (degraded > 0) {
     drag.push({

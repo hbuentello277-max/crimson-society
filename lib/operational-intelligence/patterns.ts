@@ -3,6 +3,7 @@ import type { MemoryEntrySummaryRow } from "@/lib/memory/types";
 import type { ReportContext } from "@/lib/reports/context";
 import type { RepeatingPattern } from "@/lib/operational-intelligence/types";
 import { clampScore } from "@/lib/operational-intelligence/scoring";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 export function buildRepeatingPatterns(input: {
   report: ReportContext;
@@ -40,11 +41,7 @@ export function buildRepeatingPatterns(input: {
   const deploymentMemory = input.memoryEntries.filter(
     (entry) => entry.entry_type === "deployment",
   );
-  const degradedWorkflows = (input.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  const degradedWorkflows = countDegradedWorkflows(input.report.mission.workflows);
 
   if (deploymentMemory.length > 0 && degradedWorkflows > 0) {
     patterns.push({

@@ -16,6 +16,7 @@ import {
   type FounderPriority,
   type PlatformRingStatus,
 } from "@/lib/nexus/founder-derive";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 type MetricsPayload = {
   growth?: {
@@ -131,9 +132,7 @@ export function useNexusFounderDashboard() {
 
   const derived = useMemo(() => {
     const workflows = mission?.workflows ?? [];
-    const degradedWorkflows = workflows.filter((wf) =>
-      ["degraded", "impaired", "critical", "failing"].includes(wf.workflow_status.toLowerCase()),
-    ).length;
+    const degradedWorkflows = countDegradedWorkflows(workflows);
 
     const platformStatus: PlatformRingStatus = derivePlatformStatus({
       systemStatus: health?.system?.status ?? "unknown",

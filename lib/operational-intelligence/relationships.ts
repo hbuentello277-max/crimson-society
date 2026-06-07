@@ -7,6 +7,7 @@ import {
   relationshipStrength,
   strengthLabel,
 } from "@/lib/operational-intelligence/scoring";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 type MetricTrend = {
   current: number;
@@ -154,11 +155,7 @@ export function buildRelationshipMap(input: {
     });
   }
 
-  const degraded = (input.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  const degraded = countDegradedWorkflows(input.report.mission.workflows);
 
   if (degraded > 0) {
     relationships.push({

@@ -1,27 +1,20 @@
 import { METRIC_KEYS } from "@/lib/metrics/types";
+import { metricTrendDirection } from "@/lib/metrics/trends";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
+export { clampScore } from "@/lib/nexus/scoring";
+import { clampScore } from "@/lib/nexus/scoring";
 import type { MetricTrend, PlanningContext, PlanningGoalStatus } from "@/lib/planning/types";
-
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
 
 function trend(context: PlanningContext, key: string): MetricTrend | null {
   return context.trends[key] ?? null;
 }
 
 function direction(metric: MetricTrend | null): "up" | "down" | "flat" | "unknown" {
-  if (!metric || metric.previous == null) return "unknown";
-  if (metric.current > metric.previous) return "up";
-  if (metric.current < metric.previous) return "down";
-  return "flat";
+  return metricTrendDirection(metric);
 }
 
 function degradedWorkflowCount(context: PlanningContext) {
-  return (context.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing", "warn", "warning"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  return countDegradedWorkflows(context.mission.workflows);
 }
 
 export function evaluatePlanningGoals(context: PlanningContext): PlanningGoalStatus[] {

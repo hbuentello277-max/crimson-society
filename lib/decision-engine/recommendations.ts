@@ -13,6 +13,7 @@ import type {
   DecisionRecommendation,
 } from "@/lib/decision-engine/types";
 import type { ReportContext } from "@/lib/reports/context";
+import { filterDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 type DecisionDraft = Omit<DecisionRecommendation, "decision_score" | "priority" | "generated_at">;
 
@@ -482,11 +483,7 @@ function buildCorrelationDecisions(
 
 function buildReportDecisions(report: ReportContext, generatedAt: string): DecisionRecommendation[] {
   const drafts: DecisionDraft[] = [];
-  const degraded = (report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing", "warn", "warning"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  );
+  const degraded = filterDegradedWorkflows(report.mission.workflows);
 
   if (degraded.length > 0 || (report.mission.score ?? 100) < 65) {
     drafts.push({

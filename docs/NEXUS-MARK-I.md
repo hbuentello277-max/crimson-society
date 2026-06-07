@@ -108,3 +108,7 @@ See `lib/nexus/nav-routes.ts`. Founder (`/admin/nexus`) remains default landing.
 - Shared trend/degraded/scoring utilities consolidated
 - Per-request cache reduces redundant loads on strategic pages
 - TypeScript + production build validated
+
+## Mark II Preparation
+
+See [NEXUS_MARK_II_ARCHITECTURE.md](./NEXUS_MARK_II_ARCHITECTURE.md) for planned Founder Chat, AI-assisted analysis, Voice, and Cross-platform Control Center architecture.

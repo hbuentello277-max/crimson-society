@@ -3,6 +3,7 @@ import type { ForecastingResult } from "@/lib/forecasting/types";
 import type { PlanningSummary } from "@/lib/planning/types";
 import type { ReportContext } from "@/lib/reports/context";
 import type { CopilotRisk, CopilotRiskCandidate, CopilotSeverity } from "@/lib/copilot/types";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 
 function severityFromScore(score: number): CopilotSeverity {
   if (score >= 90) return "critical";
@@ -132,9 +133,7 @@ export function buildDecliningSignals(input: {
     });
   }
 
-  const degraded = (input.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing"].includes(workflow.workflow_status.toLowerCase()),
-  ).length;
+  const degraded = countDegradedWorkflows(input.report.mission.workflows);
 
   if (degraded > 0) {
     signals.push({

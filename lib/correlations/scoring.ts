@@ -1,8 +1,6 @@
 import type { CorrelationCategory } from "@/lib/correlations/types";
-
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+export { clampScore } from "@/lib/nexus/scoring";
+import { clampScore } from "@/lib/nexus/scoring";
 
 export function confidenceFromComparison(input: {
   current: number | null;

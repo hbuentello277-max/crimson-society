@@ -1,8 +1,6 @@
 import type { ConfidenceInput, RiskInput } from "@/lib/forecasting/types";
-
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+export { clampScore } from "@/lib/nexus/scoring";
+import { clampScore } from "@/lib/nexus/scoring";
 
 export function computeConfidenceScore(input: ConfidenceInput): number | null {
   if (input.data_points < 2 || input.span_days < 3) {
