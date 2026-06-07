@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireOwnerSession } from "@/lib/nexus/auth";
 import {
+  checkOwnerApiAiRateLimit,
   checkOwnerApiReadRateLimit,
   checkOwnerApiWriteRateLimit,
   ownerRateLimitResponse,
@@ -79,6 +80,37 @@ export function nexusOk<T extends Record<string, unknown>>(payload: T): NextResp
 }
 
 type OwnerReadRequestHandler = (input: OwnerSession & { request: Request }) => Promise<Response>;
+
+export function ownerAiRoute(
+  handler: OwnerWriteHandler,
+  errorMessage = "Failed to run Nexus AI analysis.",
+): (request: Request) => Promise<Response> {
+  return async (request: Request) => {
+    const auth = await requireOwnerSession();
+    if ("error" in auth) {
+      return auth.error;
+    }
+
+    const { session } = auth;
+    const rateLimit = checkOwnerApiAiRateLimit(session.userId);
+    if (!rateLimit.allowed) {
+      return ownerRateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
+    try {
+      return await handler(
+        {
+          userId: session.userId,
+          supabase: session.supabase,
+        },
+        request,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : errorMessage;
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  };
+}
 
 export function ownerReadRouteWithRequest(
   handler: OwnerReadRequestHandler,

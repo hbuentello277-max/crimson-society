@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  NEXUS_OWNER_API_AI_LIMIT,
   NEXUS_OWNER_API_READ_LIMIT,
   NEXUS_OWNER_API_WINDOW_MS,
   NEXUS_OWNER_API_WRITE_LIMIT,
@@ -58,6 +59,13 @@ export function checkOwnerApiReadRateLimit(ownerId: string): RateLimitResult {
 export function checkOwnerApiWriteRateLimit(ownerId: string): RateLimitResult {
   return checkOwnerApiRateLimit(`owner-write:${ownerId}`, {
     limit: NEXUS_OWNER_API_WRITE_LIMIT,
+    windowMs: NEXUS_OWNER_API_WINDOW_MS,
+  });
+}
+
+export function checkOwnerApiAiRateLimit(ownerId: string): RateLimitResult {
+  return checkOwnerApiRateLimit(`owner-ai:${ownerId}`, {
+    limit: NEXUS_OWNER_API_AI_LIMIT,
     windowMs: NEXUS_OWNER_API_WINDOW_MS,
   });
 }

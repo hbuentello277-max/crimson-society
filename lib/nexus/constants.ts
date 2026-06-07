@@ -201,4 +201,5 @@ export type NexusOperatorExecutionStatus = (typeof NEXUS_OPERATOR_EXECUTION_STAT
 /** Default owner API rate limits (Mark I in-memory). */
 export const NEXUS_OWNER_API_READ_LIMIT = 60;
 export const NEXUS_OWNER_API_WRITE_LIMIT = 20;
+export const NEXUS_OWNER_API_AI_LIMIT = 10;
 export const NEXUS_OWNER_API_WINDOW_MS = 60_000;

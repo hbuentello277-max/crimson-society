@@ -8,6 +8,7 @@ import {
   NexusNavCommandsIcon,
   NexusNavFounderIcon,
   NexusNavChatIcon,
+  NexusNavAIAnalysisIcon,
   NexusNavIncidentsIcon,
   NexusNavInfraIcon,
   NexusNavInsightsIcon,
@@ -46,6 +47,12 @@ const NAV_ITEMS = [
     href: "/admin/nexus/chat",
     label: "Chat",
     icon: NexusNavChatIcon,
+    exact: true,
+  },
+  {
+    href: "/admin/nexus/ai-analysis",
+    label: "AI Analysis",
+    icon: NexusNavAIAnalysisIcon,
     exact: true,
   },
   {
