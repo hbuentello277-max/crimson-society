@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { AiAnalysisError } from "@/lib/ai-analysis/errors";
 import { requireOwnerSession } from "@/lib/nexus/auth";
 import {
   checkOwnerApiAiRateLimit,
@@ -106,6 +107,13 @@ export function ownerAiRoute(
         request,
       );
     } catch (error) {
+      if (error instanceof AiAnalysisError) {
+        return NextResponse.json(
+          { error: error.userMessage, code: error.code },
+          { status: error.status },
+        );
+      }
+
       const message = error instanceof Error ? error.message : errorMessage;
       return NextResponse.json({ error: message }, { status: 500 });
     }
