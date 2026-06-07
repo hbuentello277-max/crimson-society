@@ -204,3 +204,12 @@ export function NexusNavOperatorIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavForecastingIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M4.5 12.5 7.5 9l2.5 2.5L12.5 7 15.5 10" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4.5 5.5h11v9H4.5z" />
+    </IconBase>
+  );
+}
