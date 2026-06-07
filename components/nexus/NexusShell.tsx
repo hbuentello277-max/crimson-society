@@ -21,6 +21,7 @@ import {
   NexusNavOperatorIcon,
   NexusNavForecastingIcon,
   NexusNavCopilotIcon,
+  NexusNavOperationalIntelligenceIcon,
   NexusNavReportsIcon,
   NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
@@ -136,6 +137,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/copilot",
     label: "Copilot",
     icon: NexusNavCopilotIcon,
+  },
+  {
+    href: "/admin/nexus/operational-intelligence",
+    label: "Operational Intelligence",
+    icon: NexusNavOperationalIntelligenceIcon,
   },
 ] as const;
 
