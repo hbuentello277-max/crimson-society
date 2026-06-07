@@ -46,7 +46,7 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load mission health.";
+    const message = error instanceof Error ? error.message : "Failed to load platform status.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

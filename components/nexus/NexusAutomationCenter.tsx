@@ -32,7 +32,7 @@ type AutomationPayload = {
 };
 
 export function NexusAutomationCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:automation");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:automation");
   const [status, setStatus] = useNexusStoredState<NexusAutomationStatus | "all">(
     "nexus:automation:status",
     "proposed",

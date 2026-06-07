@@ -39,7 +39,6 @@ export function derivePlatformStatus(input: {
   if (
     input.openIncidents > 0 ||
     input.systemStatus !== "operational" ||
-    ["degraded", "impaired", "critical", "failing"].includes(input.missionStatus.toLowerCase()) ||
     input.degradedWorkflows > 0
   ) {
     return "warning";
@@ -86,7 +85,7 @@ export function deriveFounderBrief(input: {
   } else if (input.pendingCommands > 0) {
     top_focus = "Review pending command recommendations.";
   } else if (input.degradedWorkflows > 0) {
-    top_focus = "Inspect degraded user workflows.";
+    top_focus = "Review quiet activity opportunities.";
   }
 
   let recommended_next_step = "Open Intelligence for supported opportunities.";

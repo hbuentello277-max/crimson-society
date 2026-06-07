@@ -5,7 +5,7 @@ const BREAKDOWN_LABELS: Record<string, string> = {
   engagement: "Engagement",
   revenue: "Revenue",
   operational_health: "Operational Health",
-  workflow_health: "Workflow Health",
+  workflow_health: "Platform Workflow Health",
   incidents: "Incidents",
   alerts: "Alerts",
   opportunities: "Opportunities",
@@ -24,7 +24,7 @@ export function MissionScoreCard({
     <section className="rounded-2xl border border-[#b4141e]/20 bg-black/40 p-4 sm:p-5">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Mission Score</p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Platform Score</p>
           <p className="mt-1 text-xs text-zinc-500">Deterministic weighted composite — no AI</p>
         </div>
         <p className="text-3xl font-semibold tabular-nums text-white">{missionScore}</p>

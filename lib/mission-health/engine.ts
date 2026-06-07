@@ -134,6 +134,8 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
           last_check_status: check.status,
           last_workflow_score: check.workflow_score,
           last_signal: check.details.signal ?? null,
+          activity_state: check.details.activity_state ?? null,
+          low_activity: check.details.low_activity === true,
           checked_at: checkedAt,
         },
       };
@@ -216,8 +218,8 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
       category: "mission",
       eventType: "mission.health.completed",
       severity: eventSeverityForMissionStatus(status),
-      title: "Nexus mission health check completed",
-      description: `Mission status: ${status} (score ${score})`,
+      title: "Nexus platform status check completed",
+      description: `Platform status: ${status} (score ${score})`,
       payload: {
         mission_score: score,
         mission_status: status,

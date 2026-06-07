@@ -255,7 +255,7 @@ function evaluateMetricThreshold(rule: AlertRuleRow, context: AlertEvaluationCon
 
   if (operator === "lt") {
     isBad = snapshot.value < threshold;
-    message = `${rule.name}: mission score ${snapshot.value} below ${threshold}`;
+    message = `${rule.name}: platform score ${snapshot.value} below ${threshold}`;
   } else if (operator === "drop_pct") {
     const values = history.map((row) => row.value).slice(0, 50);
     const baseline = average(values.slice(1));

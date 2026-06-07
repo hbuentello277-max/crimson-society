@@ -48,7 +48,7 @@ export function buildRepeatingPatterns(input: {
       id: "pattern:deployment-workflow",
       title: "Workflow degradation follows deployment events",
       summary:
-        "Recent deployment memory entries coincide with degraded workflow signals in mission health.",
+        "Recent deployment memory entries coincide with degraded workflow signals in platform status.",
       evidence: [
         `${deploymentMemory.length} deployment memory record(s) in recent history`,
         `${degradedWorkflows} workflow(s) currently degraded`,

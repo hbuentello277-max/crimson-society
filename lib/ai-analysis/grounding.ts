@@ -10,8 +10,8 @@ type SourceRule = {
 
 const SOURCE_RULES: SourceRule[] = [
   {
-    source: "Mission Control",
-    patterns: [/mission score/, /mission summary/, /mission status/, /mission control/],
+    source: "Platform Control",
+    patterns: [/platform score/, /platform summary/, /platform status/, /mission control/],
   },
   {
     source: "Forecasting",
@@ -73,7 +73,7 @@ const SOURCE_RULES: SourceRule[] = [
 
 const DEFAULT_SOURCES: AnalysisSource[] = [
   "Founder Dashboard",
-  "Mission Control",
+  "Platform Control",
   "Copilot",
   "Planning",
   "Reports",
@@ -230,7 +230,7 @@ export function buildGroundingPacket(
           })),
         }
       : null,
-    mission_control: include("Mission Control")
+    mission_control: include("Platform Control")
       ? {
           mission_status: context.mission.mission_status,
           mission_score: context.mission.mission_score,

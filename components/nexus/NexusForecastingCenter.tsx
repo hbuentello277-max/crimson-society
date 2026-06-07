@@ -47,7 +47,7 @@ const SECTION_ORDER: Array<{ category: ForecastCategory; title: string; descript
   {
     category: "operational",
     title: "Operational Forecast",
-    description: "Workflow and mission health outlook",
+    description: "Workflow and platform status outlook",
   },
   {
     category: "risk",

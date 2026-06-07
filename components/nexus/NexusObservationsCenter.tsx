@@ -31,7 +31,7 @@ import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecom
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function NexusObservationsCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:observations");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:observations");
   const { data, error, loading, refresh } = useNexusFetch<NexusObservationsSummary>(
     "/api/nexus/observations?view=active",
   );

@@ -16,7 +16,7 @@ export function MissionTimeline({ history }: { history: MissionHistoryItem[] }) 
   if (history.length === 0) {
     return (
       <NexusListEmpty
-        title="No mission history"
+        title="No platform history"
         description="Milestones, deployments, incidents, reports, and briefings from Memory appear here."
       />
     );

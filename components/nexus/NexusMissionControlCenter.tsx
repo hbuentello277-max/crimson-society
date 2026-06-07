@@ -93,7 +93,7 @@ export function NexusMissionControlCenter() {
 
   return (
     <NexusSectionFrame
-      title="Mission Control"
+      title="Platform Control"
       description="Highest-level strategic view for the founder. Aggregates Planning, Forecasting, Copilot, Operational Intelligence, Memory, Alerts, Incidents, and Health. Read-only — no AI, no execution."
       loading={loading}
       error={error}
@@ -123,7 +123,7 @@ export function NexusMissionControlCenter() {
             />
 
             <MissionSection
-              title="Mission Objectives"
+              title="Platform Objectives"
               description="Current, weekly, and monthly objectives from Planning"
             >
               <MissionObjectives objectives={(data.objectives ?? []) as MissionObjectiveView[]} />
@@ -132,23 +132,23 @@ export function NexusMissionControlCenter() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <MissionSection
-              title="Mission Threats"
-              description="Ranked threats to mission stability"
+              title="Platform Threats"
+              description="Ranked threats to platform stability"
             >
               <MissionThreats threats={(data.threats ?? []) as MissionThreat[]} />
             </MissionSection>
 
             <MissionSection
-              title="Mission Accelerators"
-              description="Signals that accelerate mission momentum"
+              title="Platform Accelerators"
+              description="Signals that accelerate platform momentum"
             >
               <MissionAccelerators accelerators={(data.accelerators ?? []) as MissionAccelerator[]} />
             </MissionSection>
           </div>
 
           <MissionSection
-            title="Mission Timeline"
-            description="Recent mission history from Memory"
+            title="Platform Timeline"
+            description="Recent platform history from Memory"
           >
             <MissionTimeline history={(data.recent_history ?? []) as MissionHistoryItem[]} />
           </MissionSection>

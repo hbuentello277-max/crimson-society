@@ -120,7 +120,7 @@ export function buildOperationsScenario(context: ScenarioBuildContext): Strategi
     recommendation: available
       ? operationsDecision?.recommendation ??
         "Review workflow diagnostics and resolve incidents before scaling growth initiatives."
-      : "Collect operational forecast and mission health data before comparing reliability paths.",
+      : "Collect operational forecast and platform status data before comparing reliability paths.",
     related_routes: [
       "/admin/nexus/mission-health",
       "/admin/nexus/incidents",

@@ -2,7 +2,7 @@ import { ANALYSIS_SOURCES } from "@/lib/ai-analysis/types";
 
 export const SUGGESTED_ANALYSIS_PROMPTS = [
   "What deserves my attention today?",
-  "Explain mission score.",
+  "Explain platform score.",
   "Explain growth forecast.",
   "Explain revenue forecast.",
   "Explain biggest risk.",
@@ -24,7 +24,7 @@ export const ANALYSIS_SOURCE_ROUTES: Record<(typeof ANALYSIS_SOURCES)[number], s
   Forecasting: "/admin/nexus/forecasting",
   Copilot: "/admin/nexus/copilot",
   "Operational Intelligence": "/admin/nexus/operational-intelligence",
-  "Mission Control": "/admin/nexus/mission-control",
+  "Platform Control": "/admin/nexus/mission-control",
   "Decision Engine": "/admin/nexus/decision-engine",
   Scenarios: "/admin/nexus/scenarios",
   Alerts: "/admin/nexus/alerts",

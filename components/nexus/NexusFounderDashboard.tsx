@@ -13,7 +13,7 @@ import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
 import { useNexusSync } from "@/hooks/nexus/useNexusSync";
 
 export function NexusFounderDashboard() {
-  const scrollRef = useNexusScrollRestoration("nexus:founder-dashboard");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:founder-dashboard");
   const {
     health,
     metrics,

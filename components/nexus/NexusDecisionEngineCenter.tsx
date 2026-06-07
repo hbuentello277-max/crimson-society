@@ -44,7 +44,7 @@ export function NexusDecisionEngineCenter() {
   return (
     <NexusSectionFrame
       title="Decision Engine"
-      description="Deterministic strategic decision support from Mission Control, Planning, Forecasting, Copilot, Intelligence, Correlations, Memory, Reports, Commands, Alerts, and Incidents. Read-only — no AI, no execution."
+      description="Deterministic strategic decision support from Platform Control, Planning, Forecasting, Copilot, Intelligence, Correlations, Memory, Reports, Commands, Alerts, and Incidents. Read-only — no AI, no execution."
       loading={loading}
       error={error}
       onRefresh={refresh}
@@ -86,7 +86,7 @@ export function NexusDecisionEngineCenter() {
 
           <DecisionSection
             title="Strategic Priorities"
-            description="Decisions with elevated strategic importance to the mission"
+            description="Decisions with elevated strategic importance to the platform"
           >
             <DecisionCardList decisions={data.strategic_priorities ?? []} />
           </DecisionSection>

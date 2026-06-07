@@ -68,6 +68,7 @@ export function FounderHero({
             />
             <Link
               href="/admin/nexus/overview"
+              scroll={false}
               className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
             >
               Overview
@@ -142,7 +143,11 @@ function OrbitMetricCard({
 
   if (metric.href) {
     return (
-      <Link href={metric.href} className={`${className} block transition hover:border-[#b4141e]/45`}>
+      <Link
+        href={metric.href}
+        scroll={false}
+        className={`${className} block transition hover:border-[#b4141e]/45`}
+      >
         {inner}
       </Link>
     );

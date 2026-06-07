@@ -193,7 +193,7 @@ function OverviewSections({ summary }: { summary: ExecutiveReportSummary }) {
 }
 
 export function NexusReportsCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:reports");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:reports");
   const [tab, setTab] = useNexusStoredState<ReportTab>("nexus:reports:tab", "overview");
   const summaryQuery = useNexusFetch<SummaryPayload>("/api/nexus/reports/summary");
   const weeklyQuery = useNexusFetch<WeeklyPayload>(

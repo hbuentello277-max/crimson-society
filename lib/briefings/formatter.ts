@@ -236,12 +236,12 @@ export function buildOperationsSummary(context: ReportContext): BriefingSection 
   const degraded = degradedWorkflows(context);
   const lines = [
     `Infrastructure is ${infraLabel(context.health.systemStatus)}.`,
-    `User Workflows are ${context.mission.status}.`,
+    `Platform status is ${context.mission.status}.`,
   ];
 
   if (degraded.length > 0) {
     const names = degraded.map((workflow) => workflow.display_name).join(", ");
-    lines.push(`Degraded or warning workflows include ${names}.`);
+    lines.push(`Platform workflows needing attention include ${names}.`);
   }
 
   if (context.alerts.counts.active > 0) {
@@ -264,7 +264,7 @@ export function buildBriefingRisks(context: ReportContext): string[] {
 
   const degraded = degradedWorkflows(context);
   if (degraded.length > 0) {
-    risks.push("User Workflows remain degraded or warning in one or more areas.");
+    risks.push("Platform workflows need attention in one or more areas.");
   }
 
   if (context.health.systemStatus !== "operational") {

@@ -41,7 +41,7 @@ async function copyPlainText(text: string) {
 }
 
 export function NexusBriefingsCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:briefings");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:briefings");
   const [tab, setTab] = useNexusStoredState<BriefingTab>("nexus:briefings:tab", "weekly");
   const [weeklyCopyState, setWeeklyCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [monthlyCopyState, setMonthlyCopyState] = useState<"idle" | "copied" | "error">("idle");

@@ -157,7 +157,7 @@ export function NexusMissionHealthView() {
   return (
     <NexusSectionFrame
       title={NEXUS_LABELS.userWorkflows}
-      description="Signup, login, posting, meets, messaging, and Blackcard purchase reliability."
+      description="Signup, login, posting, meets, messaging, and Blackcard purchase reliability. Quiet activity is tracked as opportunity, not failure."
       loading={loading}
       error={error}
       onRefresh={refresh}
@@ -172,7 +172,7 @@ export function NexusMissionHealthView() {
           value={<NexusStatusBadge label={data?.status ?? "unknown"} />}
         />
         <NexusMetricCard
-          label="Critical Workflows"
+          label="Critical Platform Workflows"
           value={data?.mission_critical ? "Yes" : "No"}
           hint={`Checked ${formatDateTime(data?.checked_at)}`}
         />
@@ -197,7 +197,7 @@ export function NexusMissionHealthView() {
                 <div className="flex flex-wrap items-center gap-2">
                   <NexusStatusBadge label={workflow.workflow_status} />
                   <span className="text-xs text-zinc-400">
-                    Score {workflow.workflow_score ?? "—"}
+                    Platform score {workflow.workflow_score ?? "—"}
                   </span>
                   <span className="text-xs text-zinc-500">
                     1h success {workflow.success_rate_1h ?? "—"}%

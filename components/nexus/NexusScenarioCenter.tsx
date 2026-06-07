@@ -35,7 +35,7 @@ function ScenarioSection({
 }
 
 export function NexusScenarioCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:scenarios");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:scenarios");
   const { data, error, loading, refresh } = useNexusFetch<ScenariosPayload>("/api/nexus/scenarios");
 
   const ready = !loading && data?.brief;
@@ -44,7 +44,7 @@ export function NexusScenarioCenter() {
     <div ref={scrollRef}>
       <NexusSectionFrame
         title="Scenarios"
-        description="Compare strategic paths using Forecasting, Planning, Decision Engine, Mission Control, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
+        description="Compare strategic paths using Forecasting, Planning, Decision Engine, Platform Control, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
         loading={loading}
         error={error}
         onRefresh={refresh}
@@ -83,7 +83,7 @@ export function NexusScenarioCenter() {
 
           <ScenarioSection
             title="Operations Scenario"
-            description="What happens if founder prioritizes workflow health and reliability"
+            description="What happens if founder prioritizes platform workflow health and reliability"
           >
             {data.operations ? <ScenarioCard scenario={data.operations} /> : null}
           </ScenarioSection>

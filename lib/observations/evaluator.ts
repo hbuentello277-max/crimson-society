@@ -24,7 +24,7 @@ const MRR_LOW_FLOOR = 500;
 export const OBSERVATION_RULES: ObservationRule[] = [
   {
     rule_id: "obs.mission.health.diagnosis",
-    name: "Mission Health Diagnosis",
+    name: "Platform Status Diagnosis",
     category: "mission",
     observation_type: "diagnosis",
     enabled: true,
@@ -87,7 +87,7 @@ export const OBSERVATION_RULES: ObservationRule[] = [
   },
   {
     rule_id: "obs.mission.health.regression",
-    name: "Mission Health Regression",
+    name: "Platform Status Regression",
     category: "mission",
     observation_type: "regression",
     enabled: true,
@@ -132,7 +132,7 @@ function evaluateMissionHealthDiagnosis(
   context: ObservationEvaluationContext,
 ): ObservationEvaluationOutcome[] {
   if (context.mission.score === null || context.mission.status === null) {
-    return [{ kind: "skipped", reason: "mission score unavailable" }];
+    return [{ kind: "skipped", reason: "platform score unavailable" }];
   }
 
   if (context.mission.status === "healthy") {
@@ -168,8 +168,8 @@ function evaluateMissionHealthDiagnosis(
       scope_id: "mission.health",
       observation_type: rule.observation_type,
       category: rule.category,
-      title: `Mission Health is ${context.mission.status}`,
-      summary: `Mission Health is ${context.mission.status} because ${workflowList || "multiple workflows"} are ${workflowState}. Score: ${context.mission.score}.`,
+      title: `Platform Status is ${context.mission.status}`,
+      summary: `Platform Status is ${context.mission.status} because ${workflowList || "multiple workflows"} are ${workflowState}. Score: ${context.mission.score}.`,
       evidence: {
         mission_score: context.mission.score,
         mission_status: context.mission.status,

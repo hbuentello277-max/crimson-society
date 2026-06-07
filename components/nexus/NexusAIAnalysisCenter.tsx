@@ -32,7 +32,7 @@ type AnalysisApiPayload = {
 };
 
 export function NexusAIAnalysisCenter() {
-  const pageScrollRef = useNexusScrollRestoration("nexus:ai-analysis");
+  const { ref: pageScrollRef } = useNexusScrollRestoration("nexus:ai-analysis");
   const [turns, setTurns] = useNexusStoredState<AnalysisTurn[]>("nexus:ai-analysis:turns", []);
   const [draft, setDraft] = useNexusStoredState("nexus:ai-analysis:draft", "");
   const [loading, setLoading] = useState(false);
@@ -106,7 +106,7 @@ export function NexusAIAnalysisCenter() {
         <div className="min-w-0 space-y-4 overflow-x-hidden">
         <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm leading-6 text-zinc-300">
           Ask why something changed, what deserves attention, or how to interpret forecasts and
-          scenarios. Nexus AI explains using Mission Control, Copilot, Forecasting, and the full
+          scenarios. Nexus AI explains using Platform Control, Copilot, Forecasting, and the full
           command stack — never inventing metrics or events.
         </div>
 

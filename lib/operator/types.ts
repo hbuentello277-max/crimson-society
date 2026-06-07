@@ -94,10 +94,10 @@ export const OPERATOR_EXECUTION_PROFILES: Record<
   },
   refresh_mission: {
     execution_type: "refresh_mission",
-    label: "Refresh Mission Workflows",
+    label: "Refresh Platform Workflows",
     safe_because: "Recomputes workflow health scores inside Nexus only.",
     will_do: [
-      "Refresh mission workflow health snapshots",
+      "Refresh platform workflow health snapshots",
       "Update workflow status records in Nexus",
     ],
     will_not_do: [
@@ -186,7 +186,7 @@ export const OPERATOR_EXECUTION_PROFILES: Record<
     safe_because:
       "Combines low-risk Nexus refreshes into one owner-triggered operational snapshot.",
     will_do: [
-      "Refresh health, metrics, mission workflows, and executive report summary",
+      "Refresh health, metrics, platform workflows, and executive report summary",
       "Return a consolidated operational snapshot result",
     ],
     will_not_do: [

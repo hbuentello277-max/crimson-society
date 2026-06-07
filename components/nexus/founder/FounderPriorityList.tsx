@@ -62,6 +62,7 @@ export function FounderPriorityList({ priorities }: { priorities: FounderPriorit
                       </div>
                       <Link
                         href={item.href}
+                        scroll={false}
                         className="shrink-0 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white transition hover:border-[#b4141e]/50"
                       >
                         Open

@@ -44,7 +44,7 @@ function OperatorSection({
 }
 
 export function NexusOperatorCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:operator");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:operator");
   const { data, error, loading, refresh } = useNexusFetch<OperatorPayload>("/api/nexus/operator");
   const { post, pendingKey } = useNexusPost();
 

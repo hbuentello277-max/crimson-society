@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: result.error ?? "Nexus mission health check failed",
+        error: result.error ?? "Nexus platform status check failed",
         checked_at: result.checkedAt,
       },
       { status: 500 },

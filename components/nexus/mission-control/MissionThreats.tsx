@@ -16,7 +16,7 @@ export function MissionThreats({ threats }: { threats: MissionThreat[] }) {
     return (
       <NexusListEmpty
         title="No active threats"
-        description="Mission threats are ranked from planning risks, operational drag, and declining signals."
+        description="Platform threats are ranked from planning risks, operational drag, and declining signals."
       />
     );
   }

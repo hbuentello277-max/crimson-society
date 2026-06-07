@@ -184,7 +184,7 @@ export function WarRoomDetail({ warRoomId }: { warRoomId: string }) {
 
           <div className="grid gap-4 xl:grid-cols-2">
             <WorkflowPanel title="Workflows at Incident Open" snapshot={data.workflow_snapshot} />
-            <WorkflowPanel title="Current User Workflows" snapshot={data.current_workflows} />
+            <WorkflowPanel title="Current Platform Activity" snapshot={data.current_workflows} />
           </div>
 
           <NexusPanel title="Timeline">

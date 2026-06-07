@@ -14,7 +14,7 @@ import { NexusListEmpty, NexusSectionFrame } from "@/components/nexus/NexusShare
 type IntelligencePayload = IntelligenceSummary & { ok?: boolean };
 
 export function NexusIntelligenceCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:intelligence");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:intelligence");
   const [category, setCategory] = useNexusStoredState<IntelligenceCategory | "all">(
     "nexus:intelligence:category",
     "all",

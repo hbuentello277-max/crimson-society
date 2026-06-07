@@ -80,7 +80,7 @@ function buildAttentionAnswer(context: ChatContext): ChatAnswer {
 
   let answer: string;
   if (threat) {
-    answer = `Mission Control identifies "${threat}" as the highest-priority item. Primary focus: ${primary}.`;
+    answer = `Platform Control identifies "${threat}" as the highest-priority item. Primary focus: ${primary}.`;
   } else if (openIncidents > 0) {
     answer = `${openIncidents} open incident${openIncidents === 1 ? "" : "s"} require review. Primary focus: ${primary}.`;
   } else if (criticalAlerts > 0) {
@@ -91,7 +91,7 @@ function buildAttentionAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Mission Control", "Copilot", "Planning", "Alerts", "Incidents"]),
+    sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Alerts", "Incidents"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/copilot",
@@ -116,7 +116,7 @@ function buildBiggestRiskAnswer(context: ChatContext): ChatAnswer {
   if (!threat && !riskItem) {
     return {
       answer: "No major active risk pattern detected from current Nexus data.",
-      sources: uniqueSources(["Mission Control", "Copilot", "Planning", "Operational Intelligence"]),
+      sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Operational Intelligence"]),
       related_routes: uniqueRoutes([
         "/admin/nexus/mission-control",
         "/admin/nexus/copilot",
@@ -133,7 +133,7 @@ function buildBiggestRiskAnswer(context: ChatContext): ChatAnswer {
   return {
     answer,
     sources: uniqueSources([
-      "Mission Control",
+      "Platform Control",
       "Copilot",
       "Planning",
       "Operational Intelligence",
@@ -161,7 +161,7 @@ function buildBiggestOpportunityAnswer(context: ChatContext): ChatAnswer {
   if (!opportunity && !oppItem) {
     return {
       answer: "No supported opportunity detected from current Nexus data.",
-      sources: uniqueSources(["Mission Control", "Copilot", "Planning", "Scenarios"]),
+      sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Scenarios"]),
       related_routes: uniqueRoutes([
         "/admin/nexus/mission-control",
         "/admin/nexus/copilot",
@@ -179,7 +179,7 @@ function buildBiggestOpportunityAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Mission Control", "Copilot", "Planning", "Decision Engine", "Scenarios"]),
+    sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Decision Engine", "Scenarios"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/copilot",
@@ -299,14 +299,14 @@ function buildMissionScoreAnswer(context: ChatContext): ChatAnswer {
   } else if ((context.report.alerts.counts.critical ?? 0) > 0) {
     reason = " Critical alerts are weighing on the score.";
   } else if (context.report.incidents.open.length > 0) {
-    reason = " Open incidents are affecting mission health.";
+    reason = " Open incidents are affecting platform status.";
   }
 
   const answer = `Mission score is ${mission_score} (${mission_status.replace(/_/g, " ")}). ${mission_summary}${reason}${breakdown ? ` Breakdown highlights: ${breakdown}.` : ""}`;
 
   return {
     answer,
-    sources: uniqueSources(["Mission Control", "Reports", "Operational Intelligence"]),
+    sources: uniqueSources(["Platform Control", "Reports", "Operational Intelligence"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/mission-health",
@@ -337,7 +337,7 @@ function buildNexusRecommendationAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Decision Engine", "Copilot", "Planning", "Mission Control"]),
+    sources: uniqueSources(["Decision Engine", "Copilot", "Planning", "Platform Control"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/decision-engine",
       "/admin/nexus/copilot",
@@ -356,7 +356,7 @@ function buildMissionSummaryAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Mission Control", "Copilot", "Operational Intelligence"]),
+    sources: uniqueSources(["Platform Control", "Copilot", "Operational Intelligence"]),
     related_routes: uniqueRoutes(["/admin/nexus/mission-control", "/admin/nexus/copilot"]),
     confidence: 90,
   };
@@ -489,7 +489,7 @@ function buildOpenIncidentsAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Incidents", "Alerts", "Mission Control"]),
+    sources: uniqueSources(["Incidents", "Alerts", "Platform Control"]),
     related_routes: uniqueRoutes(["/admin/nexus/incidents", "/admin/nexus/alerts"]),
     confidence: 91,
   };
@@ -558,7 +558,7 @@ function buildPlatformStatusAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Founder Dashboard", "Copilot", "Mission Control", "Reports"]),
+    sources: uniqueSources(["Founder Dashboard", "Copilot", "Platform Control", "Reports"]),
     related_routes: uniqueRoutes(["/admin/nexus", "/admin/nexus/copilot", "/admin/nexus/mission-control"]),
     confidence: 88,
   };
@@ -568,8 +568,8 @@ function buildUnknownAnswer(context: ChatContext): ChatAnswer {
   const focus = context.copilot.guidance.primary_focus || context.mission.primary_focus;
 
   return {
-    answer: `I can answer status, risk, growth, strategy, and historical questions from Nexus data. Try asking about attention today, biggest risk, forecasts, or mission summary. Current primary focus: ${focus || "review Mission Control"}.`,
-    sources: uniqueSources(["Copilot", "Mission Control"]),
+    answer: `I can answer status, risk, growth, strategy, and historical questions from Nexus data. Try asking about attention today, biggest risk, forecasts, or platform summary. Current primary focus: ${focus || "review Platform Control"}.`,
+    sources: uniqueSources(["Copilot", "Platform Control"]),
     related_routes: uniqueRoutes(["/admin/nexus/chat", "/admin/nexus/copilot", "/admin/nexus/mission-control"]),
     confidence: 65,
   };

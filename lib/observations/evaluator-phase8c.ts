@@ -381,11 +381,11 @@ export function evaluateMissionHealthRegression(
   context: ObservationEvaluationContext,
 ): ObservationEvaluationOutcome[] {
   if (context.mission.score === null) {
-    return [{ kind: "skipped", reason: "mission score unavailable" }];
+    return [{ kind: "skipped", reason: "platform score unavailable" }];
   }
 
   if (context.prior_mission_score === null) {
-    return [{ kind: "skipped", reason: "prior mission score unavailable for regression" }];
+    return [{ kind: "skipped", reason: "prior platform score unavailable for regression" }];
   }
 
   const deltaPct = percentDelta(context.mission.score, context.prior_mission_score);
@@ -404,8 +404,8 @@ export function evaluateMissionHealthRegression(
       scope_id: "mission.health.regression",
       observation_type: "regression",
       category: "mission",
-      title: "Mission Health regressed",
-      summary: `Mission Health score dropped ${Math.abs(deltaPct)}% since the last diagnosis (${context.mission.score} vs ${context.prior_mission_score}).`,
+      title: "Platform Status regressed",
+      summary: `Platform Status score dropped ${Math.abs(deltaPct)}% since the last diagnosis (${context.mission.score} vs ${context.prior_mission_score}).`,
       evidence: {
         current_score: context.mission.score,
         prior_score: context.prior_mission_score,

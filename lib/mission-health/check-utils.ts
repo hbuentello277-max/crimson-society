@@ -76,15 +76,7 @@ export function evaluateThresholdStatus(input: {
   const { mode, value, warning_threshold, critical_threshold } = input;
 
   if (mode === "min_activity") {
-    if (value >= warning_threshold) {
-      return "pass";
-    }
-
-    if (value > critical_threshold) {
-      return "warn";
-    }
-
-    return value === 0 ? "warn" : "fail";
+    return "pass";
   }
 
   if (mode === "max_failures" || mode === "max_pending") {
@@ -153,6 +145,8 @@ export function evaluateActivityCheck(input: {
     warning_threshold: definition.warning_threshold,
     critical_threshold: definition.critical_threshold,
   });
+  const lowActivity =
+    definition.threshold_mode === "min_activity" && activityCount < definition.warning_threshold;
 
   return buildMissionCheckResult({
     workflow_slug: definition.slug,
@@ -166,6 +160,8 @@ export function evaluateActivityCheck(input: {
       threshold_mode: definition.threshold_mode,
       warning_threshold: definition.warning_threshold,
       critical_threshold: definition.critical_threshold,
+      activity_state: lowActivity ? "quiet_activity" : "active",
+      low_activity: lowActivity,
       ...extraDetails,
     },
   });

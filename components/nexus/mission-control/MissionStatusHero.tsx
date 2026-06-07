@@ -75,7 +75,7 @@ export function MissionStatusHero({
 
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Founder Mission Control</p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Founder Platform Control</p>
           <p className="mt-1 text-sm leading-snug text-white">Crimson Society Strategic View</p>
         </div>
         <NexusRefreshButton
@@ -88,12 +88,12 @@ export function MissionStatusHero({
       </div>
 
       <div className="relative mt-6 grid gap-4 sm:grid-cols-3">
-        <HeroMetric label="Mission Status">
+        <HeroMetric label="Platform Status">
           <span className={`text-2xl font-medium uppercase tracking-[0.08em] sm:text-3xl ${styles.text}`}>
             {missionStatusLabel(missionStatus)}
           </span>
         </HeroMetric>
-        <HeroMetric label="Mission Score">
+        <HeroMetric label="Platform Score">
           <span className="text-4xl font-semibold tabular-nums text-white sm:text-5xl">{missionScore}</span>
           <span className="text-sm text-zinc-500">/ 100</span>
         </HeroMetric>
@@ -109,7 +109,7 @@ export function MissionStatusHero({
           {missionStatusLabel(missionStatus)}
         </span>
         <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
-          Score {missionScore}
+          Platform Score {missionScore}
         </span>
       </div>
 

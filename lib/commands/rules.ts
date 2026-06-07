@@ -146,28 +146,28 @@ export function buildWorkflowCommandDrafts(input: {
 }): CommandSuggestionDraft[] {
   const drafts: CommandSuggestionDraft[] = [];
   const degraded = input.workflows.filter((wf) =>
-    ["degraded", "impaired", "critical", "failing"].includes(wf.workflow_status.toLowerCase()),
+    ["impaired", "critical", "failing"].includes(wf.workflow_status.toLowerCase()),
   );
 
   if (
-    ["degraded", "impaired", "critical", "failing", "warning"].includes(
+    ["impaired", "critical", "failing"].includes(
       input.missionStatus.toLowerCase(),
     ) ||
     degraded.length > 0
   ) {
     const workflowRunbook = input.runbooksBySlug.get("user-workflow-recovery");
     drafts.push({
-      dedupe_key: "workflows:review-degraded",
+      dedupe_key: "workflows:review-failures",
       command_type: "review_workflows",
-      title: "Review degraded user workflows",
-      summary: "User Workflows are degraded. Review affected workflow scores and failure patterns.",
+      title: "Review platform workflow failures",
+      summary: "Platform workflows have failing checks. Review affected workflow errors and recovery patterns.",
       risk_level: "medium",
       source: "system",
       recommended_action:
-        "Open User Workflows in Nexus and inspect degraded workflow checks and recent failures.",
+        "Open Platform Workflows in Nexus and inspect failing checks and recent errors.",
       evidence: {
         mission_status: input.missionStatus,
-        degraded_workflows: degraded.map((wf) => wf.slug),
+        failing_workflows: degraded.map((wf) => wf.slug),
       },
       related_runbook_id: workflowRunbook ?? null,
       expires_at: expiresAt(),
@@ -178,12 +178,12 @@ export function buildWorkflowCommandDrafts(input: {
         runbookDraft({
           slug: "user-workflow-recovery",
           runbookId: workflowRunbook,
-          title: "Follow User Workflow Recovery runbook",
-          summary: "Workflow degradation detected. Use the User Workflow Recovery playbook.",
-          recommended_action: "Open the User Workflow Recovery runbook and complete the checklist.",
+          title: "Follow Platform Workflow Review runbook",
+          summary: "Workflow failure detected. Use the Platform Workflow Review playbook.",
+          recommended_action: "Open the Platform Workflow Review runbook and complete the checklist.",
           dedupe_key: "runbook:user-workflow-recovery",
           risk_level: "low",
-          evidence: { degraded_workflows: degraded.map((wf) => wf.slug) },
+          evidence: { failing_workflows: degraded.map((wf) => wf.slug) },
         }),
       );
     }
@@ -195,8 +195,8 @@ export function buildWorkflowCommandDrafts(input: {
       drafts.push({
         dedupe_key: `workflow:meet:${wf.slug}`,
         command_type: "review_workflow",
-        title: "Review meet creation workflow",
-        summary: `${wf.display_name} is degraded. Review meet creation and joining reliability.`,
+        title: "Review meet workflow failure",
+        summary: `${wf.display_name} has a failing check. Review meet creation and joining reliability.`,
         risk_level: "medium",
         source: "system",
         recommended_action:
@@ -212,8 +212,8 @@ export function buildWorkflowCommandDrafts(input: {
       drafts.push({
         dedupe_key: "workflow:messaging",
         command_type: "review_workflow",
-        title: "Review messaging workflow",
-        summary: "Messaging workflow is degraded. Review direct message delivery failures.",
+        title: "Review messaging workflow failure",
+        summary: "Messaging workflow has a failing check. Review direct message delivery errors.",
         risk_level: "medium",
         source: "system",
         recommended_action:

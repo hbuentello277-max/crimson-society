@@ -79,7 +79,7 @@ export function buildDecisionBrief(
 
   const founderRecommendation = best
     ? `Prioritize "${best.title}" (${best.priority} priority). ${best.recommendation} Address risk: ${input.biggestRisk}.`
-    : `Review mission status and planning priorities. Primary risk: ${input.biggestRisk}.`;
+    : `Review platform status and planning priorities. Primary risk: ${input.biggestRisk}.`;
 
   return {
     best_decision_now: bestDecisionNow,

@@ -97,7 +97,7 @@ export function buildMissionThreats(input: {
     threats.push({
       id: "threat:critical-alerts",
       title: "Critical alerts active",
-      summary: `${input.report.alerts.counts.critical} critical alert(s) threaten mission stability.`,
+      summary: `${input.report.alerts.counts.critical} critical alert(s) threaten platform stability.`,
       severity: "critical",
       recommendation: "Resolve critical alerts before strategic initiatives.",
       related_routes: ["/admin/nexus/alerts"],

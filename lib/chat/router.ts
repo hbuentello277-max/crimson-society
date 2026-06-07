@@ -66,7 +66,7 @@ const INTENT_PATTERNS: IntentPattern[] = [
     intent: "mission_score",
     mode: "status",
     weight: 10,
-    patterns: [/mission score/, /why.*score.*down/, /score down/, /score breakdown/],
+    patterns: [/platform score/, /why.*score.*down/, /score down/, /score breakdown/],
   },
   {
     intent: "nexus_recommendation",
@@ -83,7 +83,7 @@ const INTENT_PATTERNS: IntentPattern[] = [
     intent: "mission_summary",
     mode: "status",
     weight: 9,
-    patterns: [/mission summary/, /mission status/, /mission control summary/],
+    patterns: [/platform summary/, /platform status/, /mission control summary/],
   },
   {
     intent: "growth_forecast",

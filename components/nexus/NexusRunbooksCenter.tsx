@@ -20,7 +20,7 @@ type CategoryTab = "all" | NexusRunbookCategory;
 const CATEGORY_TABS: Array<{ id: CategoryTab; label: string }> = [
   { id: "all", label: "All" },
   { id: "infrastructure", label: "Infrastructure" },
-  { id: "user_workflows", label: "User Workflows" },
+  { id: "user_workflows", label: "Platform Activity" },
   { id: "revenue", label: "Revenue" },
   { id: "growth", label: "Growth" },
   { id: "security", label: "Security" },

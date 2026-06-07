@@ -43,7 +43,7 @@ function relatedSignal(command: NexusCommandSummaryRow) {
 }
 
 export function NexusCommandsCenter() {
-  const scrollRef = useNexusScrollRestoration("nexus:commands");
+  const { ref: scrollRef } = useNexusScrollRestoration("nexus:commands");
   const [tab, setTab] = useNexusStoredState<CommandTab>("nexus:commands:tab", "suggested");
   const { data, error, loading, refresh } = useNexusFetch<NexusCommandsSummary>(
     "/api/nexus/commands",

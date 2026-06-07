@@ -35,7 +35,7 @@ export type ChatSource =
   | "Forecasting"
   | "Copilot"
   | "Operational Intelligence"
-  | "Mission Control"
+  | "Platform Control"
   | "Decision Engine"
   | "Scenarios"
   | "Alerts"
