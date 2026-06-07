@@ -4,6 +4,7 @@
  */
 export const NEXUS_NAV_ROUTES = [
   "/admin/nexus",
+  "/admin/nexus/chat",
   "/admin/nexus/overview",
   "/admin/nexus/system-health",
   "/admin/nexus/mission-health",

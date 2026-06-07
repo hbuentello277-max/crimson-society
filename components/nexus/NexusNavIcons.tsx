@@ -27,6 +27,15 @@ export function NexusNavFounderIcon({ className }: IconProps) {
   );
 }
 
+export function NexusNavChatIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M4 5.5h12a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3.5 3v-3H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+      <path d="M7 9h6M7 11.5h3.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export function NexusNavOverviewIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>
