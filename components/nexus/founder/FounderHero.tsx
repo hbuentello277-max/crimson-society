@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/nexus/format";
 import { NexusRing } from "@/components/nexus/founder/NexusRing";
@@ -33,6 +35,11 @@ export function FounderHero({
   syncing?: boolean;
   lastSyncedAt?: string | null;
 }) {
+  const searchParams = useSearchParams();
+  const telemetryDebug = searchParams.get("telemetryDebug") === "1";
+  const [debugStatus, setDebugStatus] = useState<PlatformRingStatus | null>(null);
+  const ringStatus = debugStatus ?? platformStatus;
+
   return (
     <section className="relative w-full min-w-0 overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
       <div
@@ -87,7 +94,32 @@ export function FounderHero({
       <div className="relative mt-5 grid w-full min-w-0 gap-4 lg:mt-6 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
         <OrbitColumn metrics={orbitMetrics.slice(0, 5)} align="left" />
         <div className="flex w-full min-w-0 flex-col items-center justify-center py-2">
-          <NexusRing status={platformStatus} size={260} />
+          <NexusRing status={ringStatus} size={260} />
+          {telemetryDebug ? (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              {(["operational", "warning", "critical"] as const).map((state) => (
+                <button
+                  key={state}
+                  type="button"
+                  onClick={() => setDebugStatus(state)}
+                  className={`rounded-md border px-2 py-1 text-[9px] uppercase tracking-[0.12em] transition ${
+                    ringStatus === state
+                      ? "border-white/40 bg-white/10 text-white"
+                      : "border-white/15 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+                  }`}
+                >
+                  {state}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDebugStatus(null)}
+                className="rounded-md border border-white/10 px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-zinc-600 hover:text-zinc-400"
+              >
+                Auto
+              </button>
+            </div>
+          ) : null}
           <div className="mt-4 grid w-full min-w-0 grid-cols-2 gap-2 text-center sm:grid-cols-3">
             <TelemetryChip label="System Status" value={systemStatus} />
             <TelemetryChip

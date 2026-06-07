@@ -3,29 +3,61 @@
 import { motion } from "framer-motion";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 
+/** Operational baseline — crimson palette (approved default). */
 const STATUS_STYLES: Record<
   PlatformRingStatus,
-  { glow: string; ring: string; pulse: string; accent: string }
+  { glow: string; ring: string; pulse: string; bloom: string }
 > = {
   operational: {
-    glow: "rgba(180,20,30,0.55)",
     ring: "#b4141e",
+    glow: "rgba(180,20,30,0.55)",
     pulse: "rgba(180,20,30,0.35)",
-    accent: "#e87a82",
+    bloom: "none",
   },
   warning: {
-    glow: "rgba(245,158,11,0.45)",
-    ring: "#f59e0b",
-    pulse: "rgba(245,158,11,0.28)",
-    accent: "#fcd34d",
+    ring: "#ffc107",
+    glow: "rgba(255,193,7,0.62)",
+    pulse: "rgba(255,193,7,0.34)",
+    bloom: "drop-shadow(0 0 20px rgba(255,193,7,0.28))",
   },
   critical: {
-    glow: "rgba(239,68,68,0.55)",
-    ring: "#ef4444",
-    pulse: "rgba(239,68,68,0.38)",
-    accent: "#fca5a5",
+    ring: "#ff3847",
+    glow: "rgba(255,56,71,0.78)",
+    pulse: "rgba(255,56,71,0.48)",
+    bloom: "drop-shadow(0 0 32px rgba(255,56,71,0.5))",
   },
 };
+
+/** Animation baselines at operational; warning +20% speed, critical +45% speed. */
+const BASE_DURATIONS = {
+  ambientPulse: 4,
+  outerRings: [28, 36, 44] as const,
+  tickBurst: 18,
+  midRing: 22,
+  nexusText: 3.5,
+};
+
+const SPEED_MULTIPLIER: Record<PlatformRingStatus, number> = {
+  operational: 1,
+  warning: 1.2,
+  critical: 1.45,
+};
+
+const AMBIENT_OPACITY: Record<PlatformRingStatus, [number, number, number]> = {
+  operational: [0.35, 0.7, 0.35],
+  warning: [0.38, 0.78, 0.38],
+  critical: [0.42, 0.88, 0.42],
+};
+
+const AMBIENT_SCALE: Record<PlatformRingStatus, [number, number, number]> = {
+  operational: [0.96, 1.04, 0.96],
+  warning: [0.95, 1.05, 0.95],
+  critical: [0.94, 1.07, 0.94],
+};
+
+function scaledDuration(base: number, status: PlatformRingStatus) {
+  return base / SPEED_MULTIPLIER[status];
+}
 
 export type NexusRingProps = {
   status: PlatformRingStatus;
@@ -41,11 +73,21 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
   const innerRadius = size * 0.26;
 
   return (
-    <div className={`relative mx-auto ${className}`} style={{ width: size, height: size }}>
+    <div
+      className={`relative mx-auto ${className}`}
+      style={{ width: size, height: size, filter: styles.bloom }}
+    >
       <motion.div
         className="absolute inset-0 rounded-full"
-        animate={{ opacity: [0.35, 0.7, 0.35], scale: [0.96, 1.04, 0.96] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        animate={{
+          opacity: AMBIENT_OPACITY[status],
+          scale: AMBIENT_SCALE[status],
+        }}
+        transition={{
+          duration: scaledDuration(BASE_DURATIONS.ambientPulse, status),
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
         style={{
           background: `radial-gradient(circle, ${styles.pulse} 0%, transparent 68%)`,
           filter: "blur(8px)",
@@ -53,25 +95,36 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
       />
 
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="relative z-[1]">
-        {[1, 0.72, 0.48].map((scale, index) => (
-          <motion.circle
-            key={scale}
-            cx={center}
-            cy={center}
-            r={outerRadius * scale}
-            fill="none"
-            stroke={styles.ring}
-            strokeOpacity={0.12 + index * 0.06}
-            strokeWidth={index === 0 ? 1.5 : 0.75}
-            animate={{ rotate: index % 2 === 0 ? 360 : -360 }}
-            transition={{ duration: 28 + index * 8, repeat: Infinity, ease: "linear" }}
-            style={{ transformOrigin: `${center}px ${center}px` }}
-          />
-        ))}
+        {BASE_DURATIONS.outerRings.map((baseDuration, index) => {
+          const scale = [1, 0.72, 0.48][index];
+          return (
+            <motion.circle
+              key={scale}
+              cx={center}
+              cy={center}
+              r={outerRadius * scale}
+              fill="none"
+              stroke={styles.ring}
+              strokeOpacity={0.12 + index * 0.06}
+              strokeWidth={index === 0 ? 1.5 : 0.75}
+              animate={{ rotate: index % 2 === 0 ? 360 : -360 }}
+              transition={{
+                duration: scaledDuration(baseDuration, status),
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              style={{ transformOrigin: `${center}px ${center}px` }}
+            />
+          );
+        })}
 
         <motion.g
           animate={{ rotate: 360 }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          transition={{
+            duration: scaledDuration(BASE_DURATIONS.tickBurst, status),
+            repeat: Infinity,
+            ease: "linear",
+          }}
           style={{ transformOrigin: `${center}px ${center}px` }}
         >
           {Array.from({ length: 24 }).map((_, index) => {
@@ -115,7 +168,11 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
           strokeOpacity={0.85}
           strokeDasharray="12 8 4 8"
           animate={{ rotate: -360 }}
-          transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+          transition={{
+            duration: scaledDuration(BASE_DURATIONS.midRing, status),
+            repeat: Infinity,
+            ease: "linear",
+          }}
           style={{ transformOrigin: `${center}px ${center}px` }}
         />
       </svg>
@@ -127,7 +184,11 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
             textShadow: "0 0 24px rgba(255,255,255,0.4), 0 0 48px rgba(255,255,255,0.22)",
           }}
           animate={{ opacity: [0.88, 1, 0.88] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{
+            duration: scaledDuration(BASE_DURATIONS.nexusText, status),
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
         >
           NEXUS
         </motion.p>
@@ -135,3 +196,9 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
     </div>
   );
 }
+
+export const NEXUS_TELEMETRY_STATUS_CONFIG = {
+  colors: STATUS_STYLES,
+  baseDurations: BASE_DURATIONS,
+  speedMultiplier: SPEED_MULTIPLIER,
+} as const;
