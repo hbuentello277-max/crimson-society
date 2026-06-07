@@ -6,16 +6,13 @@ import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/nexus/format";
 import { NexusRefreshButton } from "@/components/nexus/NexusShared";
 
-const NexusTelemetryCore = dynamic(
-  () =>
-    import("@/components/nexus/founder/NexusTelemetryCore").then((mod) => ({
-      default: mod.NexusTelemetryCore,
-    })),
+const NexusRing = dynamic(
+  () => import("@/components/nexus/founder/NexusRing").then((mod) => ({ default: mod.NexusRing })),
   {
     loading: () => (
       <div
-        className="mx-auto aspect-square w-full max-w-[min(76vw,15.5rem)] rounded-full border border-[#b4141e]/25 bg-[#0a0608]/80 sm:max-w-[16.5rem]"
-        aria-hidden
+        className="mx-auto rounded-full border border-[#b4141e]/25 bg-[#0a0608]/80"
+        style={{ width: 260, height: 260 }}
       />
     ),
   },
@@ -29,6 +26,9 @@ type OrbitMetric = {
 
 export function FounderHero({
   platformStatus,
+  systemStatus,
+  lastHealthCheck,
+  platformState,
   orbitMetrics,
   onRefresh,
   partialTelemetry = false,
@@ -46,7 +46,7 @@ export function FounderHero({
   lastSyncedAt?: string | null;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-5">
+    <section className="relative overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-40"
@@ -58,10 +58,10 @@ export function FounderHero({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.14),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.16),transparent_62%)]"
       />
 
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Nexus Command Center</p>
           <p className="mt-1 text-sm leading-snug text-white">Crimson Society Operating System</p>
@@ -69,9 +69,8 @@ export function FounderHero({
             <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-amber-400">Partial telemetry</p>
           ) : null}
         </div>
-
-        <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
-          <div className="flex items-center justify-end gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
             <NexusRefreshButton
               compact
               onClick={onRefresh}
@@ -82,51 +81,84 @@ export function FounderHero({
             <Link
               href="/admin/nexus/overview"
               scroll={false}
-              className="inline-flex min-h-10 items-center rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
+              className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
             >
               Overview
             </Link>
           </div>
           {lastSyncedAt ? (
-            <p className="text-right text-[9px] uppercase tracking-[0.12em] text-zinc-500">
+            <p className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">
               Synced {formatRelativeTime(lastSyncedAt) || "just now"} · {formatDateTime(lastSyncedAt)}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="relative mt-3 min-w-0 sm:mt-4">
-        <div className="flex min-w-0 justify-center py-0.5 sm:py-1">
-          <NexusTelemetryCore status={platformStatus} />
+      <div className="relative mt-6 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+        <OrbitColumn metrics={orbitMetrics.slice(0, 5)} align="left" />
+        <div className="flex min-w-0 flex-col items-center justify-center py-2">
+          <NexusRing status={platformStatus} size={260} />
+          <div className="mt-4 grid w-full max-w-sm grid-cols-2 gap-2 text-center sm:grid-cols-3">
+            <TelemetryChip label="System Status" value={systemStatus} />
+            <TelemetryChip
+              label="Last Health Check"
+              value={lastHealthCheck ? formatDateTime(lastHealthCheck) : "—"}
+            />
+            <TelemetryChip label="Platform State" value={platformState} className="col-span-2 sm:col-span-1" />
+          </div>
         </div>
+        <OrbitColumn metrics={orbitMetrics.slice(5)} align="right" />
+      </div>
 
-        <div className="mt-2.5 grid min-w-0 grid-cols-2 gap-2 sm:mt-3 sm:grid-cols-3 lg:grid-cols-5">
-          {orbitMetrics.map((metric) => (
-            <OrbitMetricCard key={metric.label} metric={metric} />
-          ))}
-        </div>
+      <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:hidden">
+        {orbitMetrics.map((metric) => (
+          <OrbitMetricCard key={metric.label} metric={metric} />
+        ))}
       </div>
     </section>
   );
 }
 
-function OrbitMetricCard({ metric }: { metric: OrbitMetric }) {
+function OrbitColumn({
+  metrics,
+  align,
+}: {
+  metrics: OrbitMetric[];
+  align: "left" | "right";
+}) {
+  return (
+    <div className={`hidden min-w-0 space-y-2 lg:block ${align === "right" ? "text-right" : ""}`}>
+      {metrics.map((metric) => (
+        <OrbitMetricCard key={metric.label} metric={metric} align={align} />
+      ))}
+    </div>
+  );
+}
+
+function OrbitMetricCard({
+  metric,
+  align = "left",
+}: {
+  metric: OrbitMetric;
+  align?: "left" | "right";
+}) {
   const inner = (
     <>
-      <p className="truncate text-[9px] uppercase tracking-[0.16em] text-zinc-500">{metric.label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-white">{metric.value}</p>
+      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">{metric.label}</p>
+      <p className="mt-1 text-sm font-semibold text-white">{metric.value}</p>
     </>
   );
 
-  const className =
-    "flex min-h-[3.25rem] min-w-0 flex-col justify-center rounded-xl border border-[#b4141e]/20 bg-black/45 px-3 py-2 backdrop-blur-sm";
+  const className = `rounded-xl border border-[#b4141e]/20 bg-black/40 px-3 py-2 backdrop-blur-sm ${
+    align === "right" ? "text-right" : ""
+  }`;
 
   if (metric.href) {
     return (
       <Link
         href={metric.href}
         scroll={false}
-        className={`${className} transition hover:border-[#b4141e]/45`}
+        className={`${className} block transition hover:border-[#b4141e]/45`}
       >
         {inner}
       </Link>
@@ -134,6 +166,25 @@ function OrbitMetricCard({ metric }: { metric: OrbitMetric }) {
   }
 
   return <div className={className}>{inner}</div>;
+}
+
+function TelemetryChip({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg border border-white/10 bg-black/35 px-2 py-2 ${className}`}
+    >
+      <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-1 truncate text-[11px] font-medium capitalize text-zinc-200">{value}</p>
+    </div>
+  );
 }
 
 export function buildOrbitMetrics(input: {
