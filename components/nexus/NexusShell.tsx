@@ -23,6 +23,7 @@ import {
   NexusNavCopilotIcon,
   NexusNavOperationalIntelligenceIcon,
   NexusNavMissionControlIcon,
+  NexusNavDecisionEngineIcon,
   NexusNavReportsIcon,
   NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
@@ -148,6 +149,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/mission-control",
     label: "Mission Control",
     icon: NexusNavMissionControlIcon,
+  },
+  {
+    href: "/admin/nexus/decision-engine",
+    label: "Decision Engine",
+    icon: NexusNavDecisionEngineIcon,
   },
 ] as const;
 
