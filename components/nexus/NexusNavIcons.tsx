@@ -172,3 +172,13 @@ export function NexusNavCorrelationsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavPlanningIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 5.5h10v9H5z" />
+      <path d="M7.5 8h5M7.5 10.5h3.5M7.5 13h2.5" strokeLinecap="round" />
+      <path d="M12 5.5V4.5h2v1" strokeLinecap="round" />
+    </IconBase>
+  );
+}

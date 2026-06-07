@@ -16,6 +16,7 @@ import { NexusBriefingsCenter } from "@/components/nexus/NexusBriefingsCenter";
 import { NexusIntelligenceCenter } from "@/components/nexus/NexusIntelligenceCenter";
 import { NexusMemoryCenter } from "@/components/nexus/NexusMemoryCenter";
 import { NexusCorrelationsCenter } from "@/components/nexus/NexusCorrelationsCenter";
+import { NexusPlanningCenter } from "@/components/nexus/NexusPlanningCenter";
 import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
 import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
@@ -311,4 +312,8 @@ export function NexusMemoryView() {
 
 export function NexusCorrelationsView() {
   return <NexusCorrelationsCenter />;
+}
+
+export function NexusPlanningView() {
+  return <NexusPlanningCenter />;
 }
