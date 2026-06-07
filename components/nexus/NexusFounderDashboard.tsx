@@ -84,7 +84,7 @@ export function NexusFounderDashboard() {
   return (
     <div
       ref={scrollRef}
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-2"
+      className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-2"
     >
       {toast ? (
         <div

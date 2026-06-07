@@ -1,6 +1,7 @@
 "use client";
 
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
+import "./nexus-ring.css";
 
 type CoreTone = {
   label: string;
@@ -22,7 +23,7 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,30,45,0.32)",
     nodeGlow: "rgba(255,56,71,0.74)",
     segmentOpacity: 0.9,
-    scanDuration: "5s",
+    scanDuration: "4.5s",
   },
   warning: {
     label: "Needs Attention",
@@ -32,7 +33,7 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,193,7,0.32)",
     nodeGlow: "rgba(255,193,7,0.68)",
     segmentOpacity: 0.86,
-    scanDuration: "4.2s",
+    scanDuration: "3.8s",
   },
   critical: {
     label: "Critical",
@@ -42,7 +43,7 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,56,71,0.42)",
     nodeGlow: "rgba(255,56,71,0.9)",
     segmentOpacity: 1,
-    scanDuration: "2.8s",
+    scanDuration: "2.4s",
   },
 };
 
@@ -67,7 +68,7 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
 
   return (
     <div
-      className={`nexus-core relative mx-auto aspect-square w-full max-w-[min(68vw,17rem)] overflow-hidden sm:max-w-[17.5rem] ${className}`}
+      className={`nexus-core relative mx-auto aspect-square w-full max-w-[min(72vw,17rem)] overflow-hidden sm:max-w-[17.5rem] ${className}`}
       style={
         {
           "--core-accent": tone.accent,
@@ -77,7 +78,7 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           "--core-node-glow": tone.nodeGlow,
           "--core-segment-opacity": tone.segmentOpacity,
           "--core-scan-duration": tone.scanDuration,
-          maxWidth: `min(68vw, ${size}px)`,
+          maxWidth: `min(72vw, ${size}px)`,
         } as React.CSSProperties
       }
       role="img"
@@ -105,8 +106,8 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           </radialGradient>
           <linearGradient id="nexus-scan-gradient" x1="150" y1="150" x2="256" y2="98">
             <stop offset="0%" stopColor={tone.accent} stopOpacity="0" />
-            <stop offset="72%" stopColor={tone.accent} stopOpacity="0.14" />
-            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.66" />
+            <stop offset="55%" stopColor={tone.accent} stopOpacity="0.08" />
+            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.78" />
           </linearGradient>
         </defs>
 
@@ -175,8 +176,8 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
             x2="258"
             y2="104"
             stroke="var(--core-accent)"
-            strokeOpacity="0.6"
-            strokeWidth="1"
+            strokeOpacity="0.75"
+            strokeWidth="1.25"
           />
         </g>
 
@@ -227,77 +228,6 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           </p>
         </div>
       </div>
-
-      <style>{`
-        .nexus-core {
-          filter: drop-shadow(0 0 22px var(--core-glow));
-        }
-
-        .nexus-core__outer-orbit {
-          animation: nexus-outer-spin 38s linear infinite;
-          transform-origin: 150px 150px;
-        }
-
-        .nexus-core__segments {
-          animation:
-            nexus-segment-rotate 22s linear infinite,
-            nexus-segment-pulse 3.1s ease-in-out infinite;
-          transform-origin: 150px 150px;
-        }
-
-        .nexus-core__scan {
-          animation: nexus-scan-rotate var(--core-scan-duration) linear infinite;
-          transform-origin: 150px 150px;
-          mix-blend-mode: screen;
-        }
-
-        .nexus-core__node {
-          animation: nexus-node-pulse 2.7s ease-in-out infinite;
-          filter: drop-shadow(0 0 8px var(--core-node-glow));
-        }
-
-        .nexus-core__inner-glow {
-          animation: nexus-core-breathe 3.8s ease-in-out infinite;
-          filter: drop-shadow(0 0 16px var(--core-glow));
-        }
-
-        @keyframes nexus-outer-spin {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes nexus-segment-rotate {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes nexus-segment-pulse {
-          0%, 100% { opacity: 0.82; }
-          50% { opacity: 1; }
-        }
-
-        @keyframes nexus-scan-rotate {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes nexus-node-pulse {
-          0%, 100% { opacity: 0.72; transform: scale(0.94); transform-origin: center; }
-          50% { opacity: 1; transform: scale(1.08); transform-origin: center; }
-        }
-
-        @keyframes nexus-core-breathe {
-          0%, 100% { opacity: 0.72; }
-          50% { opacity: 1; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .nexus-core__outer-orbit,
-          .nexus-core__segments,
-          .nexus-core__scan,
-          .nexus-core__node,
-          .nexus-core__inner-glow {
-            animation: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

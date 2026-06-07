@@ -37,13 +37,25 @@ export function NexusFounderOverviewHost() {
     [pathname, router, saveFounderScroll, saveOverviewScroll],
   );
 
-  const { viewportRef, swipeHandlers, translateX, isDragging, panelWidthPercent } =
-    useHorizontalSwipe({
-      activeIndex,
-      panelCount: 2,
-      enabled: true,
-      onIndexChange: setIndex,
-    });
+  const {
+    viewportRef,
+    swipeHandlers,
+    translatePx,
+    panelWidth,
+    trackWidthPx,
+    isDragging,
+    viewportReady,
+  } = useHorizontalSwipe({
+    activeIndex,
+    panelCount: 2,
+    enabled: true,
+    onIndexChange: setIndex,
+  });
+
+  const panelStyle =
+    viewportReady && panelWidth > 0
+      ? { width: panelWidth, minWidth: panelWidth, maxWidth: panelWidth }
+      : { width: "100%", minWidth: "100%", maxWidth: "100%" };
 
   return (
     <div
@@ -52,22 +64,25 @@ export function NexusFounderOverviewHost() {
       {...swipeHandlers}
     >
       <div
-        className={`flex h-full min-h-0 w-[200%] max-w-none ${
+        className={`flex h-full min-h-0 shrink-0 ${
           isDragging || prefersReducedMotion ? "" : "transition-transform duration-300 ease-out"
         }`}
-        style={{ transform: `translateX(${translateX}%)` }}
+        style={{
+          width: trackWidthPx > 0 ? trackWidthPx : "100%",
+          transform: viewportReady ? `translateX(${translatePx}px)` : undefined,
+        }}
       >
         <div
           ref={founderScrollRef}
-          className="h-full min-h-0 shrink-0 overflow-y-auto overscroll-contain pr-0"
-          style={{ width: `${panelWidthPercent}%` }}
+          className="h-full min-h-0 shrink-0 overflow-y-auto overscroll-contain"
+          style={panelStyle}
         >
           <NexusFounderDashboard />
         </div>
         <div
           ref={overviewScrollRef}
           className="h-full min-h-0 shrink-0 overflow-y-auto overscroll-contain"
-          style={{ width: `${panelWidthPercent}%` }}
+          style={panelStyle}
         >
           {overviewMounted ? <NexusOverviewDashboard showFounderLink /> : null}
         </div>

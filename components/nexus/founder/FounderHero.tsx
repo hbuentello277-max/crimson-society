@@ -46,7 +46,7 @@ export function FounderHero({
   lastSyncedAt?: string | null;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
+    <section className="relative w-full min-w-0 overflow-hidden rounded-2xl border border-[#b4141e]/30 bg-[#030303]/90 p-4 shadow-[0_0_40px_rgba(180,20,30,0.12)] sm:p-6">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-40"
@@ -61,16 +61,18 @@ export function FounderHero({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.16),transparent_62%)]"
       />
 
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Nexus Command Center</p>
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82] sm:tracking-[0.32em]">
+            Nexus Command Center
+          </p>
           <p className="mt-1 text-sm leading-snug text-white">Crimson Society Operating System</p>
           {partialTelemetry ? (
             <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-amber-400">Partial telemetry</p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-auto sm:items-end">
+          <div className="flex items-center justify-end gap-2">
             <NexusRefreshButton
               compact
               onClick={onRefresh}
@@ -81,24 +83,24 @@ export function FounderHero({
             <Link
               href="/admin/nexus/overview"
               scroll={false}
-              className="rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
+              className="inline-flex min-h-10 items-center rounded-lg border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20"
             >
               Overview
             </Link>
           </div>
           {lastSyncedAt ? (
-            <p className="text-[9px] uppercase tracking-[0.12em] text-zinc-500">
+            <p className="text-right text-[9px] uppercase tracking-[0.12em] text-zinc-500">
               Synced {formatRelativeTime(lastSyncedAt) || "just now"} · {formatDateTime(lastSyncedAt)}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="relative mt-6 grid min-w-0 gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+      <div className="relative mt-5 grid w-full min-w-0 gap-4 lg:mt-6 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
         <OrbitColumn metrics={orbitMetrics.slice(0, 5)} align="left" />
-        <div className="flex min-w-0 flex-col items-center justify-center py-2">
+        <div className="flex w-full min-w-0 flex-col items-center justify-center py-2">
           <NexusRing status={platformStatus} size={260} />
-          <div className="mt-4 grid w-full max-w-sm grid-cols-2 gap-2 text-center sm:grid-cols-3">
+          <div className="mt-4 grid w-full min-w-0 grid-cols-2 gap-2 text-center sm:grid-cols-3">
             <TelemetryChip label="System Status" value={systemStatus} />
             <TelemetryChip
               label="Last Health Check"
@@ -110,7 +112,7 @@ export function FounderHero({
         <OrbitColumn metrics={orbitMetrics.slice(5)} align="right" />
       </div>
 
-      <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:hidden">
+      <div className="relative mt-4 grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:hidden">
         {orbitMetrics.map((metric) => (
           <OrbitMetricCard key={metric.label} metric={metric} />
         ))}

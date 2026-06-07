@@ -193,10 +193,13 @@ export function useHorizontalSwipe({
     [enabled, endDrag],
   );
 
-  const widthForTransform = viewportWidth || viewportRef.current?.clientWidth || 0;
+  const panelWidth = viewportWidth || viewportRef.current?.clientWidth || 0;
+  const translatePx = -activeIndex * panelWidth + dragOffset;
+  const trackWidthPx = panelWidth > 0 ? panelWidth * panelCount : 0;
+  const panelWidthPercent = 100 / panelCount;
   const translateX =
-    -activeIndex * (100 / panelCount) +
-    (widthForTransform > 0 ? (dragOffset / widthForTransform) * (100 / panelCount) : 0);
+    -activeIndex * panelWidthPercent +
+    (panelWidth > 0 ? (dragOffset / panelWidth) * panelWidthPercent : 0);
 
   /** Pointer only — touch uses non-passive listeners on viewportRef (iOS). */
   const swipeHandlers = enabled
@@ -211,9 +214,12 @@ export function useHorizontalSwipe({
   return {
     viewportRef,
     swipeHandlers,
+    translatePx,
     translateX,
+    panelWidth,
+    trackWidthPx,
     isDragging,
-    panelWidthPercent: 100 / panelCount,
-    viewportReady: widthForTransform > 0,
+    panelWidthPercent,
+    viewportReady: panelWidth > 0,
   };
 }
