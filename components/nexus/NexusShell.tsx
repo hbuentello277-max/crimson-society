@@ -13,6 +13,7 @@ import {
   NexusNavMetricsIcon,
   NexusNavOverviewIcon,
   NexusNavBriefingsIcon,
+  NexusNavCorrelationsIcon,
   NexusNavIntelligenceIcon,
   NexusNavMemoryIcon,
   NexusNavReportsIcon,
@@ -100,6 +101,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/memory",
     label: "Memory",
     icon: NexusNavMemoryIcon,
+  },
+  {
+    href: "/admin/nexus/correlations",
+    label: "Correlations",
+    icon: NexusNavCorrelationsIcon,
   },
 ] as const;
 

@@ -161,3 +161,14 @@ export function NexusNavMemoryIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavCorrelationsIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="6" cy="10" r="2.5" />
+      <circle cx="14" cy="6" r="2.5" />
+      <circle cx="14" cy="14" r="2.5" />
+      <path d="M8.2 9.2 11.8 7.2M8.2 10.8l3.6 2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
