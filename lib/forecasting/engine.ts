@@ -23,6 +23,8 @@ import { getNexusMemorySummary } from "@/lib/memory/summary";
 import { METRIC_KEYS } from "@/lib/metrics/types";
 import { getExecutiveReportSummary } from "@/lib/reports/summary";
 import { loadReportContext } from "@/lib/reports/context";
+import { operationalStressFromReport } from "@/lib/mission-health/degraded";
+import { runCached } from "@/lib/nexus/request-cache";
 
 const FORECAST_METRIC_KEYS = [
   METRIC_KEYS.GROWTH_TOTAL_USERS,
@@ -142,7 +144,13 @@ function buildSummary(forecasts: ForecastingResult["forecasts"]): ForecastSummar
   };
 }
 
-export async function getNexusForecasting(
+export function getNexusForecasting(
+  supabase: SupabaseClient,
+): Promise<ForecastingResult> {
+  return runCached(supabase, "nexus:forecasting", () => getNexusForecastingImpl(supabase));
+}
+
+async function getNexusForecastingImpl(
   supabase: SupabaseClient,
 ): Promise<ForecastingResult> {
   const generated_at = new Date().toISOString();
@@ -196,17 +204,7 @@ export async function getNexusForecasting(
 
   const missionScoreTrend = analyzeMetricTrend("mission.workflow_score", missionScoreSeries);
 
-  const degradedWorkflows = (reportContext.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing", "warn", "warning"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
-
-  const operational_stress =
-    degradedWorkflows > 0 ||
-    reportContext.alerts.counts.active > 0 ||
-    reportContext.incidents.open.length > 0 ||
-    reportContext.health.systemStatus !== "operational";
+  const { operationalStress: operational_stress } = operationalStressFromReport(reportContext);
 
   const supporting_signals = countSupportingSignals({
     correlations: correlations.correlations.length,

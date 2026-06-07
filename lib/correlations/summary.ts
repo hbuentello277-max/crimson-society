@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildCorrelationItems } from "@/lib/correlations/engine";
+import { cacheKey, runCached } from "@/lib/nexus/request-cache";
 import {
   CORRELATION_CATEGORIES,
   type CorrelationCategory,
@@ -40,7 +41,7 @@ export function countCorrelationsByCategory(
   return counts;
 }
 
-export async function getNexusCorrelations(
+export function getNexusCorrelations(
   supabase: SupabaseClient,
   options?: {
     category?: CorrelationCategory | "all";
@@ -51,6 +52,23 @@ export async function getNexusCorrelations(
   const window = options?.window ?? "7d";
   const sort = options?.sort ?? "impact";
   const category = options?.category ?? "all";
+
+  return runCached(
+    supabase,
+    cacheKey("nexus:correlations", { window, sort, category }),
+    () => getNexusCorrelationsImpl(supabase, { window, sort, category }),
+  );
+}
+
+async function getNexusCorrelationsImpl(
+  supabase: SupabaseClient,
+  options: {
+    window: CorrelationWindow;
+    sort: CorrelationSort;
+    category: CorrelationCategory | "all";
+  },
+): Promise<CorrelationsSummary> {
+  const { window, sort, category } = options;
 
   const { context, items } = await buildCorrelationItems(supabase, window);
 

@@ -7,9 +7,8 @@ export const DECISION_SCORE_WEIGHTS = {
   strategic_importance: 0.15,
 } as const;
 
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+export { clampScore } from "@/lib/nexus/scoring";
+import { clampScore } from "@/lib/nexus/scoring";
 
 export function computeDecisionScore(input: {
   expected_impact: number;

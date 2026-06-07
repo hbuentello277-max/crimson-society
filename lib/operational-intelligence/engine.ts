@@ -3,8 +3,13 @@ import { getNexusCopilot } from "@/lib/copilot/engine";
 import { getNexusCorrelations } from "@/lib/correlations/summary";
 import { getNexusForecasting } from "@/lib/forecasting/engine";
 import { getNexusIntelligence } from "@/lib/intelligence/engine";
+import {
+  loadMetricSnapshotTrends,
+  OPERATIONAL_INTELLIGENCE_TREND_KEYS,
+} from "@/lib/metrics/trends";
 import { METRIC_KEYS } from "@/lib/metrics/types";
 import { getNexusMemorySummary } from "@/lib/memory/summary";
+import { runCached } from "@/lib/nexus/request-cache";
 import { buildRepeatingPatterns } from "@/lib/operational-intelligence/patterns";
 import { buildRelationshipMap, buildTrendSnapshots } from "@/lib/operational-intelligence/relationships";
 import {
@@ -25,48 +30,6 @@ import type {
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { getExecutiveReportSummary } from "@/lib/reports/summary";
 import { loadReportContext } from "@/lib/reports/context";
-
-type MetricTrend = {
-  current: number;
-  previous: number | null;
-};
-
-async function loadMetricTrends(supabase: SupabaseClient): Promise<Record<string, MetricTrend>> {
-  const keys = [
-    METRIC_KEYS.GROWTH_SIGNUPS_WEEKLY,
-    METRIC_KEYS.GROWTH_ACTIVE_PROFILES,
-    METRIC_KEYS.BLACKCARD_ACTIVE,
-    METRIC_KEYS.REVENUE_MRR,
-    METRIC_KEYS.ACTIVITY_POSTS_WEEKLY,
-    METRIC_KEYS.ACTIVITY_MEETS_WEEKLY,
-    METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY,
-  ];
-
-  const { data, error } = await supabase
-    .from("nexus_metrics_snapshots")
-    .select("metric_key, value, previous_value, period_start")
-    .in("metric_key", keys)
-    .order("period_start", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const trends: Record<string, MetricTrend> = {};
-  for (const row of data ?? []) {
-    const key = row.metric_key as string;
-    if (trends[key]) continue;
-    const current = Number(row.value);
-    const previousRaw = row.previous_value;
-    const previous =
-      previousRaw == null || !Number.isFinite(Number(previousRaw)) ? null : Number(previousRaw);
-    if (!Number.isFinite(current)) continue;
-    trends[key] = { current, previous };
-  }
-
-  return trends;
-}
 
 function snapshotInfluence(snapshot: TrendSnapshot, domain: InfluenceRankingItem["domain"]) {
   const direction =
@@ -388,7 +351,15 @@ function buildRecommendations(input: {
     .slice(0, 10);
 }
 
-export async function getNexusOperationalIntelligence(
+export function getNexusOperationalIntelligence(
+  supabase: SupabaseClient,
+): Promise<OperationalIntelligenceSummary> {
+  return runCached(supabase, "nexus:operational-intelligence", () =>
+    getNexusOperationalIntelligenceImpl(supabase),
+  );
+}
+
+async function getNexusOperationalIntelligenceImpl(
   supabase: SupabaseClient,
 ): Promise<OperationalIntelligenceSummary> {
   const generated_at = new Date().toISOString();
@@ -405,7 +376,7 @@ export async function getNexusOperationalIntelligence(
     executiveReport,
   ] = await Promise.all([
     loadReportContext(supabase),
-    loadMetricTrends(supabase),
+    loadMetricSnapshotTrends(supabase, OPERATIONAL_INTELLIGENCE_TREND_KEYS),
     getNexusCorrelations(supabase, { window: "30d", sort: "impact" }),
     getNexusIntelligence(supabase, { sort: "impact" }),
     getNexusMemorySummary(supabase, { limit: 50 }),

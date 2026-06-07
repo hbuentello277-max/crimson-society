@@ -12,6 +12,8 @@ import { getWeeklyOwnerBriefing } from "@/lib/briefings/weekly";
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { getExecutiveReportSummary } from "@/lib/reports/summary";
 import { loadReportContext } from "@/lib/reports/context";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
+import { runCached } from "@/lib/nexus/request-cache";
 import {
   deriveFounderBrief,
   derivePlatformStatus,
@@ -25,11 +27,7 @@ function buildFounderGuidance(input: {
   daily_focus: CopilotSummary["daily_focus"];
   weekly_headline: string;
 }): FounderGuidanceBrief {
-  const degradedWorkflows = (input.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing", "warn", "warning"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  const degradedWorkflows = countDegradedWorkflows(input.report.mission.workflows);
 
   const platformStatus = derivePlatformStatus({
     systemStatus: input.report.health.systemStatus,
@@ -86,7 +84,11 @@ function buildFounderGuidance(input: {
   };
 }
 
-export async function getNexusCopilot(supabase: SupabaseClient): Promise<CopilotSummary> {
+export function getNexusCopilot(supabase: SupabaseClient): Promise<CopilotSummary> {
+  return runCached(supabase, "nexus:copilot", () => getNexusCopilotImpl(supabase));
+}
+
+async function getNexusCopilotImpl(supabase: SupabaseClient): Promise<CopilotSummary> {
   const generated_at = new Date().toISOString();
 
   const [

@@ -3,6 +3,7 @@ import type { ScenarioBuildContext } from "@/lib/scenarios/types";
 import {
   averageConfidence,
   benefitFromImpact,
+  benefitFromRisk,
   computeScenarioScore,
   focusBoost,
   forecastNumericAt90d,
@@ -29,7 +30,7 @@ export function buildGrowthScenario(context: ScenarioBuildContext): StrategicSce
   const membership90 = forecastNumericAt90d(membership);
   const engagement90 = forecastNumericAt90d(engagement);
   const baselineGrowthImpact = membership?.available
-    ? clampBenefitFromRisk(membership.risk_score)
+    ? benefitFromRisk(membership.risk_score)
     : signupsWeek != null
       ? Math.min(85, 45 + Math.min(signupsWeek, 40))
       : 0;
@@ -131,8 +132,4 @@ export function buildGrowthScenario(context: ScenarioBuildContext): StrategicSce
     available,
     generated_at: context.generatedAt,
   };
-}
-
-function clampBenefitFromRisk(riskScore: number): number {
-  return Math.max(35, 100 - riskScore);
 }

@@ -8,6 +8,8 @@ import { getNexusMemorySummary } from "@/lib/memory/summary";
 import { getNexusMissionControl } from "@/lib/mission-control/engine";
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { loadReportContext } from "@/lib/reports/context";
+import { operationalStressFromReport } from "@/lib/mission-health/degraded";
+import { runCached } from "@/lib/nexus/request-cache";
 import { buildEngagementScenario } from "@/lib/scenarios/engagement";
 import { buildGrowthScenario } from "@/lib/scenarios/growth";
 import { buildOperationsScenario } from "@/lib/scenarios/operations";
@@ -139,7 +141,11 @@ function buildBrief(
   };
 }
 
-export async function getNexusScenarios(supabase: SupabaseClient): Promise<ScenariosSummary> {
+export function getNexusScenarios(supabase: SupabaseClient): Promise<ScenariosSummary> {
+  return runCached(supabase, "nexus:scenarios", () => getNexusScenariosImpl(supabase));
+}
+
+async function getNexusScenariosImpl(supabase: SupabaseClient): Promise<ScenariosSummary> {
   const generatedAt = new Date().toISOString();
 
   const [forecasting, planning, mission, decisions, correlations, intelligence, memory, report, weeklyBriefing] =
@@ -155,17 +161,7 @@ export async function getNexusScenarios(supabase: SupabaseClient): Promise<Scena
       getWeeklyOwnerBriefing(supabase),
     ]);
 
-  const degradedWorkflows = (report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing", "warn", "warning"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
-
-  const operationalStress =
-    degradedWorkflows > 0 ||
-    report.alerts.counts.active > 0 ||
-    report.incidents.open.length > 0 ||
-    report.health.systemStatus !== "operational";
+  const { operationalStress } = operationalStressFromReport(report);
 
   const context: ScenarioBuildContext = {
     generatedAt,

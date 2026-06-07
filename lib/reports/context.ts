@@ -8,6 +8,7 @@ import { getNexusHealthSnapshot } from "@/lib/monitoring/health-summary";
 import { getMissionHealthSnapshot } from "@/lib/mission-health/summary";
 import { getNexusObservationsSummary } from "@/lib/observations/summary";
 import { createNexusServiceClient } from "@/lib/nexus/client";
+import { runCached } from "@/lib/nexus/request-cache";
 import type { ReportInsightRef, ReportWorkflowRef } from "@/lib/reports/types";
 
 export type ReportContext = {
@@ -28,6 +29,10 @@ export type ReportContext = {
 };
 
 export async function loadReportContext(supabase: SupabaseClient): Promise<ReportContext> {
+  return runCached(supabase, "nexus:report-context", () => loadReportContextImpl(supabase));
+}
+
+async function loadReportContextImpl(supabase: SupabaseClient): Promise<ReportContext> {
   const monthStart = daysAgoIso(30);
   const admin = createNexusServiceClient();
 

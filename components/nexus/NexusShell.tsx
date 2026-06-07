@@ -32,6 +32,7 @@ import {
 } from "@/components/nexus/NexusNavIcons";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
+import { NEXUS_NAV_ROUTES, assertNavOrder } from "@/lib/nexus/nav-routes";
 
 const NAV_ITEMS = [
   {
@@ -162,6 +163,8 @@ const NAV_ITEMS = [
     icon: NexusNavScenariosIcon,
   },
 ] as const;
+
+assertNavOrder(NAV_ITEMS);
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   if (exact) {

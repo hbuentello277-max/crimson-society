@@ -2,10 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapMemoryRow } from "@/lib/memory/manager";
 import type { NexusMemorySummary } from "@/lib/memory/types";
 import { NEXUS_MEMORY_ENTRY_TYPES, type NexusMemoryEntryType } from "@/lib/nexus/constants";
+import { cacheKey, runCached } from "@/lib/nexus/request-cache";
 
 const DEFAULT_LIMIT = 100;
 
-export async function getNexusMemorySummary(
+export function getNexusMemorySummary(
   supabase: SupabaseClient,
   options?: {
     entryType?: NexusMemoryEntryType | "all";
@@ -14,6 +15,19 @@ export async function getNexusMemorySummary(
 ): Promise<NexusMemorySummary> {
   const limit = Math.min(Math.max(options?.limit ?? DEFAULT_LIMIT, 1), 200);
   const entryType = options?.entryType ?? "all";
+
+  return runCached(
+    supabase,
+    cacheKey("nexus:memory-summary", { limit, entryType }),
+    () => getNexusMemorySummaryImpl(supabase, { limit, entryType }),
+  );
+}
+
+async function getNexusMemorySummaryImpl(
+  supabase: SupabaseClient,
+  options: { limit: number; entryType: NexusMemoryEntryType | "all" },
+): Promise<NexusMemorySummary> {
+  const { limit, entryType } = options;
 
   let query = supabase
     .from("nexus_memory_entries")

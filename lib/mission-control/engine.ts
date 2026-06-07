@@ -1,10 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNexusCopilot } from "@/lib/copilot/engine";
+import {
+  loadMetricSnapshotTrends,
+  MISSION_CONTROL_TREND_KEYS,
+} from "@/lib/metrics/trends";
 import { getNexusMemorySummary } from "@/lib/memory/summary";
 import { getNexusOperationalIntelligence } from "@/lib/operational-intelligence/engine";
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { loadReportContext } from "@/lib/reports/context";
-import { METRIC_KEYS } from "@/lib/metrics/types";
+import { runCached } from "@/lib/nexus/request-cache";
 import { computeMissionHealthComponents } from "@/lib/mission-control/health";
 import {
   buildMissionAccelerators,
@@ -30,47 +34,6 @@ const TIMELINE_TYPES = new Set([
   "briefing",
 ]);
 
-type MetricTrend = {
-  current: number;
-  previous: number | null;
-};
-
-async function loadMetricTrends(supabase: SupabaseClient): Promise<Record<string, MetricTrend>> {
-  const keys = [
-    METRIC_KEYS.GROWTH_SIGNUPS_WEEKLY,
-    METRIC_KEYS.GROWTH_ACTIVE_PROFILES,
-    METRIC_KEYS.REVENUE_MRR,
-    METRIC_KEYS.ACTIVITY_POSTS_WEEKLY,
-    METRIC_KEYS.ACTIVITY_MEETS_WEEKLY,
-    METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY,
-  ];
-
-  const { data, error } = await supabase
-    .from("nexus_metrics_snapshots")
-    .select("metric_key, value, previous_value, period_start")
-    .in("metric_key", keys)
-    .order("period_start", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const trends: Record<string, MetricTrend> = {};
-  for (const row of data ?? []) {
-    const key = row.metric_key as string;
-    if (trends[key]) continue;
-    const current = Number(row.value);
-    const previousRaw = row.previous_value;
-    const previous =
-      previousRaw == null || !Number.isFinite(Number(previousRaw)) ? null : Number(previousRaw);
-    if (!Number.isFinite(current)) continue;
-    trends[key] = { current, previous };
-  }
-
-  return trends;
-}
-
 function buildRecentHistory(
   memoryEntries: Awaited<ReturnType<typeof getNexusMemorySummary>>["entries"],
 ): MissionHistoryItem[] {
@@ -87,7 +50,13 @@ function buildRecentHistory(
     }));
 }
 
-export async function getNexusMissionControl(
+export function getNexusMissionControl(
+  supabase: SupabaseClient,
+): Promise<MissionControlSummary> {
+  return runCached(supabase, "nexus:mission-control", () => getNexusMissionControlImpl(supabase));
+}
+
+async function getNexusMissionControlImpl(
   supabase: SupabaseClient,
 ): Promise<MissionControlSummary> {
   const [reportContext, planning, copilot, operational, memory, trends] = await Promise.all([
@@ -96,7 +65,7 @@ export async function getNexusMissionControl(
     getNexusCopilot(supabase),
     getNexusOperationalIntelligence(supabase),
     getNexusMemorySummary(supabase, { limit: 40 }),
-    loadMetricTrends(supabase),
+    loadMetricSnapshotTrends(supabase, MISSION_CONTROL_TREND_KEYS),
   ]);
 
   const healthComponents = computeMissionHealthComponents({

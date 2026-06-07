@@ -1,9 +1,7 @@
 import type { MissionHealthComponents, MissionStatus } from "@/lib/mission-control/types";
 import type { ReportContext } from "@/lib/reports/context";
-
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+export { clampScore } from "@/lib/nexus/scoring";
+import { clampScore } from "@/lib/nexus/scoring";
 
 const WEIGHTS = {
   growth: 0.15,

@@ -8,9 +8,8 @@ export const SCENARIO_SCORE_WEIGHTS = {
   risk_penalty: 0.1,
 } as const;
 
-export function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+export { clampScore, benefitFromRisk } from "@/lib/nexus/scoring";
+import { clampScore, benefitFromRisk } from "@/lib/nexus/scoring";
 
 export function computeScenarioScore(input: {
   expected_benefit: number;

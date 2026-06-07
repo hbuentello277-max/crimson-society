@@ -3,6 +3,7 @@ import type { ScenarioBuildContext } from "@/lib/scenarios/types";
 import {
   averageConfidence,
   benefitFromImpact,
+  benefitFromRisk,
   computeScenarioScore,
   focusBoost,
   forecastNumericAt90d,
@@ -32,11 +33,11 @@ export function buildRevenueScenario(context: ScenarioBuildContext): StrategicSc
 
   const baselineImpact =
     revenue?.available && blackcard?.available
-      ? clampBenefitFromRisk((revenue.risk_score + blackcard.risk_score) / 2)
+      ? benefitFromRisk((revenue.risk_score + blackcard.risk_score) / 2)
       : revenue?.available
-        ? clampBenefitFromRisk(revenue.risk_score)
+        ? benefitFromRisk(revenue.risk_score)
         : blackcard?.available
-          ? clampBenefitFromRisk(blackcard.risk_score)
+          ? benefitFromRisk(blackcard.risk_score)
           : mrr != null
             ? Math.min(80, 40 + Math.log10(Math.max(mrr, 1)) * 8)
             : 0;
@@ -141,8 +142,4 @@ export function buildRevenueScenario(context: ScenarioBuildContext): StrategicSc
     available,
     generated_at: context.generatedAt,
   };
-}
-
-function clampBenefitFromRisk(riskScore: number): number {
-  return Math.max(35, 100 - riskScore);
 }

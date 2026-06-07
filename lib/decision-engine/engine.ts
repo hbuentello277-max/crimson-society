@@ -10,8 +10,15 @@ import { getNexusMemorySummary } from "@/lib/memory/summary";
 import { getNexusMissionControl } from "@/lib/mission-control/engine";
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { loadReportContext } from "@/lib/reports/context";
+import { runCached } from "@/lib/nexus/request-cache";
 
-export async function getNexusDecisionEngine(
+export function getNexusDecisionEngine(
+  supabase: SupabaseClient,
+): Promise<DecisionEngineSummary> {
+  return runCached(supabase, "nexus:decision-engine", () => getNexusDecisionEngineImpl(supabase));
+}
+
+async function getNexusDecisionEngineImpl(
   supabase: SupabaseClient,
 ): Promise<DecisionEngineSummary> {
   const generatedAt = new Date().toISOString();

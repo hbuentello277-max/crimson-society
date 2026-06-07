@@ -1,47 +1,34 @@
 import type { ReportContext } from "@/lib/reports/context";
 import type { PlanningSummary } from "@/lib/planning/types";
 import type { MissionHealthComponents } from "@/lib/mission-control/types";
+import {
+  metricTrendDirection,
+  trendDirectionScore,
+  type MetricSnapshotTrend,
+} from "@/lib/metrics/trends";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 import { METRIC_KEYS } from "@/lib/metrics/types";
-
-type MetricTrend = {
-  current: number;
-  previous: number | null;
-};
-
-function trendDirection(trend: MetricTrend | null | undefined): "up" | "down" | "flat" | "unknown" {
-  if (!trend || trend.previous == null) return "unknown";
-  if (trend.current > trend.previous) return "up";
-  if (trend.current < trend.previous) return "down";
-  return "flat";
-}
-
-function trendScore(direction: "up" | "down" | "flat" | "unknown"): number {
-  if (direction === "up") return 85;
-  if (direction === "flat") return 60;
-  if (direction === "down") return 35;
-  return 50;
-}
 
 export function computeMissionHealthComponents(input: {
   report: ReportContext;
-  trends: Record<string, MetricTrend>;
+  trends: Record<string, MetricSnapshotTrend>;
   planning: PlanningSummary;
 }): MissionHealthComponents {
-  const growthTrend = trendDirection(
+  const growthTrend = metricTrendDirection(
     input.trends[METRIC_KEYS.GROWTH_SIGNUPS_WEEKLY] ??
       input.trends[METRIC_KEYS.GROWTH_ACTIVE_PROFILES],
   );
   const engagementTrends = [
-    trendDirection(input.trends[METRIC_KEYS.ACTIVITY_POSTS_WEEKLY]),
-    trendDirection(input.trends[METRIC_KEYS.ACTIVITY_MEETS_WEEKLY]),
-    trendDirection(input.trends[METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY]),
+    metricTrendDirection(input.trends[METRIC_KEYS.ACTIVITY_POSTS_WEEKLY]),
+    metricTrendDirection(input.trends[METRIC_KEYS.ACTIVITY_MEETS_WEEKLY]),
+    metricTrendDirection(input.trends[METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY]),
   ];
   const engagementUp = engagementTrends.filter((d) => d === "up").length;
   const engagementDown = engagementTrends.filter((d) => d === "down").length;
   const engagement =
-    engagementUp >= 2 ? 85 : engagementDown >= 2 ? 35 : trendScore(engagementTrends[0] ?? "unknown");
+    engagementUp >= 2 ? 85 : engagementDown >= 2 ? 35 : trendDirectionScore(engagementTrends[0] ?? "unknown");
 
-  const revenue = trendScore(trendDirection(input.trends[METRIC_KEYS.REVENUE_MRR]));
+  const revenue = trendDirectionScore(metricTrendDirection(input.trends[METRIC_KEYS.REVENUE_MRR]));
 
   let operational_health = 75;
   if (input.report.health.systemStatus === "operational") operational_health += 10;
@@ -49,11 +36,7 @@ export function computeMissionHealthComponents(input: {
   else if (input.report.health.systemStatus !== "operational") operational_health = 45;
 
   let workflow_health = input.report.mission.score ?? 70;
-  const degraded = (input.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "impaired", "critical", "failing"].includes(
-      workflow.workflow_status.toLowerCase(),
-    ),
-  ).length;
+  const degraded = countDegradedWorkflows(input.report.mission.workflows);
   workflow_health = Math.max(20, workflow_health - degraded * 12);
 
   const incident_penalty = Math.min(40, input.report.incidents.open.length * 15);
@@ -69,7 +52,7 @@ export function computeMissionHealthComponents(input: {
   );
 
   return {
-    growth: trendScore(growthTrend),
+    growth: trendDirectionScore(growthTrend),
     engagement,
     revenue,
     operational_health: Math.min(100, operational_health),

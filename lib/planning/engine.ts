@@ -3,8 +3,12 @@ import { getMonthlyOwnerBriefing } from "@/lib/briefings/monthly";
 import { getWeeklyOwnerBriefing } from "@/lib/briefings/weekly";
 import { getNexusCorrelations } from "@/lib/correlations/summary";
 import { getNexusIntelligence } from "@/lib/intelligence/engine";
-import { METRIC_KEYS, type MetricKey } from "@/lib/metrics/types";
+import {
+  loadMetricSnapshotTrends,
+  PLANNING_TREND_KEYS,
+} from "@/lib/metrics/trends";
 import { getNexusMemorySummary } from "@/lib/memory/summary";
+import { cacheKey, runCached } from "@/lib/nexus/request-cache";
 import { loadReportContext } from "@/lib/reports/context";
 import { getExecutiveReportSummary } from "@/lib/reports/summary";
 import { evaluatePlanningGoals } from "@/lib/planning/goals";
@@ -16,47 +20,6 @@ import {
   buildPlanningRisks,
 } from "@/lib/planning/priorities";
 import type { MetricTrend, PlanningContext, PlanningSummary } from "@/lib/planning/types";
-
-const TREND_METRIC_KEYS: MetricKey[] = [
-  METRIC_KEYS.GROWTH_SIGNUPS_WEEKLY,
-  METRIC_KEYS.GROWTH_SIGNUPS_MONTHLY,
-  METRIC_KEYS.BLACKCARD_ACTIVE,
-  METRIC_KEYS.REVENUE_MRR,
-  METRIC_KEYS.ACTIVITY_POSTS_WEEKLY,
-  METRIC_KEYS.ACTIVITY_MEETS_WEEKLY,
-  METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY,
-];
-
-async function loadMetricTrends(supabase: SupabaseClient): Promise<Record<string, MetricTrend>> {
-  const { data, error } = await supabase
-    .from("nexus_metrics_snapshots")
-    .select("metric_key, value, previous_value, period_start")
-    .in("metric_key", TREND_METRIC_KEYS)
-    .order("period_start", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const trends: Record<string, MetricTrend> = {};
-
-  for (const row of data ?? []) {
-    const key = row.metric_key as string;
-    if (trends[key]) continue;
-
-    const current = Number(row.value);
-    const previousRaw = row.previous_value;
-    const previous =
-      previousRaw == null || !Number.isFinite(Number(previousRaw)) ? null : Number(previousRaw);
-
-    if (!Number.isFinite(current)) continue;
-
-    trends[key] = { current, previous };
-  }
-
-  return trends;
-}
 
 export async function loadPlanningContext(supabase: SupabaseClient): Promise<PlanningContext> {
   const generated_at = new Date().toISOString();
@@ -72,7 +35,7 @@ export async function loadPlanningContext(supabase: SupabaseClient): Promise<Pla
     executiveReport,
   ] = await Promise.all([
     loadReportContext(supabase),
-    loadMetricTrends(supabase),
+    loadMetricSnapshotTrends(supabase, PLANNING_TREND_KEYS) as Promise<Record<string, MetricTrend>>,
     getNexusIntelligence(supabase),
     getNexusCorrelations(supabase, { window: "7d", sort: "impact" }),
     getNexusMemorySummary(supabase, { limit: 50 }),
@@ -100,7 +63,11 @@ export async function loadPlanningContext(supabase: SupabaseClient): Promise<Pla
   };
 }
 
-export async function getNexusPlanning(supabase: SupabaseClient): Promise<PlanningSummary> {
+export function getNexusPlanning(supabase: SupabaseClient): Promise<PlanningSummary> {
+  return runCached(supabase, "nexus:planning", () => getNexusPlanningImpl(supabase));
+}
+
+async function getNexusPlanningImpl(supabase: SupabaseClient): Promise<PlanningSummary> {
   const context = await loadPlanningContext(supabase);
 
   const weekly_objectives = buildWeeklyObjectives(context);

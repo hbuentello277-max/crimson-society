@@ -3,6 +3,7 @@ import type { ScenarioBuildContext } from "@/lib/scenarios/types";
 import {
   averageConfidence,
   benefitFromImpact,
+  benefitFromRisk,
   computeScenarioScore,
   focusBoost,
   forecastNumericAt90d,
@@ -31,7 +32,7 @@ export function buildEngagementScenario(context: ScenarioBuildContext): Strategi
     (posts ?? 0) + (meets ?? 0) + (messages ?? 0);
 
   const baselineImpact = engagement?.available
-    ? clampBenefitFromRisk(engagement.risk_score)
+    ? benefitFromRisk(engagement.risk_score)
     : activityTotal > 0
       ? Math.min(82, 40 + Math.min(activityTotal / 5, 35))
       : 0;
@@ -128,8 +129,4 @@ export function buildEngagementScenario(context: ScenarioBuildContext): Strategi
     available,
     generated_at: context.generatedAt,
   };
-}
-
-function clampBenefitFromRisk(riskScore: number): number {
-  return Math.max(35, 100 - riskScore);
 }

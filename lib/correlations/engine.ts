@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { METRIC_KEYS, type MetricKey } from "@/lib/metrics/types";
 import { loadReportContext } from "@/lib/reports/context";
 import { createNexusServiceClient } from "@/lib/nexus/client";
+import {
+  CORE_TREND_METRIC_KEYS,
+  loadMetricSnapshotTrends,
+} from "@/lib/metrics/trends";
 import { generateCorrelationItems } from "@/lib/correlations/rules";
 import type {
   CorrelationContext,
@@ -12,53 +15,10 @@ import type {
   MetricTrend,
 } from "@/lib/correlations/types";
 
-const TREND_METRIC_KEYS: MetricKey[] = [
-  METRIC_KEYS.GROWTH_SIGNUPS_WEEKLY,
-  METRIC_KEYS.GROWTH_SIGNUPS_MONTHLY,
-  METRIC_KEYS.GROWTH_ACTIVE_PROFILES,
-  METRIC_KEYS.BLACKCARD_ACTIVE,
-  METRIC_KEYS.REVENUE_MRR,
-  METRIC_KEYS.REVENUE_ARR,
-  METRIC_KEYS.ACTIVITY_POSTS_WEEKLY,
-  METRIC_KEYS.ACTIVITY_MEETS_WEEKLY,
-  METRIC_KEYS.ACTIVITY_MESSAGES_WEEKLY,
-];
-
 function windowToMs(window: CorrelationWindow): number {
   if (window === "24h") return 24 * 60 * 60_000;
   if (window === "7d") return 7 * 24 * 60 * 60_000;
   return 30 * 24 * 60 * 60_000;
-}
-
-async function loadMetricTrends(supabase: SupabaseClient): Promise<Record<string, MetricTrend>> {
-  const { data, error } = await supabase
-    .from("nexus_metrics_snapshots")
-    .select("metric_key, value, previous_value, period_start")
-    .in("metric_key", TREND_METRIC_KEYS)
-    .order("period_start", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const trends: Record<string, MetricTrend> = {};
-
-  for (const row of data ?? []) {
-    const key = row.metric_key as string;
-    if (trends[key]) continue;
-
-    const current = Number(row.value);
-    const previousRaw = row.previous_value;
-    const previous =
-      previousRaw == null || !Number.isFinite(Number(previousRaw)) ? null : Number(previousRaw);
-
-    if (!Number.isFinite(current)) continue;
-
-    trends[key] = { current, previous };
-  }
-
-  return trends;
 }
 
 async function loadDeployments(
@@ -158,7 +118,9 @@ export async function loadCorrelationContext(
 
   const [reportContext, trends, deployments, memory_entries, recent_commands] = await Promise.all([
     loadReportContext(supabase),
-    loadMetricTrends(supabase),
+    loadMetricSnapshotTrends(supabase, CORE_TREND_METRIC_KEYS) as Promise<
+      Record<string, MetricTrend>
+    >,
     loadDeployments(admin, windowStart),
     loadMemoryEntries(supabase, windowStart),
     loadRecentCommands(supabase, windowStart),

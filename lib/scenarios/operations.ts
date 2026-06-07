@@ -1,8 +1,10 @@
 import type { StrategicScenario } from "@/lib/scenarios/types";
 import type { ScenarioBuildContext } from "@/lib/scenarios/types";
+import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
 import {
   averageConfidence,
   benefitFromImpact,
+  clampScore,
   computeScenarioScore,
   focusBoost,
   formatScore,
@@ -20,9 +22,7 @@ export function buildOperationsScenario(context: ScenarioBuildContext): Strategi
   const missionScore = context.report.mission.score;
   const openIncidents = context.report.incidents.open.length;
   const criticalAlerts = context.report.alerts.counts.critical ?? 0;
-  const degradedWorkflows = (context.report.mission.workflows ?? []).filter((workflow) =>
-    ["degraded", "failing"].includes(workflow.workflow_status),
-  ).length;
+  const degradedWorkflows = countDegradedWorkflows(context.report.mission.workflows);
 
   const hasMetrics =
     missionScore != null || openIncidents > 0 || criticalAlerts > 0 || degradedWorkflows > 0;
@@ -129,8 +129,4 @@ export function buildOperationsScenario(context: ScenarioBuildContext): Strategi
     available,
     generated_at: context.generatedAt,
   };
-}
-
-function clampScore(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
