@@ -13,8 +13,6 @@ type CoreTone = {
   scan: string;
   nodeGlow: string;
   segmentOpacity: number;
-  scanDur: string;
-  scanMotionDur: number;
 };
 
 const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
@@ -26,8 +24,6 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,30,45,0.32)",
     nodeGlow: "rgba(255,56,71,0.74)",
     segmentOpacity: 0.9,
-    scanDur: "4.5s",
-    scanMotionDur: 4.5,
   },
   warning: {
     label: "Needs Attention",
@@ -37,8 +33,6 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,193,7,0.32)",
     nodeGlow: "rgba(255,193,7,0.68)",
     segmentOpacity: 0.86,
-    scanDur: "3.8s",
-    scanMotionDur: 3.8,
   },
   critical: {
     label: "Critical",
@@ -48,8 +42,6 @@ const STATUS_TONES: Record<PlatformRingStatus, CoreTone> = {
     scan: "rgba(255,56,71,0.42)",
     nodeGlow: "rgba(255,56,71,0.9)",
     segmentOpacity: 1,
-    scanDur: "2.4s",
-    scanMotionDur: 2.4,
   },
 };
 
@@ -72,14 +64,14 @@ function isAppleWebKit() {
   return /AppleWebKit/i.test(navigator.userAgent) && !/Chrome|CriOS|Chromium/i.test(navigator.userAgent);
 }
 
-function SmilRotate({ dur }: { dur: string }) {
+function SmilRotate({ dur, reverse = false }: { dur: string; reverse?: boolean }) {
   return (
     <animateTransform
       attributeName="transform"
       attributeType="XML"
       type="rotate"
-      from={`0 ${CX} ${CY}`}
-      to={`360 ${CX} ${CY}`}
+      from={reverse ? `360 ${CX} ${CY}` : `0 ${CX} ${CY}`}
+      to={reverse ? `0 ${CX} ${CY}` : `360 ${CX} ${CY}`}
       dur={dur}
       repeatCount="indefinite"
     />
@@ -106,8 +98,8 @@ function SmilOpacityPulse({
   );
 }
 
-const SPIN_LINEAR = (duration: number) => ({
-  animate: { rotate: 360 },
+const SPIN_LINEAR = (duration: number, reverse = false) => ({
+  animate: { rotate: reverse ? -360 : 360 },
   transition: { duration, repeat: Infinity, ease: "linear" as const },
 });
 
@@ -134,13 +126,9 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
 
   const OuterOrbitWrapper = useSmil ? "g" : motion.g;
   const SegmentsWrapper = useSmil ? "g" : motion.g;
-  const ScanWrapper = useSmil ? "g" : motion.g;
   const SegmentPulseWrapper = useSmil ? "g" : motion.g;
-  const outerMotion = useSmil ? {} : { style: { transformOrigin: CORE_ORIGIN }, ...SPIN_LINEAR(18) };
+  const outerMotion = useSmil ? {} : { style: { transformOrigin: CORE_ORIGIN }, ...SPIN_LINEAR(18, true) };
   const segmentsMotion = useSmil ? {} : { style: { transformOrigin: CORE_ORIGIN }, ...SPIN_LINEAR(12) };
-  const scanMotion = useSmil
-    ? { style: { mixBlendMode: "screen" as const } }
-    : { style: { transformOrigin: CORE_ORIGIN, mixBlendMode: "screen" as const }, ...SPIN_LINEAR(tone.scanMotionDur) };
   const segmentPulseMotion = useSmil ? {} : PULSE_OPACITY(2.2);
 
   return (
@@ -189,11 +177,6 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
             <stop offset="48%" stopColor={tone.accent} stopOpacity="0.12" />
             <stop offset="100%" stopColor={tone.accent} stopOpacity="0" />
           </radialGradient>
-          <linearGradient id={`nexus-scan-gradient-${uid}`} x1="150" y1="150" x2="256" y2="98">
-            <stop offset="0%" stopColor={tone.accent} stopOpacity="0" />
-            <stop offset="55%" stopColor={tone.accent} stopOpacity="0.12" />
-            <stop offset="100%" stopColor={tone.accent} stopOpacity="0.82" />
-          </linearGradient>
         </defs>
 
         <circle
@@ -210,7 +193,7 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
           filter={`url(#nexus-core-glow-${uid})`}
           {...outerMotion}
         >
-          {useSmil ? <SmilRotate dur="18s" /> : null}
+          {useSmil ? <SmilRotate dur="18s" reverse /> : null}
           <circle
             cx={CX}
             cy={CY}
@@ -266,23 +249,6 @@ export function NexusRing({ status, size = 260, className = "" }: NexusRingProps
             ))}
           </SegmentPulseWrapper>
         </SegmentsWrapper>
-
-        <ScanWrapper className="nexus-core__scan" {...scanMotion}>
-          {useSmil ? <SmilRotate dur={tone.scanDur} /> : null}
-          <path
-            d="M150 150 L247 96 A112 112 0 0 1 260 150 Z"
-            fill={`url(#nexus-scan-gradient-${uid})`}
-          />
-          <line
-            x1={CX}
-            y1={CY}
-            x2="258"
-            y2="104"
-            stroke="var(--core-accent)"
-            strokeOpacity="0.8"
-            strokeWidth="1.25"
-          />
-        </ScanWrapper>
 
         {useSmil ? (
           <circle
