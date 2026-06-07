@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { NexusFounderDashboard } from "@/components/nexus/NexusFounderDashboard";
 import { NexusOverviewDashboard } from "@/components/nexus/NexusOverviewDashboard";
 import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 export function NexusFounderOverviewHost() {
   const pathname = usePathname();
   const router = useRouter();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const activeIndex = pathname === "/admin/nexus/overview" ? 1 : 0;
+  const [overviewMounted, setOverviewMounted] = useState(activeIndex === 1);
   const { ref: founderScrollRef, save: saveFounderScroll } =
     useNexusScrollRestoration("nexus:founder-dashboard");
   const { ref: overviewScrollRef, save: saveOverviewScroll } =
     useNexusScrollRestoration("nexus:overview");
+
+  useEffect(() => {
+    if (activeIndex === 1) {
+      setOverviewMounted(true);
+    }
+  }, [activeIndex]);
 
   const setIndex = useCallback(
     (index: number) => {
@@ -43,7 +52,9 @@ export function NexusFounderOverviewHost() {
       {...swipeHandlers}
     >
       <div
-        className={`flex h-full min-h-0 w-[200%] max-w-none ${isDragging ? "" : "transition-transform duration-300 ease-out"}`}
+        className={`flex h-full min-h-0 w-[200%] max-w-none ${
+          isDragging || prefersReducedMotion ? "" : "transition-transform duration-300 ease-out"
+        }`}
         style={{ transform: `translateX(${translateX}%)` }}
       >
         <div
@@ -58,7 +69,7 @@ export function NexusFounderOverviewHost() {
           className="h-full min-h-0 shrink-0 overflow-y-auto overscroll-contain"
           style={{ width: `${panelWidthPercent}%` }}
         >
-          <NexusOverviewDashboard showFounderLink />
+          {overviewMounted ? <NexusOverviewDashboard showFounderLink /> : null}
         </div>
       </div>
     </div>

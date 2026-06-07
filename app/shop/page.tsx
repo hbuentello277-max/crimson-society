@@ -348,6 +348,8 @@ function ShopPageInner() {
               alt="Silent Movement artwork"
               fill
               sizes="(max-width: 768px) 100vw, 768px"
+              quality={72}
+              loading="lazy"
               className="object-contain object-center opacity-70"
             />
           </div>

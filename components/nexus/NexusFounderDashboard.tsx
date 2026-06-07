@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { buildOrbitMetrics, FounderHero } from "@/components/nexus/founder/FounderHero";
 import { FounderBriefCard } from "@/components/nexus/founder/FounderBriefCard";
 import { FounderSnapshotStrip } from "@/components/nexus/founder/FounderSnapshotStrip";
@@ -40,25 +40,46 @@ export function NexusFounderDashboard() {
     }
   }, [refresh, sync]);
 
+  const orbitMetrics = useMemo(
+    () =>
+      buildOrbitMetrics({
+        members: metrics?.growth?.total_users ?? null,
+        blackcard: metrics?.blackcard?.active_members ?? null,
+        mrr: metrics?.revenue?.estimated_mrr ?? null,
+        arr: metrics?.revenue?.estimated_arr ?? null,
+        alerts: alerts?.counts?.active ?? null,
+        incidents: incidents?.open?.length ?? null,
+        commands:
+          (commands?.counts?.suggested ?? 0) +
+          (commands?.counts?.pending_approval ?? 0) +
+          (commands?.counts?.approved ?? 0),
+        health: health?.system?.status ?? "unknown",
+        workflows: mission?.status ?? "unknown",
+        insights: observations?.counts?.active ?? null,
+      }),
+    [alerts, commands, health, incidents, metrics, mission, observations],
+  );
+
+  const snapshot = useMemo(
+    () => ({
+      totalMembers: metrics?.growth?.total_users ?? null,
+      newMembers: metrics?.growth?.new_users_this_week ?? null,
+      activeProfiles: metrics?.growth?.active_profiles ?? null,
+      blackcardMembers: metrics?.blackcard?.active_members ?? null,
+      estimatedMrr: metrics?.revenue?.estimated_mrr ?? null,
+      estimatedArr: metrics?.revenue?.estimated_arr ?? null,
+      openAlerts: alerts?.counts?.active ?? null,
+      openIncidents: incidents?.open?.length ?? null,
+      activeInsights: observations?.counts?.active ?? null,
+      pendingCommands:
+        (commands?.counts?.suggested ?? 0) + (commands?.counts?.pending_approval ?? 0),
+    }),
+    [alerts, commands, incidents, metrics, observations],
+  );
+
   if (loading) {
     return <NexusLoadingPanel rows={4} />;
   }
-
-  const orbitMetrics = buildOrbitMetrics({
-    members: metrics?.growth?.total_users ?? null,
-    blackcard: metrics?.blackcard?.active_members ?? null,
-    mrr: metrics?.revenue?.estimated_mrr ?? null,
-    arr: metrics?.revenue?.estimated_arr ?? null,
-    alerts: alerts?.counts?.active ?? null,
-    incidents: incidents?.open?.length ?? null,
-    commands:
-      (commands?.counts?.suggested ?? 0) +
-      (commands?.counts?.pending_approval ?? 0) +
-      (commands?.counts?.approved ?? 0),
-    health: health?.system?.status ?? "unknown",
-    workflows: mission?.status ?? "unknown",
-    insights: observations?.counts?.active ?? null,
-  });
 
   return (
     <div
@@ -100,21 +121,7 @@ export function NexusFounderDashboard() {
 
       <FounderBriefCard brief={brief} />
 
-      <FounderSnapshotStrip
-        snapshot={{
-          totalMembers: metrics?.growth?.total_users ?? null,
-          newMembers: metrics?.growth?.new_users_this_week ?? null,
-          activeProfiles: metrics?.growth?.active_profiles ?? null,
-          blackcardMembers: metrics?.blackcard?.active_members ?? null,
-          estimatedMrr: metrics?.revenue?.estimated_mrr ?? null,
-          estimatedArr: metrics?.revenue?.estimated_arr ?? null,
-          openAlerts: alerts?.counts?.active ?? null,
-          openIncidents: incidents?.open?.length ?? null,
-          activeInsights: observations?.counts?.active ?? null,
-          pendingCommands:
-            (commands?.counts?.suggested ?? 0) + (commands?.counts?.pending_approval ?? 0),
-        }}
-      />
+      <FounderSnapshotStrip snapshot={snapshot} />
 
       <FounderPriorityList priorities={priorities} />
       <FounderOpportunityGrid opportunities={opportunities} />

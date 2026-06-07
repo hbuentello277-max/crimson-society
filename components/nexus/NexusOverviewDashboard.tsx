@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import type { NexusAlertSummaryRow } from "@/lib/alerts/types";
 import type { NexusIncidentSummaryRow } from "@/lib/incidents/types";
 import type { NexusObservationSummaryRow } from "@/lib/observations/types";
@@ -223,32 +224,55 @@ export function NexusOverviewDashboard({ showFounderLink = false }: { showFounde
   const observations = data.observations as ObservationsPayload | null;
   const events = data.events as EventsPayload | null;
 
-  const systemStatus = health?.system?.status ?? "unknown";
-  const workflowStatus = mission?.status ?? "unknown";
-  const workflows = mission?.workflows ?? [];
-  const integrations = integrationRows(health?.integrations ?? []);
-  const degradedIntegrations = integrations.filter((item) => isDegraded(item.status));
-  const degradedWorkflows = workflows.filter((wf) => isDegradedWorkflow(wf.workflow_status));
-  const lastUpdated = latestTimestamp(
-    health?.system?.checked_at,
-    mission?.checked_at,
-    alerts?.collected_at,
-    incidents?.collected_at,
-    observations?.collected_at,
-    events?.collected_at,
-  );
+  const derived = useMemo(() => {
+    const systemStatus = health?.system?.status ?? "unknown";
+    const workflowStatus = mission?.status ?? "unknown";
+    const workflows = mission?.workflows ?? [];
+    const integrations = integrationRows(health?.integrations ?? []);
+    const degradedIntegrations = integrations.filter((item) => isDegraded(item.status));
+    const degradedWorkflows = workflows.filter((wf) => isDegradedWorkflow(wf.workflow_status));
+    const lastUpdated = latestTimestamp(
+      health?.system?.checked_at,
+      mission?.checked_at,
+      alerts?.collected_at,
+      incidents?.collected_at,
+      observations?.collected_at,
+      events?.collected_at,
+    );
+
+    return {
+      systemStatus,
+      workflowStatus,
+      workflows,
+      integrations,
+      degradedIntegrations,
+      degradedWorkflows,
+      lastUpdated,
+      insightCards: buildInsightCards(
+        degradedIntegrations.length,
+        degradedWorkflows.length,
+        metrics?.revenue?.estimated_mrr,
+        observations,
+      ),
+      hasData: Boolean(health || mission || metrics || alerts || incidents || observations || events),
+    };
+  }, [alerts, events, health, incidents, metrics, mission, observations]);
 
   if (loading) {
     return <NexusLoadingPanel rows={3} />;
   }
 
-  const hasData = health || mission || metrics || alerts || incidents || observations || events;
-  const insightCards = buildInsightCards(
-    degradedIntegrations.length,
-    degradedWorkflows.length,
-    metrics?.revenue?.estimated_mrr,
-    observations,
-  );
+  const {
+    systemStatus,
+    workflowStatus,
+    workflows,
+    integrations,
+    degradedIntegrations,
+    degradedWorkflows,
+    lastUpdated,
+    insightCards,
+    hasData,
+  } = derived;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto">

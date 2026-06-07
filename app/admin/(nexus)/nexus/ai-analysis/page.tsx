@@ -1,7 +1,7 @@
-import { NexusAIAnalysisCenter } from "@/components/nexus/NexusAIAnalysisCenter";
+import { LazyNexusAIAnalysisCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 
 export default function NexusAIAnalysisPage() {
-  return <NexusAIAnalysisCenter />;
+  return <LazyNexusAIAnalysisCenter />;
 }

@@ -17,6 +17,7 @@ import {
   type PlatformRingStatus,
 } from "@/lib/nexus/founder-derive";
 import { countDegradedWorkflows } from "@/lib/mission-health/degraded";
+import { fetchNexusClientJson } from "@/lib/nexus/client-fetch";
 
 type MetricsPayload = {
   growth?: {
@@ -78,15 +79,6 @@ const ENDPOINTS = [
   "/api/nexus/intelligence?sort=impact",
 ] as const;
 
-async function fetchJson(path: string) {
-  const response = await fetch(path, { credentials: "include", cache: "no-store" });
-  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!response.ok) {
-    throw new Error((payload?.error as string) || `Request failed (${response.status})`);
-  }
-  return payload;
-}
-
 export function useNexusFounderDashboard() {
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [metrics, setMetrics] = useState<MetricsPayload | null>(null);
@@ -99,9 +91,15 @@ export function useNexusFounderDashboard() {
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { bypassCache?: boolean }) => {
     setLoading(true);
-    const results = await Promise.allSettled(ENDPOINTS.map((path) => fetchJson(path)));
+    const results = await Promise.allSettled(
+      ENDPOINTS.map((path) =>
+        fetchNexusClientJson<Record<string, unknown>>(path, {
+          bypassCache: options?.bypassCache ?? false,
+        }),
+      ),
+    );
     const nextErrors: string[] = [];
 
     results.forEach((result, index) => {
@@ -169,6 +167,10 @@ export function useNexusFounderDashboard() {
     };
   }, [alerts, commands, health, incidents, intelligence, metrics, mission, observations]);
 
+  const forceRefresh = useCallback(async () => {
+    await refresh({ bypassCache: true });
+  }, [refresh]);
+
   return {
     health,
     metrics,
@@ -180,7 +182,7 @@ export function useNexusFounderDashboard() {
     intelligence,
     errors,
     loading,
-    refresh,
+    refresh: forceRefresh,
     ...derived,
   };
 }

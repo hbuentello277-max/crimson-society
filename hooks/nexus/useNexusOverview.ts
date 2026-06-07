@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchNexusClientJson } from "@/lib/nexus/client-fetch";
 
 type OverviewPayload = {
   health: Record<string, unknown> | null;
@@ -29,19 +30,6 @@ const ENDPOINTS = [
   { key: "events", path: "/api/nexus/events?limit=10" },
 ] as const;
 
-async function fetchEndpoint(path: string) {
-  const response = await fetch(path, { credentials: "include", cache: "no-store" });
-  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-
-  if (!response.ok) {
-    throw new Error(
-      (payload?.error as string | undefined) || `Request failed (${response.status})`,
-    );
-  }
-
-  return payload;
-}
-
 export function useNexusOverview(): OverviewState {
   const [data, setData] = useState<OverviewPayload>({
     health: null,
@@ -55,11 +43,15 @@ export function useNexusOverview(): OverviewState {
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { bypassCache?: boolean }) => {
     setLoading(true);
 
     const results = await Promise.allSettled(
-      ENDPOINTS.map((endpoint) => fetchEndpoint(endpoint.path)),
+      ENDPOINTS.map((endpoint) =>
+        fetchNexusClientJson<Record<string, unknown>>(endpoint.path, {
+          bypassCache: options?.bypassCache ?? false,
+        }),
+      ),
     );
 
     const nextData: OverviewPayload = {
@@ -97,5 +89,9 @@ export function useNexusOverview(): OverviewState {
     void refresh();
   }, [refresh]);
 
-  return { data, errors, loading, refresh };
+  const forceRefresh = useCallback(async () => {
+    await refresh({ bypassCache: true });
+  }, [refresh]);
+
+  return { data, errors, loading, refresh: forceRefresh };
 }

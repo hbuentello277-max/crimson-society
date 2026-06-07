@@ -1,4 +1,4 @@
-import { NexusOperatorCenter } from "@/components/nexus/NexusOperatorCenter";
+import { LazyNexusOperatorCenter as NexusOperatorCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

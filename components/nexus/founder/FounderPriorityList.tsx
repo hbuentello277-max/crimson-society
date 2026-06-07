@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import type { FounderPriority } from "@/lib/nexus/founder-derive";
 
 const URGENCY_LABELS: Record<FounderPriority["urgency"], string> = {
@@ -18,12 +19,20 @@ const URGENCY_CLASS: Record<FounderPriority["urgency"], string> = {
 };
 
 export function FounderPriorityList({ priorities }: { priorities: FounderPriority[] }) {
-  const grouped = {
-    critical: priorities.filter((item) => item.urgency === "critical"),
-    high: priorities.filter((item) => item.urgency === "high"),
-    medium: priorities.filter((item) => item.urgency === "medium"),
-    low: priorities.filter((item) => item.urgency === "low"),
-  };
+  const grouped = useMemo(() => {
+    const buckets = {
+      critical: [] as FounderPriority[],
+      high: [] as FounderPriority[],
+      medium: [] as FounderPriority[],
+      low: [] as FounderPriority[],
+    };
+
+    for (const item of priorities) {
+      buckets[item.urgency].push(item);
+    }
+
+    return buckets;
+  }, [priorities]);
 
   return (
     <section className="space-y-3">

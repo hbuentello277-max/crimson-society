@@ -1,10 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/nexus/format";
-import { NexusRing } from "@/components/nexus/founder/NexusRing";
 import { NexusRefreshButton } from "@/components/nexus/NexusShared";
+
+const NexusRing = dynamic(
+  () => import("@/components/nexus/founder/NexusRing").then((mod) => ({ default: mod.NexusRing })),
+  {
+    loading: () => (
+      <div
+        className="mx-auto rounded-full border border-[#b4141e]/25 bg-[#0a0608]/80"
+        style={{ width: 260, height: 260 }}
+      />
+    ),
+  },
+);
 
 type OrbitMetric = {
   label: string;

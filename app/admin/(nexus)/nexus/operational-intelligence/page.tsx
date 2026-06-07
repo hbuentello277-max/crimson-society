@@ -1,4 +1,4 @@
-import { NexusOperationalIntelligenceCenter } from "@/components/nexus/NexusOperationalIntelligenceCenter";
+import { LazyNexusOperationalIntelligenceCenter as NexusOperationalIntelligenceCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

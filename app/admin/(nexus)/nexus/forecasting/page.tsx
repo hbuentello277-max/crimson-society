@@ -1,4 +1,4 @@
-import { NexusForecastingCenter } from "@/components/nexus/NexusForecastingCenter";
+import { LazyNexusForecastingCenter as NexusForecastingCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

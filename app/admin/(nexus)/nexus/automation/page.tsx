@@ -1,4 +1,4 @@
-import { NexusAutomationCenter } from "@/components/nexus/NexusAutomationCenter";
+import { LazyNexusAutomationCenter as NexusAutomationCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

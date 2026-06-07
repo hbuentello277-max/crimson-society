@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { invalidateNexusClientFetchCache } from "@/lib/nexus/client-fetch";
 
 type SyncResponse = {
   ok: boolean;
@@ -37,6 +38,7 @@ export function useNexusSync() {
 
       const syncedAt = payload?.synced_at ?? new Date().toISOString();
       setLastSyncedAt(syncedAt);
+      invalidateNexusClientFetchCache();
 
       if (payload?.ok) {
         setToast({ tone: "success", message: "Nexus synced successfully." });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchNexusClientJson } from "@/lib/nexus/client-fetch";
 
 type NexusFetchState<T> = {
   data: T | null;
@@ -14,43 +15,40 @@ export function useNexusFetch<T>(path: string | null): NexusFetchState<T> {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(path));
 
-  const refresh = useCallback(async () => {
-    if (!path) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(path, { credentials: "include", cache: "no-store" });
-      const payload = (await response.json().catch(() => null)) as
-        | (T & { error?: string })
-        | { error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(
-          (payload && "error" in payload && payload.error) ||
-            `Request failed (${response.status})`,
-        );
+  const refresh = useCallback(
+    async (options?: { bypassCache?: boolean }) => {
+      if (!path) {
+        setData(null);
+        setError(null);
+        setLoading(false);
+        return;
       }
 
-      setData(payload as T);
-    } catch (fetchError) {
-      setData(null);
-      setError(fetchError instanceof Error ? fetchError.message : "Request failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [path]);
+      setLoading(true);
+      setError(null);
+
+      try {
+        const payload = await fetchNexusClientJson<T>(path, {
+          bypassCache: options?.bypassCache ?? false,
+        });
+        setData(payload);
+      } catch (fetchError) {
+        setData(null);
+        setError(fetchError instanceof Error ? fetchError.message : "Request failed");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [path],
+  );
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { data, error, loading, refresh };
+  const forceRefresh = useCallback(async () => {
+    await refresh({ bypassCache: true });
+  }, [refresh]);
+
+  return { data, error, loading, refresh: forceRefresh };
 }

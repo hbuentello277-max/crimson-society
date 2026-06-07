@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useMemo, type ComponentType } from "react";
 import type { NexusHealthIntegrationSummary } from "@/lib/monitoring/health-summary";
 import {
   formatDateTime,
@@ -7,31 +9,94 @@ import {
   integrationDisplayName,
 } from "@/lib/nexus/format";
 import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
-import { NexusAlertsCenter } from "@/components/nexus/NexusAlertsCenter";
-import { NexusIncidentsCenter } from "@/components/nexus/NexusIncidentsCenter";
-import { NexusObservationsCenter } from "@/components/nexus/NexusObservationsCenter";
-import { NexusCommandsCenter } from "@/components/nexus/NexusCommandsCenter";
-import { NexusReportsCenter } from "@/components/nexus/NexusReportsCenter";
-import { NexusBriefingsCenter } from "@/components/nexus/NexusBriefingsCenter";
-import { NexusIntelligenceCenter } from "@/components/nexus/NexusIntelligenceCenter";
-import { NexusMemoryCenter } from "@/components/nexus/NexusMemoryCenter";
-import { NexusCorrelationsCenter } from "@/components/nexus/NexusCorrelationsCenter";
-import { NexusPlanningCenter } from "@/components/nexus/NexusPlanningCenter";
-import { NexusAutomationCenter } from "@/components/nexus/NexusAutomationCenter";
-import { NexusOperatorCenter } from "@/components/nexus/NexusOperatorCenter";
-import { NexusForecastingCenter } from "@/components/nexus/NexusForecastingCenter";
-import { NexusCopilotCenter } from "@/components/nexus/NexusCopilotCenter";
-import { NexusOperationalIntelligenceCenter } from "@/components/nexus/NexusOperationalIntelligenceCenter";
-import { NexusRunbooksCenter } from "@/components/nexus/NexusRunbooksCenter";
-import { NexusWarRoomsCenter } from "@/components/nexus/NexusWarRoomsCenter";
 import { NexusEmptyState } from "@/components/nexus/NexusEmptyState";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
 import {
+  NexusLoadingPanel,
   NexusMetricCard,
   NexusSectionFrame,
 } from "@/components/nexus/NexusShared";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
+
+function lazyNexusCenter<T extends Record<string, ComponentType<unknown>>>(
+  loader: () => Promise<T>,
+  exportName: keyof T,
+) {
+  return dynamic(
+    () => loader().then((mod) => ({ default: mod[exportName] as ComponentType<unknown> })),
+    { loading: () => <NexusLoadingPanel rows={2} /> },
+  );
+}
+
+const NexusAlertsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusAlertsCenter"),
+  "NexusAlertsCenter",
+);
+const NexusIncidentsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusIncidentsCenter"),
+  "NexusIncidentsCenter",
+);
+const NexusObservationsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusObservationsCenter"),
+  "NexusObservationsCenter",
+);
+const NexusCommandsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusCommandsCenter"),
+  "NexusCommandsCenter",
+);
+const NexusReportsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusReportsCenter"),
+  "NexusReportsCenter",
+);
+const NexusBriefingsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusBriefingsCenter"),
+  "NexusBriefingsCenter",
+);
+const NexusIntelligenceCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusIntelligenceCenter"),
+  "NexusIntelligenceCenter",
+);
+const NexusMemoryCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusMemoryCenter"),
+  "NexusMemoryCenter",
+);
+const NexusCorrelationsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusCorrelationsCenter"),
+  "NexusCorrelationsCenter",
+);
+const NexusPlanningCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusPlanningCenter"),
+  "NexusPlanningCenter",
+);
+const NexusAutomationCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusAutomationCenter"),
+  "NexusAutomationCenter",
+);
+const NexusOperatorCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusOperatorCenter"),
+  "NexusOperatorCenter",
+);
+const NexusForecastingCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusForecastingCenter"),
+  "NexusForecastingCenter",
+);
+const NexusCopilotCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusCopilotCenter"),
+  "NexusCopilotCenter",
+);
+const NexusOperationalIntelligenceCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusOperationalIntelligenceCenter"),
+  "NexusOperationalIntelligenceCenter",
+);
+const NexusRunbooksCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusRunbooksCenter"),
+  "NexusRunbooksCenter",
+);
+const NexusWarRoomsCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusWarRoomsCenter"),
+  "NexusWarRoomsCenter",
+);
 
 type HealthPayload = {
   system?: { status?: string; checked_at?: string | null };
@@ -80,7 +145,10 @@ function integrationRows(integrations: NexusHealthIntegrationSummary[]) {
 
 export function NexusSystemHealthView() {
   const { data, error, loading, refresh } = useNexusFetch<HealthPayload>("/api/nexus/health");
-  const integrations = integrationRows(data?.integrations ?? []);
+  const integrations = useMemo(
+    () => integrationRows(data?.integrations ?? []),
+    [data?.integrations],
+  );
   const system = data?.system;
 
   return (

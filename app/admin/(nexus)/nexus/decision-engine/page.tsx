@@ -1,4 +1,4 @@
-import { NexusDecisionEngineCenter } from "@/components/nexus/NexusDecisionEngineCenter";
+import { LazyNexusDecisionEngineCenter as NexusDecisionEngineCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

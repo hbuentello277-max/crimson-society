@@ -1,4 +1,4 @@
-import { NexusCopilotCenter } from "@/components/nexus/NexusCopilotCenter";
+import { LazyNexusCopilotCenter as NexusCopilotCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 

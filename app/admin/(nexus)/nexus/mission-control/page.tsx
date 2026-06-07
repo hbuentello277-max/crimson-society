@@ -1,7 +1,7 @@
-import { NexusMissionControlCenter } from "@/components/nexus/NexusMissionControlCenter";
+import { LazyNexusMissionControlCenter } from "@/lib/nexus/lazy-centers";
 
 export const dynamic = "force-dynamic";
 
 export default function NexusMissionControlPage() {
-  return <NexusMissionControlCenter />;
+  return <LazyNexusMissionControlCenter />;
 }
