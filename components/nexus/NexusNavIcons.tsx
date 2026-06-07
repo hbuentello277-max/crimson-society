@@ -254,3 +254,13 @@ export function NexusNavDecisionEngineIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavScenariosIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M4 6.5h5v7H4zM11 6.5h5v7h-5z" />
+      <path d="M6.5 9v3M13.5 9v3" strokeLinecap="round" />
+      <path d="M4 4.5h12M4 15.5h12" strokeLinecap="round" />
+    </IconBase>
+  );
+}
