@@ -17,6 +17,7 @@ import {
   NexusNavIntelligenceIcon,
   NexusNavMemoryIcon,
   NexusNavPlanningIcon,
+  NexusNavAutomationIcon,
   NexusNavReportsIcon,
   NexusNavRunbooksIcon,
   NexusNavWarRoomsIcon,
@@ -112,6 +113,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/planning",
     label: "Planning",
     icon: NexusNavPlanningIcon,
+  },
+  {
+    href: "/admin/nexus/automation",
+    label: "Automation",
+    icon: NexusNavAutomationIcon,
   },
 ] as const;
 

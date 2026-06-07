@@ -149,6 +149,28 @@ export const NEXUS_MEMORY_ENTRY_TYPES = [
 
 export type NexusMemoryEntryType = (typeof NEXUS_MEMORY_ENTRY_TYPES)[number];
 
+/** nexus_automation_actions.action_type values. */
+export const NEXUS_AUTOMATION_ACTION_TYPES = [
+  "reporting",
+  "monitoring",
+  "maintenance",
+  "growth",
+  "engagement",
+  "operations",
+] as const;
+
+export type NexusAutomationActionType = (typeof NEXUS_AUTOMATION_ACTION_TYPES)[number];
+
+/** nexus_automation_actions.status values. */
+export const NEXUS_AUTOMATION_STATUSES = [
+  "proposed",
+  "approved",
+  "rejected",
+  "archived",
+] as const;
+
+export type NexusAutomationStatus = (typeof NEXUS_AUTOMATION_STATUSES)[number];
+
 /** Default owner API rate limits (Mark I in-memory). */
 export const NEXUS_OWNER_API_READ_LIMIT = 60;
 export const NEXUS_OWNER_API_WRITE_LIMIT = 20;

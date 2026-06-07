@@ -182,3 +182,14 @@ export function NexusNavPlanningIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function NexusNavAutomationIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="4.5" y="6.5" width="11" height="7" rx="1.5" />
+      <path d="M8 10.5h4M8 12.5h2.5" strokeLinecap="round" />
+      <path d="M7 6.5V5.5h6v1" strokeLinecap="round" />
+      <circle cx="12" cy="4.5" r="1" />
+    </IconBase>
+  );
+}
