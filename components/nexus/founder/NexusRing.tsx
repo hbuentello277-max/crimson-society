@@ -120,9 +120,9 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
         />
       </svg>
 
-      <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center text-center">
+      <div className="absolute inset-0 z-[2] flex items-center justify-center">
         <motion.p
-          className="font-sans text-4xl font-semibold tracking-[0.35em] text-white sm:text-5xl"
+          className="pl-[0.35em] font-sans text-4xl font-semibold tracking-[0.35em] text-white sm:text-5xl"
           style={{
             textShadow: "0 0 24px rgba(255,255,255,0.4), 0 0 48px rgba(255,255,255,0.22)",
           }}
@@ -131,9 +131,6 @@ export function NexusRing({ status, size = 280, className = "" }: NexusRingProps
         >
           NEXUS
         </motion.p>
-        <p className="mt-2 max-w-[11rem] text-[9px] uppercase tracking-[0.22em] text-zinc-400 sm:max-w-none sm:text-[10px]">
-          Crimson Society Operating System
-        </p>
       </div>
     </div>
   );
