@@ -6,6 +6,10 @@ import { AnalysisInput } from "@/components/nexus/ai-analysis/AnalysisInput";
 import { AnalysisResponse } from "@/components/nexus/ai-analysis/AnalysisResponse";
 import { SuggestedPrompts } from "@/components/nexus/ai-analysis/SuggestedPrompts";
 import { NexusSectionFrame } from "@/components/nexus/NexusShared";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 import type { AnalysisSource } from "@/lib/ai-analysis/types";
 
 type AnalysisTurn = {
@@ -28,8 +32,9 @@ type AnalysisApiPayload = {
 };
 
 export function NexusAIAnalysisCenter() {
-  const [turns, setTurns] = useState<AnalysisTurn[]>([]);
-  const [draft, setDraft] = useState("");
+  const pageScrollRef = useNexusScrollRestoration("nexus:ai-analysis");
+  const [turns, setTurns] = useNexusStoredState<AnalysisTurn[]>("nexus:ai-analysis:turns", []);
+  const [draft, setDraft] = useNexusStoredState("nexus:ai-analysis:draft", "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,17 +92,18 @@ export function NexusAIAnalysisCenter() {
   }, [loading]);
 
   return (
-    <NexusSectionFrame
-      title="AI Analysis"
-      description="AI-assisted explanations grounded in live Nexus data. Analysis only — no execution, no automation, no mutations."
-      loading={false}
-      error={error}
-      onRefresh={async () => {
-        setTurns([]);
-        setError(null);
-      }}
-    >
-      <div className="min-w-0 space-y-4 overflow-x-hidden">
+    <div ref={pageScrollRef}>
+      <NexusSectionFrame
+        title="AI Analysis"
+        description="AI-assisted explanations grounded in live Nexus data. Analysis only — no execution, no automation, no mutations."
+        loading={false}
+        error={error}
+        onRefresh={async () => {
+          setTurns([]);
+          setError(null);
+        }}
+      >
+        <div className="min-w-0 space-y-4 overflow-x-hidden">
         <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm leading-6 text-zinc-300">
           Ask why something changed, what deserves attention, or how to interpret forecasts and
           scenarios. Nexus AI explains using Mission Control, Copilot, Forecasting, and the full
@@ -159,7 +165,8 @@ export function NexusAIAnalysisCenter() {
           onChange={setDraft}
           onSubmit={() => void submitQuestion(draft)}
         />
-      </div>
-    </NexusSectionFrame>
+        </div>
+      </NexusSectionFrame>
+    </div>
   );
 }

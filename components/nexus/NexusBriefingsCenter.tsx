@@ -13,6 +13,10 @@ import {
   weeklyBriefingPlainText,
 } from "@/components/nexus/briefings/WeeklyBriefingCard";
 import { NexusListEmpty, NexusSectionFrame, NexusTabFilter } from "@/components/nexus/NexusShared";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 
 type WeeklyPayload = { ok?: boolean; briefing?: WeeklyOwnerBriefing };
 type MonthlyPayload = { ok?: boolean; briefing?: MonthlyOwnerBriefing };
@@ -37,7 +41,8 @@ async function copyPlainText(text: string) {
 }
 
 export function NexusBriefingsCenter() {
-  const [tab, setTab] = useState<BriefingTab>("weekly");
+  const scrollRef = useNexusScrollRestoration("nexus:briefings");
+  const [tab, setTab] = useNexusStoredState<BriefingTab>("nexus:briefings:tab", "weekly");
   const [weeklyCopyState, setWeeklyCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [monthlyCopyState, setMonthlyCopyState] = useState<"idle" | "copied" | "error">("idle");
 
@@ -84,60 +89,62 @@ export function NexusBriefingsCenter() {
   }, [monthly]);
 
   return (
-    <NexusSectionFrame
-      title="Owner Briefings"
-      description="Plain-language weekly and monthly summaries built from Nexus reports. Deterministic Mark I — no AI or automation."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {!loading ? (
-        <>
-          <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm text-zinc-300">
-            Briefings answer what changed, what grew, what slowed down, what made money, what
-            needs attention, and what to focus on next — using existing Phase 13 report data only.
-          </div>
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Owner Briefings"
+        description="Plain-language weekly and monthly summaries built from Nexus reports. Deterministic Mark I — no AI or automation."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
+        {!loading ? (
+          <>
+            <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm text-zinc-300">
+              Briefings answer what changed, what grew, what slowed down, what made money, what
+              needs attention, and what to focus on next — using existing Phase 13 report data only.
+            </div>
 
-          <NexusTabFilter
-            tabs={[
-              { id: "weekly" as const, label: "Weekly" },
-              { id: "monthly" as const, label: "Monthly" },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
-
-          {tab === "weekly" && weekly ? (
-            <WeeklyBriefingCard
-              briefing={weekly}
-              onCopy={() => void handleCopyWeekly()}
-              copyState={weeklyCopyState}
+            <NexusTabFilter
+              tabs={[
+                { id: "weekly" as const, label: "Weekly" },
+                { id: "monthly" as const, label: "Monthly" },
+              ]}
+              value={tab}
+              onChange={setTab}
             />
-          ) : null}
 
-          {tab === "weekly" && !weekly && !error ? (
-            <NexusListEmpty
-              title="Weekly briefing unavailable"
-              description="Could not generate the weekly owner briefing."
-            />
-          ) : null}
+            {tab === "weekly" && weekly ? (
+              <WeeklyBriefingCard
+                briefing={weekly}
+                onCopy={() => void handleCopyWeekly()}
+                copyState={weeklyCopyState}
+              />
+            ) : null}
 
-          {tab === "monthly" && monthly ? (
-            <MonthlyBriefingCard
-              briefing={monthly}
-              onCopy={() => void handleCopyMonthly()}
-              copyState={monthlyCopyState}
-            />
-          ) : null}
+            {tab === "weekly" && !weekly && !error ? (
+              <NexusListEmpty
+                title="Weekly briefing unavailable"
+                description="Could not generate the weekly owner briefing."
+              />
+            ) : null}
 
-          {tab === "monthly" && !monthly && !error ? (
-            <NexusListEmpty
-              title="Monthly briefing unavailable"
-              description="Could not generate the monthly owner briefing."
-            />
-          ) : null}
-        </>
-      ) : null}
-    </NexusSectionFrame>
+            {tab === "monthly" && monthly ? (
+              <MonthlyBriefingCard
+                briefing={monthly}
+                onCopy={() => void handleCopyMonthly()}
+                copyState={monthlyCopyState}
+              />
+            ) : null}
+
+            {tab === "monthly" && !monthly && !error ? (
+              <NexusListEmpty
+                title="Monthly briefing unavailable"
+                description="Could not generate the monthly owner briefing."
+              />
+            ) : null}
+          </>
+        ) : null}
+      </NexusSectionFrame>
+    </div>
   );
 }

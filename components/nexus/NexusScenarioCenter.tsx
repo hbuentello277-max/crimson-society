@@ -8,6 +8,7 @@ import { ScenarioComparison } from "@/components/nexus/scenarios/ScenarioCompari
 import { ScenarioRanking } from "@/components/nexus/scenarios/ScenarioRanking";
 import { ScenarioSummary } from "@/components/nexus/scenarios/ScenarioSummary";
 import { NexusSectionFrame } from "@/components/nexus/NexusShared";
+import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
 
 type ScenariosPayload = Partial<ScenariosSummary> & {
   ok?: boolean;
@@ -34,20 +35,22 @@ function ScenarioSection({
 }
 
 export function NexusScenarioCenter() {
+  const scrollRef = useNexusScrollRestoration("nexus:scenarios");
   const { data, error, loading, refresh } = useNexusFetch<ScenariosPayload>("/api/nexus/scenarios");
 
   const ready = !loading && data?.brief;
 
   return (
-    <NexusSectionFrame
-      title="Scenarios"
-      description="Compare strategic paths using Forecasting, Planning, Decision Engine, Mission Control, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {ready && data.brief ? (
-        <div className="min-w-0 space-y-8 overflow-x-hidden">
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Scenarios"
+        description="Compare strategic paths using Forecasting, Planning, Decision Engine, Mission Control, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
+        {ready && data.brief ? (
+          <div className="min-w-0 space-y-8 overflow-x-hidden">
           <ScenarioSummary brief={data.brief} available={data.available ?? false} />
 
           <ScenarioSection
@@ -97,8 +100,9 @@ export function NexusScenarioCenter() {
               nexus_favored: null,
             }} ranked={data.ranked ?? []} />
           </ScenarioSection>
-        </div>
-      ) : null}
-    </NexusSectionFrame>
+          </div>
+        ) : null}
+      </NexusSectionFrame>
+    </div>
   );
 }

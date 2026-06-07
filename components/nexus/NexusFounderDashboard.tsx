@@ -9,9 +9,11 @@ import { FounderOpportunityGrid } from "@/components/nexus/founder/FounderOpport
 import { FounderQuickActions } from "@/components/nexus/founder/FounderQuickActions";
 import { NexusLoadingPanel } from "@/components/nexus/NexusShared";
 import { useNexusFounderDashboard } from "@/hooks/nexus/useNexusFounderDashboard";
+import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
 import { useNexusSync } from "@/hooks/nexus/useNexusSync";
 
 export function NexusFounderDashboard() {
+  const scrollRef = useNexusScrollRestoration("nexus:founder-dashboard");
   const {
     health,
     metrics,
@@ -59,7 +61,10 @@ export function NexusFounderDashboard() {
   });
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-2">
+    <div
+      ref={scrollRef}
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-2"
+    >
       {toast ? (
         <div
           className={`fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-3 right-3 z-50 mx-auto max-w-md rounded-xl border px-4 py-3 text-sm shadow-lg sm:left-auto sm:right-4 ${

@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ExecutiveReportSummary } from "@/lib/reports/types";
 import type { MonthlyExecutiveReport } from "@/lib/reports/types";
 import type { WeeklyExecutiveReport } from "@/lib/reports/types";
 import { formatCurrency, formatNumber } from "@/lib/nexus/format";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 import { ExecutiveSnapshot } from "@/components/nexus/reports/ExecutiveSnapshot";
 import { WeeklyReportPanel } from "@/components/nexus/reports/WeeklyReportPanel";
 import { MonthlyReportPanel } from "@/components/nexus/reports/MonthlyReportPanel";
@@ -189,7 +193,8 @@ function OverviewSections({ summary }: { summary: ExecutiveReportSummary }) {
 }
 
 export function NexusReportsCenter() {
-  const [tab, setTab] = useState<ReportTab>("overview");
+  const scrollRef = useNexusScrollRestoration("nexus:reports");
+  const [tab, setTab] = useNexusStoredState<ReportTab>("nexus:reports:tab", "overview");
   const summaryQuery = useNexusFetch<SummaryPayload>("/api/nexus/reports/summary");
   const weeklyQuery = useNexusFetch<WeeklyPayload>(
     tab === "weekly" ? "/api/nexus/reports/weekly" : null,
@@ -232,13 +237,14 @@ export function NexusReportsCenter() {
   const monthly = monthlyQuery.data?.report;
 
   return (
-    <NexusSectionFrame
-      title="Executive Reports"
-      description="Read-only intelligence for Crimson Society business and community performance. Mark I — no AI, export, or automation."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Executive Reports"
+        description="Read-only intelligence for Crimson Society business and community performance. Mark I — no AI, export, or automation."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
       {!loading ? (
         <>
           <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm text-zinc-300">
@@ -261,6 +267,7 @@ export function NexusReportsCenter() {
           ) : null}
         </>
       ) : null}
-    </NexusSectionFrame>
+      </NexusSectionFrame>
+    </div>
   );
 }

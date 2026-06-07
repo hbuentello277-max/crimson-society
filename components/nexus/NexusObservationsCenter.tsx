@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type {
   NexusObservationDetail,
   NexusObservationSummaryRow,
@@ -13,6 +13,10 @@ import {
 } from "@/lib/nexus/format";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
 import { useNexusMutation } from "@/hooks/nexus/useNexusMutation";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 import {
   NexusActionButton,
   NexusConfidenceIndicator,
@@ -27,11 +31,15 @@ import { NexusRecommendedRunbooks } from "@/components/nexus/runbooks/NexusRecom
 import { NEXUS_LABELS, formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function NexusObservationsCenter() {
+  const scrollRef = useNexusScrollRestoration("nexus:observations");
   const { data, error, loading, refresh } = useNexusFetch<NexusObservationsSummary>(
     "/api/nexus/observations?view=active",
   );
   const { mutate, isPending } = useNexusMutation();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useNexusStoredState<string | null>(
+    "nexus:observations:selected",
+    null,
+  );
 
   const observations = useMemo(() => {
     const rows = data?.active ?? [];
@@ -61,13 +69,14 @@ export function NexusObservationsCenter() {
   }
 
   return (
-    <NexusSectionFrame
-      title={NEXUS_LABELS.insightsCenter}
-      description="Conclusions, patterns, and intelligence generated from platform data."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title={NEXUS_LABELS.insightsCenter}
+        description="Conclusions, patterns, and intelligence generated from platform data."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
       {!loading ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,7 +141,8 @@ export function NexusObservationsCenter() {
           )}
         </>
       ) : null}
-    </NexusSectionFrame>
+      </NexusSectionFrame>
+    </div>
   );
 }
 

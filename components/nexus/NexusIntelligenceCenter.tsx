@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { IntelligenceCategory, IntelligenceItem, IntelligenceSummary } from "@/lib/intelligence/types";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 import { IntelligenceCard } from "@/components/nexus/intelligence/IntelligenceCard";
 import { IntelligenceFilters } from "@/components/nexus/intelligence/IntelligenceFilters";
 import { NexusListEmpty, NexusSectionFrame } from "@/components/nexus/NexusShared";
@@ -10,8 +14,15 @@ import { NexusListEmpty, NexusSectionFrame } from "@/components/nexus/NexusShare
 type IntelligencePayload = IntelligenceSummary & { ok?: boolean };
 
 export function NexusIntelligenceCenter() {
-  const [category, setCategory] = useState<IntelligenceCategory | "all">("all");
-  const [sort, setSort] = useState<"impact" | "confidence">("impact");
+  const scrollRef = useNexusScrollRestoration("nexus:intelligence");
+  const [category, setCategory] = useNexusStoredState<IntelligenceCategory | "all">(
+    "nexus:intelligence:category",
+    "all",
+  );
+  const [sort, setSort] = useNexusStoredState<"impact" | "confidence">(
+    "nexus:intelligence:sort",
+    "impact",
+  );
 
   const path = `/api/nexus/intelligence?sort=${sort}`;
   const { data, error, loading, refresh } = useNexusFetch<IntelligencePayload>(path);
@@ -34,13 +45,14 @@ export function NexusIntelligenceCenter() {
   }, [items, sort]);
 
   return (
-    <NexusSectionFrame
-      title="Intelligence"
-      description="Deterministic patterns, correlations, and opportunities from Nexus data. Mark I — read-only, no AI or execution."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Intelligence"
+        description="Deterministic patterns, correlations, and opportunities from Nexus data. Mark I — read-only, no AI or execution."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
       {!loading ? (
         <>
           <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm text-zinc-300">
@@ -75,6 +87,7 @@ export function NexusIntelligenceCenter() {
           )}
         </>
       ) : null}
-    </NexusSectionFrame>
+      </NexusSectionFrame>
+    </div>
   );
 }

@@ -349,13 +349,22 @@ export function buildObservationCommandDrafts(input: {
     summary: string;
     category: string;
     severity: string;
+    rule_id?: string | null;
+    metadata?: Record<string, unknown>;
   }>;
   runbooksBySlug: Map<string, string>;
 }): CommandSuggestionDraft[] {
   const drafts: CommandSuggestionDraft[] = [];
 
   for (const observation of input.observations) {
+    if (!["warning", "critical"].includes(observation.severity)) {
+      continue;
+    }
+
     const haystack = `${observation.title} ${observation.summary}`.toLowerCase();
+    const metadataDedupeKey =
+      typeof observation.metadata?.dedupe_key === "string" ? observation.metadata.dedupe_key : null;
+    const evidenceKey = metadataDedupeKey ?? observation.rule_id ?? observation.id;
 
     if (
       observation.category === "revenue" ||
@@ -365,7 +374,7 @@ export function buildObservationCommandDrafts(input: {
     ) {
       const runbookId = input.runbooksBySlug.get("revenue-investigation");
       drafts.push({
-        dedupe_key: `observation:revenue:${observation.id}`,
+        dedupe_key: `observation:revenue:${evidenceKey}`,
         command_type: "review_revenue",
         title: "Review revenue investigation runbook",
         summary: "Revenue decline insight detected. Investigate billing and revenue metrics.",
@@ -386,7 +395,7 @@ export function buildObservationCommandDrafts(input: {
     ) {
       const runbookId = input.runbooksBySlug.get("growth-investigation");
       drafts.push({
-        dedupe_key: `observation:growth:${observation.id}`,
+        dedupe_key: `observation:growth:${evidenceKey}`,
         command_type: "review_growth",
         title: "Review growth investigation runbook",
         summary: "Growth slowdown insight detected. Review signup and onboarding funnel health.",
@@ -407,7 +416,7 @@ export function buildObservationCommandDrafts(input: {
     ) {
       const runbookId = input.runbooksBySlug.get("infrastructure-recovery");
       drafts.push({
-        dedupe_key: `observation:infra:${observation.id}`,
+        dedupe_key: `observation:infra:${evidenceKey}`,
         command_type: "follow_runbook",
         title: "Follow Infrastructure Recovery runbook",
         summary: "Infrastructure insight detected. Follow the infrastructure recovery playbook.",

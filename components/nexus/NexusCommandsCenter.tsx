@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { NexusCommandsSummary, NexusCommandSummaryRow } from "@/lib/commands/types";
 import { formatDateTime, formatRelativeTime } from "@/lib/nexus/format";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
@@ -13,6 +13,10 @@ import {
 } from "@/components/nexus/NexusShared";
 import { NexusStatusBadge } from "@/components/nexus/NexusStatusBadge";
 import { formatNexusDisplayText } from "@/lib/nexus/terminology";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 
 type CommandTab =
   | "suggested"
@@ -39,7 +43,8 @@ function relatedSignal(command: NexusCommandSummaryRow) {
 }
 
 export function NexusCommandsCenter() {
-  const [tab, setTab] = useState<CommandTab>("suggested");
+  const scrollRef = useNexusScrollRestoration("nexus:commands");
+  const [tab, setTab] = useNexusStoredState<CommandTab>("nexus:commands:tab", "suggested");
   const { data, error, loading, refresh } = useNexusFetch<NexusCommandsSummary>(
     "/api/nexus/commands",
   );
@@ -71,37 +76,39 @@ export function NexusCommandsCenter() {
   );
 
   return (
-    <NexusSectionFrame
-      title="Commands"
-      description="Owner-only operational recommendations. Mark I is suggestion and history mode — no execution."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {!loading ? (
-        <>
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
-            Commands are recommendations only. Approving a command means you intend to take manual
-            action outside Nexus. Execution is disabled in Mark I.
-          </div>
-
-          <NexusTabFilter tabs={tabs} value={tab} onChange={setTab} />
-
-          {commands.length === 0 ? (
-            <NexusListEmpty
-              title={`No ${TAB_LABELS[tab].toLowerCase()} commands`}
-              description="Run the command suggestions cron to populate recommendations from current Nexus signals."
-            />
-          ) : (
-            <div className="space-y-3">
-              {commands.map((command) => (
-                <CommandCard key={command.id} command={command} />
-              ))}
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Commands"
+        description="Owner-only operational recommendations. Mark I is suggestion and history mode — no execution."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
+        {!loading ? (
+          <>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
+              Commands are recommendations only. Approving a command means you intend to take manual
+              action outside Nexus. Execution is disabled in Mark I.
             </div>
-          )}
-        </>
-      ) : null}
-    </NexusSectionFrame>
+
+            <NexusTabFilter tabs={tabs} value={tab} onChange={setTab} />
+
+            {commands.length === 0 ? (
+              <NexusListEmpty
+                title={`No ${TAB_LABELS[tab].toLowerCase()} commands`}
+                description="Run the command suggestions cron to populate recommendations from current Nexus signals."
+              />
+            ) : (
+              <div className="space-y-3">
+                {commands.map((command) => (
+                  <CommandCard key={command.id} command={command} />
+                ))}
+              </div>
+            )}
+          </>
+        ) : null}
+      </NexusSectionFrame>
+    </div>
   );
 }
 

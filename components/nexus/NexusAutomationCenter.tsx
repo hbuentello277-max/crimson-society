@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { AutomationActionSummaryRow } from "@/lib/automation/types";
 import type {
   NexusAutomationActionType,
@@ -8,6 +8,10 @@ import type {
 } from "@/lib/nexus/constants";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
 import { useNexusMutation } from "@/hooks/nexus/useNexusMutation";
+import {
+  useNexusScrollRestoration,
+  useNexusStoredState,
+} from "@/hooks/nexus/useNexusPageState";
 import { AutomationFilters } from "@/components/nexus/automation/AutomationFilters";
 import { filterAutomationActions } from "@/lib/automation/filters";
 import { AutomationCard } from "@/components/nexus/automation/AutomationCard";
@@ -28,8 +32,15 @@ type AutomationPayload = {
 };
 
 export function NexusAutomationCenter() {
-  const [status, setStatus] = useState<NexusAutomationStatus | "all">("proposed");
-  const [actionType, setActionType] = useState<NexusAutomationActionType | "all">("all");
+  const scrollRef = useNexusScrollRestoration("nexus:automation");
+  const [status, setStatus] = useNexusStoredState<NexusAutomationStatus | "all">(
+    "nexus:automation:status",
+    "proposed",
+  );
+  const [actionType, setActionType] = useNexusStoredState<NexusAutomationActionType | "all">(
+    "nexus:automation:action-type",
+    "all",
+  );
   const { data, error, loading, refresh } = useNexusFetch<AutomationPayload>(
     "/api/nexus/automation?limit=120",
   );
@@ -49,20 +60,21 @@ export function NexusAutomationCenter() {
   }
 
   return (
-    <NexusSectionFrame
-      title="Automation"
-      description="Controlled automation framework for Crimson Society. Proposed actions only — every step requires explicit owner approval. Mark I — no execution engine."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {!loading ? (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
-            Automation prepares recommendations from Planning, Correlations, Intelligence, Commands,
-            Reports, and Briefings. Approving an action means you agree it is worthwhile — nothing
-            executes automatically.
-          </div>
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Automation"
+        description="Controlled automation framework for Crimson Society. Proposed actions only — every step requires explicit owner approval. Mark I — no execution engine."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
+        {!loading ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
+              Automation prepares recommendations from Planning, Correlations, Intelligence, Commands,
+              Reports, and Briefings. Approving an action means you agree it is worthwhile — nothing
+              executes automatically.
+            </div>
 
           {data?.generation ? (
             <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
@@ -99,8 +111,9 @@ export function NexusAutomationCenter() {
               ))}
             </div>
           )}
-        </div>
-      ) : null}
-    </NexusSectionFrame>
+          </div>
+        ) : null}
+      </NexusSectionFrame>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import type {
   OperatorReadyAction,
 } from "@/lib/operator/types";
 import { useNexusFetch } from "@/hooks/nexus/useNexusFetch";
+import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
 import { useNexusPost } from "@/hooks/nexus/useNexusPost";
 import { ExecutionHistory } from "@/components/nexus/operator/ExecutionHistory";
 import { ExecutionQueue } from "@/components/nexus/operator/ExecutionQueue";
@@ -43,6 +44,7 @@ function OperatorSection({
 }
 
 export function NexusOperatorCenter() {
+  const scrollRef = useNexusScrollRestoration("nexus:operator");
   const { data, error, loading, refresh } = useNexusFetch<OperatorPayload>("/api/nexus/operator");
   const { post, pendingKey } = useNexusPost();
 
@@ -58,19 +60,20 @@ export function NexusOperatorCenter() {
   }
 
   return (
-    <NexusSectionFrame
-      title="Operator"
-      description="Low-risk Nexus execution layer. Approved automation actions only — approval does not execute; you must explicitly run each task."
-      loading={loading}
-      error={error}
-      onRefresh={refresh}
-    >
-      {!loading ? (
-        <div className="min-w-0 space-y-8 overflow-x-hidden">
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
-            Operator runs safe internal refreshes only. No Stripe changes, no user mutations, no
-            deploys, no messaging, and no autonomous background execution.
-          </div>
+    <div ref={scrollRef}>
+      <NexusSectionFrame
+        title="Operator"
+        description="Low-risk Nexus execution layer. Approved automation actions only — approval does not execute; you must explicitly run each task."
+        loading={loading}
+        error={error}
+        onRefresh={refresh}
+      >
+        {!loading ? (
+          <div className="min-w-0 space-y-8 overflow-x-hidden">
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
+              Operator runs safe internal refreshes only. No Stripe changes, no user mutations, no
+              deploys, no messaging, and no autonomous background execution.
+            </div>
 
           <OperatorSection
             title="Approved Actions Ready to Execute"
@@ -134,8 +137,9 @@ export function NexusOperatorCenter() {
           >
             <ExecutionHistory items={data?.history ?? []} />
           </OperatorSection>
-        </div>
-      ) : null}
-    </NexusSectionFrame>
+          </div>
+        ) : null}
+      </NexusSectionFrame>
+    </div>
   );
 }
