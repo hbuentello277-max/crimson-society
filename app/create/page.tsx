@@ -10,8 +10,12 @@ import {
   queueMediaProcessingJob,
   uploadImageDisplaySource,
   uploadOriginalMedia,
+  VIDEO_LIMIT_BYTES,
+  VIDEO_MAX_DURATION_SECONDS,
   type UploadedOriginalMedia,
 } from "@/lib/media";
+import { assertVideoDurationWithinLimit } from "@/lib/media/video-metadata";
+import { authedFetch } from "@/lib/auth/authed-fetch";
 import CrimsonSoundPicker, {
   CrimsonSoundAttribution,
 } from "@/components/CrimsonSoundPicker";
@@ -216,13 +220,25 @@ export default function CreatePage() {
   const handleVideo = (files: FileList | null) => {
     if (!files || !files[0]) return;
 
-    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    void (async () => {
+      const file = files[0];
 
-    const file = files[0];
-    const preview = URL.createObjectURL(file);
+      try {
+        if (file.size > VIDEO_LIMIT_BYTES) {
+          throw new Error("Reels can be up to 100MB. Trim or compress your video and try again.");
+        }
 
-    setVideoFile(file);
-    setVideoPreview(preview);
+        await assertVideoDurationWithinLimit(file);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Could not use this video.");
+        return;
+      }
+
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+    })();
   };
 
   const removePhoto = (idx: number) => {
@@ -306,9 +322,12 @@ export default function CreatePage() {
         videoUrl = null;
         mediaStatus = "queued";
         mediaMetadata = {
-          pipeline: "adaptive-video-pending",
+          pipeline: "reel-mp4-playback-pending",
           originals_preserved: true,
-          playback_note: "Raw video is stored privately and awaits ABR processing.",
+          beta_limits: {
+            max_duration_seconds: VIDEO_MAX_DURATION_SECONDS,
+            max_size_bytes: VIDEO_LIMIT_BYTES,
+          },
         };
       }
 
@@ -376,6 +395,14 @@ export default function CreatePage() {
           sourceBucket: videoOriginal.bucket,
           sourcePath: videoOriginal.path,
           metadata: mediaMetadata,
+        });
+
+        void authedFetch("/api/media/process", {
+          method: "POST",
+          body: JSON.stringify({
+            postId: insertedPost?.id ?? null,
+            limit: 1,
+          }),
         });
       }
 
@@ -535,7 +562,7 @@ export default function CreatePage() {
                   </div>
                   <p className="font-serif text-lg italic text-white">Upload Reel</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    MP4 · MOV
+                    MP4 · MOV · WEBM · 90s · 100MB
                   </p>
                 </button>
               ) : (

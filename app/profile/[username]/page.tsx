@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
-import { getBestImageUrl } from "@/lib/media";
+import { PostGridTile } from "@/components/social/PostGridTile";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
@@ -57,6 +57,8 @@ type ProfilePost = {
   image_url: string | null;
   image_display_url?: string | null;
   image_thumbnail_url?: string | null;
+  video_thumbnail_url?: string | null;
+  media_status?: string | null;
 };
 
 type Motorcycle = {
@@ -281,7 +283,9 @@ export default function PublicProfilePage() {
           status_bg,
           image_url,
           image_display_url,
-          image_thumbnail_url
+          image_thumbnail_url,
+          video_thumbnail_url,
+          media_status
         `)
         .eq("user_id", profile.id)
         .order("pinned_at", { ascending: false, nullsFirst: false })
@@ -924,20 +928,19 @@ export default function PublicProfilePage() {
             {postsState === "loaded" && posts.length > 0 && (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
                 {posts.map((post, index) => {
-                  const imageUrl = getBestImageUrl(
-                    post.image_thumbnail_url || post.image_display_url,
-                    post.image_url,
-                    "profileGrid",
-                  );
-
                   const isStatus = post.post_type === "status";
                   const statusText = post.status_text || post.caption || "";
                   const statusClass = statusBgMap[post.status_bg || "noir"] || statusBgMap.noir;
 
                   return (
-                    <div
+                    <PostGridTile
                       key={post.id}
-                      className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]"
+                      post={post}
+                      isStatus={isStatus}
+                      statusText={statusText}
+                      statusClass={statusClass}
+                      priority={index < 2}
+                      alt={post.caption || "Crimson Society post"}
                     >
                       {!isOwnProfile && !interactionRestricted && profile?.id && (
                         <div className="absolute right-2 top-2 z-20">
@@ -975,27 +978,7 @@ export default function PublicProfilePage() {
                           )}
                         </div>
                       )}
-                      {isStatus ? (
-                        <div className={`flex h-full w-full items-center justify-center px-4 text-center ${statusClass}`}>
-                          <p className="font-serif text-lg italic leading-snug text-white">
-                            {statusText || "Status"}
-                          </p>
-                        </div>
-                      ) : imageUrl ? (
-                        <Image
-                          src={imageUrl}
-                          alt={post.caption || "Crimson Society post"}
-                          fill
-                          sizes="(max-width: 768px) 50vw, 320px"
-                          priority={index < 2}
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs uppercase tracking-[0.2em] text-zinc-400">
-                          {post.caption || "No image"}
-                        </div>
-                      )}
-                    </div>
+                    </PostGridTile>
                   );
                 })}
               </div>

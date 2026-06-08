@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/push-dispatch",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/media-processing",
+      "schedule": "*/2 * * * *"
     }
   ],
   "headers": [

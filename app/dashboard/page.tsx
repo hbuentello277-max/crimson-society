@@ -10,6 +10,9 @@ import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
+import { fetchBlockState, getBlockedUserIds } from "@/lib/blocking";
+import { authedFetch } from "@/lib/auth/authed-fetch";
+import { ReelPlayer } from "@/components/feed/ReelPlayer";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReportContentModal } from "@/components/safety/ReportContentModal";
@@ -49,6 +52,7 @@ type FeedPost = {
   caption?: string;
   photos?: string[];
   video?: string | null;
+  videoThumbnail?: string | null;
   sound?: CrimsonSound | null;
   statusText?: string;
   statusBg?: string;
@@ -337,8 +341,13 @@ function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
   const sound = pickSound(post.post_sounds);
   const imageUrl = getBestImageUrl(
-    post.image_display_url || post.video_thumbnail_url,
-    post.image_url,
+    post.post_type === "reel" ? null : post.image_display_url,
+    post.post_type === "reel" ? null : post.image_url,
+    "feed",
+  );
+  const videoThumbnail = getBestImageUrl(
+    post.video_thumbnail_url,
+    null,
     "feed",
   );
 
@@ -362,6 +371,7 @@ function mapPostToFeed(post: RawPost): FeedPost {
       post.video_playback_url || post.video_url,
       post.video_hls_url,
     ),
+    videoThumbnail,
     sound,
     statusText: post.status_text || "",
     statusBg: post.status_bg || "noir",
@@ -417,6 +427,7 @@ function DashboardPageContent() {
   const [mapRecenterSignal, setMapRecenterSignal] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [joinBusy, setJoinBusy] = useState(false);
+  const [activeReelId, setActiveReelId] = useState<string | null>(null);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const postRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -529,6 +540,9 @@ function DashboardPageContent() {
     if (session.user.id) {
       const authorIds = Array.from(new Set(livePosts.map((post) => post.userId).filter(Boolean))) as string[];
       const postIds = livePosts.map((post) => post.id);
+      const blockState = await fetchBlockState(session.user.id);
+      const blockedUserIds = getBlockedUserIds(blockState);
+
       const [{ data: hiddenRows }, { data: muteRows }] = await Promise.all([
         postIds.length
           ? supabase.from("hidden_posts").select("post_id").eq("user_id", session.user.id).in("post_id", postIds)
@@ -539,7 +553,12 @@ function DashboardPageContent() {
       ]);
       const hiddenPostIds = new Set((hiddenRows || []).map((row) => row.post_id));
       const mutedAuthorIds = new Set((muteRows || []).map((row) => row.muted_user_id));
-      visiblePosts = livePosts.filter((post) => !hiddenPostIds.has(post.id) && !(post.userId && mutedAuthorIds.has(post.userId)));
+      visiblePosts = livePosts.filter(
+        (post) =>
+          !hiddenPostIds.has(post.id) &&
+          !(post.userId && mutedAuthorIds.has(post.userId)) &&
+          !(post.userId && blockedUserIds.has(post.userId)),
+      );
     }
 
     setPosts(visiblePosts);
@@ -847,13 +866,9 @@ setFeedLoading(false);
     setDeletingPostId(post.id);
     setPostActionTarget(null);
 
-    let query = supabase.from("Posts").delete().eq("id", post.id);
-
-    if (!isAdmin) {
-      query = query.eq("user_id", currentUserId);
-    }
-
-    const { error } = await query;
+    const response = await authedFetch(`/api/posts/${post.id}`, { method: "DELETE" });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    const error = response.ok ? null : { message: payload.error || "Could not delete post." };
 
     if (error) {
       setToast(error.message || "Could not delete post.");
@@ -1608,33 +1623,16 @@ setFeedLoading(false);
 
                   {p.type === "reel" && (
                     <div className="relative aspect-[9/16] max-h-[560px] bg-black">
-                      {p.video ? (
-                        <video
-                          src={p.video}
-                          className="h-full w-full object-cover"
-                          muted
-                          autoPlay
-                          loop
-                          playsInline
-                          preload="metadata"
-                        />
-                      ) : photos[0] ? (
-                        <Image
-                          src={photos[0]}
-                          alt={`${p.author.name} reel cover`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 768px"
-                          priority={postIndex === 0}
-                          quality={86}
-                          className="object-cover"
-                        />
-                      ) : p.mediaStatus === "queued" || p.mediaStatus === "processing" ? (
-                        <div className="flex h-full w-full items-center justify-center px-6 text-center">
-                          <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-                            Reel processing for cinematic playback
-                          </p>
-                        </div>
-                      ) : null}
+                      <ReelPlayer
+                        postId={p.id}
+                        src={p.video || null}
+                        poster={p.videoThumbnail || photos[0] || null}
+                        mediaStatus={p.mediaStatus || "ready"}
+                        isActive={activeReelId === p.id}
+                        onBecameVisible={setActiveReelId}
+                        authorName={p.author.name}
+                        priority={postIndex === 0}
+                      />
 
                       {p.sound && (
                         <div className="absolute bottom-3 left-3 right-3 flex">

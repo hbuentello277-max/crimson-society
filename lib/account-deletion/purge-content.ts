@@ -8,33 +8,9 @@ import {
   purgeUserStorage,
   removeStoragePaths,
 } from "@/lib/account-deletion/storage-purge";
+import { collectPostMediaPaths } from "@/lib/posts/post-media-paths";
 
 export type PurgeStepLog = Record<string, unknown>;
-
-function collectPostMediaPaths(post: Record<string, unknown>): string[] {
-  const paths: string[] = [];
-  const pairs: Array<[string | null | undefined, string]> = [
-    [post.image_original_path as string, MEDIA_ORIGINALS_BUCKET],
-    [post.video_original_path as string, MEDIA_ORIGINALS_BUCKET],
-    [post.image_display_url as string, MEDIA_RENDERS_BUCKET],
-    [post.image_thumbnail_url as string, MEDIA_RENDERS_BUCKET],
-    [post.video_playback_url as string, MEDIA_RENDERS_BUCKET],
-    [post.video_hls_url as string, MEDIA_RENDERS_BUCKET],
-    [post.video_thumbnail_url as string, MEDIA_RENDERS_BUCKET],
-  ];
-
-  for (const [raw, bucket] of pairs) {
-    if (!raw) continue;
-    if (!raw.startsWith("http")) {
-      paths.push(raw);
-      continue;
-    }
-    const parsed = pathFromPublicStorageUrl(raw, bucket);
-    if (parsed) paths.push(parsed);
-  }
-
-  return paths;
-}
 
 export async function purgeUserGeneratedContent(
   adminClient: SupabaseClient,
@@ -50,15 +26,25 @@ export async function purgeUserGeneratedContent(
     )
     .eq("user_id", userId);
 
-  const postMediaPaths: string[] = [];
+  const originalPaths: string[] = [];
+  const renderPaths: string[] = [];
+  const postIds: string[] = [];
+
   for (const post of posts ?? []) {
-    postMediaPaths.push(...collectPostMediaPaths(post as Record<string, unknown>));
+    postIds.push(post.id as string);
+    const collected = collectPostMediaPaths(post as Record<string, unknown>);
+    originalPaths.push(...collected.originals);
+    renderPaths.push(...collected.renders);
   }
 
   const postStorageErrors = [
-    ...(await removeStoragePaths(adminClient, MEDIA_ORIGINALS_BUCKET, postMediaPaths)),
-    ...(await removeStoragePaths(adminClient, MEDIA_RENDERS_BUCKET, postMediaPaths)),
+    ...(await removeStoragePaths(adminClient, MEDIA_ORIGINALS_BUCKET, originalPaths)),
+    ...(await removeStoragePaths(adminClient, MEDIA_RENDERS_BUCKET, renderPaths)),
   ];
+
+  if (postIds.length > 0) {
+    await adminClient.from("media_processing_jobs").delete().in("post_id", postIds);
+  }
 
   const { error: postsDeleteError, count: postsDeleted } = await adminClient
     .from("Posts")

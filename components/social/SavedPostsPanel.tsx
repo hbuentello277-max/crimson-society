@@ -4,6 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  getPostGridPreviewUrl,
+  isReelPost,
+  isReelProcessing,
+} from "@/lib/posts/post-grid-media";
 
 type SavedPost = {
   id: string;
@@ -14,6 +19,8 @@ type SavedPost = {
   image_url: string | null;
   image_display_url?: string | null;
   image_thumbnail_url?: string | null;
+  video_thumbnail_url?: string | null;
+  media_status?: string | null;
 };
 
 function EmptyPanel({ title, body }: { title: string; body: string }) {
@@ -66,7 +73,7 @@ export function SavedPostsPanel({
       const { data } = await supabase
         .from("Posts")
         .select(
-          "id, post_type, caption, status_text, status_bg, image_url, image_display_url, image_thumbnail_url",
+          "id, post_type, caption, status_text, status_bg, image_url, image_display_url, image_thumbnail_url, video_thumbnail_url, media_status",
         )
         .in("id", postIds);
 
@@ -100,27 +107,48 @@ export function SavedPostsPanel({
 
   return (
     <section className="mt-3 grid grid-cols-3 gap-2 px-1 sm:grid-cols-4">
-      {posts.map((post) => (
-        <Link
-          key={post.id}
-          href={`/dashboard?post=${post.id}`}
-          className="relative aspect-square overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.03]"
-        >
-          {post.image_display_url || post.image_thumbnail_url || post.image_url ? (
-            <Image
-              src={post.image_display_url || post.image_thumbnail_url || post.image_url || ""}
-              alt={post.caption || "Saved post"}
-              fill
-              sizes="120px"
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center px-3 text-center text-xs text-zinc-500">
-              {post.status_text || post.caption || "Saved"}
-            </div>
-          )}
-        </Link>
-      ))}
+      {posts.map((post) => {
+        const previewUrl = getPostGridPreviewUrl(post);
+        const processing = isReelProcessing(post);
+
+        return (
+          <Link
+            key={post.id}
+            href={`/dashboard?post=${post.id}`}
+            className="relative aspect-square overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.03]"
+          >
+            {previewUrl ? (
+              <>
+                <Image
+                  src={previewUrl}
+                  alt={post.caption || "Saved post"}
+                  fill
+                  sizes="120px"
+                  className="object-cover"
+                />
+                {isReelPost(post) && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-black/55 text-sm text-white">
+                      ▶
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : processing ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 bg-black/70 px-2 text-center">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/55 text-sm text-white/80">
+                  ▶
+                </span>
+                <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">Processing</p>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center px-3 text-center text-xs text-zinc-500">
+                {post.status_text || post.caption || "Saved"}
+              </div>
+            )}
+          </Link>
+        );
+      })}
     </section>
   );
 }

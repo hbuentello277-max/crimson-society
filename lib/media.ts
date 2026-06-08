@@ -9,7 +9,8 @@ export const MEDIA_ORIGINALS_BUCKET = "media-originals";
 export const MEDIA_RENDERS_BUCKET = "media-renders";
 
 const IMAGE_LIMIT_BYTES = 24 * 1024 * 1024;
-const VIDEO_LIMIT_BYTES = 768 * 1024 * 1024;
+export const VIDEO_LIMIT_BYTES = 100 * 1024 * 1024;
+export const VIDEO_MAX_DURATION_SECONDS = 90;
 
 const IMAGE_VARIANTS: Record<ImageVariant, { width: number; quality: number }> = {
   feed: { width: 1536, quality: 86 },
@@ -67,7 +68,7 @@ export function assertMediaUpload(kind: MediaKind, file: File) {
     }
 
     if (file.size > VIDEO_LIMIT_BYTES) {
-      throw new Error("Videos can be up to 768MB. Longer rides should be trimmed before upload.");
+      throw new Error("Reels can be up to 100MB. Trim or compress your video and try again.");
     }
   }
 }

@@ -100,6 +100,10 @@ type RecentPost = {
   media_status: string | null;
   location: string | null;
   created_at: string | null;
+  video_thumbnail_url?: string | null;
+  video_playback_url?: string | null;
+  image_thumbnail_url?: string | null;
+  image_display_url?: string | null;
 };
 
 type RecentRide = {
@@ -336,7 +340,7 @@ function AdminPageContent() {
         .limit(8),
       supabase
         .from("Posts")
-        .select("id, user_id, caption, post_type, media_status, location, created_at")
+        .select("id, user_id, caption, post_type, media_status, location, created_at, video_thumbnail_url, video_playback_url, image_thumbnail_url, image_display_url")
         .order("created_at", { ascending: false })
         .limit(6),
       supabase
@@ -1087,6 +1091,33 @@ function AdminPageContent() {
                           <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-400">
                             {post.caption || post.location || "No caption"}
                           </p>
+                          {post.post_type === "reel" && (
+                            <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-black">
+                              {post.video_playback_url ? (
+                                <video
+                                  src={post.video_playback_url}
+                                  poster={post.video_thumbnail_url || undefined}
+                                  controls
+                                  playsInline
+                                  preload="metadata"
+                                  className="max-h-48 w-full object-cover"
+                                />
+                              ) : post.video_thumbnail_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={post.video_thumbnail_url}
+                                  alt="Reel thumbnail"
+                                  className="max-h-48 w-full object-cover"
+                                />
+                              ) : (
+                                <p className="px-3 py-4 text-xs text-zinc-500">
+                                  {post.media_status === "queued" || post.media_status === "processing"
+                                    ? "Reel processing"
+                                    : "No reel preview"}
+                                </p>
+                              )}
+                            </div>
+                          )}
                           <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-zinc-600">
                             {formatAdminDate(post.created_at)}
                           </p>
