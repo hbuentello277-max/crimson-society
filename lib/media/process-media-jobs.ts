@@ -4,7 +4,25 @@ import {
   type MediaProcessingJobRow,
 } from "@/lib/media/process-reel-job";
 
-const MAX_ATTEMPTS = 3;
+export const MAX_MEDIA_JOB_ATTEMPTS = 3;
+export const STALE_PROCESSING_MINUTES = 15;
+
+const STALE_RECOVERY_ERROR =
+  "Processing timed out or the worker stopped; job was requeued.";
+const STALE_MAX_ATTEMPTS_ERROR =
+  "Processing failed after the maximum number of attempts (stale recovery).";
+
+export type StaleRecoveryAction = "requeue" | "fail";
+
+/** Pure helper for stale-job recovery decisions (attempts are set on claim). */
+export function staleRecoveryAction(attempts: number): StaleRecoveryAction {
+  return attempts >= MAX_MEDIA_JOB_ATTEMPTS ? "fail" : "requeue";
+}
+
+export type StaleJobRecoveryResult = {
+  requeued: number;
+  failed: number;
+};
 
 export type ProcessMediaJobsResult = {
   processed: number;
@@ -16,7 +34,70 @@ export type ProcessMediaJobsResult = {
     status: "ready" | "failed";
     error?: string;
   }>;
+  staleRecovery?: StaleJobRecoveryResult;
 };
+
+export function staleProcessingCutoffIso(now = Date.now()) {
+  return new Date(now - STALE_PROCESSING_MINUTES * 60 * 1000).toISOString();
+}
+
+export async function recoverStaleProcessingJobs(
+  adminClient: SupabaseClient,
+  options?: { now?: number },
+): Promise<StaleJobRecoveryResult> {
+  const staleBefore = staleProcessingCutoffIso(options?.now);
+
+  const { data: staleJobs, error } = await adminClient
+    .from("media_processing_jobs")
+    .select("*")
+    .eq("status", "processing")
+    .eq("media_kind", "video")
+    .lt("updated_at", staleBefore);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  let requeued = 0;
+  let failed = 0;
+
+  for (const job of (staleJobs || []) as MediaProcessingJobRow[]) {
+    const attempts = job.attempts || 0;
+
+    if (staleRecoveryAction(attempts) === "fail") {
+      await markJobFailed(adminClient, job, STALE_MAX_ATTEMPTS_ERROR);
+      failed += 1;
+      continue;
+    }
+
+    const { data: requeuedJob } = await adminClient
+      .from("media_processing_jobs")
+      .update({
+        status: "queued",
+        error_message: STALE_RECOVERY_ERROR,
+      })
+      .eq("id", job.id)
+      .eq("status", "processing")
+      .select("id")
+      .maybeSingle();
+
+    if (!requeuedJob) {
+      continue;
+    }
+
+    if (job.post_id) {
+      await adminClient
+        .from("Posts")
+        .update({ media_status: "queued" })
+        .eq("id", job.post_id)
+        .eq("media_status", "processing");
+    }
+
+    requeued += 1;
+  }
+
+  return { requeued, failed };
+}
 
 async function claimQueuedJobs(
   adminClient: SupabaseClient,
@@ -134,6 +215,7 @@ export async function processPendingMediaJobs(
   options?: { limit?: number; postId?: string | null },
 ): Promise<ProcessMediaJobsResult> {
   const limit = Math.min(Math.max(options?.limit ?? 3, 1), 10);
+  const staleRecovery = await recoverStaleProcessingJobs(adminClient);
   const jobs = await claimQueuedJobs(adminClient, limit, options?.postId);
 
   const results: ProcessMediaJobsResult["results"] = [];
@@ -162,7 +244,7 @@ export async function processPendingMediaJobs(
       const message = error instanceof Error ? error.message : "Reel processing failed.";
       const attempts = job.attempts || 1;
 
-      if (attempts >= MAX_ATTEMPTS) {
+      if (attempts >= MAX_MEDIA_JOB_ATTEMPTS) {
         await markJobFailed(adminClient, job, message);
       } else {
         await adminClient
@@ -196,5 +278,6 @@ export async function processPendingMediaJobs(
     succeeded,
     failed,
     results,
+    staleRecovery,
   };
 }

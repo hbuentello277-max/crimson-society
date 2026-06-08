@@ -34,24 +34,49 @@ export async function POST(request: Request) {
     }
 
     const body = await parseBody(request);
-    postId = body.postId ?? null;
-    limit = body.limit ?? 1;
+    postId = typeof body.postId === "string" ? body.postId.trim() : null;
 
-    if (postId) {
-      const { data: post, error } = await auth.supabase
-        .from("Posts")
-        .select("id, user_id")
-        .eq("id", postId)
-        .maybeSingle();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      if (!post || post.user_id !== auth.userId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
+    if (!postId) {
+      return NextResponse.json({ error: "postId is required." }, { status: 400 });
     }
+
+    const { data: post, error } = await auth.supabase
+      .from("Posts")
+      .select("id, user_id")
+      .eq("id", postId)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!post || post.user_id !== auth.userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { data: job, error: jobError } = await auth.supabase
+      .from("media_processing_jobs")
+      .select("id, status, user_id")
+      .eq("post_id", postId)
+      .eq("user_id", auth.userId)
+      .eq("media_kind", "video")
+      .in("status", ["queued", "processing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (jobError) {
+      return NextResponse.json({ error: jobError.message }, { status: 500 });
+    }
+
+    if (!job) {
+      return NextResponse.json(
+        { error: "No pending media job for this post." },
+        { status: 404 },
+      );
+    }
+
+    limit = 1;
   } else {
     const body = await parseBody(request);
     postId = body.postId ?? null;
