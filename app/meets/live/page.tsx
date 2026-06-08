@@ -13,6 +13,7 @@ import {
   readActiveMeetSession,
   writeActiveMeetSession,
 } from "@/lib/meets/active-meet-session";
+import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { hasRoadGeometry, parseRoute } from "@/lib/meets/route-geometry";
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
@@ -415,7 +416,7 @@ export default function MeetLiveMapPage() {
     }
 
     const { data: attendeeRows, error: attendeeError } = await supabase
-      .from("ride_attendees")
+      .from(MEET_TABLES.attendees)
       .select("ride_id")
       .eq("user_id", userId);
 
@@ -428,7 +429,7 @@ export default function MeetLiveMapPage() {
     );
 
     const hostedQuery = supabase
-      .from("rides")
+      .from(MEET_TABLES.meets)
       .select("id, name, host_id, status, tracking_status, started_at, date, time")
       .eq("status", "active")
       .eq("tracking_status", "active")
@@ -438,7 +439,7 @@ export default function MeetLiveMapPage() {
 
     const attendingQuery = attendingRideIds.length
       ? supabase
-          .from("rides")
+          .from(MEET_TABLES.meets)
           .select("id, name, host_id, status, tracking_status, started_at, date, time")
           .eq("status", "active")
           .eq("tracking_status", "active")
@@ -526,7 +527,7 @@ export default function MeetLiveMapPage() {
         {
           event: "UPDATE",
           schema: "public",
-          table: "rides",
+          table: MEET_TABLES.meets,
         },
         () => {
           void loadLiveShareRide();
@@ -557,7 +558,7 @@ export default function MeetLiveMapPage() {
     if (!activeRide?.id) return;
 
     const { data, error } = await supabase
-      .from("rides")
+      .from(MEET_TABLES.meets)
       .select("host_id, status, tracking_status, started_at, ended_at")
       .eq("id", activeRide.id)
       .maybeSingle();
@@ -582,7 +583,7 @@ export default function MeetLiveMapPage() {
         {
           event: "UPDATE",
           schema: "public",
-          table: "rides",
+          table: MEET_TABLES.meets,
           filter: `id=eq.${activeRide.id}`,
         },
         () => {
@@ -626,7 +627,7 @@ export default function MeetLiveMapPage() {
 
     if (targetRideId && userId) {
       const { error } = await supabase
-        .from("ride_live_locations")
+        .from(MEET_TABLES.liveLocations)
         .delete()
         .eq("ride_id", targetRideId)
         .eq("user_id", userId);
@@ -669,7 +670,7 @@ export default function MeetLiveMapPage() {
       setLocationError(null);
 
       const updatedAt = new Date().toISOString();
-      const { error } = await supabase.from("ride_live_locations").upsert(
+      const { error } = await supabase.from(MEET_TABLES.liveLocations).upsert(
         {
           ride_id: targetRideId,
           user_id: userId,
@@ -774,7 +775,7 @@ export default function MeetLiveMapPage() {
 
     const startedAt = new Date().toISOString();
     const { data, error } = await supabase
-      .from("rides")
+      .from(MEET_TABLES.meets)
       .update({
         tracking_status: "active",
         started_at: startedAt,
@@ -809,7 +810,7 @@ export default function MeetLiveMapPage() {
 
     const endedAt = new Date().toISOString();
     const { data, error } = await supabase
-      .from("rides")
+      .from(MEET_TABLES.meets)
       .update({
         tracking_status: "ended",
         ended_at: endedAt,
@@ -845,7 +846,7 @@ export default function MeetLiveMapPage() {
 
     const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data, error } = await supabase
-      .from("ride_live_locations")
+      .from(MEET_TABLES.liveLocations)
       .select("ride_id, user_id, lat, lng, heading, speed, sharing_enabled, updated_at")
       .eq("ride_id", activeRide.id)
       .eq("sharing_enabled", true)
@@ -898,7 +899,7 @@ export default function MeetLiveMapPage() {
   const loadGlobalLiveLocations = useCallback(async () => {
     const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data, error } = await supabase
-      .from("ride_live_locations")
+      .from(MEET_TABLES.liveLocations)
       .select("ride_id, user_id, lat, lng, heading, speed, sharing_enabled, updated_at")
       .eq("sharing_enabled", true)
       .gte("updated_at", cutoff)
@@ -915,7 +916,7 @@ export default function MeetLiveMapPage() {
 
     const { data: rideRows, error: rideError } = rideIds.length
       ? await supabase
-          .from("rides")
+          .from(MEET_TABLES.meets)
           .select("id, status, tracking_status")
           .in("id", rideIds)
       : { data: [], error: null };
@@ -981,7 +982,7 @@ export default function MeetLiveMapPage() {
         {
           event: "*",
           schema: "public",
-          table: "ride_live_locations",
+          table: MEET_TABLES.liveLocations,
           filter: `ride_id=eq.${activeRide.id}`,
         },
         () => {
@@ -1007,7 +1008,7 @@ export default function MeetLiveMapPage() {
         {
           event: "*",
           schema: "public",
-          table: "ride_live_locations",
+          table: MEET_TABLES.liveLocations,
         },
         () => {
           void loadGlobalLiveLocations();
@@ -1029,7 +1030,7 @@ export default function MeetLiveMapPage() {
 
       if (targetRideId && userId) {
         void supabase
-          .from("ride_live_locations")
+          .from(MEET_TABLES.liveLocations)
           .delete()
           .eq("ride_id", targetRideId)
           .eq("user_id", userId);
