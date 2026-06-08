@@ -29,6 +29,7 @@ export function buildNavigationRoute(meet: NavigationMeet): NavigationRoute {
     meetId: meet.id,
     points,
     segments,
+    steps: meet.routeSteps,
     totalDistanceMiles,
     meetPoint: meet.meetPoint,
     destination: meet.destination,

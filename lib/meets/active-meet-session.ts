@@ -1,5 +1,5 @@
 import type { RoutePoint } from "@/lib/meets/route-geometry";
-import type { MeetTrackingStatus } from "@/lib/meets/types";
+import type { MeetStatus, MeetTrackingStatus } from "@/lib/meets/types";
 
 export const ACTIVE_MEET_STORAGE_KEY = "crimson-active-meet";
 const LEGACY_ACTIVE_MEET_STORAGE_KEY = "crimson-active-ride";
@@ -12,6 +12,10 @@ export type ActiveMeetSessionPayload = {
   name: string;
   meetPoint: string;
   destination: string;
+  date: string | null;
+  time: string | null;
+  meetDurationMinutes: number | null;
+  status: MeetStatus;
   trackingStatus: MeetTrackingStatus;
   startedAt: string | null;
   endedAt: string | null;

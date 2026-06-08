@@ -10,6 +10,16 @@ export type RoutingWaypoint = RoutingCoordinate & {
 
 export type RoutingProfile = "driving" | "driving-traffic" | "cycling";
 
+export type SnappedRouteStep = {
+  instruction: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  maneuverType: string | null;
+  maneuverModifier: string | null;
+  maneuverLocation: RoutingCoordinate | null;
+  stepGeometry: RoutingCoordinate[];
+};
+
 export type SnappedRouteResult = {
   provider: "mapbox" | "osrm" | "mock";
   profile: RoutingProfile;
@@ -22,6 +32,7 @@ export type SnappedRouteResult = {
     start: RoutingCoordinate;
     end: RoutingCoordinate;
   }>;
+  steps: SnappedRouteStep[];
   waypoints: RoutingWaypoint[];
   raw?: unknown;
 };
@@ -46,7 +57,7 @@ export function isRoutingCoordinate(value: unknown): value is RoutingCoordinate 
     value &&
       typeof value === "object" &&
       isFiniteNumber((value as RoutingCoordinate).lat) &&
-      isFiniteNumber((value as RoutingCoordinate).lng)
+      isFiniteNumber((value as RoutingCoordinate).lng),
   );
 }
 
@@ -159,6 +170,99 @@ function interpolateSegment(
   return points;
 }
 
+function parseGeometryCoordinates(value: unknown): RoutingCoordinate[] {
+  if (!value || typeof value !== "object") return [];
+
+  const coordinates = (value as { coordinates?: [number, number][] }).coordinates;
+  if (!Array.isArray(coordinates)) return [];
+
+  return coordinates
+    .filter((pair) => Array.isArray(pair) && pair.length >= 2)
+    .map(([lng, lat]) => ({ lat, lng }));
+}
+
+function formatManeuverInstruction(type: string | null, modifier: string | null, name?: string | null) {
+  const normalizedType = type?.toLowerCase() ?? "continue";
+  const normalizedModifier = modifier?.toLowerCase() ?? null;
+  const roadName = name?.trim();
+
+  if (normalizedType === "arrive") {
+    return roadName ? `Arrive at ${roadName}` : "Arrive at destination";
+  }
+
+  if (normalizedType === "depart") {
+    return roadName ? `Head toward ${roadName}` : "Head toward destination";
+  }
+
+  if (normalizedType === "roundabout" || normalizedType === "rotary") {
+    return roadName ? `Take the roundabout onto ${roadName}` : "Take the roundabout";
+  }
+
+  if (normalizedType === "merge") {
+    const direction = normalizedModifier ? `Merge ${normalizedModifier}` : "Merge";
+    return roadName ? `${direction} onto ${roadName}` : direction;
+  }
+
+  if (normalizedType === "fork") {
+    const direction = normalizedModifier ? `Keep ${normalizedModifier}` : "Keep straight";
+    return roadName ? `${direction} at the fork onto ${roadName}` : direction;
+  }
+
+  if (normalizedType === "turn" || normalizedType === "end of road" || normalizedType === "new name") {
+    const direction = normalizedModifier ? `Turn ${normalizedModifier}` : "Turn";
+    return roadName ? `${direction} onto ${roadName}` : direction;
+  }
+
+  if (normalizedType === "continue" || normalizedType === "straight") {
+    return roadName ? `Continue straight on ${roadName}` : "Continue straight";
+  }
+
+  return roadName ? `Continue on ${roadName}` : "Continue";
+}
+
+type ProviderStep = {
+  distance?: number;
+  duration?: number;
+  geometry?: unknown;
+  name?: string;
+  maneuver?: {
+    type?: string;
+    modifier?: string;
+    instruction?: string;
+    location?: [number, number];
+  };
+};
+
+function parseProviderSteps(steps: ProviderStep[] | undefined): SnappedRouteStep[] {
+  if (!Array.isArray(steps)) return [];
+
+  return steps.map((step) => {
+    const maneuver = step.maneuver;
+    const maneuverLocation =
+      Array.isArray(maneuver?.location) && maneuver.location.length >= 2
+        ? { lng: maneuver.location[0], lat: maneuver.location[1] }
+        : null;
+
+    return {
+      instruction:
+        maneuver?.instruction?.trim() ||
+        formatManeuverInstruction(maneuver?.type ?? null, maneuver?.modifier ?? null, step.name),
+      distanceMeters: typeof step.distance === "number" ? step.distance : 0,
+      durationSeconds: typeof step.duration === "number" ? step.duration : 0,
+      maneuverType: maneuver?.type ?? null,
+      maneuverModifier: maneuver?.modifier ?? null,
+      maneuverLocation,
+      stepGeometry: parseGeometryCoordinates(step.geometry),
+    };
+  });
+}
+
+function flattenLegSteps(legs: Array<{ steps?: ProviderStep[] }> | undefined): SnappedRouteStep[] {
+  if (!Array.isArray(legs)) return [];
+
+  return legs.flatMap((leg) => parseProviderSteps(leg.steps));
+}
+
 export function buildMockSnappedRoute(
   input: BuildSnappedRouteInput
 ): SnappedRouteResult {
@@ -180,6 +284,7 @@ export function buildMockSnappedRoute(
     durationSeconds: legs.reduce((sum, leg) => sum + leg.durationSeconds, 0),
     geometry,
     legs,
+    steps: [],
     waypoints: validated.waypoints,
     raw: null,
   };
@@ -202,6 +307,7 @@ type MapboxDirectionsResponse = {
     legs?: Array<{
       distance: number;
       duration: number;
+      steps?: ProviderStep[];
     }>;
   }>;
 };
@@ -222,7 +328,7 @@ export async function buildMapboxSnappedRoute(
 
   const url =
     `${MAPBOX_BASE_URL}/${profile}/${coordinates}` +
-    `?alternatives=false&continue_straight=true&geometries=geojson&overview=full&steps=false&access_token=${token}`;
+    `?alternatives=false&continue_straight=true&geometries=geojson&overview=full&steps=true&access_token=${token}`;
 
   const response = await fetch(url, {
     method: "GET",
@@ -263,6 +369,7 @@ export async function buildMapboxSnappedRoute(
     durationSeconds: route.duration,
     geometry,
     legs,
+    steps: flattenLegSteps(route.legs),
     waypoints: validated.waypoints,
     raw: data,
   };
@@ -278,6 +385,7 @@ type OsrmDirectionsResponse = {
     legs?: Array<{
       distance: number;
       duration: number;
+      steps?: ProviderStep[];
     }>;
   }>;
 };
@@ -291,7 +399,7 @@ export async function buildOsrmSnappedRoute(
 
   const url =
     `${OSRM_BASE_URL}/${coordinates}` +
-    "?overview=full&geometries=geojson&steps=false";
+    "?overview=full&geometries=geojson&steps=true";
 
   const response = await fetch(url, {
     method: "GET",
@@ -329,6 +437,7 @@ export async function buildOsrmSnappedRoute(
     durationSeconds: route.duration,
     geometry,
     legs,
+    steps: flattenLegSteps(route.legs),
     waypoints: validated.waypoints,
     raw: data,
   };

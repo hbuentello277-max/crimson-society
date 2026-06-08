@@ -5,3 +5,4 @@ export * from "@/lib/meets/navigation/progress";
 export * from "@/lib/meets/navigation/metrics";
 export * from "@/lib/meets/navigation/session";
 export * from "@/lib/meets/navigation/voice";
+export * from "@/lib/meets/navigation/steps";

@@ -1,12 +1,15 @@
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import type { ActiveMeetSessionPayload } from "@/lib/meets/active-meet-session";
-import { parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
+import { parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
+import { parseRouteSteps } from "@/lib/meets/navigation/steps";
+import type { NavigationStep } from "@/lib/meets/navigation/types";
 import {
-  ensureRouteGeometry,
+  ensureRouteWithSteps,
   hasRoadGeometry,
   type RoutePoint,
 } from "@/lib/meets/route-geometry";
+import type { MeetStatus } from "@/lib/meets/types";
 
 type NavigationMeetRow = {
   id: string;
@@ -15,6 +18,7 @@ type NavigationMeetRow = {
   meet_point: string | null;
   destination: string | null;
   route: unknown;
+  route_steps: unknown;
   waypoints: unknown;
   tracking_status: string | null;
   started_at: string | null;
@@ -26,11 +30,15 @@ type NavigationMeetRow = {
   distance: string | null;
   duration: string | null;
   status: string | null;
+  date: string | null;
+  time: string | null;
+  meet_duration_minutes: number | null;
 };
 
 export type NavigationMeet = ActiveMeetSessionPayload & {
   distance: string | null;
   duration: string | null;
+  routeSteps: NavigationStep[];
 };
 
 function parseWaypoints(value: unknown) {
@@ -48,7 +56,11 @@ function parseWaypoints(value: unknown) {
   });
 }
 
-function rowToNavigationMeet(row: NavigationMeetRow, route: RoutePoint[]): NavigationMeet {
+function rowToNavigationMeet(
+  row: NavigationMeetRow,
+  route: RoutePoint[],
+  routeSteps: NavigationStep[],
+): NavigationMeet {
   return {
     id: row.id,
     hostId: row.host_id,
@@ -57,16 +69,21 @@ function rowToNavigationMeet(row: NavigationMeetRow, route: RoutePoint[]): Navig
     name: row.name?.trim() || "Meet",
     meetPoint: row.meet_point?.trim() || "Meet point",
     destination: row.destination?.trim() || "Destination",
+    date: row.date,
+    time: row.time,
+    meetDurationMinutes: row.meet_duration_minutes,
+    status: parseMeetStatus(row.status) as MeetStatus,
     trackingStatus: parseMeetTrackingStatus(row.tracking_status),
     startedAt: row.started_at,
     endedAt: row.ended_at,
     distance: row.distance,
     duration: row.duration,
+    routeSteps,
   };
 }
 
 const NAVIGATION_MEET_FIELDS =
-  "id, host_id, name, meet_point, destination, route, waypoints, tracking_status, started_at, ended_at, meet_point_lat, meet_point_lng, destination_lat, destination_lng, distance, duration, status";
+  "id, host_id, name, meet_point, destination, route, route_steps, waypoints, tracking_status, started_at, ended_at, meet_point_lat, meet_point_lng, destination_lat, destination_lng, distance, duration, status, date, time, meet_duration_minutes";
 
 export function meetNavigationHref(meetId: string) {
   return `/meets/${meetId}/navigation`;
@@ -129,11 +146,11 @@ export async function loadNavigationMeet(
 
   const hostName = await loadNavigationHostName((row as NavigationMeetRow).host_id);
 
-  const route = await ensureRouteGeometry(row as NavigationMeetRow, {
+  const resolved = await ensureRouteWithSteps(row as NavigationMeetRow, {
     persistForHostId: userId ?? null,
   });
 
-  if (!hasRoadGeometry(route)) {
+  if (!hasRoadGeometry(resolved.geometry)) {
     return {
       meet: null,
       error: "This meet does not have a valid road route yet.",
@@ -141,8 +158,13 @@ export async function loadNavigationMeet(
     };
   }
 
+  const routeSteps =
+    resolved.steps.length > 0
+      ? resolved.steps
+      : parseRouteSteps((row as NavigationMeetRow).route_steps, resolved.geometry);
+
   return {
-    meet: rowToNavigationMeet(row as NavigationMeetRow, route),
+    meet: rowToNavigationMeet(row as NavigationMeetRow, resolved.geometry, routeSteps),
     error: null,
     hostName,
   };

@@ -37,11 +37,25 @@ export type NavigationRouteSegment = {
   distanceMiles: number;
 };
 
+export type NavigationStep = {
+  id: string;
+  instruction: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  maneuverType: string | null;
+  maneuverModifier: string | null;
+  maneuverLocation: RoutePoint | null;
+  stepGeometry: RoutePoint[];
+  routePointIndexStart: number;
+  routePointIndexEnd: number;
+};
+
 /** Navigation-ready route abstraction (replaces raw point arrays in UI). */
 export type NavigationRoute = {
   meetId: string;
   points: RoutePoint[];
   segments: NavigationRouteSegment[];
+  steps: NavigationStep[];
   totalDistanceMiles: number;
   meetPoint: string;
   destination: string;
@@ -57,14 +71,17 @@ export type NavigationProgress = {
   percentComplete: number;
 };
 
-/** HUD-facing metrics — placeholders allowed until later phases. */
+/** HUD-facing metrics for navigation display. */
 export type NavigationMetrics = {
   etaLabel: string;
   distanceRemainingLabel: string;
   timeRemainingLabel: string;
   currentSpeedLabel: string;
+  nextInstructionLabel: string;
+  distanceToManeuverLabel: string;
   nextTurnLabel: string;
   routeProgressLabel: string;
+  hasManeuverData: boolean;
 };
 
 export type NavigationMeetContext = {
@@ -103,6 +120,9 @@ export const EMPTY_NAVIGATION_METRICS: NavigationMetrics = {
   distanceRemainingLabel: "—",
   timeRemainingLabel: "—",
   currentSpeedLabel: "—",
+  nextInstructionLabel: "Follow route",
+  distanceToManeuverLabel: "—",
   nextTurnLabel: "Follow route",
   routeProgressLabel: "0%",
+  hasManeuverData: false,
 };

@@ -52,6 +52,10 @@ type ActiveRide = {
   name: string;
   meetPoint: string;
   destination: string;
+  date: string | null;
+  time: string | null;
+  meetDurationMinutes: number | null;
+  status: "active" | "canceled";
   trackingStatus: RideTrackingStatus;
   startedAt: string | null;
   endedAt: string | null;
@@ -168,6 +172,10 @@ function sessionPayloadToActiveRide(payload: ReturnType<typeof readActiveMeetSes
     name: normalized.name,
     meetPoint: normalized.meetPoint,
     destination: normalized.destination,
+    date: normalized.date ?? null,
+    time: normalized.time ?? null,
+    meetDurationMinutes: normalized.meetDurationMinutes ?? null,
+    status: normalized.status ?? "active",
     trackingStatus: normalized.trackingStatus,
     startedAt: normalized.startedAt,
     endedAt: normalized.endedAt,
@@ -599,6 +607,10 @@ export default function MeetLiveMapPage() {
       name: activeRide.name,
       meetPoint: activeRide.meetPoint,
       destination: activeRide.destination,
+      date: activeRide.date ?? null,
+      time: activeRide.time ?? null,
+      meetDurationMinutes: activeRide.meetDurationMinutes ?? null,
+      status: activeRide.status ?? "active",
       trackingStatus: activeRide.trackingStatus,
       startedAt: activeRide.startedAt,
       endedAt: activeRide.endedAt,

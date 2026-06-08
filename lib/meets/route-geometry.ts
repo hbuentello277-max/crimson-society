@@ -1,6 +1,12 @@
 import { buildSnappedRoute } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
+import {
+  buildNavigationStepsFromSnapped,
+  parseRouteSteps,
+  serializeRouteSteps,
+} from "@/lib/meets/navigation/steps";
+import type { NavigationStep } from "@/lib/meets/navigation/types";
 
 export type RoutePoint = {
   lat: number;
@@ -11,10 +17,16 @@ export type MeetRouteSource = {
   id?: string;
   host_id?: string | null;
   route?: unknown;
+  route_steps?: unknown;
   meet_point_lat?: number | null;
   meet_point_lng?: number | null;
   destination_lat?: number | null;
   destination_lng?: number | null;
+};
+
+export type ResolvedMeetRoute = {
+  geometry: RoutePoint[];
+  steps: NavigationStep[];
 };
 
 export function isRoutePoint(value: unknown): value is RoutePoint {
@@ -60,15 +72,18 @@ export function endpointRouteFromRow(row: MeetRouteSource): RoutePoint[] {
   ];
 }
 
-export async function resolveRouteGeometry(row: MeetRouteSource): Promise<RoutePoint[]> {
+export async function resolveRouteWithSteps(row: MeetRouteSource): Promise<ResolvedMeetRoute> {
   const savedRoute = parseRoute(row.route);
   if (hasRoadGeometry(savedRoute)) {
-    return savedRoute;
+    return {
+      geometry: savedRoute,
+      steps: parseRouteSteps(row.route_steps, savedRoute),
+    };
   }
 
   const endpoints = endpointRouteFromRow(row);
   if (endpoints.length < 2) {
-    return [];
+    return { geometry: [], steps: [] };
   }
 
   try {
@@ -77,11 +92,22 @@ export async function resolveRouteGeometry(row: MeetRouteSource): Promise<RouteP
       destination: endpoints[1],
     });
 
-    return hasRoadGeometry(snapped.geometry) ? snapped.geometry : [];
+    const geometry = hasRoadGeometry(snapped.geometry) ? snapped.geometry : [];
+    const steps =
+      geometry.length > 2
+        ? buildNavigationStepsFromSnapped(snapped.steps, geometry)
+        : [];
+
+    return { geometry, steps };
   } catch (error) {
     console.error("Failed to resolve meet route geometry:", error);
-    return [];
+    return { geometry: [], steps: [] };
   }
+}
+
+export async function resolveRouteGeometry(row: MeetRouteSource): Promise<RoutePoint[]> {
+  const resolved = await resolveRouteWithSteps(row);
+  return resolved.geometry;
 }
 
 type EnsureRouteOptions = {
@@ -92,14 +118,27 @@ export async function ensureRouteGeometry(
   row: MeetRouteSource,
   options: EnsureRouteOptions = {},
 ): Promise<RoutePoint[]> {
+  const resolved = await ensureRouteWithSteps(row, options);
+  return resolved.geometry;
+}
+
+export async function ensureRouteWithSteps(
+  row: MeetRouteSource,
+  options: EnsureRouteOptions = {},
+): Promise<ResolvedMeetRoute> {
   const savedRoute = parseRoute(row.route);
+  const savedSteps = parseRouteSteps(row.route_steps, savedRoute);
+
   if (hasRoadGeometry(savedRoute)) {
-    return savedRoute;
+    return {
+      geometry: savedRoute,
+      steps: savedSteps,
+    };
   }
 
-  const resolved = await resolveRouteGeometry(row);
+  const resolved = await resolveRouteWithSteps(row);
   if (
-    !hasRoadGeometry(resolved) ||
+    !hasRoadGeometry(resolved.geometry) ||
     !row.id ||
     !options.persistForHostId ||
     row.host_id !== options.persistForHostId
@@ -109,7 +148,10 @@ export async function ensureRouteGeometry(
 
   const { error } = await supabase
     .from(MEET_TABLES.meets)
-    .update({ route: resolved })
+    .update({
+      route: resolved.geometry,
+      route_steps: serializeRouteSteps(resolved.steps),
+    })
     .eq("id", row.id)
     .eq("host_id", options.persistForHostId);
 

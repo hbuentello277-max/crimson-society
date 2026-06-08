@@ -29,8 +29,11 @@ export function buildNavigationMeetContext(
     destination: meet.destination,
     trackingStatus: meet.trackingStatus,
     lifecyclePhase: deriveMeetLifecycle({
-      status: "active",
+      status: meet.status,
       trackingStatus: meet.trackingStatus,
+      date: meet.date,
+      time: meet.time,
+      meetDurationMinutes: meet.meetDurationMinutes,
     }),
     distanceLabel: meet.distance,
     durationLabel: meet.duration,

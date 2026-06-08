@@ -18,6 +18,10 @@ import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
 import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
 import { buildSnappedRoute } from "@/lib/routing";
+import {
+  buildNavigationStepsFromSnapped,
+  serializeRouteSteps,
+} from "@/lib/meets/navigation/steps";
 import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
 import { CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
@@ -1026,31 +1030,33 @@ const ridesWithRoutes = await Promise.all(
     }
 
     let route: { lat: number; lng: number }[] = [];
-let distance: string | null = newMeet.distance || null;
-let duration: string | null = newMeet.duration || null;
+    let routeSteps: ReturnType<typeof serializeRouteSteps> = [];
+    let distance: string | null = newMeet.distance || null;
+    let duration: string | null = newMeet.duration || null;
 
-  try {
-    const snapped = await buildSnappedRoute({
-      origin: {
-        lat: meetLat,
-        lng: meetLng,
-      },
-      destination: {
-        lat: destinationLat,
-        lng: destinationLng,
-      },
-    });
+    try {
+      const snapped = await buildSnappedRoute({
+        origin: {
+          lat: meetLat,
+          lng: meetLng,
+        },
+        destination: {
+          lat: destinationLat,
+          lng: destinationLng,
+        },
+      });
 
-    route = snapped.geometry;
+      route = snapped.geometry;
+      routeSteps = serializeRouteSteps(
+        buildNavigationStepsFromSnapped(snapped.steps, snapped.geometry),
+      );
 
-    distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
+      distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
 
-    duration = `${Math.round(
-      snapped.durationSeconds / 60
-    )} min`;
-  } catch (error) {
-    console.error("Route generation failed", error);
-  }
+      duration = `${Math.round(snapped.durationSeconds / 60)} min`;
+    } catch (error) {
+      console.error("Route generation failed", error);
+    }
 
   if (!hasRoadGeometry(route)) {
     setToast("Could not generate a road route for those locations.");
@@ -1081,6 +1087,7 @@ let duration: string | null = newMeet.duration || null;
       cover: newMeet.cover || DEFAULT_COVER,
       status: "active",
       route,
+      route_steps: routeSteps,
       waypoints: [],
       meet_duration_minutes: newMeet.meetDurationMinutes ?? 180,
     };

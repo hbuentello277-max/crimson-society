@@ -6,7 +6,7 @@ import {
   parseRoute,
 } from "@/lib/meets/route-geometry";
 import type { ActiveMeetSessionPayload } from "@/lib/meets/active-meet-session";
-import { parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
+import { parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
 
 type BootstrapMeetRow = {
   id: string;
@@ -26,6 +26,7 @@ type BootstrapMeetRow = {
   date: string | null;
   time: string | null;
   status: string | null;
+  meet_duration_minutes: number | null;
 };
 
 function parseWaypoints(value: unknown) {
@@ -62,6 +63,10 @@ function rowToActiveMeet(row: BootstrapMeetRow, route: { lat: number; lng: numbe
     name: row.name?.trim() || "Active meet",
     meetPoint: row.meet_point?.trim() || "Meet point",
     destination: row.destination?.trim() || "Destination",
+    date: row.date,
+    time: row.time,
+    meetDurationMinutes: row.meet_duration_minutes,
+    status: parseMeetStatus(row.status),
     trackingStatus: parseMeetTrackingStatus(row.tracking_status),
     startedAt: row.started_at,
     endedAt: row.ended_at,
@@ -73,7 +78,7 @@ export async function bootstrapActiveMeetFromDb(
   meetId?: string,
 ): Promise<ActiveMeetSessionPayload | null> {
   const selectFields =
-    "id, host_id, name, meet_point, destination, route, waypoints, tracking_status, started_at, ended_at, meet_point_lat, meet_point_lng, destination_lat, destination_lng, date, time, status";
+    "id, host_id, name, meet_point, destination, route, waypoints, tracking_status, started_at, ended_at, meet_point_lat, meet_point_lng, destination_lat, destination_lng, date, time, status, meet_duration_minutes";
 
   if (meetId) {
     const { data: row, error } = await supabase
