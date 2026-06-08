@@ -1,4 +1,4 @@
-import type { RideTrackingStatus } from "@/types/rides";
+import type { RideTrackingStatus } from "@/types/meets";
 
 type TrackerControlsProps = {
   status: RideTrackingStatus;

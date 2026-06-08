@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { MEET_TABLES } from "@/lib/meets/db-tables";
+import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
 
 type RideReadRow = {
   ride_id: string;
@@ -21,6 +23,9 @@ type RideBadgeRow = {
   id: string;
   date: string | null;
   time: string | null;
+  meet_duration_minutes?: number | null;
+  tracking_status?: string | null;
+  status?: string | null;
 };
 
 type ConversationMemberBadgeRow = {
@@ -65,7 +70,7 @@ const NAV = [
     ),
   },
   {
-    href: "/rides",
+    href: "/meets",
     label: "Meets",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
@@ -115,15 +120,13 @@ export default function BottomNav() {
   const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
   const inboxBadgeLabel = inboxUnreadTotal > 9 ? "9+" : String(inboxUnreadTotal);
 
-  const isUpcomingRide = useCallback((ride: RideBadgeRow) => {
-    const date = ride.date?.trim();
-    if (!date) return true;
-
-    const time = ride.time?.trim();
-    const safeTime = time && time.includes(":") ? time : "23:59";
-    const parsed = new Date(`${date}T${safeTime}`);
-
-    return Number.isNaN(parsed.getTime()) || parsed.getTime() >= Date.now();
+  const isOpenMeetForBadge = useCallback((ride: RideBadgeRow) => {
+    const phase = deriveMeetLifecycle({
+      status: "active",
+      date: ride.date,
+      time: ride.time,
+    });
+    return phase === "upcoming" || phase === "active";
   }, []);
 
   const loadMeetUnreadCounts = useCallback(async () => {
@@ -135,8 +138,8 @@ export default function BottomNav() {
     }
 
     const { data: rides, error: ridesError } = await supabase
-      .from("rides")
-      .select("id, date, time")
+      .from(MEET_TABLES.meets)
+      .select("id, date, time, meet_duration_minutes, tracking_status, status")
       .eq("status", "active");
 
     if (ridesError) {
@@ -144,7 +147,7 @@ export default function BottomNav() {
       return;
     }
 
-    const rideIds = ((rides || []) as RideBadgeRow[]).filter(isUpcomingRide).map((ride) => ride.id);
+    const rideIds = ((rides || []) as RideBadgeRow[]).filter(isOpenMeetForBadge).map((ride) => ride.id);
 
     if (rideIds.length === 0) {
       setMeetUnreadCounts({});
@@ -156,12 +159,12 @@ export default function BottomNav() {
       { data: messageRows, error: messagesError },
     ] = await Promise.all([
       supabase
-        .from("ride_message_reads")
+        .from(MEET_TABLES.messageReads)
         .select("ride_id, last_read_at")
         .eq("user_id", userId)
         .in("ride_id", rideIds),
       supabase
-        .from("ride_messages")
+        .from(MEET_TABLES.messages)
         .select("ride_id, user_id, created_at")
         .in("ride_id", rideIds),
     ]);
@@ -190,7 +193,7 @@ export default function BottomNav() {
     }
 
     setMeetUnreadCounts(nextCounts);
-  }, [isUpcomingRide, session?.user?.id]);
+  }, [isOpenMeetForBadge, session?.user?.id]);
 
   const loadNotificationUnreadCount = useCallback(async () => {
     const userId = session?.user?.id;
@@ -427,7 +430,7 @@ export default function BottomNav() {
                   }`}
                 >
                   {n.icon}
-                  {n.href === "/rides" && meetUnreadTotal > 0 && (
+                  {n.href === "/meets" && meetUnreadTotal > 0 && (
                     <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
                       {meetBadgeLabel}
                     </span>

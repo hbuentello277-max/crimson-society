@@ -150,7 +150,7 @@ export function notificationDestination(
 
 
   if (notification.type === "host_meet_created" && notification.ride_id) {
-    return `/rides?meet=${notification.ride_id}`;
+    return `/meets?meet=${notification.ride_id}`;
   }
 
   if (notification.type === "profile_followed") {
@@ -181,7 +181,7 @@ export function notificationDestination(
     ) {
       params.set("section", "chat");
     }
-    return `/rides?${params.toString()}`;
+    return `/meets?${params.toString()}`;
   }
 
   return "/inbox?tab=notifications";

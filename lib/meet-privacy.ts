@@ -1,4 +1,4 @@
-import type { RidePrivacy } from "@/app/rides/page";
+import type { MeetPrivacy } from "@/lib/meets/types";
 import {
   canJoinMeet as canJoinMeetVisibility,
   canViewMeet,
@@ -8,14 +8,14 @@ import {
 } from "@/lib/meet-visibility";
 
 export function isInviteOnlyMeet(
-  privacy: RidePrivacy | string | null | undefined,
+  privacy: MeetPrivacy | string | null | undefined,
   visibility?: string | null,
 ) {
   return normalizeMeetVisibility(visibility, privacy) === "invite";
 }
 
 export function isBlackcardMeet(
-  privacy: RidePrivacy | string | null | undefined,
+  privacy: MeetPrivacy | string | null | undefined,
   visibility?: string | null,
 ) {
   return (
@@ -25,7 +25,7 @@ export function isBlackcardMeet(
 
 /** Whether the current user may add themselves as an attendee (not leave). */
 export function canSelfJoinMeet(options: {
-  privacy: RidePrivacy | string | null | undefined;
+  privacy: MeetPrivacy | string | null | undefined;
   visibility?: string | null;
   hostId?: string | null;
   userId: string | null | undefined;
@@ -51,7 +51,7 @@ export function canSelfJoinMeet(options: {
 }
 
 export function getMeetJoinBlockMessage(options: {
-  privacy: RidePrivacy | string | null | undefined;
+  privacy: MeetPrivacy | string | null | undefined;
   visibility?: string | null;
   hasBlackcardAccess?: boolean;
   viewerFollowsHost?: boolean;

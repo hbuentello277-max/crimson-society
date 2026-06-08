@@ -1,15 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { RideTrackingPoint } from "@/types/rides";
+import type { NavigationTrackingPoint } from "@/types/meets";
 
-const RideMap = dynamic(() => import("@/components/RideMap"), {
+const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
   loading: () => <MapPlaceholder pointCount={0} statusLabel="Loading map" />,
 });
 
 type TrackerMapProps = {
-  points: RideTrackingPoint[];
+  points: NavigationTrackingPoint[];
   statusLabel: string;
 };
 
@@ -50,7 +50,7 @@ export function TrackerMap({ points, statusLabel }: TrackerMapProps) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40">
-      <RideMap
+      <MeetMap
         lat={currentPoint.lat}
         lng={currentPoint.lng}
         meetPoint="Current position"

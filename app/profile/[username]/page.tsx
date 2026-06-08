@@ -18,6 +18,7 @@ import { removeMutualFollows } from "@/lib/blocking";
 import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
+import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
 
 type PublicProfile = {
   id: string;
@@ -82,6 +83,8 @@ type ProfileRide = {
   tracking_status: string | null;
   started_at: string | null;
   ended_at: string | null;
+  meet_duration_minutes?: number | null;
+  status?: string | null;
 };
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -343,7 +346,7 @@ export default function PublicProfilePage() {
       const { data, error } = await supabase
         .from("rides")
         .select(
-          "id, name, date, time, meet_point, destination, privacy, distance, duration, cover, tracking_status, started_at, ended_at",
+          "id, name, date, time, meet_point, destination, privacy, distance, duration, cover, tracking_status, started_at, ended_at, meet_duration_minutes, status",
         )
         .eq("host_id", profile.id)
         .eq("status", "active")
@@ -891,7 +894,7 @@ export default function PublicProfilePage() {
         <ProfileTabs
           tabs={[
             { k: "posts", label: "Posts" },
-            { k: "rides", label: "Rides" },
+            { k: "rides", label: "Meets" },
             { k: "garage", label: "Garage" },
             { k: "saved", label: "Saved" },
           ]}
@@ -1108,7 +1111,15 @@ export default function PublicProfilePage() {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
                       <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/50 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-200 backdrop-blur">
-                        {ride.tracking_status === "ended" ? "Completed" : "Upcoming"}
+                        {meetLifecycleLabel(
+                          deriveMeetLifecycle({
+                            status: ride.status ?? "active",
+                            trackingStatus: ride.tracking_status,
+                            date: ride.date,
+                            time: ride.time,
+                            meetDurationMinutes: ride.meet_duration_minutes,
+                          }),
+                        )}
                       </span>
                     </div>
 

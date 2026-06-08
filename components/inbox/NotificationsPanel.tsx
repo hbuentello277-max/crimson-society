@@ -339,7 +339,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
             Follows, meets, and messages will appear here.
           </p>
           <Link
-            href="/rides"
+            href="/meets"
             className="mt-5 inline-flex rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
           >
             View Meets

@@ -161,7 +161,7 @@ export function ProfileSettingsMenuSheet({
     { href: "/profile/edit", label: "Settings", icon: <IconMenuSettings /> },
     { href: "/inbox?tab=notifications", label: "Notifications", icon: <IconMenuBell /> },
     { href: "/privacy", label: "Privacy", icon: <IconMenuPrivacy /> },
-    { href: "/rides/track?live=1", label: "Location Sharing", icon: <IconMenuLocation /> },
+    { href: "/meets/live", label: "Location Sharing", icon: <IconMenuLocation /> },
     { href: "/blackcard", label: "Blackcard", icon: <IconMenuBlackcard /> },
     { href: "/safety", label: "Safety", icon: <IconMenuSafety /> },
     { href: "/support", label: "Support", icon: <IconMenuSupport /> },

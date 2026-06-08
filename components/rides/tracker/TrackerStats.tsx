@@ -1,8 +1,8 @@
-import { formatRideDuration } from "@/lib/rides/tracking";
-import type { RideTrackingStats } from "@/types/rides";
+import { formatMeetDuration } from "@/lib/meets/tracking";
+import type { NavigationTrackingStats } from "@/types/meets";
 
 type TrackerStatsProps = {
-  stats: RideTrackingStats;
+  stats: NavigationTrackingStats;
 };
 
 function formatSpeed(value: number) {
@@ -19,7 +19,7 @@ export function TrackerStats({ stats }: TrackerStatsProps) {
     { label: "Top", value: formatSpeed(stats.topSpeedMph), unit: "mph" },
     { label: "Average", value: formatSpeed(stats.averageSpeedMph), unit: "mph" },
     { label: "Distance", value: formatDistance(stats.distanceMiles), unit: "mi" },
-    { label: "Duration", value: formatRideDuration(stats.durationMs), unit: "" },
+    { label: "Duration", value: formatMeetDuration(stats.durationMs), unit: "" },
   ];
 
   return (

@@ -1,4 +1,4 @@
-import type { RideRoutePoint } from "@/types/rides";
+import type { MeetRoutePoint } from "@/types/meets";
 
 const EARTH_RADIUS_MILES = 3958.7613;
 
@@ -6,7 +6,7 @@ function toRadians(value: number) {
   return (value * Math.PI) / 180;
 }
 
-export function getDistanceMiles(from: RideRoutePoint, to: RideRoutePoint) {
+export function getDistanceMiles(from: MeetRoutePoint, to: MeetRoutePoint) {
   const latDelta = toRadians(to.lat - from.lat);
   const lngDelta = toRadians(to.lng - from.lng);
   const fromLat = toRadians(from.lat);
@@ -19,7 +19,7 @@ export function getDistanceMiles(from: RideRoutePoint, to: RideRoutePoint) {
   return 2 * EARTH_RADIUS_MILES * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function getRouteDistanceMiles(points: RideRoutePoint[]) {
+export function getRouteDistanceMiles(points: MeetRoutePoint[]) {
   return points.reduce((total, point, index) => {
     const previous = points[index - 1];
     return previous ? total + getDistanceMiles(previous, point) : total;

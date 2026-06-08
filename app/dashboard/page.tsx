@@ -17,10 +17,12 @@ import { PostActionSheet, type PostActionTarget } from "@/components/social/Post
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
+import { MEET_TABLES } from "@/lib/meets/db-tables";
+import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
 
 const FEED_POST_LIMIT = 40;
 
-const RideMap = dynamic(() => import("@/components/RideMap"), {
+const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
 });
 
@@ -103,6 +105,8 @@ type DashboardRideRow = {
   waypoints: unknown;
   tracking_status: string | null;
   started_at: string | null;
+  meet_duration_minutes?: number | null;
+  status?: string | null;
 };
 
 type DashboardAttendeeRow = {
@@ -140,6 +144,8 @@ type DashboardMeet = {
   waypoints: RideWaypoint[];
   hostId: string;
   startedAt: string | null;
+  meetDurationMinutes?: number | null;
+  status?: string | null;
 };
 
 type DashboardLiveRider = {
@@ -281,6 +287,8 @@ function mapRideToDashboardMeet(
     waypoints: parseWaypoints(ride.waypoints),
     hostId: ride.host_id,
     startedAt: ride.started_at,
+    meetDurationMinutes: ride.meet_duration_minutes ?? null,
+    status: ride.status ?? "active",
   };
 }
 
@@ -548,8 +556,8 @@ setFeedLoading(false);
     setDashboardLoading(true);
 
     const { data: rideData, error: ridesError } = await supabase
-      .from("rides")
-      .select("id, host_id, name, date, time, meet_point, city, cover, route, waypoints, tracking_status, started_at")
+      .from(MEET_TABLES.meets)
+      .select("id, host_id, name, date, time, meet_point, city, cover, route, waypoints, tracking_status, started_at, meet_duration_minutes, status")
       .eq("status", "active")
       .order("date", { ascending: true })
       .order("time", { ascending: true })
@@ -575,9 +583,9 @@ setFeedLoading(false);
 
     const [{ data: attendeeRows, error: attendeesError }, { data: liveRows, error: liveError }] =
       await Promise.all([
-        supabase.from("ride_attendees").select("ride_id").in("ride_id", rideIds),
+        supabase.from(MEET_TABLES.attendees).select("ride_id").in("ride_id", rideIds),
         supabase
-          .from("ride_live_locations")
+          .from(MEET_TABLES.liveLocations)
           .select("ride_id, user_id, lat, lng, updated_at")
           .in("ride_id", rideIds)
           .eq("sharing_enabled", true)
@@ -600,8 +608,14 @@ setFeedLoading(false);
     const nextMeets = rows
       .map((ride) => mapRideToDashboardMeet(ride, attendeeCounts))
       .filter((ride) => {
-        const dateTime = getRideDateTime(ride);
-        return !dateTime || dateTime.getTime() >= Date.now();
+        const phase = deriveMeetLifecycle({
+          status: ride.status ?? "active",
+          trackingStatus: ride.trackingStatus,
+          date: ride.date,
+          time: ride.time,
+          meetDurationMinutes: ride.meetDurationMinutes,
+        });
+        return phase === "upcoming" || phase === "active";
       })
       .slice(0, 4);
 
@@ -933,7 +947,7 @@ setFeedLoading(false);
     setTimeout(() => setToast(null), 1400);
   };
 
-  const openMapHref = "/rides/track?live=1";
+  const openMapHref = "/meets/live";
   const previewMapRiders = liveMapPreview.riders.slice(0, 5).map((rider) => {
     const cleanUsername = rider.username?.trim().replace(/^@+/, "") || null;
 
@@ -1056,7 +1070,7 @@ setFeedLoading(false);
               <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
                 <div className="relative h-44 bg-[#07080a]">
                   <div className="absolute inset-0">
-                    <RideMap
+                    <MeetMap
                       lat={previewMapCenter.lat}
                       lng={previewMapCenter.lng}
                       meetPoint="Live riders"
@@ -1116,7 +1130,7 @@ setFeedLoading(false);
                   Upcoming Meets
                 </p>
                 <Link
-                  href="/rides"
+                  href="/meets"
                   className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
                 >
                   See All
@@ -1150,7 +1164,7 @@ setFeedLoading(false);
                   dashboardMeets.slice(0, 3).map((meet) => (
                     <Link
                       key={meet.id}
-                      href={`/rides?meet=${meet.id}`}
+                      href={`/meets?meet=${meet.id}`}
                       className="block overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
                     >
                       <div className="flex min-w-0 items-center gap-3">

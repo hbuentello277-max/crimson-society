@@ -13,6 +13,20 @@ function supabaseImageHostname(): string | null {
 const supabaseHost = supabaseImageHostname();
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/rides",
+        destination: "/meets",
+        permanent: true,
+      },
+      {
+        source: "/rides/track",
+        destination: "/meets/live",
+        permanent: true,
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_APP_BUILD_COMMIT: process.env.VERCEL_GIT_COMMIT_SHA || "local",
     NEXT_PUBLIC_PUSH_CLIENT_BUILD: "push-v4",

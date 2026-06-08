@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDistanceMiles, getRouteDistanceMiles } from "@/lib/gps/distance";
 import { getAverageSpeedMph, getSegmentSpeedMph, metersPerSecondToMph } from "@/lib/gps/speed";
-import { createRideTrackingPoint } from "@/lib/rides/tracking";
-import type { RideTrackingPoint, RideTrackingStats, RideTrackingStatus } from "@/types/rides";
+import { createNavigationTrackingPoint } from "@/lib/meets/tracking";
+import type { NavigationTrackingPoint, NavigationTrackingStats, RideTrackingStatus } from "@/types/meets";
 
 const WATCH_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
@@ -14,7 +14,7 @@ const WATCH_OPTIONS: PositionOptions = {
 
 export function useRideTracking() {
   const [status, setStatus] = useState<RideTrackingStatus>("idle");
-  const [routePoints, setRoutePoints] = useState<RideTrackingPoint[]>([]);
+  const [routePoints, setRoutePoints] = useState<NavigationTrackingPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [elapsedBeforePause, setElapsedBeforePause] = useState(0);
   const [activeStartedAt, setActiveStartedAt] = useState<number | null>(null);
@@ -46,7 +46,7 @@ export function useRideTracking() {
           : 0;
       const speedMph = gpsSpeed > 0 ? gpsSpeed : segmentSpeed;
 
-      return [...points, createRideTrackingPoint(position, speedMph)];
+      return [...points, createNavigationTrackingPoint(position, speedMph)];
     });
   }, []);
 
@@ -143,7 +143,7 @@ export function useRideTracking() {
 
   useEffect(() => clearTrackingWatch, [clearTrackingWatch]);
 
-  const stats = useMemo<RideTrackingStats>(() => {
+  const stats = useMemo<NavigationTrackingStats>(() => {
     const distanceMiles = getRouteDistanceMiles(routePoints);
     const durationMs = elapsedBeforePause + (activeStartedAt ? now - activeStartedAt : 0);
     const currentSpeedMph = routePoints.at(-1)?.speedMph ?? 0;

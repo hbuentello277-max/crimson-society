@@ -463,7 +463,7 @@ await signOut();
 const tabs = useMemo(() => {
 return [
 { k: "posts" as const, label: "Posts" },
-{ k: "rides" as const, label: "Rides" },
+{ k: "rides" as const, label: "Meets" },
 { k: "garage" as const, label: "Garage" },
 { k: "saved" as const, label: "Saved" },
 ];
