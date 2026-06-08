@@ -1,4 +1,5 @@
 import { buildSnappedRoute } from "@/lib/routing";
+import { getDistanceMiles } from "@/lib/gps/distance";
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import {
@@ -27,7 +28,10 @@ export type MeetRouteSource = {
 export type ResolvedMeetRoute = {
   geometry: RoutePoint[];
   steps: NavigationStep[];
+  provider: "saved" | "mapbox" | "osrm" | "mock" | "none";
 };
+
+const STRAIGHT_LINE_MAX_DEVIATION_METERS = 75;
 
 export function isRoutePoint(value: unknown): value is RoutePoint {
   return (
@@ -47,9 +51,64 @@ export function parseRoute(value: unknown): RoutePoint[] {
   return value.filter(isRoutePoint);
 }
 
-/** Road-following geometry requires more than a straight meet→destination segment. */
+function projectOntoSegment(
+  point: RoutePoint,
+  start: RoutePoint,
+  end: RoutePoint,
+): RoutePoint {
+  const dx = end.lng - start.lng;
+  const dy = end.lat - start.lat;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared === 0) {
+    return start;
+  }
+
+  const ratio = Math.max(
+    0,
+    Math.min(1, ((point.lng - start.lng) * dx + (point.lat - start.lat) * dy) / lengthSquared),
+  );
+
+  return {
+    lat: start.lat + dy * ratio,
+    lng: start.lng + dx * ratio,
+  };
+}
+
+function distanceMeters(from: RoutePoint, to: RoutePoint) {
+  return getDistanceMiles(from, to) * 1609.344;
+}
+
+/** Max perpendicular distance from any point to the meet→destination chord. */
+export function maxRouteChordDeviationMeters(route: RoutePoint[]): number {
+  if (route.length < 2) return 0;
+
+  const start = route[0];
+  const end = route[route.length - 1];
+  let maxDeviation = 0;
+
+  for (const point of route) {
+    const projected = projectOntoSegment(point, start, end);
+    maxDeviation = Math.max(maxDeviation, distanceMeters(point, projected));
+  }
+
+  return maxDeviation;
+}
+
+/** True when geometry is only endpoints or a disguised straight segment. */
+export function isNearlyStraightLineGeometry(route: RoutePoint[]) {
+  if (route.length < 2) return true;
+  if (route.length === 2) return true;
+  return maxRouteChordDeviationMeters(route) <= STRAIGHT_LINE_MAX_DEVIATION_METERS;
+}
+
+/** Road-following geometry requires a polyline that is not a straight chord. */
 export function hasRoadGeometry(route: RoutePoint[]) {
-  return route.length > 2;
+  return route.length > 2 && !isNearlyStraightLineGeometry(route);
+}
+
+export function needsRouteRepair(route: RoutePoint[]) {
+  return route.length < 2 || !hasRoadGeometry(route);
 }
 
 export function endpointRouteFromRow(row: MeetRouteSource): RoutePoint[] {
@@ -72,18 +131,23 @@ export function endpointRouteFromRow(row: MeetRouteSource): RoutePoint[] {
   ];
 }
 
+function emptyResolvedRoute(): ResolvedMeetRoute {
+  return { geometry: [], steps: [], provider: "none" };
+}
+
 export async function resolveRouteWithSteps(row: MeetRouteSource): Promise<ResolvedMeetRoute> {
   const savedRoute = parseRoute(row.route);
   if (hasRoadGeometry(savedRoute)) {
     return {
       geometry: savedRoute,
       steps: parseRouteSteps(row.route_steps, savedRoute),
+      provider: "saved",
     };
   }
 
   const endpoints = endpointRouteFromRow(row);
   if (endpoints.length < 2) {
-    return { geometry: [], steps: [] };
+    return emptyResolvedRoute();
   }
 
   try {
@@ -92,16 +156,22 @@ export async function resolveRouteWithSteps(row: MeetRouteSource): Promise<Resol
       destination: endpoints[1],
     });
 
+    if (snapped.provider === "mock") {
+      return emptyResolvedRoute();
+    }
+
     const geometry = hasRoadGeometry(snapped.geometry) ? snapped.geometry : [];
     const steps =
-      geometry.length > 2
-        ? buildNavigationStepsFromSnapped(snapped.steps, geometry)
-        : [];
+      geometry.length > 0 ? buildNavigationStepsFromSnapped(snapped.steps, geometry) : [];
 
-    return { geometry, steps };
+    return {
+      geometry,
+      steps,
+      provider: snapped.provider,
+    };
   } catch (error) {
     console.error("Failed to resolve meet route geometry:", error);
-    return { geometry: [], steps: [] };
+    return emptyResolvedRoute();
   }
 }
 
@@ -111,8 +181,24 @@ export async function resolveRouteGeometry(row: MeetRouteSource): Promise<RouteP
 }
 
 type EnsureRouteOptions = {
-  persistForHostId?: string | null;
+  persistUserId?: string | null;
+  persistAsAdmin?: boolean;
 };
+
+function canPersistRepairedRoute(
+  row: MeetRouteSource,
+  resolved: ResolvedMeetRoute,
+  options: EnsureRouteOptions,
+) {
+  if (!row.id || !options.persistUserId) return false;
+  if (!hasRoadGeometry(resolved.geometry)) return false;
+  if (resolved.provider === "mock" || resolved.provider === "none" || resolved.provider === "saved") {
+    return false;
+  }
+
+  const isHost = row.host_id === options.persistUserId;
+  return isHost || options.persistAsAdmin === true;
+}
 
 export async function ensureRouteGeometry(
   row: MeetRouteSource,
@@ -133,27 +219,28 @@ export async function ensureRouteWithSteps(
     return {
       geometry: savedRoute,
       steps: savedSteps,
+      provider: "saved",
     };
   }
 
   const resolved = await resolveRouteWithSteps(row);
-  if (
-    !hasRoadGeometry(resolved.geometry) ||
-    !row.id ||
-    !options.persistForHostId ||
-    row.host_id !== options.persistForHostId
-  ) {
+  if (!canPersistRepairedRoute(row, resolved, options)) {
     return resolved;
   }
 
-  const { error } = await supabase
+  let query = supabase
     .from(MEET_TABLES.meets)
     .update({
       route: resolved.geometry,
       route_steps: serializeRouteSteps(resolved.steps),
     })
-    .eq("id", row.id)
-    .eq("host_id", options.persistForHostId);
+    .eq("id", row.id);
+
+  if (!options.persistAsAdmin) {
+    query = query.eq("host_id", options.persistUserId!);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error("Failed to persist repaired route geometry:", error);

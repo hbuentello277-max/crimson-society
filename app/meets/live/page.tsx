@@ -711,7 +711,7 @@ export default function MeetLiveMapPage() {
     if (!canStartSharing) {
       setPermissionError(
         liveMapMode
-          ? "Join or host an active meet before sharing your live location."
+          ? "No active meets right now. Host a meet or join an upcoming meet to enable live rider tracking."
           : isRideLive
             ? "Open tracking from a meet while signed in before sharing location."
             : "The host must start the ride before live location sharing is available."

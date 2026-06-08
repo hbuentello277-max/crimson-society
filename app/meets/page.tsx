@@ -48,7 +48,7 @@ import {
   hasRoadGeometry,
   parseRoute,
   endpointRouteFromRow,
-  resolveRouteGeometry,
+  ensureRouteWithSteps,
 } from "@/lib/meets/route-geometry";
 
 type MeetReadRow = { ride_id: string; last_read_at: string };
@@ -143,7 +143,7 @@ function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
       username: hostProfile?.username ?? null,
     },
     going: row.attendeeRiders || [],
-    description: row.description || "Meet details coming soon.",
+    description: row.description?.trim() || "",
     privacy: row.privacy,
     visibility: normalizeMeetVisibility(row.visibility, row.privacy) as MeetVisibility,
     lat: row.meet_point_lat || 29.4241,
@@ -176,7 +176,7 @@ function meetToForm(ride: Meet): HostMeetForm {
     type: ride.type,
     privacy: ride.privacy,
     visibility: ride.visibility,
-    description: ride.description === "Meet details coming soon." ? "" : ride.description,
+    description: ride.description,
     meetDurationMinutes: ride.meetDurationMinutes ?? 180,
   };
 }
@@ -286,9 +286,11 @@ function MeetCard({
             <span>{ride.duration}</span>
           </div>
 
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">
-            {ride.description}
-          </p>
+          {ride.description ? (
+            <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">
+              {ride.description}
+            </p>
+          ) : null}
 
           <div className="mt-4 flex items-center justify-between gap-3">
            <div className="flex items-center gap-2">
@@ -369,7 +371,7 @@ function MeetCard({
                     ? "Going"
                     : inviteJoinBlocked
                       ? "Invite Only"
-                      : "Join"}
+                      : "JOIN MEET"}
               </button>
             </div>
           </div>
@@ -755,8 +757,11 @@ const ridesWithRoutes = await Promise.all(
       return meetRowToMeet(row as MeetRow, []);
     }
 
-    const resolvedRoute = await resolveRouteGeometry(row as MeetRow);
-    return meetRowToMeet(row as MeetRow, resolvedRoute);
+    const resolved = await ensureRouteWithSteps(row as MeetRow, {
+      persistUserId: session?.user?.id ?? null,
+      persistAsAdmin: isAdmin,
+    });
+    return meetRowToMeet(row as MeetRow, resolved.geometry);
   }),
 );
 
@@ -773,7 +778,7 @@ const ridesWithRoutes = await Promise.all(
     return () => {
       active = false;
     };
-  }, [authLoading, loadUnreadCounts, session?.user?.id]);
+  }, [authLoading, isAdmin, loadUnreadCounts, session?.user?.id]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -1277,7 +1282,7 @@ const ridesWithRoutes = await Promise.all(
 
         {!loadingMeets && panelFeatured && (
           <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(127,17,27,0.1),rgba(255,255,255,0.025))]">
-            <div className="relative h-[280px] sm:h-[360px]">
+            <div className="relative h-[220px] sm:h-[280px]">
               <Image
                 src={panelFeatured.cover}
                 alt={panelFeatured.name}
@@ -1286,8 +1291,6 @@ const ridesWithRoutes = await Promise.all(
                 sizes="(max-width: 768px) 100vw, 1080px"
                 className="object-cover"
               />
-
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050405] via-[#05040530] to-transparent" />
 
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                 <span className="rounded-md border border-white/15 bg-black/40 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-100 backdrop-blur-md">
@@ -1298,24 +1301,30 @@ const ridesWithRoutes = await Promise.all(
                   Featured
                 </span>
               </div>
-
-              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                <h2 className="font-serif text-[38px] leading-none text-[#f4f0ea] sm:text-6xl">
-                  {panelFeatured.name}
-                </h2>
-
-                <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-zinc-300">
-                  {panelFeatured.date} / {formatTime(panelFeatured.time)}
-                </p>
-
-                <p className="mt-2 text-sm text-zinc-400">
-                  {panelFeatured.distance} / {panelFeatured.duration} / {panelFeatured.meetPoint}
-                </p>
-              </div>
             </div>
 
-            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <p className="max-w-2xl text-sm leading-6 text-zinc-300">{panelFeatured.description}</p>
+            <div className="border-t border-white/8 bg-[#0a0607]/80 px-5 py-5 sm:px-6">
+              <h2 className="font-serif text-[34px] leading-none text-[#f4f0ea] sm:text-5xl">
+                {panelFeatured.name}
+              </h2>
+
+              <p className="mt-3 text-[10px] uppercase tracking-[0.19em] text-[#d85f6c]">
+                {panelFeatured.date} / {formatTime(panelFeatured.time)}
+              </p>
+
+              <p className="mt-2 text-sm text-zinc-400">
+                {panelFeatured.distance} / {panelFeatured.duration} / {panelFeatured.meetPoint}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4 border-t border-white/6 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              {panelFeatured.description ? (
+                <p className="max-w-2xl text-sm leading-6 text-zinc-300">{panelFeatured.description}</p>
+              ) : (
+                <p className="max-w-2xl text-sm leading-6 text-zinc-500">
+                  {panelFeatured.meetPoint} to {panelFeatured.destination}
+                </p>
+              )}
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button

@@ -96,7 +96,7 @@ export async function bootstrapActiveMeetFromDb(
     if (!row) return null;
 
     const route = await ensureRouteGeometry(row as BootstrapMeetRow, {
-      persistForHostId: userId,
+      persistUserId: userId,
     });
 
     return hasRoadGeometry(route) ? rowToActiveMeet(row as BootstrapMeetRow, route) : null;
@@ -154,7 +154,7 @@ export async function bootstrapActiveMeetFromDb(
 
   for (const row of candidates) {
     const route = await ensureRouteGeometry(row, {
-      persistForHostId: userId,
+      persistUserId: userId,
     });
 
     if (hasRoadGeometry(route)) {

@@ -49,7 +49,7 @@ type UseMeetNavigationResult = {
 
 export function useMeetNavigation(meetId: string | null): UseMeetNavigationResult {
   const router = useRouter();
-  const { session: authSession, loading: authLoading } = useAuth();
+  const { session: authSession, loading: authLoading, isAdmin } = useAuth();
   const userId = authSession?.user?.id ?? null;
 
   const [meet, setMeet] = useState<NavigationMeet | null>(null);
@@ -157,6 +157,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
         const { meet: loadedMeet, error, hostName: loadedHostName } = await loadNavigationMeet(
           resolvedMeetId,
           userId,
+          { isAdmin },
         );
         if (cancelled) return;
 
@@ -176,6 +177,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       const { meet: loadedMeet, error, hostName: loadedHostName } = await loadNavigationMeet(
         resolvedMeetId,
         userId,
+        { isAdmin },
       );
       if (cancelled) return;
 
@@ -194,7 +196,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     return () => {
       cancelled = true;
     };
-  }, [authLoading, meetId, router, userId]);
+  }, [authLoading, isAdmin, meetId, router, userId]);
 
   useEffect(() => {
     if (!routeReady) return;

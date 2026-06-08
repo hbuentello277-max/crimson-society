@@ -9,6 +9,12 @@ import type { Meet, MeetTrackingStatus } from "@/lib/meets/types";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
+import {
+  ensureRouteWithSteps,
+  hasRoadGeometry,
+  needsRouteRepair,
+  parseRoute,
+} from "@/lib/meets/route-geometry";
 import { useAuth } from "@/components/AuthProvider";
 import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { supabase } from "@/lib/supabase";
@@ -168,7 +174,9 @@ export function MeetDetailsModal({
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatSectionRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [resolvedRoute, setResolvedRoute] = useState(meet.route ?? []);
 
   const isHost = meet.hostId === currentUserId;
   const canModerate = isHost || isAdmin;
@@ -274,13 +282,75 @@ export function MeetDetailsModal({
   }, [onRead, meet.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+    setResolvedRoute(meet.route ?? []);
+  }, [meet.id, meet.route]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (scrollToChat) {
+      chatSectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+
+    container.scrollTop = 0;
+  }, [meet.id, scrollToChat]);
 
   useEffect(() => {
     if (!scrollToChat) return;
-    chatSectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [scrollToChat, messages.length]);
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages, scrollToChat]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function repairRoute() {
+      const currentRoute = parseRoute(meet.route);
+      if (!needsRouteRepair(currentRoute)) {
+        if (active) setResolvedRoute(currentRoute);
+        return;
+      }
+
+      const resolved = await ensureRouteWithSteps(
+        {
+          id: meet.id,
+          host_id: meet.hostId ?? null,
+          route: meet.route,
+          meet_point_lat: meet.lat,
+          meet_point_lng: meet.lng,
+          destination_lat: meet.destinationLat ?? null,
+          destination_lng: meet.destinationLng ?? null,
+        },
+        {
+          persistUserId: currentUserId,
+          persistAsAdmin: isAdmin,
+        },
+      );
+
+      if (!active || !hasRoadGeometry(resolved.geometry)) return;
+
+      setResolvedRoute(resolved.geometry);
+      onMeetUpdated({ route: resolved.geometry });
+    }
+
+    void repairRoute();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    currentUserId,
+    isAdmin,
+    meet.destinationLat,
+    meet.destinationLng,
+    meet.hostId,
+    meet.id,
+    meet.lat,
+    meet.lng,
+    meet.route,
+    onMeetUpdated,
+  ]);
 
   useEffect(() => {
     if (!selectedImage) {
@@ -560,20 +630,11 @@ export function MeetDetailsModal({
     setReporting(false);
   }
 
-  const safeRoute =
-    Array.isArray(meet.route) &&
-    meet.route.length > 2 &&
-    meet.route.every(
-      (p) =>
-        typeof p.lat === "number" &&
-        typeof p.lng === "number" &&
-        isFinite(p.lat) &&
-        isFinite(p.lng)
-    )
-      ? meet.route
-      : [];
-
+  const safeRoute = hasRoadGeometry(resolvedRoute) ? resolvedRoute : [];
   const hasRoute = safeRoute.length > 0;
+  const trimmedDescription = meet.description?.trim() ?? "";
+  const memberCountLabel =
+    meet.going.length === 1 ? "1 member" : `${meet.going.length} members`;
 
   return (
     <div
@@ -649,7 +710,10 @@ export function MeetDetailsModal({
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto px-5 pb-6 pt-5 sm:max-h-[50vh]">
+        <div
+          ref={scrollContainerRef}
+          className="max-h-[60vh] overflow-y-auto px-5 pb-6 pt-5 sm:max-h-[50vh]"
+        >
           <div
             className="mb-5 overflow-hidden rounded-lg border border-white/10"
             style={{ height: 260, touchAction: "none" }}
@@ -687,9 +751,17 @@ export function MeetDetailsModal({
 
           <div className="mt-5">
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-              About this ride
+              About this meet
             </p>
-            <p className="text-sm leading-6 text-zinc-300">{meet.description}</p>
+            {trimmedDescription ? (
+              <p className="text-sm leading-6 text-zinc-300">{trimmedDescription}</p>
+            ) : (
+              <p className="text-sm leading-6 text-zinc-400">
+                {meet.meetPoint} to {meet.destination}
+                {meet.distance !== "TBD" ? ` · ${meet.distance}` : ""}
+                {meet.duration !== "TBD" ? ` · ${meet.duration}` : ""}
+              </p>
+            )}
           </div>
 
           <div className="mt-5">
@@ -850,7 +922,7 @@ export function MeetDetailsModal({
 
           <div className="mt-5">
             <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-              Who&apos;s going &mdash; {meet.going.length} riders
+              Attending &mdash; {memberCountLabel}
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -1165,7 +1237,7 @@ export function MeetDetailsModal({
                     ? "✓ Going"
                     : inviteJoinBlocked
                       ? "Invite Only"
-                      : "JOIN RIDE"}
+                      : "JOIN MEET"}
             </button>
           </div>
         </div>

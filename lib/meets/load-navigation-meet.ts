@@ -124,6 +124,7 @@ export async function loadNavigationHostName(hostId: string | null): Promise<str
 export async function loadNavigationMeet(
   meetId: string,
   userId?: string | null,
+  options: { isAdmin?: boolean } = {},
 ): Promise<{ meet: NavigationMeet | null; error: string | null; hostName: string | null }> {
   const { data: row, error } = await supabase
     .from(MEET_TABLES.meets)
@@ -147,7 +148,8 @@ export async function loadNavigationMeet(
   const hostName = await loadNavigationHostName((row as NavigationMeetRow).host_id);
 
   const resolved = await ensureRouteWithSteps(row as NavigationMeetRow, {
-    persistForHostId: userId ?? null,
+    persistUserId: userId ?? null,
+    persistAsAdmin: options.isAdmin === true,
   });
 
   if (!hasRoadGeometry(resolved.geometry)) {
