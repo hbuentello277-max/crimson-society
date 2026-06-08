@@ -19,6 +19,7 @@ import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
+import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 
 const FEED_POST_LIMIT = 40;
 
@@ -1092,12 +1093,22 @@ setFeedLoading(false);
                     </p>
                   </div>
 
-                  <Link
-                    href={openMapHref}
-                    className="absolute right-3 top-3 rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 hover:text-[#e87a82]"
-                  >
-                    View Map
-                  </Link>
+                  <div className="absolute right-3 top-3 flex items-center gap-2">
+                    {liveMapPreview.ride?.id ? (
+                      <Link
+                        href={meetNavigationHref(liveMapPreview.ride.id)}
+                        className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/25 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f4dadd] backdrop-blur-md transition hover:bg-[#b4141e]/40"
+                      >
+                        Start Navigation
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={openMapHref}
+                      className="rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 hover:text-[#e87a82]"
+                    >
+                      View Map
+                    </Link>
+                  </div>
 
                   {liveMapPreview.activeRiderCount > 0 && (
                     <div className="absolute bottom-4 left-4 right-4">
@@ -1161,12 +1172,23 @@ setFeedLoading(false);
                 )}
 
                 {!dashboardLoading &&
-                  dashboardMeets.slice(0, 3).map((meet) => (
-                    <Link
+                  dashboardMeets.slice(0, 3).map((meet) => {
+                    const lifecyclePhase = deriveMeetLifecycle({
+                      status: meet.status ?? "active",
+                      trackingStatus: meet.trackingStatus,
+                      date: meet.date,
+                      time: meet.time,
+                      meetDurationMinutes: meet.meetDurationMinutes,
+                    });
+                    const showNavigation =
+                      lifecyclePhase === "active" && meet.route.length > 2;
+
+                    return (
+                    <div
                       key={meet.id}
-                      href={`/meets?meet=${meet.id}`}
-                      className="block overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
+                      className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
                     >
+                      <Link href={`/meets?meet=${meet.id}`} className="block">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
                           {meet.cover ? (
@@ -1207,8 +1229,17 @@ setFeedLoading(false);
                           </div>
                         </div>
                       </div>
-                    </Link>
-                  ))}
+                      </Link>
+                      {showNavigation ? (
+                        <Link
+                          href={meetNavigationHref(meet.id)}
+                          className="mt-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                        >
+                          Start Navigation
+                        </Link>
+                      ) : null}
+                    </div>
+                  )})}
               </div>
             </section>
           </section>
