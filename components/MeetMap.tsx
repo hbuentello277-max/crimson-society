@@ -31,6 +31,17 @@ export type LiveRideRider = {
 
 type Waypoint = { id: string; label: string; lat: number; lng: number };
 
+export type MeetMapMarker = {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  lifecyclePhase: "upcoming" | "active" | "past" | "canceled";
+  riderCount?: number;
+  liveRiderCount?: number;
+  isFeatured?: boolean;
+};
+
 type MeetMapProps = {
   lat: number;
   lng: number;
@@ -52,9 +63,58 @@ type MeetMapProps = {
   initialZoom?: number;
   fitPoints?: RoutePoint[];
   waypoints?: Waypoint[];
+  meetMarkers?: MeetMapMarker[];
+  selectedMeetMarkerId?: string | null;
+  onMeetMarkerSelect?: (meetId: string) => void;
   onMeetPointChange?: (point: RoutePoint) => void;
   onRouteChange?: (route: RoutePoint[]) => void;
 };
+
+function createDashboardMeetMarkerIcon(
+  phase: MeetMapMarker["lifecyclePhase"],
+  options: { isFeatured?: boolean; isSelected?: boolean } = {},
+) {
+  const isActive = phase === "active";
+  const size = options.isSelected ? 28 : isActive || options.isFeatured ? 24 : 20;
+  const core = isActive ? "#f04b5c" : "#d8a0a8";
+  const ring = isActive ? "rgba(240,75,92,0.34)" : "rgba(216,160,168,0.22)";
+  const pulse = isActive
+    ? `<div style="
+        position:absolute;
+        inset:-8px;
+        border-radius:9999px;
+        border:2px solid rgba(240,75,92,0.45);
+        animation:pulse 2s ease-out infinite;
+      "></div>`
+    : "";
+
+  return L.divIcon({
+    html: `
+      <div style="position:relative;width:${size}px;height:${size}px;">
+        ${pulse}
+        <div style="
+          position:relative;
+          width:${size}px;
+          height:${size}px;
+          border-radius:9999px;
+          background:radial-gradient(circle at 32% 30%, rgba(255,238,241,0.98) 0%, ${core} 42%, #7f111b 100%);
+          border:2px solid ${options.isSelected ? "rgba(255,244,240,1)" : "rgba(244,240,234,0.95)"};
+          box-shadow:0 0 0 7px ${ring}, 0 10px 24px rgba(18,6,8,0.45);
+        "></div>
+      </div>
+      <style>
+        @keyframes pulse {
+          0% { transform: scale(0.8); opacity: 0.85; }
+          70% { transform: scale(1.35); opacity: 0; }
+          100% { transform: scale(1.35); opacity: 0; }
+        }
+      </style>
+    `,
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
 
 const meetIcon = L.divIcon({
   html: `
@@ -354,6 +414,9 @@ export default function MeetMap({
   initialZoom,
   fitPoints = [],
   waypoints = [],
+  meetMarkers = [],
+  selectedMeetMarkerId = null,
+  onMeetMarkerSelect,
   onMeetPointChange,
   onRouteChange,
 }: MeetMapProps) {
@@ -430,13 +493,31 @@ export default function MeetMap({
           onRouteChange={onRouteChange}
         />
 
-        {showMeetMarker && !compact && (
+        {showMeetMarker && !compact && meetMarkers.length === 0 && (
           <Marker position={[lat, lng]} icon={meetIcon}>
             <Tooltip direction="top" offset={[0, -14]} opacity={1} permanent={false}>
               {meetPoint || "Meet point"}
             </Tooltip>
           </Marker>
         )}
+
+        {meetMarkers.map((marker) => (
+          <Marker
+            key={marker.id}
+            position={[marker.lat, marker.lng]}
+            icon={createDashboardMeetMarkerIcon(marker.lifecyclePhase, {
+              isFeatured: marker.isFeatured,
+              isSelected: selectedMeetMarkerId === marker.id,
+            })}
+            eventHandlers={{
+              click: () => onMeetMarkerSelect?.(marker.id),
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -16]} opacity={1}>
+              {marker.label}
+            </Tooltip>
+          </Marker>
+        ))}
 
         {showSelfMarker && selfMarker && (
           <Marker

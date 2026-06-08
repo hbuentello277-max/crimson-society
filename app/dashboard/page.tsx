@@ -17,9 +17,20 @@ import { PostActionSheet, type PostActionTarget } from "@/components/social/Post
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
+import { DashboardMeetMapSheet } from "@/components/meets/dashboard/DashboardMeetMapSheet";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
-import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
+import {
+  buildDashboardMapMarkers,
+  dashboardMeetHasRoute,
+  dashboardMeetLifecycleLabel,
+  groupDashboardMapMeets,
+  parseDashboardMeetRoute,
+  type DashboardMapMeet,
+} from "@/lib/meets/dashboard-map";
+import { canJoinDashboardMeet, joinMeetAttendance } from "@/lib/meets/join-meet";
+import { deriveMeetLifecycle, parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
+import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
 
 const FEED_POST_LIMIT = 40;
 
@@ -100,6 +111,7 @@ type DashboardRideRow = {
   date: string | null;
   time: string | null;
   meet_point: string | null;
+  destination: string | null;
   city: string | null;
   cover: string | null;
   route: unknown;
@@ -108,6 +120,12 @@ type DashboardRideRow = {
   started_at: string | null;
   meet_duration_minutes?: number | null;
   status?: string | null;
+  meet_point_lat: number | null;
+  meet_point_lng: number | null;
+  distance: string | null;
+  duration: string | null;
+  privacy: string | null;
+  visibility: string | null;
 };
 
 type DashboardAttendeeRow = {
@@ -131,23 +149,7 @@ type DashboardProfileRow = {
   avatar_url: string | null;
 };
 
-type DashboardMeet = {
-  id: string;
-  name: string;
-  date: string;
-  time: string;
-  meetPoint: string;
-  city: string;
-  cover: string | null;
-  riderCount: number;
-  trackingStatus: string | null;
-  route: RoutePoint[];
-  waypoints: RideWaypoint[];
-  hostId: string;
-  startedAt: string | null;
-  meetDurationMinutes?: number | null;
-  status?: string | null;
-};
+type DashboardMeet = DashboardMapMeet;
 
 type DashboardLiveRider = {
   userId: string;
@@ -273,23 +275,61 @@ function formatLiveUpdated(value: string | null) {
 function mapRideToDashboardMeet(
   ride: DashboardRideRow,
   attendeeCounts: Map<string, number>,
-): DashboardMeet {
+  liveCounts: Map<string, number>,
+  hostNames: Map<string, string>,
+  now: number,
+): DashboardMeet | null {
+  if (
+    ride.meet_point_lat === null ||
+    ride.meet_point_lng === null ||
+    !Number.isFinite(ride.meet_point_lat) ||
+    !Number.isFinite(ride.meet_point_lng)
+  ) {
+    return null;
+  }
+
+  const trackingStatus = parseMeetTrackingStatus(ride.tracking_status);
+  const status = parseMeetStatus(ride.status);
+  const meetDurationMinutes = ride.meet_duration_minutes ?? null;
+  const lifecyclePhase = deriveMeetLifecycle({
+    status,
+    trackingStatus,
+    date: ride.date,
+    time: ride.time,
+    meetDurationMinutes,
+    now,
+  });
+
+  if (lifecyclePhase !== "active" && lifecyclePhase !== "upcoming") {
+    return null;
+  }
+
   return {
     id: ride.id,
+    hostId: ride.host_id,
     name: ride.name || "Untitled Meet",
     date: ride.date || "",
     time: ride.time || "",
     meetPoint: ride.meet_point || "Meet point pending",
+    destination: ride.destination || "Destination pending",
     city: ride.city || ride.meet_point || "Location pending",
     cover: ride.cover || null,
-    riderCount: attendeeCounts.get(ride.id) || 0,
-    trackingStatus: ride.tracking_status,
-    route: parseRoute(ride.route),
+    lat: ride.meet_point_lat,
+    lng: ride.meet_point_lng,
+    route: parseDashboardMeetRoute(ride.route),
     waypoints: parseWaypoints(ride.waypoints),
-    hostId: ride.host_id,
+    trackingStatus,
     startedAt: ride.started_at,
-    meetDurationMinutes: ride.meet_duration_minutes ?? null,
-    status: ride.status ?? "active",
+    meetDurationMinutes,
+    status,
+    distance: ride.distance,
+    duration: ride.duration,
+    privacy: (ride.privacy as DashboardMapMeet["privacy"]) || "Open",
+    visibility: ride.visibility,
+    riderCount: attendeeCounts.get(ride.id) || 0,
+    liveRiderCount: liveCounts.get(ride.id) || 0,
+    hostName: hostNames.get(ride.host_id) || null,
+    lifecyclePhase,
   };
 }
 
@@ -369,9 +409,14 @@ function DashboardPageContent() {
   } | null>(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [dashboardMeets, setDashboardMeets] = useState<DashboardMeet[]>([]);
+  const [mapMeets, setMapMeets] = useState<DashboardMapMeet[]>([]);
+  const [going, setGoing] = useState<Record<string, boolean>>({});
   const [liveMapPreview, setLiveMapPreview] = useState<LiveMapPreview>(emptyLiveMapPreview);
   const [dashboardUserLocation, setDashboardUserLocation] = useState<RoutePoint | null>(null);
+  const [selectedMapMeetId, setSelectedMapMeetId] = useState<string | null>(null);
+  const [mapRecenterSignal, setMapRecenterSignal] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [joinBusy, setJoinBusy] = useState(false);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const postRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -558,15 +603,18 @@ setFeedLoading(false);
 
     const { data: rideData, error: ridesError } = await supabase
       .from(MEET_TABLES.meets)
-      .select("id, host_id, name, date, time, meet_point, city, cover, route, waypoints, tracking_status, started_at, meet_duration_minutes, status")
+      .select(
+        "id, host_id, name, date, time, meet_point, destination, city, cover, route, waypoints, tracking_status, started_at, meet_duration_minutes, status, meet_point_lat, meet_point_lng, distance, duration, privacy, visibility",
+      )
       .eq("status", "active")
       .order("date", { ascending: true })
       .order("time", { ascending: true })
-      .limit(8);
+      .limit(24);
 
     if (ridesError) {
       console.error("Failed to load dashboard meets:", ridesError);
-      setDashboardMeets([]);
+      setMapMeets([]);
+      setGoing({});
       setLiveMapPreview(emptyLiveMapPreview);
       setDashboardLoading(false);
       return;
@@ -574,24 +622,36 @@ setFeedLoading(false);
 
     const rows = (rideData || []) as DashboardRideRow[];
     const rideIds = rows.map((ride) => ride.id);
+    const loadNow = Date.now();
 
     if (rideIds.length === 0) {
-      setDashboardMeets([]);
+      setMapMeets([]);
+      setGoing({});
       setLiveMapPreview(emptyLiveMapPreview);
       setDashboardLoading(false);
       return;
     }
 
-    const [{ data: attendeeRows, error: attendeesError }, { data: liveRows, error: liveError }] =
-      await Promise.all([
-        supabase.from(MEET_TABLES.attendees).select("ride_id").in("ride_id", rideIds),
-        supabase
-          .from(MEET_TABLES.liveLocations)
-          .select("ride_id, user_id, lat, lng, updated_at")
-          .in("ride_id", rideIds)
-          .eq("sharing_enabled", true)
-          .gte("updated_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
-      ]);
+    const [
+      { data: attendeeRows, error: attendeesError },
+      { data: liveRows, error: liveError },
+      { data: selfAttendanceRows, error: selfAttendanceError },
+    ] = await Promise.all([
+      supabase.from(MEET_TABLES.attendees).select("ride_id").in("ride_id", rideIds),
+      supabase
+        .from(MEET_TABLES.liveLocations)
+        .select("ride_id, user_id, lat, lng, updated_at")
+        .in("ride_id", rideIds)
+        .eq("sharing_enabled", true)
+        .gte("updated_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+      session.user?.id
+        ? supabase
+            .from(MEET_TABLES.attendees)
+            .select("ride_id")
+            .eq("user_id", session.user.id)
+            .in("ride_id", rideIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
     if (attendeesError) {
       console.error("Failed to load dashboard meet attendees:", attendeesError);
@@ -601,24 +661,14 @@ setFeedLoading(false);
       console.error("Failed to load dashboard live riders:", liveError);
     }
 
+    if (selfAttendanceError) {
+      console.error("Failed to load dashboard meet attendance:", selfAttendanceError);
+    }
+
     const attendeeCounts = new Map<string, number>();
     for (const row of (attendeeRows || []) as DashboardAttendeeRow[]) {
       attendeeCounts.set(row.ride_id, (attendeeCounts.get(row.ride_id) || 0) + 1);
     }
-
-    const nextMeets = rows
-      .map((ride) => mapRideToDashboardMeet(ride, attendeeCounts))
-      .filter((ride) => {
-        const phase = deriveMeetLifecycle({
-          status: ride.status ?? "active",
-          trackingStatus: ride.trackingStatus,
-          date: ride.date,
-          time: ride.time,
-          meetDurationMinutes: ride.meetDurationMinutes,
-        });
-        return phase === "upcoming" || phase === "active";
-      })
-      .slice(0, 4);
 
     const liveLocations = (liveRows || []) as DashboardLiveLocationRow[];
     const liveCounts = new Map<string, number>();
@@ -630,11 +680,14 @@ setFeedLoading(false);
       if (!lastUpdatedAt || row.updated_at > lastUpdatedAt) lastUpdatedAt = row.updated_at;
     }
 
-    const { data: liveProfiles, error: liveProfilesError } = liveUserIds.length
+    const hostIds = Array.from(new Set(rows.map((row) => row.host_id).filter(Boolean)));
+    const profileIds = Array.from(new Set([...liveUserIds, ...hostIds]));
+
+    const { data: liveProfiles, error: liveProfilesError } = profileIds.length
       ? await supabase
           .from("public_profiles")
           .select("id, username, display_name, full_name, profile_image_url, avatar_url")
-          .in("id", liveUserIds)
+          .in("id", profileIds)
       : { data: [], error: null };
 
     if (liveProfilesError) {
@@ -644,6 +697,27 @@ setFeedLoading(false);
     const liveProfileMap = new Map(
       ((liveProfiles || []) as DashboardProfileRow[]).map((profile) => [profile.id, profile])
     );
+
+    const hostNames = new Map<string, string>();
+    for (const hostId of hostIds) {
+      const profile = liveProfileMap.get(hostId);
+      hostNames.set(
+        hostId,
+        profile?.display_name?.trim() ||
+          profile?.full_name?.trim() ||
+          profile?.username?.trim() ||
+          "Crimson Member",
+      );
+    }
+
+    const nextMeets = rows
+      .map((ride) => mapRideToDashboardMeet(ride, attendeeCounts, liveCounts, hostNames, loadNow))
+      .filter((ride): ride is DashboardMapMeet => !!ride);
+
+    const nextGoing: Record<string, boolean> = {};
+    for (const row of (selfAttendanceRows || []) as DashboardAttendeeRow[]) {
+      nextGoing[row.ride_id] = true;
+    }
 
     const previewRiders = liveLocations.slice(0, 5).map((location) => {
       const profile = liveProfileMap.get(location.user_id);
@@ -666,7 +740,8 @@ setFeedLoading(false);
       nextMeets.find((ride) => ride.trackingStatus === "active") ||
       null;
 
-    setDashboardMeets(nextMeets);
+    setMapMeets(nextMeets);
+    setGoing(nextGoing);
     setLiveMapPreview({
       ride: liveRide,
       activeRiderCount: liveLocations.length,
@@ -704,6 +779,11 @@ setFeedLoading(false);
 
     return () => window.clearTimeout(timer);
   }, [loadDashboardSections, session]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!session || !("geolocation" in navigator)) return;
@@ -949,6 +1029,65 @@ setFeedLoading(false);
   };
 
   const openMapHref = "/meets/live";
+  const { active: activeMapMeets, upcoming: upcomingMapMeets } = groupDashboardMapMeets(mapMeets, now);
+  const dashboardMapMarkers = buildDashboardMapMarkers(mapMeets, now);
+  const selectedMapMeet =
+    mapMeets.find((meet) => meet.id === selectedMapMeetId) ?? null;
+  const selectedMapMeetJoin = selectedMapMeet
+    ? canJoinDashboardMeet({
+        meetId: selectedMapMeet.id,
+        userId: session?.user?.id,
+        hostId: selectedMapMeet.hostId,
+        privacy: selectedMapMeet.privacy,
+        visibility: selectedMapMeet.visibility,
+        status: selectedMapMeet.status,
+        isAlreadyGoing: !!going[selectedMapMeet.id],
+        isAdmin,
+      })
+    : { allowed: false, message: null };
+
+  const handleJoinMapMeet = async () => {
+    if (!selectedMapMeet || !session?.user?.id || joinBusy) return;
+
+    const eligibility = canJoinDashboardMeet({
+      meetId: selectedMapMeet.id,
+      userId: session.user.id,
+      hostId: selectedMapMeet.hostId,
+      privacy: selectedMapMeet.privacy,
+      visibility: selectedMapMeet.visibility,
+      status: selectedMapMeet.status,
+      isAlreadyGoing: !!going[selectedMapMeet.id],
+      isAdmin,
+    });
+
+    if (!eligibility.allowed) {
+      setToast(eligibility.message ?? "You cannot join this meet.");
+      window.setTimeout(() => setToast(null), 2800);
+      return;
+    }
+
+    setJoinBusy(true);
+    const result = await joinMeetAttendance(selectedMapMeet.id, session.user.id);
+    setJoinBusy(false);
+
+    if (!result.ok) {
+      setToast(result.error ?? "Could not join meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setGoing((current) => ({ ...current, [selectedMapMeet.id]: true }));
+    setMapMeets((current) =>
+      current.map((meet) =>
+        meet.id === selectedMapMeet.id
+          ? { ...meet, riderCount: meet.riderCount + 1 }
+          : meet,
+      ),
+    );
+    setToast("Joined meet.");
+    window.setTimeout(() => setToast(null), 2000);
+  };
+
   const previewMapRiders = liveMapPreview.riders.slice(0, 5).map((rider) => {
     const cleanUsername = rider.username?.trim().replace(/^@+/, "") || null;
 
@@ -967,7 +1106,13 @@ setFeedLoading(false);
     dashboardUserLocation ||
     (previewMapRiders[0] ? { lat: previewMapRiders[0].lat, lng: previewMapRiders[0].lng } : null) ||
     liveMapPreview.ride?.route[0] || { lat: 29.4241, lng: -98.4936 };
-  const previewFitPoints = previewMapRiders.map((rider) => ({ lat: rider.lat, lng: rider.lng }));
+  const previewFitPoints = [
+    ...(dashboardUserLocation ? [dashboardUserLocation] : []),
+    ...previewMapRiders.map((rider) => ({ lat: rider.lat, lng: rider.lng })),
+    ...dashboardMapMarkers.map((marker) => ({ lat: marker.lat, lng: marker.lng })),
+  ];
+  const selectedMeetRoute =
+    selectedMapMeet && dashboardMeetHasRoute(selectedMapMeet) ? selectedMapMeet.route : [];
 
   const visibleOffset = refreshing ? PULL_THRESHOLD : pullY;
   const pullProgress = Math.min(1, pullY / PULL_THRESHOLD);
@@ -1069,179 +1214,231 @@ setFeedLoading(false);
               </div>
             ) : (
               <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
-                <div className="relative h-44 bg-[#07080a]">
+                <div className="relative h-56 bg-[#07080a]">
                   <div className="absolute inset-0">
                     <MeetMap
                       lat={previewMapCenter.lat}
                       lng={previewMapCenter.lng}
-                      meetPoint="Live riders"
-                      route={[]}
+                      meetPoint="Meet activity"
+                      route={selectedMeetRoute}
                       riders={previewMapRiders}
                       selfLocation={dashboardUserLocation}
-                      initialZoom={14}
+                      showSelfMarker={!!dashboardUserLocation}
+                      initialZoom={13}
                       fitPoints={previewFitPoints}
                       compact
-                      interactive={false}
+                      interactive
                       hideHint
                       showMeetMarker={false}
+                      showDestination={selectedMeetRoute.length > 1}
+                      meetMarkers={dashboardMapMarkers}
+                      selectedMeetMarkerId={selectedMapMeetId}
+                      onMeetMarkerSelect={setSelectedMapMeetId}
+                      recenterSignal={mapRecenterSignal}
                     />
                   </div>
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/85" />
-                  <div className="pointer-events-none absolute left-3 top-3 max-w-[58%] sm:max-w-[calc(100%-8.5rem)]">
-                    <p className="truncate rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md">
-                      Who&apos;s riding tonight? • {liveMapPreview.activeRiderCount} live
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/80" />
+                  <div className="pointer-events-none absolute left-3 top-3 max-w-[58%] sm:max-w-[calc(100%-10rem)]">
+                    <p className="truncate rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md">
+                      {activeMapMeets.length} active • {upcomingMapMeets.length} upcoming •{" "}
+                      {liveMapPreview.activeRiderCount} live
                     </p>
                   </div>
 
-                  <div className="absolute right-3 top-3 flex items-center gap-2">
-                    {liveMapPreview.ride?.id ? (
-                      <Link
-                        href={meetNavigationHref(liveMapPreview.ride.id)}
-                        className="rounded-full border border-[#b4141e]/60 bg-[#b4141e]/25 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f4dadd] backdrop-blur-md transition hover:bg-[#b4141e]/40"
-                      >
-                        Start Navigation
-                      </Link>
-                    ) : null}
+                  <div className="absolute right-3 top-3 z-[500] flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMapRecenterSignal((value) => value + 1)}
+                      className="rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur-md transition hover:border-[#b4141e]/60 hover:text-[#f1c3c7]"
+                    >
+                      Recenter
+                    </button>
                     <Link
                       href={openMapHref}
-                      className="rounded-full border border-[#b4141e]/50 bg-black/45 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 hover:text-[#e87a82]"
+                      className="rounded-full border border-[#b4141e]/50 bg-black/55 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-[#f1c3c7] backdrop-blur-md transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 hover:text-[#e87a82]"
                     >
-                      View Map
+                      View Live Map
                     </Link>
                   </div>
 
-                  {liveMapPreview.activeRiderCount > 0 && (
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
-                        Live now
-                      </p>
-                      <h2 className="mt-1 truncate font-serif text-3xl leading-none text-white">
-                        {liveMapPreview.ride?.name || "Active rides"}
-                      </h2>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-zinc-300">
-                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                          {liveMapPreview.activeRiderCount} rider{liveMapPreview.activeRiderCount === 1 ? "" : "s"} live
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                          {liveMapPreview.activeMeetCount} active meet{liveMapPreview.activeMeetCount === 1 ? "" : "s"}
-                        </span>
-                        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1">
-                          {formatLiveUpdated(liveMapPreview.lastUpdatedAt)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="pointer-events-none absolute bottom-4 left-4 right-4">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
+                      {activeMapMeets.length > 0 ? "Active now" : "Upcoming meets"}
+                    </p>
+                    <h2 className="mt-1 truncate font-serif text-2xl leading-none text-white">
+                      {selectedMapMeet?.name ||
+                        liveMapPreview.ride?.name ||
+                        activeMapMeets[0]?.name ||
+                        upcomingMapMeets[0]?.name ||
+                        "Tap a meet marker"}
+                    </h2>
+                    <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-zinc-300">
+                      Tap markers to view, join, or navigate
+                    </p>
+                  </div>
                 </div>
               </article>
             )}
 
-            <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
-                  Upcoming Meets
-                </p>
-                <Link
-                  href="/meets"
-                  className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                >
-                  See All
-                </Link>
-              </div>
+            {[
+              { title: "Active Now", meets: activeMapMeets.slice(0, 3) },
+              { title: "Upcoming Soon", meets: upcomingMapMeets.slice(0, 3) },
+            ].map((section) => (
+              <section
+                key={section.title}
+                className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                    {section.title}
+                  </p>
+                  <Link
+                    href="/meets"
+                    className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  >
+                    See All
+                  </Link>
+                </div>
 
-              <div className="mt-4 grid gap-3">
-                {dashboardLoading &&
-                  Array.from({ length: 2 }).map((_, index) => (
-                    <div key={index} className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3">
-                      <div className="flex animate-pulse items-center gap-3">
-                        <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
-                          <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
-                          <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                {!dashboardLoading && dashboardMeets.length === 0 && (
-                  <EmptyState
-                    className="rounded-xl p-6"
-                    title="No upcoming meets."
-                    body="Hosted rides will surface here once members schedule them. Open Rides to host or join the next run."
-                  />
-                )}
-
-                {!dashboardLoading &&
-                  dashboardMeets.slice(0, 3).map((meet) => {
-                    const lifecyclePhase = deriveMeetLifecycle({
-                      status: meet.status ?? "active",
-                      trackingStatus: meet.trackingStatus,
-                      date: meet.date,
-                      time: meet.time,
-                      meetDurationMinutes: meet.meetDurationMinutes,
-                    });
-                    const showNavigation =
-                      lifecyclePhase === "active" && meet.route.length > 2;
-
-                    return (
-                    <div
-                      key={meet.id}
-                      className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
-                    >
-                      <Link href={`/meets?meet=${meet.id}`} className="block">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
-                          {meet.cover ? (
-                            <Image
-                              src={meet.cover}
-                              alt={meet.name}
-                              fill
-                              sizes="64px"
-                              className="object-cover"
-                            />
-                          ) : (
-                            <>
-                              <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
-                              <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
-                                Meet
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1 overflow-hidden">
-                          <h3 className="truncate font-serif text-lg leading-tight text-white">
-                            {meet.name}
-                          </h3>
-                          <p className="mt-1 truncate text-[10px] uppercase tracking-[0.1em] text-[#e87a82]">
-                            {formatMeetTime(meet.date, meet.time)}
-                          </p>
-                          <p className="mt-1 truncate text-xs leading-5 text-zinc-400">
-                            {meet.meetPoint}
-                          </p>
-                          <div className="mt-1.5 flex min-w-0 items-center gap-2">
-                            <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.1em] text-zinc-500">
-                              {meet.city}
-                            </p>
-                            <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.08em] text-zinc-500">
-                              {meet.riderCount} going
-                            </span>
+                <div className="mt-4 grid gap-3">
+                  {dashboardLoading &&
+                    Array.from({ length: 2 }).map((_, index) => (
+                      <div
+                        key={`${section.title}-${index}`}
+                        className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3"
+                      >
+                        <div className="flex animate-pulse items-center gap-3">
+                          <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
+                            <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+                            <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
                           </div>
                         </div>
                       </div>
-                      </Link>
-                      {showNavigation ? (
-                        <Link
-                          href={meetNavigationHref(meet.id)}
-                          className="mt-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                    ))}
+
+                  {!dashboardLoading && section.meets.length === 0 ? (
+                    <EmptyState
+                      className="rounded-xl p-6"
+                      title={
+                        section.title === "Active Now"
+                          ? "No active meets right now."
+                          : "No upcoming meets scheduled."
+                      }
+                      body="Open Meets to host or join the next run."
+                    />
+                  ) : null}
+
+                  {!dashboardLoading &&
+                    section.meets.map((meet) => {
+                      const showNavigation =
+                        meet.lifecyclePhase === "active" && dashboardMeetHasRoute(meet);
+
+                      return (
+                        <div
+                          key={meet.id}
+                          className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
                         >
-                          Start Navigation
-                        </Link>
-                      ) : null}
-                    </div>
-                  )})}
-              </div>
-            </section>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMapMeetId(meet.id)}
+                            className="block w-full text-left"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
+                                {meet.cover ? (
+                                  <Image
+                                    src={meet.cover}
+                                    alt={meet.name}
+                                    fill
+                                    sizes="64px"
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <>
+                                    <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
+                                    <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
+                                      {dashboardMeetLifecycleLabel(meet.lifecyclePhase)}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <h3 className="truncate font-serif text-lg leading-tight text-white">
+                                  {meet.name}
+                                </h3>
+                                <p className="mt-1 truncate text-[10px] uppercase tracking-[0.1em] text-[#e87a82]">
+                                  {formatMeetTime(meet.date, meet.time)}
+                                </p>
+                                <p className="mt-1 truncate text-xs leading-5 text-zinc-400">
+                                  {meet.meetPoint}
+                                </p>
+                                <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
+                                  <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.1em] text-zinc-500">
+                                    {meet.city}
+                                  </p>
+                                  <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.08em] text-zinc-500">
+                                    {meet.riderCount} going
+                                  </span>
+                                  {meet.liveRiderCount > 0 ? (
+                                    <span className="shrink-0 rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.08em] text-[#f1c3c7]">
+                                      {meet.liveRiderCount} live
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <Link
+                              href={`/meets?meet=${meet.id}`}
+                              className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                            >
+                              View Meet
+                            </Link>
+                            {showNavigation ? (
+                              <Link
+                                href={meetNavigationHref(meet.id)}
+                                onClick={() => {
+                                  writeActiveMeetSession({
+                                    id: meet.id,
+                                    hostId: meet.hostId,
+                                    route: meet.route,
+                                    waypoints: meet.waypoints,
+                                    name: meet.name,
+                                    meetPoint: meet.meetPoint,
+                                    destination: meet.destination,
+                                    date: meet.date,
+                                    time: meet.time,
+                                    meetDurationMinutes: meet.meetDurationMinutes,
+                                    status: parseMeetStatus(meet.status),
+                                    trackingStatus: meet.trackingStatus,
+                                    startedAt: meet.startedAt,
+                                    endedAt: null,
+                                  });
+                                }}
+                                className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                              >
+                                Start Navigation
+                              </Link>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMapMeetId(meet.id)}
+                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                              >
+                                Map Details
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </section>
+            ))}
           </section>
 
           <div className="mt-7 mb-3 flex items-end justify-between">
@@ -1707,6 +1904,21 @@ setFeedLoading(false);
         }}
         onHidden={(postId) => setPosts((current) => current.filter((item) => item.id !== postId))}
         onToast={(message) => { setToast(message); setTimeout(() => setToast(null), 1600); }}
+      />
+
+      <DashboardMeetMapSheet
+        meet={selectedMapMeet}
+        open={!!selectedMapMeet}
+        isGoing={selectedMapMeet ? !!going[selectedMapMeet.id] : false}
+        isHost={
+          !!selectedMapMeet &&
+          !!session?.user?.id &&
+          selectedMapMeet.hostId === session.user.id
+        }
+        canJoin={selectedMapMeetJoin.allowed}
+        joinBlockedMessage={selectedMapMeetJoin.message}
+        onClose={() => setSelectedMapMeetId(null)}
+        onJoin={() => void handleJoinMapMeet()}
       />
 
       {toast && (
