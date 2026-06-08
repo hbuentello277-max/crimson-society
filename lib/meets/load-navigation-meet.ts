@@ -72,10 +72,42 @@ export function meetNavigationHref(meetId: string) {
   return `/meets/${meetId}/navigation`;
 }
 
+function resolveHostName(profile: {
+  display_name?: string | null;
+  full_name?: string | null;
+  username?: string | null;
+} | null): string | null {
+  if (!profile) return null;
+
+  return (
+    profile.display_name?.trim() ||
+    profile.full_name?.trim() ||
+    profile.username?.trim() ||
+    "Crimson Member"
+  );
+}
+
+export async function loadNavigationHostName(hostId: string | null): Promise<string | null> {
+  if (!hostId) return null;
+
+  const { data, error } = await supabase
+    .from("public_profiles")
+    .select("display_name, full_name, username")
+    .eq("id", hostId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to load navigation host profile:", error);
+    return null;
+  }
+
+  return resolveHostName(data);
+}
+
 export async function loadNavigationMeet(
   meetId: string,
   userId?: string | null,
-): Promise<{ meet: NavigationMeet | null; error: string | null }> {
+): Promise<{ meet: NavigationMeet | null; error: string | null; hostName: string | null }> {
   const { data: row, error } = await supabase
     .from(MEET_TABLES.meets)
     .select(NAVIGATION_MEET_FIELDS)
@@ -84,16 +116,18 @@ export async function loadNavigationMeet(
 
   if (error) {
     console.error("Failed to load meet for navigation:", error);
-    return { meet: null, error: "Could not load this meet. Try again." };
+    return { meet: null, error: "Could not load this meet. Try again.", hostName: null };
   }
 
   if (!row) {
-    return { meet: null, error: "Meet not found." };
+    return { meet: null, error: "Meet not found.", hostName: null };
   }
 
   if ((row as NavigationMeetRow).status === "canceled") {
-    return { meet: null, error: "This meet was canceled." };
+    return { meet: null, error: "This meet was canceled.", hostName: null };
   }
+
+  const hostName = await loadNavigationHostName((row as NavigationMeetRow).host_id);
 
   const route = await ensureRouteGeometry(row as NavigationMeetRow, {
     persistForHostId: userId ?? null,
@@ -103,11 +137,13 @@ export async function loadNavigationMeet(
     return {
       meet: null,
       error: "This meet does not have a valid road route yet.",
+      hostName: null,
     };
   }
 
   return {
     meet: rowToNavigationMeet(row as NavigationMeetRow, route),
     error: null,
+    hostName,
   };
 }
