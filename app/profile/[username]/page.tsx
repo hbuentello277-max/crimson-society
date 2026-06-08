@@ -1073,19 +1073,19 @@ export default function PublicProfilePage() {
           <section className="mt-3">
             {interactionRestricted ? (
               <EmptyPanel
-                title="Rides unavailable."
+                title="Meets unavailable."
                 body="Profile content is hidden while a block is active between you and this rider."
               />
             ) : ridesState === "loading" && (
-              <EmptyPanel title="Loading rides." body="Finding this rider's hosted meets." />
+              <EmptyPanel title="Loading meets." body="Finding this rider's hosted meets." />
             )}
 
             {ridesState === "error" && (
-              <EmptyPanel title="Rides could not load." body="Hosted meet history is unavailable right now." />
+              <EmptyPanel title="Meets could not load." body="Hosted meet history is unavailable right now." />
             )}
 
             {ridesState === "loaded" && rides.length === 0 && (
-              <EmptyPanel title="No rides listed." body="Hosted public meets will appear here." />
+              <EmptyPanel title="No meets listed." body="Hosted public meets will appear here." />
             )}
 
             {ridesState === "loaded" && rides.length > 0 && (

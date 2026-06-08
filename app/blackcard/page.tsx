@@ -214,7 +214,7 @@ export default function BlackcardPage() {
                   Member-only meets
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Filter Blackcard meets on the rides page and host private runs for members.
+                  Filter Blackcard meets on the meets page and host private runs for members.
                 </p>
               </div>
 
