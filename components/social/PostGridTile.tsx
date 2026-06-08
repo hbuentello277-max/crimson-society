@@ -3,6 +3,8 @@
 import Image from "next/image";
 import {
   getPostGridPreviewUrl,
+  getReelGridStatusLabel,
+  isReelFailed,
   isReelPost,
   isReelProcessing,
   type PostGridMediaFields,
@@ -32,8 +34,10 @@ export function PostGridTile({
   children,
 }: PostGridTileProps) {
   const previewUrl = getPostGridPreviewUrl(post);
-  const showReelOverlay = isReelPost(post);
+  const showReelOverlay = isReelPost(post) && !!previewUrl;
   const processing = isReelProcessing(post);
+  const failed = isReelFailed(post);
+  const statusLabel = getReelGridStatusLabel(post);
 
   return (
     <div className="group relative aspect-square overflow-hidden rounded-[20px] border border-white/5 bg-white/[0.02]">
@@ -65,13 +69,19 @@ export function PostGridTile({
             </div>
           )}
         </>
+      ) : failed ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black/80 px-3 text-center">
+          <p className="text-[9px] uppercase tracking-[0.18em] text-[#e87a82]">
+            {statusLabel || "Reel processing failed. Try uploading again."}
+          </p>
+        </div>
       ) : processing ? (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-black/70 px-4 text-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/55 text-lg text-white/80">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black/70 px-3 text-center">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/55 text-sm text-white/80">
             ▶
           </span>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-            Processing reel
+          <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">
+            {statusLabel || "Processing reel…"}
           </p>
         </div>
       ) : (

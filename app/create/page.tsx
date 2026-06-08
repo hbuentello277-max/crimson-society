@@ -16,10 +16,8 @@ import {
   type UploadedOriginalMedia,
 } from "@/lib/media";
 import { assertVideoDurationWithinLimit } from "@/lib/media/video-metadata";
-import { authedFetch } from "@/lib/auth/authed-fetch";
-import CrimsonSoundPicker, {
-  CrimsonSoundAttribution,
-} from "@/components/CrimsonSoundPicker";
+import { triggerReelProcessing } from "@/lib/media/trigger-reel-processing";
+import CrimsonSoundPicker from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
@@ -78,6 +76,8 @@ export default function CreatePage() {
   const [statusText, setStatusText] = useState("");
   const [showRiderPicker, setShowRiderPicker] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [videoDurationLabel, setVideoDurationLabel] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -223,15 +223,26 @@ export default function CreatePage() {
 
     void (async () => {
       const file = files[0];
+      setMediaError(null);
+      setVideoDurationLabel(null);
 
       try {
         if (file.size > VIDEO_LIMIT_BYTES) {
           throw new Error(videoFileSizeLimitMessage());
         }
 
-        await assertVideoDurationWithinLimit(file);
+        const duration = await assertVideoDurationWithinLimit(file);
+        const minutes = Math.floor(duration / 60);
+        const seconds = Math.ceil(duration % 60);
+        setVideoDurationLabel(
+          minutes > 0 ? `${minutes}:${String(seconds).padStart(2, "0")}` : `${seconds}s`,
+        );
       } catch (error) {
-        alert(error instanceof Error ? error.message : "Could not use this video.");
+        const message = error instanceof Error ? error.message : "Could not use this video.";
+        setMediaError(message);
+        setVideoFile(null);
+        if (videoPreview) URL.revokeObjectURL(videoPreview);
+        setVideoPreview(null);
         return;
       }
 
@@ -254,6 +265,8 @@ export default function CreatePage() {
     if (videoPreview) URL.revokeObjectURL(videoPreview);
     setVideoFile(null);
     setVideoPreview(null);
+    setVideoDurationLabel(null);
+    setMediaError(null);
   };
 
   const toggleRider = (handle: string) => {
@@ -314,6 +327,8 @@ export default function CreatePage() {
       }
 
       if (type === "reel" && videoFile) {
+        await assertVideoDurationWithinLimit(videoFile);
+
         videoOriginal = await uploadOriginalMedia(
           supabase,
           user.id,
@@ -398,16 +413,23 @@ export default function CreatePage() {
           metadata: mediaMetadata,
         });
 
-        void authedFetch("/api/media/process", {
-          method: "POST",
-          body: JSON.stringify({
-            postId: insertedPost?.id ?? null,
-            limit: 1,
-          }),
-        });
+        const processResult = await triggerReelProcessing(insertedPost.id);
+        if (!processResult.ok) {
+          setToast(
+            "Post created. Reel is queued — processing will retry automatically.",
+          );
+        } else if (processResult.failed && processResult.error) {
+          setToast("Post created, but reel processing failed. Check your feed.");
+          console.warn("[reel-processing] upload completed with worker error", {
+            postId: insertedPost.id,
+            error: processResult.error,
+          });
+        } else {
+          setToast("Post created.");
+        }
+      } else {
+        setToast("Post created.");
       }
-
-      setToast("Post created.");
       setTimeout(() => {
         router.push("/dashboard");
       }, 900);
@@ -489,48 +511,39 @@ export default function CreatePage() {
               {photos.length === 0 ? (
                 <button
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex h-56 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60 hover:bg-black/60"
+                  className="flex h-40 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60 hover:bg-black/60"
                 >
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 text-2xl text-[#e87a82]">
+                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 text-xl text-[#e87a82]">
                     ＋
                   </div>
-                  <p className="font-serif text-lg italic text-white">Add Frames</p>
+                  <p className="font-serif text-lg italic text-white">Add photo</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    Single image · JPG · PNG
+                    JPG · PNG · WebP
                   </p>
                 </button>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {photos.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="relative aspect-square overflow-hidden rounded-xl border border-white/10"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.preview}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                      <button
-                        onClick={() => removePhoto(idx)}
-                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-xs text-white backdrop-blur hover:bg-[#b4141e]"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  {photos.length < 1 && (
-                    <button
-                      onClick={() => photoInputRef.current?.click()}
-                      className="flex aspect-square flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-white/40 hover:border-[#b4141e]/60 hover:text-[#e87a82]"
-                    >
-                      <span className="text-2xl">＋</span>
-                      <span className="text-[10px] uppercase tracking-[0.25em]">
-                        Add
-                      </span>
-                    </button>
-                  )}
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-3">
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photos[0].preview}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white">{photos[0].file.name}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
+                      Photo selected
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removePhoto(0)}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/15 text-xs text-white/70 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                    aria-label="Remove photo"
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
 
@@ -556,30 +569,46 @@ export default function CreatePage() {
               {!videoPreview ? (
                 <button
                   onClick={() => videoInputRef.current?.click()}
-                  className="flex h-72 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60 hover:bg-black/60"
+                  className="flex h-40 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60 hover:bg-black/60"
                 >
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 text-2xl text-[#e87a82]">
+                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 text-xl text-[#e87a82]">
                     ▶
                   </div>
-                  <p className="font-serif text-lg italic text-white">Upload Reel</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    MP4 · MOV · WEBM · 60s max · 50MB max
+                  <p className="font-serif text-lg italic text-white">Upload reel</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.28em] text-white/40">
+                    MP4, MOV, or WEBM · 60s max · 50MB max
                   </p>
                 </button>
               ) : (
-                <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black">
-                  <video
-                    src={videoPreview}
-                    controls
-                    className="h-80 w-full object-cover"
-                  />
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/50 p-3">
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
+                    <video
+                      src={videoPreview}
+                      muted
+                      playsInline
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white">{videoFile?.name}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
+                      {videoDurationLabel ? `${videoDurationLabel} · ` : ""}Reel selected
+                    </p>
+                  </div>
                   <button
                     onClick={clearVideo}
-                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-xs text-white backdrop-blur hover:bg-[#b4141e]"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/15 text-xs text-white/70 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                    aria-label="Remove reel"
                   >
                     ✕
                   </button>
                 </div>
+              )}
+
+              {mediaError && (
+                <p className="mt-3 rounded-lg border border-[#b4141e]/35 bg-[#b4141e]/10 px-3 py-2 text-xs leading-5 text-[#e87a82]">
+                  {mediaError}
+                </p>
               )}
 
               <input
@@ -779,92 +808,6 @@ export default function CreatePage() {
           </div>
         </div>
 
-        {canPost() && (
-          <>
-            <div className="my-8 flex items-center justify-center gap-3 text-white/30">
-              <div className="h-px w-12 bg-white/15" />
-              <span className="text-xs">✦</span>
-              <div className="h-px w-12 bg-white/15" />
-            </div>
-
-            <p className="mb-3 text-center text-[10px] uppercase tracking-[0.4em] text-white/40">
-              Preview
-            </p>
-
-            <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
-              <div className="flex items-center gap-3 p-4">
-                <div className={`relative h-10 w-10 ${CS_AVATAR_RING}`}>
-                  <div className={`${CS_AVATAR_FALLBACK} text-sm`}>CS</div>
-                </div>
-                <div>
-                  <p className="text-sm text-white">Hector Buentello</p>
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                    @hbuentello {location && `· ${location}`}
-                  </p>
-                </div>
-              </div>
-
-              {type === "photo" && photos[0] && (
-                <div className="relative aspect-square bg-black">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photos[0].preview}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                  {photos.length > 1 && (
-                    <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white backdrop-blur">
-                      1 / {photos.length}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {type === "reel" && videoPreview && (
-                <div className="relative aspect-[9/16] max-h-[480px] bg-black">
-                  <video
-                    src={videoPreview}
-                    className="h-full w-full object-cover"
-                    muted
-                    autoPlay
-                    loop
-                  />
-                  {selectedSound && (
-                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] text-white backdrop-blur">
-                      <CrimsonSoundAttribution sound={selectedSound} compact />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {type === "status" && statusText && (
-                <div
-                  className={`flex min-h-[240px] items-center justify-center p-8 ${statusBg.className}`}
-                >
-                  <p className="text-center font-serif text-2xl italic text-white">
-                    {statusText}
-                  </p>
-                </div>
-              )}
-
-              {type !== "status" && caption && (
-                <p className="px-4 pb-4 pt-3 text-sm text-white/80">{caption}</p>
-              )}
-
-              {type === "photo" && selectedSound && (
-                <div className="px-4 pb-4 pt-3">
-                  <CrimsonSoundAttribution sound={selectedSound} />
-                </div>
-              )}
-
-              {taggedRiders.length > 0 && (
-                <p className="px-4 pb-4 text-[11px] text-[#e87a82]">
-                  with {taggedRiders.join(" · ")}
-                </p>
-              )}
-            </article>
-          </>
-        )}
       </div>
 
       {showRiderPicker && (

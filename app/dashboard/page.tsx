@@ -467,10 +467,12 @@ function DashboardPageContent() {
   };
 }, [loading, session, router]);
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (options?: { silent?: boolean }) => {
     if (!session) return;
 
-    setFeedLoading(true);
+    if (!options?.silent) {
+      setFeedLoading(true);
+    }
     const { data, error } = await supabase
       .from("Posts")
       .select(`
@@ -527,9 +529,11 @@ function DashboardPageContent() {
       .limit(FEED_POST_LIMIT);
 
     if (error) {
-      setToast(error.message || "Could not load posts.");
-      setTimeout(() => setToast(null), 1800);
-      setFeedLoading(false);
+      if (!options?.silent) {
+        setToast(error.message || "Could not load posts.");
+        setTimeout(() => setToast(null), 1800);
+        setFeedLoading(false);
+      }
       return;
     }
 
@@ -590,8 +594,26 @@ if (livePostIds.length > 0) {
   }
 }
 
-setFeedLoading(false);
+    if (!options?.silent) {
+      setFeedLoading(false);
+    }
   }, [session]);
+
+  const hasPendingReels = posts.some(
+    (post) =>
+      post.type === "reel" &&
+      (post.mediaStatus === "queued" || post.mediaStatus === "processing"),
+  );
+
+  useEffect(() => {
+    if (!session || !hasPendingReels) return;
+
+    const interval = window.setInterval(() => {
+      void loadFeed({ silent: true });
+    }, 12_000);
+
+    return () => window.clearInterval(interval);
+  }, [hasPendingReels, loadFeed, session]);
 
   const deepLinkPostId = searchParams.get("post");
   const deepLinkCommentId = searchParams.get("comment");

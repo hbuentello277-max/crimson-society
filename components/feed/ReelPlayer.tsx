@@ -2,6 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import {
+  getReelProcessingLabel,
+  isReelMediaFailed,
+  isReelMediaPending,
+} from "@/lib/media/reel-status";
 
 type ReelPlayerProps = {
   postId: string;
@@ -29,9 +34,9 @@ export function ReelPlayer({
   const [inView, setInView] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(false);
 
-  const isProcessing =
-    mediaStatus === "queued" || mediaStatus === "processing";
-  const isFailed = mediaStatus === "failed";
+  const processingLabel = getReelProcessingLabel(mediaStatus);
+  const isPending = isReelMediaPending(mediaStatus);
+  const isFailed = isReelMediaFailed(mediaStatus);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -65,27 +70,30 @@ export function ReelPlayer({
     }
   }, [inView, isActive, shouldLoad, src]);
 
-  if (isProcessing) {
+  if (isPending && processingLabel) {
     return (
       <div
         ref={containerRef}
-        className="flex h-full w-full items-center justify-center px-6 text-center"
+        className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center"
       >
+        {mediaStatus === "processing" && (
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-[#e87a82]" />
+        )}
         <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-          Reel processing for cinematic playback
+          {processingLabel}
         </p>
       </div>
     );
   }
 
-  if (isFailed) {
+  if (isFailed && processingLabel) {
     return (
       <div
         ref={containerRef}
         className="flex h-full w-full items-center justify-center px-6 text-center"
       >
-        <p className="text-[11px] uppercase tracking-[0.28em] text-[#e87a82]">
-          Reel processing failed
+        <p className="text-[11px] uppercase tracking-[0.24em] text-[#e87a82]">
+          {processingLabel}
         </p>
       </div>
     );

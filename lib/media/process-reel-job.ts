@@ -6,7 +6,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   MEDIA_ORIGINALS_BUCKET,
   MEDIA_RENDERS_BUCKET,
-  VIDEO_MAX_DURATION_SECONDS,
+  isVideoDurationAllowed,
+  videoDurationLimitMessage,
 } from "@/lib/media";
 import { probeVideoFile, runFfmpeg } from "@/lib/media/ffmpeg-bin";
 import { reelRenderPaths } from "@/lib/media/reel-paths";
@@ -69,9 +70,9 @@ export async function processReelJob(
     await writeFile(inputPath, sourceBuffer);
 
     const probe = await probeVideoFile(inputPath);
-    if (probe.durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
+    if (!isVideoDurationAllowed(probe.durationSeconds)) {
       throw new Error(
-        `Video exceeds ${VIDEO_MAX_DURATION_SECONDS} seconds maximum (${Math.ceil(probe.durationSeconds)}s).`,
+        `${videoDurationLimitMessage()} (${Math.ceil(probe.durationSeconds)}s detected).`,
       );
     }
 

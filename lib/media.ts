@@ -18,7 +18,14 @@ export function videoFileSizeLimitMessage() {
 }
 
 export function videoDurationLimitMessage() {
-  return `Reels can be up to ${VIDEO_MAX_DURATION_SECONDS} seconds maximum. Trim your video and try again.`;
+  return "Reels must be 60 seconds or less.";
+}
+
+export function isVideoDurationAllowed(durationSeconds: number) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return false;
+  }
+  return Math.ceil(durationSeconds) <= VIDEO_MAX_DURATION_SECONDS;
 }
 
 const IMAGE_VARIANTS: Record<ImageVariant, { width: number; quality: number }> = {

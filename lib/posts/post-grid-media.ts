@@ -1,4 +1,5 @@
 import { getBestImageUrl } from "@/lib/media";
+import { getReelProcessingLabel, isReelMediaFailed, isReelMediaPending } from "@/lib/media/reel-status";
 
 export type PostGridMediaFields = {
   post_type?: string | null;
@@ -15,8 +16,17 @@ export function isReelPost(post: Pick<PostGridMediaFields, "post_type">) {
 
 export function isReelProcessing(post: PostGridMediaFields) {
   if (!isReelPost(post)) return false;
-  const status = post.media_status || "ready";
-  return status === "queued" || status === "processing";
+  return isReelMediaPending(post.media_status || "ready");
+}
+
+export function isReelFailed(post: PostGridMediaFields) {
+  if (!isReelPost(post)) return false;
+  return isReelMediaFailed(post.media_status || "ready");
+}
+
+export function getReelGridStatusLabel(post: PostGridMediaFields) {
+  if (!isReelPost(post)) return null;
+  return getReelProcessingLabel(post.media_status || "ready");
 }
 
 /** Best-effort grid thumbnail for photos and reels. */

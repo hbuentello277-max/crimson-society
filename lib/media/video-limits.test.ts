@@ -17,6 +17,6 @@ describe("video beta limits", () => {
 
   it("surfaces maximum in user-facing messages", () => {
     assert.match(videoFileSizeLimitMessage(), /50 MB maximum/i);
-    assert.match(videoDurationLimitMessage(), /60 seconds maximum/i);
+    assert.equal(videoDurationLimitMessage(), "Reels must be 60 seconds or less.");
   });
 });
