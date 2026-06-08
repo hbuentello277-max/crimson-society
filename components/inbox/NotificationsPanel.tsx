@@ -20,6 +20,7 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
+import { groupedNotificationCount } from "@/lib/notifications/grouping";
 import { NotificationTypeIcon } from "@/components/inbox/notification-type-icon";
 import {
   NotificationDeleteButton,
@@ -365,7 +366,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                   const summary = notificationSummary(notification, actor);
                   const href = notificationDestination(notification, actor);
                   const isUnread = !notification.read_at;
-                  const notificationCount = Math.max(1, Number(notification.notification_count ?? 1));
+                  const notificationCount = groupedNotificationCount(notification);
 
                   const rowContent = (
                     <div

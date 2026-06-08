@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadActiveAdminUserIds } from "@/lib/admin/admin-user-ids";
+import { shopOrderGroupKey } from "@/lib/notifications/grouping";
 import {
   formatCentsUsd,
   formatDeliveryMethodLabel,
@@ -117,7 +118,7 @@ export async function notifyShopOrderPaidAdmins(admin: SupabaseClient, orderId: 
       title: "New shop order",
       body: `New order #${shortId} · ${total} · ${delivery}`,
       target_url: adminOrderUrl(orderId),
-      notification_group_key: `order:${orderId}:${adminId}`,
+      notification_group_key: shopOrderGroupKey(orderId, adminId),
     });
   }
 
@@ -145,7 +146,7 @@ async function notifyShopOrderConfirmedCustomer(admin: SupabaseClient, orderId: 
       title: "Order confirmed",
       body: `Your Crimson Society order #${shortId} is confirmed.`,
       target_url: customerOrderUrl(orderId),
-      notification_group_key: `order:${orderId}:${order.user_id}`,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
     },
   ]);
 }
@@ -180,7 +181,7 @@ export async function notifyShopOrderReadyForPickup(admin: SupabaseClient, order
       title: "Ready for pickup",
       body,
       target_url: customerOrderUrl(orderId),
-      notification_group_key: `order:${orderId}:${order.user_id}`,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
     },
   ]);
 }
@@ -197,7 +198,7 @@ export async function notifyShopOrderShipped(admin: SupabaseClient, orderId: str
       title: "Your order has shipped",
       body: `Your order #${shortId} is on the move.`,
       target_url: customerOrderUrl(orderId),
-      notification_group_key: `order:${orderId}:${order.user_id}`,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
     },
   ]);
 }

@@ -6,6 +6,7 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
+import { pushCollapseKey } from "@/lib/notifications/grouping";
 import { isFcmServerConfigured, isInvalidFcmTokenError, sendFcmToToken } from "@/lib/push/fcm-server";
 
 function getSupabaseAdmin() {
@@ -22,6 +23,7 @@ function getSupabaseAdmin() {
 type NotificationRow = NotificationItem & {
   user_id: string;
   conversation_id: string | null;
+  notification_group_key?: string | null;
 };
 
 type PushJobRow = {
@@ -115,7 +117,7 @@ export async function dispatchPushForNotification(notificationId: string) {
   const { data: notification, error: notificationError } = await supabase
     .from("notifications")
     .select(
-      "id, user_id, type, title, body, ride_id, conversation_id, post_id, comment_id, deletion_request_id, target_url, actor_id, read_at, created_at",
+      "id, user_id, type, title, body, ride_id, conversation_id, post_id, comment_id, deletion_request_id, target_url, actor_id, read_at, created_at, notification_group_key, notification_count",
     )
     .eq("id", notificationId)
     .maybeSingle();
@@ -197,6 +199,7 @@ export async function dispatchPushForNotification(notificationId: string) {
         type: row.type as NotificationType,
         rideId: row.ride_id,
         conversationId: row.conversation_id,
+        collapseKey: pushCollapseKey(row),
       });
       sent += 1;
     } catch (error) {

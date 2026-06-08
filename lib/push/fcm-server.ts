@@ -15,6 +15,7 @@ type PushPayload = {
   type: NotificationType;
   rideId?: string | null;
   conversationId?: string | null;
+  collapseKey?: string | null;
 };
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
@@ -119,6 +120,8 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
 
   const accessToken = await getAccessToken(account);
 
+  const collapseKey = payload.collapseKey?.trim() || payload.notificationId;
+
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`,
     {
@@ -138,6 +141,15 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
             type: payload.type,
             rideId: payload.rideId || "",
             conversationId: payload.conversationId || "",
+            collapseKey,
+          },
+          android: {
+            collapse_key: collapseKey,
+          },
+          apns: {
+            headers: {
+              "apns-collapse-id": collapseKey.slice(0, 64),
+            },
           },
           webpush: {
             fcm_options: {

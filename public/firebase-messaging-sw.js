@@ -8,11 +8,18 @@ function showNotification(payload) {
   const title = payload.notification?.title || payload.data?.title || "Crimson Society";
   const body = payload.notification?.body || payload.data?.body || "";
   const url = payload.data?.url || payload.fcmOptions?.link || "/inbox?tab=notifications";
+  const tag =
+    payload.data?.collapseKey ||
+    payload.data?.notificationId ||
+    payload.data?.type ||
+    "crimson-default";
 
   return self.registration.showNotification(title, {
     body,
     icon: "/icon-192.png",
     badge: "/icon-192.png",
+    tag,
+    renotify: true,
     data: { url },
   });
 }
