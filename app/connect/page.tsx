@@ -13,6 +13,7 @@ type Status = "none" | "pending" | "requested" | "connected";
 
 type Member = {
   id: string;
+  username: string | null;
   handle: string;
   name: string;
   city: string;
@@ -146,11 +147,10 @@ function suggestionReasonFor(profile: ProfileRow, me: ProfileRow | null, mutualC
   return profile.riding_area ? "Shared riding scene" : "Crimson Society rider";
 }
 
-function profileHrefFromHandle(handle: string) {
-  if (!handle || handle === "@member") return null;
-  const username = handle.replace(/^@+/, "").trim();
-  if (!username) return null;
-  return `/profile/${username}`;
+function profileHrefFromUsername(username: string | null | undefined) {
+  const clean = username?.trim().replace(/^@+/, "");
+  if (!clean) return null;
+  return `/profile/${encodeURIComponent(clean)}`;
 }
 
 export default function ConnectPage() {
@@ -312,6 +312,7 @@ export default function ConnectPage() {
 
         return {
           id: profile.id,
+          username: profile.username?.trim().replace(/^@+/, "") || null,
           handle: handleFor(profile),
           name: displayName(profile),
           city: cityFor(profile),
@@ -576,7 +577,7 @@ export default function ConnectPage() {
           {!loading &&
             visibleMembers.map((m, index) => {
               const status = statuses[m.id] ?? "none";
-              const profileHref = profileHrefFromHandle(m.handle);
+              const profileHref = profileHrefFromUsername(m.username);
 
               const avatarContent = (
                 <>
@@ -598,22 +599,6 @@ export default function ConnectPage() {
                 </>
               );
 
-              const textContent = (
-                <>
-                  <h3 className="truncate text-base font-semibold leading-tight text-white">{m.name}</h3>
-
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">
-                    {m.handle}
-                  </p>
-
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">
-                    {m.city}
-                  </p>
-
-                  <p className="mt-1 truncate text-xs text-zinc-400">{m.bike}</p>
-                </>
-              );
-
               return (
                 <li
                   key={m.id}
@@ -629,23 +614,41 @@ export default function ConnectPage() {
                         {avatarContent}
                       </Link>
                     ) : (
-                      <button
-                        onClick={() => setOpenId(m.id)}
-                        className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING} transition hover:scale-105`}
-                      >
+                      <div className={`relative h-14 w-14 shrink-0 ${CS_AVATAR_RING}`}>
                         {avatarContent}
-                      </button>
+                      </div>
                     )}
 
-                    {profileHref ? (
-                      <Link href={profileHref} prefetch className="min-w-0 flex-1 text-left">
-                        {textContent}
-                      </Link>
-                    ) : (
-                      <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
-                        {textContent}
-                      </button>
-                    )}
+                    <div className="min-w-0 flex-1 text-left">
+                      {profileHref ? (
+                        <Link
+                          href={profileHref}
+                          prefetch
+                          className="block truncate text-base font-semibold leading-tight text-white transition hover:text-[#f4dadd]"
+                        >
+                          {m.name}
+                        </Link>
+                      ) : (
+                        <h3 className="truncate text-base font-semibold leading-tight text-white">
+                          {m.name}
+                        </h3>
+                      )}
+
+                      {profileHref ? (
+                        <Link
+                          href={profileHref}
+                          prefetch
+                          className="mt-0.5 block truncate text-xs text-zinc-500 transition hover:text-[#e87a82]"
+                        >
+                          {m.handle}
+                        </Link>
+                      ) : (
+                        <p className="mt-0.5 truncate text-xs text-zinc-500">{m.handle}</p>
+                      )}
+
+                      <p className="mt-0.5 truncate text-xs text-zinc-500">{m.city}</p>
+                      <p className="mt-1 truncate text-xs text-zinc-400">{m.bike}</p>
+                    </div>
 
                     <div className="flex shrink-0 flex-col gap-2">
                       <button
@@ -835,9 +838,9 @@ export default function ConnectPage() {
                         : "Connect"}
                 </button>
 
-                {profileHrefFromHandle(openMember.handle) && (
+                {profileHrefFromUsername(openMember.username) && (
                   <Link
-                    href={profileHrefFromHandle(openMember.handle)!}
+                    href={profileHrefFromUsername(openMember.username)!}
                     className="w-full rounded-full border border-white/10 py-3.5 text-center text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
                   >
                     View Profile

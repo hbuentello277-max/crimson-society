@@ -1326,7 +1326,11 @@ setFeedLoading(false);
                           ? "No active meets right now."
                           : "No upcoming meets scheduled."
                       }
-                      body="Open Meets to host or join the next run."
+                      body={
+                        section.title === "Active Now"
+                          ? "Host a meet or join an upcoming meet to enable live rider tracking."
+                          : "Open Meets to host or join the next run."
+                      }
                     />
                   ) : null}
 
