@@ -2,6 +2,14 @@
 
 Limited-beta deployment checklist for reel upload, processing, playback, and cleanup.
 
+## Beta limits (Hobby + Fluid Compute)
+
+| Limit | Value |
+|-------|-------|
+| Max duration | **60 seconds maximum** |
+| Max file size | **50 MB maximum** |
+| Formats | MP4, MOV, WEBM |
+
 ## Required environment variables
 
 | Variable | Purpose |
@@ -20,21 +28,17 @@ Processing routes set `maxDuration = 300` (5 minutes):
 - `/api/cron/media-processing`
 - `/api/media/process`
 
-**Vercel Pro (or Enterprise)** is required for 300s execution. On **Hobby**, the cap is **60 seconds** (often less in practice), which may be insufficient for worst-case beta uploads (up to **90s / 100MB** reels with ffmpeg transcode).
+With **Fluid Compute** on **Hobby**, functions can run up to **300s** with **2 GB** memory and **1 vCPU** — sufficient for beta reels at **60s / 50MB** when cold starts are acceptable.
 
-### If you are not on Pro
+Without Fluid Compute on Hobby, the cap may be **60s** — align limits with staging transcode tests before inviting riders.
 
-1. Run a staging test with a realistic 90s reel before inviting riders.
-2. If transcodes time out, either:
-   - upgrade to Pro for 300s functions, or
-   - lower beta limits (shorter max duration / smaller max size), or
-   - move processing to an external worker (not in MVP scope).
+### Cron frequency on Hobby
+
+`vercel.json` registers media processing every **2 minutes** (`*/2 * * * *`). **Hobby allows daily crons only**; sub-daily schedules require **Pro** or an external scheduler with `CRON_SECRET`. Immediate processing after upload (`POST /api/media/process` with `postId`) still works on Hobby.
 
 ## Cron schedule
 
-`vercel.json` registers `/api/cron/media-processing` every **2 minutes** as a backup when immediate processing fails.
-
-**Hobby** allows only **2** cron jobs per project. This repo defines **3** (shop expire, push dispatch, media processing). Confirm your Vercel plan or consolidate crons before deploy.
+`vercel.json` registers `/api/cron/media-processing` every **2 minutes** as a backup when immediate processing fails (Pro or external cron).
 
 ## Database migration
 
@@ -44,15 +48,15 @@ Apply on deploy:
 
 ## Storage bucket limit (not applied automatically)
 
-App code enforces **100MB** uploads. The `media-originals` bucket may still allow larger files at the storage layer until the SQL below is run **with explicit approval**:
+App code enforces **50 MB maximum** uploads. The `media-originals` bucket may still allow larger files at the storage layer until the SQL below is run **with explicit approval**:
 
 ```sql
 update storage.buckets
-set file_size_limit = 104857600
+set file_size_limit = 52428800
 where id = 'media-originals';
 ```
 
-(`104857600` = 100 × 1024 × 1024 bytes.)
+(`52428800` = 50 × 1024 × 1024 bytes.)
 
 ## Stale job recovery
 

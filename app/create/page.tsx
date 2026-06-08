@@ -12,6 +12,7 @@ import {
   uploadOriginalMedia,
   VIDEO_LIMIT_BYTES,
   VIDEO_MAX_DURATION_SECONDS,
+  videoFileSizeLimitMessage,
   type UploadedOriginalMedia,
 } from "@/lib/media";
 import { assertVideoDurationWithinLimit } from "@/lib/media/video-metadata";
@@ -225,7 +226,7 @@ export default function CreatePage() {
 
       try {
         if (file.size > VIDEO_LIMIT_BYTES) {
-          throw new Error("Reels can be up to 100MB. Trim or compress your video and try again.");
+          throw new Error(videoFileSizeLimitMessage());
         }
 
         await assertVideoDurationWithinLimit(file);
@@ -562,7 +563,7 @@ export default function CreatePage() {
                   </div>
                   <p className="font-serif text-lg italic text-white">Upload Reel</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    MP4 · MOV · WEBM · 90s · 100MB
+                    MP4 · MOV · WEBM · 60s max · 50MB max
                   </p>
                 </button>
               ) : (

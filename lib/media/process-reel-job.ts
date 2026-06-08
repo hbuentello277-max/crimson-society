@@ -71,7 +71,7 @@ export async function processReelJob(
     const probe = await probeVideoFile(inputPath);
     if (probe.durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
       throw new Error(
-        `Video exceeds ${VIDEO_MAX_DURATION_SECONDS}s beta limit (${Math.ceil(probe.durationSeconds)}s).`,
+        `Video exceeds ${VIDEO_MAX_DURATION_SECONDS} seconds maximum (${Math.ceil(probe.durationSeconds)}s).`,
       );
     }
 

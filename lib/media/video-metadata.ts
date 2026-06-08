@@ -1,4 +1,4 @@
-import { VIDEO_MAX_DURATION_SECONDS } from "@/lib/media";
+import { VIDEO_MAX_DURATION_SECONDS, videoDurationLimitMessage } from "@/lib/media";
 
 /** Client-side duration probe via HTMLVideoElement metadata. */
 export function probeVideoDurationSeconds(file: File): Promise<number> {
@@ -29,9 +29,7 @@ export function probeVideoDurationSeconds(file: File): Promise<number> {
 export async function assertVideoDurationWithinLimit(file: File) {
   const duration = await probeVideoDurationSeconds(file);
   if (duration > VIDEO_MAX_DURATION_SECONDS) {
-    throw new Error(
-      `Reels can be up to ${VIDEO_MAX_DURATION_SECONDS} seconds. Trim your video and try again.`,
-    );
+    throw new Error(videoDurationLimitMessage());
   }
   return duration;
 }

@@ -9,8 +9,17 @@ export const MEDIA_ORIGINALS_BUCKET = "media-originals";
 export const MEDIA_RENDERS_BUCKET = "media-renders";
 
 const IMAGE_LIMIT_BYTES = 24 * 1024 * 1024;
-export const VIDEO_LIMIT_BYTES = 100 * 1024 * 1024;
-export const VIDEO_MAX_DURATION_SECONDS = 90;
+export const VIDEO_LIMIT_BYTES = 50 * 1024 * 1024;
+export const VIDEO_MAX_DURATION_SECONDS = 60;
+export const VIDEO_LIMIT_MB = 50;
+
+export function videoFileSizeLimitMessage() {
+  return "Reels can be up to 50 MB maximum. Trim or compress your video and try again.";
+}
+
+export function videoDurationLimitMessage() {
+  return `Reels can be up to ${VIDEO_MAX_DURATION_SECONDS} seconds maximum. Trim your video and try again.`;
+}
 
 const IMAGE_VARIANTS: Record<ImageVariant, { width: number; quality: number }> = {
   feed: { width: 1536, quality: 86 },
@@ -68,7 +77,7 @@ export function assertMediaUpload(kind: MediaKind, file: File) {
     }
 
     if (file.size > VIDEO_LIMIT_BYTES) {
-      throw new Error("Reels can be up to 100MB. Trim or compress your video and try again.");
+      throw new Error(videoFileSizeLimitMessage());
     }
   }
 }
