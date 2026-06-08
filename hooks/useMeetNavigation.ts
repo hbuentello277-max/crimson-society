@@ -17,8 +17,18 @@ import {
   createInitialNavigationSession,
   positionFromGeolocation,
 } from "@/lib/meets/navigation/session";
+import {
+  createInitialOffRouteState,
+  createOffRouteTracker,
+  resetOffRouteTracker,
+  stepOffRouteTracker,
+} from "@/lib/meets/navigation/off-route";
 import { shouldRecalculateProgress } from "@/lib/meets/navigation/progress";
-import type { NavigationPosition, NavigationSession } from "@/lib/meets/navigation/types";
+import type {
+  NavigationPosition,
+  NavigationSession,
+  OffRouteSessionState,
+} from "@/lib/meets/navigation/types";
 import {
   clearMeetLiveLocation,
   publishMeetLiveLocation,
@@ -48,11 +58,13 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const [shareError, setShareError] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [latestPosition, setLatestPosition] = useState<NavigationPosition | null>(null);
+  const [offRoute, setOffRoute] = useState<OffRouteSessionState>(createInitialOffRouteState);
 
   const baseSessionRef = useRef<NavigationSession | null>(null);
   const lastSentAtRef = useRef(0);
   const gpsBootstrappedRef = useRef(false);
   const latestPositionRef = useRef<NavigationPosition | null>(null);
+  const offRouteTrackerRef = useRef(createOffRouteTracker());
 
   if (!baseSessionRef.current && meetId && userId) {
     baseSessionRef.current = createInitialNavigationSession(meetId, userId);
@@ -65,6 +77,18 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     (position: GeolocationPosition) => {
       const nextPosition = positionFromGeolocation(position);
       const previous = latestPositionRef.current;
+
+      if (!isPaused && meet?.route && hasRoadGeometry(meet.route)) {
+        const offRouteResult = stepOffRouteTracker(
+          offRouteTrackerRef.current,
+          meet.route,
+          nextPosition,
+          nextPosition.timestamp,
+        );
+        if (offRouteResult.changed) {
+          setOffRoute(offRouteResult.state);
+        }
+      }
 
       if (shouldRecalculateProgress(previous, nextPosition)) {
         latestPositionRef.current = nextPosition;
@@ -86,7 +110,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
         }
       });
     },
-    [isPaused, meet?.id, meet?.trackingStatus, userId],
+    [isPaused, meet?.id, meet?.route, meet?.trackingStatus, userId],
   );
 
   const {
@@ -124,6 +148,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       setHostName(null);
       latestPositionRef.current = null;
       setLatestPosition(null);
+      setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
 
       const sessionPayload = readActiveMeetSession();
       const sessionMeet = sessionPayload ? activeMeetFromSessionPayload(sessionPayload) : null;
@@ -176,6 +201,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
 
     if (isPaused) {
       clearWatch();
+      setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
       return;
     }
 
@@ -211,6 +237,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       shareError,
       latestPosition,
       isPaused,
+      offRoute,
     });
   }, [
     authLoading,
@@ -222,6 +249,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     loadError,
     meet,
     meetId,
+    offRoute,
     shareError,
     userId,
   ]);

@@ -84,6 +84,17 @@ export type NavigationMetrics = {
   hasManeuverData: boolean;
 };
 
+export type OffRouteStatus = "on_route" | "possibly_off_route" | "off_route" | "returning";
+
+export type OffRouteSessionState = {
+  offRouteStatus: OffRouteStatus;
+  distanceFromRouteMeters: number | null;
+  nearestRouteSegmentIndex: number | null;
+  lastOffRouteAt: string | null;
+  lastBackOnRouteAt: string | null;
+  bannerMessage: string | null;
+};
+
 export type NavigationMeetContext = {
   id: string;
   name: string;
@@ -113,6 +124,7 @@ export type NavigationSession = {
   error: string | null;
   shareError: string | null;
   isPaused: boolean;
+  offRoute: OffRouteSessionState;
 };
 
 export const EMPTY_NAVIGATION_METRICS: NavigationMetrics = {

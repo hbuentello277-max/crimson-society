@@ -13,7 +13,9 @@ import type {
   NavigationPosition,
   NavigationSession,
 } from "@/lib/meets/navigation/types";
+import { createInitialOffRouteState } from "@/lib/meets/navigation/off-route";
 import { EMPTY_NAVIGATION_METRICS } from "@/lib/meets/navigation/types";
+import type { OffRouteSessionState } from "@/lib/meets/navigation/types";
 import type { NavigationGpsState } from "@/lib/meets/use-navigation-gps";
 
 export function buildNavigationMeetContext(
@@ -56,6 +58,7 @@ export function createInitialNavigationSession(meetId: string, userId: string): 
     error: null,
     shareError: null,
     isPaused: false,
+    offRoute: createInitialOffRouteState(),
   };
 }
 
@@ -89,6 +92,7 @@ type BuildSessionInput = {
   shareError: string | null;
   latestPosition: NavigationPosition | null;
   isPaused: boolean;
+  offRoute: OffRouteSessionState;
 };
 
 export function buildNavigationSession(input: BuildSessionInput): NavigationSession {
@@ -132,5 +136,6 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
     error: input.loadError ?? input.gpsError,
     shareError: input.shareError,
     isPaused: input.isPaused,
+    offRoute: input.offRoute,
   };
 }

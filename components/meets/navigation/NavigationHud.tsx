@@ -1,4 +1,8 @@
 import { memo } from "react";
+import {
+  BACK_ON_ROUTE_BANNER_MESSAGE,
+  OFF_ROUTE_BANNER_MESSAGE,
+} from "@/lib/meets/navigation/off-route";
 import type { NavigationMetrics, NavigationSession } from "@/lib/meets/navigation/types";
 
 type NavigationHudProps = {
@@ -45,15 +49,38 @@ function NavigationHudComponent({
   onTogglePause,
   canRecenter,
 }: NavigationHudProps) {
-  const { metrics, meet, route, navigationState, error, shareError, isPaused } = session;
+  const { metrics, meet, route, navigationState, error, shareError, isPaused, offRoute } = session;
 
   const showGpsAlert =
     navigationState === "gps_permission_required" ||
     navigationState === "error" ||
     !!error;
+  const showOffRouteBanner =
+    (navigationState === "navigating" || navigationState === "paused") &&
+    offRoute.bannerMessage === OFF_ROUTE_BANNER_MESSAGE;
+  const showBackOnRouteBanner =
+    navigationState === "navigating" && offRoute.bannerMessage === BACK_ON_ROUTE_BANNER_MESSAGE;
 
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
+      {showOffRouteBanner ? (
+        <div className="pointer-events-none mb-3 rounded-2xl border border-[#f0b429]/70 bg-[#2a1d05]/95 px-4 py-4 text-center shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <p className="text-[10px] uppercase tracking-[0.24em] text-[#f6d58b]">Route Alert</p>
+          <p className="mt-2 text-lg font-semibold leading-tight text-[#fff4d6]">
+            {OFF_ROUTE_BANNER_MESSAGE}
+          </p>
+        </div>
+      ) : null}
+
+      {showBackOnRouteBanner ? (
+        <div className="pointer-events-none mb-3 rounded-2xl border border-emerald-400/50 bg-[#07150f]/95 px-4 py-4 text-center shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <p className="text-[10px] uppercase tracking-[0.24em] text-emerald-300/90">Route Update</p>
+          <p className="mt-2 text-lg font-semibold leading-tight text-emerald-100">
+            {BACK_ON_ROUTE_BANNER_MESSAGE}
+          </p>
+        </div>
+      ) : null}
+
       <div className="pointer-events-auto mx-auto grid max-w-md gap-3 rounded-2xl border border-white/10 bg-black/80 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
         <HudMetricsGrid metrics={metrics} />
 
