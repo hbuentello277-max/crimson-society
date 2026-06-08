@@ -54,6 +54,10 @@ function buildPushUrl(
       type: notification.type,
       ride_id: notification.ride_id,
       conversation_id: notification.conversation_id,
+      post_id: notification.post_id,
+      comment_id: notification.comment_id,
+      deletion_request_id: notification.deletion_request_id,
+      target_url: notification.target_url,
     },
     actor,
   );

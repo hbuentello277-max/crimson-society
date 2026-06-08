@@ -36,6 +36,17 @@ export function NexusNavChatIcon({ className }: IconProps) {
   );
 }
 
+export function NexusNavVoiceIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="8.5" y="3.5" width="3" height="7" rx="1.5" />
+      <path d="M6.5 8.5a3.5 3.5 0 0 0 7 0" strokeLinecap="round" />
+      <path d="M10 12v2.5M7.5 14.5h5" strokeLinecap="round" />
+      <path d="M4 7.5c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeOpacity={0.35} />
+    </IconBase>
+  );
+}
+
 export function NexusNavAIAnalysisIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

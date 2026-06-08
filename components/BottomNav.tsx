@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  blockedUserIdSet,
+  countUnreadMessages,
+  type ConversationMemberBadgeRow,
+  type MessageBadgeRow,
+} from "@/lib/messages/unread-message-count";
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
@@ -26,17 +32,6 @@ type RideBadgeRow = {
   meet_duration_minutes?: number | null;
   tracking_status?: string | null;
   status?: string | null;
-};
-
-type ConversationMemberBadgeRow = {
-  conversation_id: string;
-  last_read_at: string | null;
-};
-
-type MessageBadgeRow = {
-  conversation_id: string;
-  sender_id: string;
-  created_at: string;
 };
 
 const NAV = [
@@ -225,13 +220,25 @@ export default function BottomNav() {
       return;
     }
 
-    const { data: memberships, error: membershipsError } = await supabase
-      .from("conversation_members")
-      .select("conversation_id, last_read_at")
-      .eq("user_id", userId);
+    const [{ data: memberships, error: membershipsError }, { data: blocks, error: blocksError }] =
+      await Promise.all([
+        supabase
+          .from("conversation_members")
+          .select("conversation_id, last_read_at")
+          .eq("user_id", userId),
+        supabase
+          .from("user_blocks")
+          .select("blocker_id, blocked_id")
+          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+      ]);
 
     if (membershipsError) {
       console.error("Failed to load inbox nav memberships:", membershipsError);
+      return;
+    }
+
+    if (blocksError) {
+      console.error("Failed to load inbox nav blocks:", blocksError);
       return;
     }
 
@@ -253,18 +260,13 @@ export default function BottomNav() {
       return;
     }
 
-    const readMap = new Map(
-      memberRows.map((membership) => [membership.conversation_id, membership.last_read_at])
+    const blockedIds = blockedUserIdSet(userId, blocks || []);
+    const nextCount = countUnreadMessages(
+      userId,
+      memberRows,
+      (messages || []) as MessageBadgeRow[],
+      blockedIds,
     );
-
-    const nextCount = ((messages || []) as MessageBadgeRow[]).reduce((total, message) => {
-      if (message.sender_id === userId) return total;
-
-      const lastReadAt = readMap.get(message.conversation_id);
-      if (!lastReadAt || message.created_at > lastReadAt) return total + 1;
-
-      return total;
-    }, 0);
 
     setMessageUnreadCount(nextCount);
   }, [session?.user?.id]);

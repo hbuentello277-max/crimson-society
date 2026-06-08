@@ -22,6 +22,10 @@ export const LazyNexusChatCenter = lazyCenter(
   () => import("@/components/nexus/NexusChatCenter"),
   "NexusChatCenter",
 );
+export const LazyNexusVoiceCenter = lazyCenter(
+  () => import("@/components/nexus/NexusVoiceCenter"),
+  "NexusVoiceCenter",
+);
 export const LazyNexusAIAnalysisCenter = lazyCenter(
   () => import("@/components/nexus/NexusAIAnalysisCenter"),
   "NexusAIAnalysisCenter",

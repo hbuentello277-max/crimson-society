@@ -9,20 +9,15 @@ import NotificationsPanel from "@/components/inbox/NotificationsPanel";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
+import {
+  blockedUserIdSet,
+  countUnreadMessages,
+  type ConversationMemberBadgeRow,
+  type MessageBadgeRow,
+} from "@/lib/messages/unread-message-count";
 import { supabase } from "@/lib/supabase";
 
 type InboxTab = "messages" | "notifications";
-
-type ConversationMemberBadgeRow = {
-  conversation_id: string;
-  last_read_at: string | null;
-};
-
-type MessageBadgeRow = {
-  conversation_id: string;
-  sender_id: string;
-  created_at: string;
-};
 
 function badgeLabel(count: number) {
   return count > 9 ? "9+" : String(count);
@@ -100,13 +95,25 @@ export default function InboxSwipeTabs() {
       return;
     }
 
-    const { data: memberships, error: membershipsError } = await supabase
-      .from("conversation_members")
-      .select("conversation_id, last_read_at")
-      .eq("user_id", userId);
+    const [{ data: memberships, error: membershipsError }, { data: blocks, error: blocksError }] =
+      await Promise.all([
+        supabase
+          .from("conversation_members")
+          .select("conversation_id, last_read_at")
+          .eq("user_id", userId),
+        supabase
+          .from("user_blocks")
+          .select("blocker_id, blocked_id")
+          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+      ]);
 
     if (membershipsError) {
       console.error("Failed to load inbox tab memberships:", membershipsError);
+      return;
+    }
+
+    if (blocksError) {
+      console.error("Failed to load inbox tab blocks:", blocksError);
       return;
     }
 
@@ -128,18 +135,13 @@ export default function InboxSwipeTabs() {
       return;
     }
 
-    const readMap = new Map(
-      memberRows.map((membership) => [membership.conversation_id, membership.last_read_at]),
+    const blockedIds = blockedUserIdSet(userId, blocks || []);
+    const nextCount = countUnreadMessages(
+      userId,
+      memberRows,
+      (messages || []) as MessageBadgeRow[],
+      blockedIds,
     );
-
-    const nextCount = ((messages || []) as MessageBadgeRow[]).reduce((total, message) => {
-      if (message.sender_id === userId) return total;
-
-      const lastReadAt = readMap.get(message.conversation_id);
-      if (!lastReadAt || message.created_at > lastReadAt) return total + 1;
-
-      return total;
-    }, 0);
 
     setMessageUnreadCount(nextCount);
   }, [session?.user?.id]);
