@@ -44,6 +44,28 @@ const TOOL_PATTERNS: ToolPattern[] = [
     exclude: [/\bfounder recommendations\b/i],
   },
   {
+    tool: "generateOperationsPlan",
+    patterns: [
+      /\bcreate an operations plan\b/i,
+      /\bwhat should we do about blackcard growth\b/i,
+      /\bbuild a launch plan\b/i,
+      /\bbuild a revenue recovery plan\b/i,
+      /\bbuild an incident response plan\b/i,
+      /\bwhat should happen next\b/i,
+      /\bgenerate a founder action plan\b/i,
+      /\bbuild a membership plan\b/i,
+      /\bbuild a growth plan\b/i,
+    ],
+  },
+  {
+    tool: "createOperationsPlanActionDrafts",
+    patterns: [
+      /\bcreate action plan draft\b/i,
+      /\bcreate action drafts from (?:the )?plan\b/i,
+      /\bconvert plan to action drafts\b/i,
+    ],
+  },
+  {
     tool: "prepareIntelligenceActionDraft",
     patterns: [
       /\bprepare recommended action from intelligence\b/i,

@@ -194,6 +194,28 @@ export function formatNexusVoiceResponse(
       if (!risks?.length) return "No major Platform Intelligence risks are active right now.";
       return `Major risks: ${risks.map((risk) => `${risk.title} (${risk.summary})`).join("; ")}.`;
     }
+    case "generateOperationsPlan": {
+      if (actionResult.data.error) {
+        return "I could not generate an operations plan from current platform signals.";
+      }
+      const plan = actionResult.data.plan as {
+        title?: string;
+        priority?: string;
+        confidence_score?: number;
+        estimated_impact_score?: number;
+        steps?: string[];
+      };
+      const steps = Array.isArray(plan.steps) ? plan.steps.join("; ") : "";
+      return `Operations plan prepared: ${plan.title}. Priority ${plan.priority}, confidence ${plan.confidence_score}, estimated impact ${plan.estimated_impact_score}. Steps: ${steps}. Review on the founder dashboard and create Action Center drafts for approval.`;
+    }
+    case "createOperationsPlanActionDrafts": {
+      if (actionResult.data.error) {
+        return "I could not create Action Center drafts from the operations plan.";
+      }
+      const created = actionResult.data.created as Array<{ action_type: string }> | undefined;
+      const count = created?.length ?? 0;
+      return `Created ${count} Action Center draft(s) from the operations plan. All remain pending approval.`;
+    }
     case "getPlatformIntelligenceOpportunities": {
       const opportunities = actionResult.data.opportunities as Array<{ title: string; summary: string }> | undefined;
       if (!opportunities?.length) return "No major Platform Intelligence opportunities are active right now.";

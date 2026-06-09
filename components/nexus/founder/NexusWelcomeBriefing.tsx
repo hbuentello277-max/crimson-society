@@ -7,6 +7,7 @@ import { useNexusStoredState } from "@/hooks/nexus/useNexusPageState";
 import { buildFounderGreeting } from "@/lib/nexus/founder-greeting";
 import { fetchNexusClientJson } from "@/lib/nexus/client-fetch";
 import type { WelcomeBriefing } from "@/lib/proactive-intelligence/types";
+import { RecommendedPlanBanner } from "@/components/nexus/founder/RecommendedPlanBanner";
 
 const EXPANDED_STORAGE_KEY = "nexus:briefing:expanded";
 
@@ -58,6 +59,8 @@ export function NexusWelcomeBriefing() {
   if (loading || !briefing) return null;
 
   return (
+  <>
+    <RecommendedPlanBanner />
     <section className="rounded-2xl border border-[#b4141e]/35 bg-gradient-to-r from-[#120608]/95 via-[#0a0608]/95 to-black/90 shadow-[0_20px_60px_-40px_rgba(180,20,30,0.8)]">
       <button
         type="button"
@@ -107,6 +110,7 @@ export function NexusWelcomeBriefing() {
         </div>
       ) : null}
     </section>
+  </>
   );
 }
 
