@@ -9,6 +9,30 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "createFounderMemoryDraft",
+    patterns: [
+      /\bremember that\b/i,
+      /\bsave this decision\b/i,
+      /\badd this to founder memory\b/i,
+      /\bmark this as (?:a )?blocker\b/i,
+      /\bmark this as completed\b/i,
+    ],
+  },
+  {
+    tool: "queryFounderMemory",
+    patterns: [
+      /\bwhat phase are we on\b/i,
+      /\bwhat did we finish this week\b/i,
+      /\bwhat is still blocking launch\b/i,
+      /\bwhat did we decide about\b/i,
+      /\bwhat should i remember about\b/i,
+      /\bwhat was the last major issue we fixed\b/i,
+      /\bwhy did production stop deploying\b/i,
+      /\bwhat did we change about platform status\b/i,
+      /\bsummarize founder memory\b/i,
+    ],
+  },
+  {
     tool: "answerFounderQuestion",
     patterns: [
       /\bwhat should i focus on(?: today)?\b/i,
@@ -19,6 +43,12 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bwhat is the biggest risk\b/i,
       /\bhow healthy is crimson society\b/i,
       /\bwhat should i do next\b/i,
+    ],
+    exclude: [
+      /\bwhat is still blocking launch\b/i,
+      /\bwhat phase are we on\b/i,
+      /\bwhat did we finish this week\b/i,
+      /\bsummarize founder memory\b/i,
     ],
   },
   {
@@ -277,7 +307,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can give founder briefings and recommendations, answer what to focus on today, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can give founder briefings and recommendations, answer what to focus on today, what changed, launch blockers, platform health, and founder memory questions, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, observations, and founder memory.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

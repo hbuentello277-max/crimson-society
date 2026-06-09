@@ -1,3 +1,4 @@
+import type { MemoryCategory } from "@/lib/memory/categories";
 import type { NexusMemoryEntryType } from "@/lib/nexus/constants";
 
 export type MemoryEntryDbRow = {
@@ -37,6 +38,17 @@ export type CreateOwnerNoteInput = {
   summary: string;
   importance_score?: number;
   occurred_at?: string;
+};
+
+export type CreateFounderMemoryInput = {
+  title: string;
+  summary: string;
+  memory_category: MemoryCategory;
+  importance_score?: number;
+  occurred_at?: string;
+  source?: "voice" | "manual" | "system";
+  entry_type?: Extract<NexusMemoryEntryType, "owner_note" | "milestone">;
+  metadata?: Record<string, unknown>;
 };
 
 export type UpdateOwnerNoteInput = {

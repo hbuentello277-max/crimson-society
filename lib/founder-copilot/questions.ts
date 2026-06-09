@@ -9,6 +9,7 @@ import { getFounderTimeline } from "@/lib/founder-copilot/timeline";
 import { computeLaunchReadiness } from "@/lib/proactive-intelligence/launch-readiness";
 import { buildFounderPriorityEngine } from "@/lib/proactive-intelligence/priority-engine";
 import { detectProactiveAlerts } from "@/lib/proactive-intelligence/proactive-alerts";
+import { getRelevantMemoryContext, retrieveFounderMemory } from "@/lib/memory/retrieval";
 import type { FounderQuestionType } from "@/lib/founder-copilot/types";
 
 export type FounderQuestionResult = {
@@ -28,6 +29,9 @@ export function resolveFounderQuestionType(transcript: string): FounderQuestionT
   if (/\bwhat is the biggest risk\b/i.test(normalized)) return "biggest_risk";
   if (/\bhow healthy is crimson society\b/i.test(normalized)) return "platform_health";
   if (/\bwhat should i do next\b/i.test(normalized)) return "next_steps";
+  if (/\bwhat phase are we on\b/i.test(normalized)) return "phase_status";
+  if (/\bwhat did we finish this week\b/i.test(normalized)) return "completed_this_week";
+  if (/\bsummarize founder memory\b/i.test(normalized)) return "memory_summary";
 
   return null;
 }
@@ -44,15 +48,38 @@ export async function answerFounderQuestion(
       return { questionType, data: { briefing } };
     }
     case "changed_today": {
-      const timeline = await getFounderTimeline(admin);
-      return { questionType, data: { timeline } };
+      const [timeline, memoryContext] = await Promise.all([
+        getFounderTimeline(admin),
+        getRelevantMemoryContext(admin),
+      ]);
+      return { questionType, data: { timeline, memoryContext } };
     }
     case "launch_blockers": {
-      const recommendations = await getFounderRecommendations(admin);
+      const [recommendations, memory] = await Promise.all([
+        getFounderRecommendations(admin),
+        retrieveFounderMemory(admin, transcript, "launch_blockers"),
+      ]);
       return {
         questionType,
-        data: { launchBlockers: recommendations.launchBlockers, recommendations },
+        data: {
+          launchBlockers: recommendations.launchBlockers,
+          recommendations,
+          memoryBlockers: memory.memoryEntries,
+          memoryAnswer: memory.answer,
+        },
       };
+    }
+    case "phase_status": {
+      const memory = await retrieveFounderMemory(admin, transcript, "phase_status");
+      return { questionType, data: { memory } };
+    }
+    case "completed_this_week": {
+      const memory = await retrieveFounderMemory(admin, transcript, "completed_this_week");
+      return { questionType, data: { memory } };
+    }
+    case "memory_summary": {
+      const memory = await retrieveFounderMemory(admin, transcript, "summarize_memory");
+      return { questionType, data: { memory } };
     }
     case "launch_readiness": {
       const launchReadiness = await computeLaunchReadiness(admin);

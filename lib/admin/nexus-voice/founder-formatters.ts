@@ -1,4 +1,5 @@
 import type { FounderBriefing, FounderRecommendations, FounderTimeline } from "@/lib/founder-copilot/types";
+import type { MemoryRetrievalResult } from "@/lib/memory/retrieval";
 import type { LaunchReadiness, MorningBriefing } from "@/lib/proactive-intelligence/types";
 import type { FounderQuestionResult } from "@/lib/founder-copilot/questions";
 import type { NexusVoiceActionResult } from "@/lib/admin/nexus-voice/types";
@@ -7,6 +8,18 @@ function partialSuffix(result: NexusVoiceActionResult): string {
   if (!result.partial && !result.warnings?.length) return "";
   const warning = result.warnings?.[0] ?? "Some founder data may be incomplete.";
   return ` ${warning}`;
+}
+
+export function formatFounderMemoryResponse(actionResult: NexusVoiceActionResult): string {
+  const memory = actionResult.data.memory as MemoryRetrievalResult | undefined;
+  if (!memory) {
+    return "I could not retrieve founder memory right now.";
+  }
+
+  const related =
+    memory.relatedSignals.length > 0 ? ` Related signals: ${memory.relatedSignals.join("; ")}.` : "";
+
+  return `${memory.answer}${related}${partialSuffix(actionResult)}`;
 }
 
 export function formatMorningBriefingResponse(actionResult: NexusVoiceActionResult): string {
@@ -136,10 +149,15 @@ export function formatFounderQuestionResponse(actionResult: NexusVoiceActionResu
     }
     case "launch_blockers": {
       const blockers = result.data.launchBlockers as string[];
-      if (!blockers || blockers.length === 0) {
-        return "No major launch blockers detected from alerts, incidents, jobs, or reports.";
+      const memoryBlockers = result.data.memoryBlockers as Array<{ title: string }> | undefined;
+      const combined = [
+        ...(memoryBlockers?.map((entry) => entry.title) ?? []),
+        ...(blockers ?? []),
+      ];
+      if (combined.length === 0) {
+        return "No major launch blockers detected from memory, alerts, incidents, jobs, or reports.";
       }
-      return `Launch blockers: ${blockers.join("; ")}.`;
+      return `Launch blockers: ${[...new Set(combined)].join("; ")}.`;
     }
     case "launch_readiness": {
       const launchReadiness = result.data.launchReadiness as LaunchReadiness;
@@ -171,6 +189,12 @@ export function formatFounderQuestionResponse(actionResult: NexusVoiceActionResu
         return "Focus today on maintaining platform stability and reviewing Platform Status.";
       }
       return `Focus today: ${focus.map((item) => `${item.title} (${item.reason})`).join("; ")}.`;
+    }
+    case "phase_status":
+    case "completed_this_week":
+    case "memory_summary": {
+      const memory = result.data.memory as MemoryRetrievalResult;
+      return memory?.answer ?? "No founder memory context available right now.";
     }
     case "next_steps":
     case "general": {

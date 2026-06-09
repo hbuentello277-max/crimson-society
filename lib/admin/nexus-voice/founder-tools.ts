@@ -4,6 +4,7 @@ import { generateMorningBriefing } from "@/lib/proactive-intelligence/morning-br
 import { answerFounderQuestion } from "@/lib/founder-copilot/questions";
 import { getFounderRecommendations } from "@/lib/founder-copilot/recommendations";
 import { getFounderTimeline } from "@/lib/founder-copilot/timeline";
+import { retrieveFounderMemory } from "@/lib/memory/retrieval";
 import type { NexusVoiceActionResult, NexusVoiceFounderToolName } from "@/lib/admin/nexus-voice/types";
 
 export async function runNexusVoiceFounderTool(
@@ -44,6 +45,14 @@ export async function runNexusVoiceFounderTool(
       return {
         tool,
         data: { timeline },
+      };
+    }
+    case "queryFounderMemory": {
+      const transcript = options?.transcript?.trim() ?? "";
+      const memory = await retrieveFounderMemory(admin, transcript);
+      return {
+        tool,
+        data: { memory },
       };
     }
     case "answerFounderQuestion": {

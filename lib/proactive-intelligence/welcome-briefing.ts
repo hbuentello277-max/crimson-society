@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFounderTimeline } from "@/lib/founder-copilot/timeline";
 import { buildFounderPriorityEngine } from "@/lib/proactive-intelligence/priority-engine";
+import { getRelevantMemoryContext } from "@/lib/memory/retrieval";
 import { detectProactiveAlerts } from "@/lib/proactive-intelligence/proactive-alerts";
 import type { WelcomeBriefing } from "@/lib/proactive-intelligence/types";
 
@@ -12,9 +13,10 @@ function greetingForHour(date: Date): string {
 }
 
 export async function generateWelcomeBriefing(admin: SupabaseClient): Promise<WelcomeBriefing> {
-  const [timeline, proactive] = await Promise.all([
+  const [timeline, proactive, memoryContext] = await Promise.all([
     getFounderTimeline(admin),
     detectProactiveAlerts(admin),
+    getRelevantMemoryContext(admin),
   ]);
 
   const priority = await buildFounderPriorityEngine(admin, proactive.alerts);
@@ -22,6 +24,7 @@ export async function generateWelcomeBriefing(admin: SupabaseClient): Promise<We
   const whatChanged = [
     ...timeline.recentAccomplishments.slice(0, 2).map((entry) => entry.title),
     ...timeline.recentDecisions.slice(0, 2).map((entry) => entry.title),
+    ...memoryContext.recentDecisions.slice(0, 1).map((entry) => entry.title),
   ].slice(0, 4);
 
   if (whatChanged.length === 0) {
@@ -31,6 +34,8 @@ export async function generateWelcomeBriefing(admin: SupabaseClient): Promise<We
   const needsAttention = [
     ...proactive.alerts.slice(0, 4).map((alert) => alert.title),
     ...timeline.currentBlockers.slice(0, 2).map((entry) => entry.title),
+    ...memoryContext.blockers.slice(0, 2).map((entry) => entry.title),
+    `NEXUS Phase ${memoryContext.phaseSummary.currentPhase.phase_number}: ${memoryContext.phaseSummary.currentPhase.phase_name}`,
   ].slice(0, 5);
 
   if (needsAttention.length === 0) {

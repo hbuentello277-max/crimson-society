@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logNexusActivity } from "@/lib/nexus/activity-log";
+import { memoryCategoryLabel } from "@/lib/memory/categories";
 import type {
+  CreateFounderMemoryInput,
   CreateOwnerNoteInput,
   MemoryEntryDbRow,
   UpdateOwnerNoteInput,
@@ -19,6 +21,83 @@ export function mapMemoryRow(row: Record<string, unknown>): MemoryEntryDbRow {
     created_by: (row.created_by as string | null) ?? null,
     created_at: row.created_at as string,
   };
+}
+
+export async function createFounderMemoryEntry(
+  supabase: SupabaseClient,
+  ownerId: string,
+  input: CreateFounderMemoryInput,
+): Promise<{ ok: true; entry: MemoryEntryDbRow } | { ok: false; error: string }> {
+  const title = input.title?.trim();
+  const summary = input.summary?.trim();
+
+  if (!title || !summary) {
+    return { ok: false, error: "title and summary are required" };
+  }
+
+  const importance = input.importance_score ?? 6;
+  if (!Number.isFinite(importance) || importance < 1 || importance > 10) {
+    return { ok: false, error: "importance_score must be between 1 and 10" };
+  }
+
+  const occurredAt = input.occurred_at ?? new Date().toISOString();
+  const entryType = input.entry_type ?? "owner_note";
+  const source = input.source ?? "manual";
+  const dedupeKey =
+    typeof input.metadata?.dedupe_key === "string"
+      ? input.metadata.dedupe_key
+      : `founder_memory:${input.memory_category}:${ownerId}:${occurredAt}:${title.toLowerCase().slice(0, 48)}`;
+
+  const blockerStatus =
+    input.memory_category === "blocker"
+      ? "open"
+      : input.memory_category === "milestone"
+        ? "completed"
+        : undefined;
+
+  const { data, error } = await supabase
+    .from("nexus_memory_entries")
+    .insert({
+      entry_type: entryType,
+      title,
+      summary,
+      source,
+      importance_score: Math.round(importance),
+      occurred_at: occurredAt,
+      created_by: ownerId,
+      metadata: {
+        dedupe_key: dedupeKey,
+        manual: source !== "system",
+        memory_category: input.memory_category,
+        memory_category_label: memoryCategoryLabel(input.memory_category),
+        capture_source: source,
+        ...(blockerStatus ? { blocker_status: blockerStatus, completion_status: blockerStatus } : {}),
+        ...input.metadata,
+      },
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  const entry = mapMemoryRow(data as Record<string, unknown>);
+
+  await logNexusActivity({
+    actorId: ownerId,
+    actorType: "owner",
+    action: "nexus.memory.founder_entry.created",
+    targetType: "nexus_memory_entry",
+    targetId: entry.id,
+    details: {
+      title: entry.title,
+      memory_category: input.memory_category,
+      source,
+    },
+  });
+
+  return { ok: true, entry };
 }
 
 export async function createOwnerNote(

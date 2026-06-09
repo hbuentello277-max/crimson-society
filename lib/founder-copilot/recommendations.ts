@@ -3,18 +3,20 @@ import { getNexusCopilot } from "@/lib/copilot/engine";
 import type { FounderRecommendation, FounderRecommendations } from "@/lib/founder-copilot/types";
 import { getNexusPlatformJobsSummary } from "@/lib/nexus/cron-monitor";
 import { getNexusPlanning } from "@/lib/planning/engine";
+import { getRelevantMemoryContext } from "@/lib/memory/retrieval";
 import { loadReportContext } from "@/lib/reports/context";
 import { safeCount } from "@/lib/admin/nexus-voice/safe-query";
 
 export async function getFounderRecommendations(
   admin: SupabaseClient,
 ): Promise<FounderRecommendations> {
-  const [report, copilot, platformJobs, pendingReports, planning] = await Promise.all([
+  const [report, copilot, platformJobs, pendingReports, planning, memoryContext] = await Promise.all([
     loadReportContext(admin),
     getNexusCopilot(admin),
     getNexusPlatformJobsSummary(admin),
     safeCount(admin, "user_reports", (query) => query.eq("status", "pending")),
     getNexusPlanning(admin),
+    getRelevantMemoryContext(admin),
   ]);
 
   const recommendations: FounderRecommendation[] = [];
@@ -110,6 +112,9 @@ export async function getFounderRecommendations(
     if (risk.impact_score >= 70) {
       launchBlockers.push(risk.title);
     }
+  }
+  for (const blocker of memoryContext.blockers.slice(0, 3)) {
+    launchBlockers.push(`Memory blocker: ${blocker.title}`);
   }
 
   const warnings: string[] = [];

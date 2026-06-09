@@ -18,13 +18,18 @@ export const NEXUS_VOICE_CONFIRM_TOOLS = [
   "createAdminBriefingDraft",
   "createRunbookDraft",
   "createNexusObservationDraft",
+  "createFounderMemoryDraft",
 ] as const;
+
+/** Owner-only confirmed writes (founder memory capture). */
+export const NEXUS_VOICE_OWNER_CONFIRM_TOOLS = ["createFounderMemoryDraft"] as const;
 
 export const NEXUS_VOICE_FOUNDER_TOOLS = [
   "getFounderBriefing",
   "getMorningBriefing",
   "getFounderRecommendations",
   "getFounderTimeline",
+  "queryFounderMemory",
   "answerFounderQuestion",
 ] as const;
 
@@ -108,4 +113,8 @@ export type NexusVoiceStatus =
 
 export function isNexusVoiceConfirmTool(tool: string): tool is NexusVoiceConfirmToolName {
   return (NEXUS_VOICE_CONFIRM_TOOLS as readonly string[]).includes(tool);
+}
+
+export function isNexusVoiceOwnerConfirmTool(tool: string): boolean {
+  return (NEXUS_VOICE_OWNER_CONFIRM_TOOLS as readonly string[]).includes(tool);
 }

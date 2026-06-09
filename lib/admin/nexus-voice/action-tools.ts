@@ -7,6 +7,9 @@ import {
   parseStepsFromTranscript,
   parseTitleFromTranscript,
 } from "@/lib/admin/nexus-voice/routing";
+import { createFounderMemoryEntry } from "@/lib/memory/manager";
+import { isMemoryCategory, memoryCategoryLabel, type MemoryCategory } from "@/lib/memory/categories";
+import { parseFounderMemoryDraft } from "@/lib/memory/voice-parse";
 import { safeCount, safeSelect } from "@/lib/admin/nexus-voice/safe-query";
 import type {
   NexusVoiceActionResult,
@@ -199,6 +202,26 @@ export function buildActionDraft(
         draft,
       };
     }
+    case "createFounderMemoryDraft": {
+      const parsed = parseFounderMemoryDraft(transcript);
+      const draft = {
+        ...parsed,
+        capture_source: "voice",
+      };
+      return {
+        tool,
+        label: "Save founder memory",
+        summary: `${memoryCategoryLabel(parsed.memory_category)} — ${parsed.title}`,
+        details: {
+          memory_category: parsed.memory_category,
+          title: parsed.title,
+          summary: parsed.summary,
+          importance: parsed.importance_score,
+          source: "voice",
+        },
+        draft,
+      };
+    }
     default:
       throw new Error("Unsupported draft action.");
   }
@@ -301,6 +324,42 @@ export async function executeConfirmedAction(
       return {
         tool,
         data: { runbookId: result.runbook.id, slug: result.runbook.slug, title: result.runbook.title },
+      };
+    }
+    case "createFounderMemoryDraft": {
+      const title = String(draft.title ?? "Founder memory").slice(0, 120);
+      const summary = String(draft.summary ?? "").slice(0, 2000);
+      const rawCategory = String(draft.memory_category ?? "business_note");
+      const memoryCategory: MemoryCategory = isMemoryCategory(rawCategory)
+        ? rawCategory
+        : "business_note";
+      const entryType = draft.entry_type === "milestone" ? "milestone" : "owner_note";
+
+      const result = await createFounderMemoryEntry(admin, userId, {
+        title,
+        summary,
+        memory_category: memoryCategory,
+        importance_score: Number(draft.importance_score ?? 6),
+        source: "voice",
+        entry_type: entryType,
+        metadata: {
+          capture_source: "voice",
+          voice_confirmed_at: new Date().toISOString(),
+        },
+      });
+
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+
+      return {
+        tool,
+        data: {
+          entryId: result.entry.id,
+          title: result.entry.title,
+          memory_category: memoryCategory,
+          importance: result.entry.importance_score,
+        },
       };
     }
     case "createNexusObservationDraft": {

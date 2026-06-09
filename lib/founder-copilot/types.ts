@@ -99,5 +99,8 @@ export type FounderQuestionType =
   | "changed_today"
   | "biggest_risk"
   | "platform_health"
+  | "phase_status"
+  | "completed_this_week"
+  | "memory_summary"
   | "next_steps"
   | "general";

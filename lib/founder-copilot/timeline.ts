@@ -6,7 +6,7 @@ import { loadReportContext } from "@/lib/reports/context";
 
 const ACCOMPLISHMENT_TYPES = new Set(["milestone", "growth", "revenue", "deployment"]);
 const DECISION_TYPES = new Set(["command", "briefing", "report", "owner_note", "intelligence"]);
-const BLOCKER_TYPES = new Set(["incident", "alert"]);
+const BLOCKER_TYPES = new Set(["incident", "alert", "owner_note"]);
 
 function mapEntry(entry: {
   id: string;
@@ -57,7 +57,10 @@ export async function getFounderTimeline(admin: SupabaseClient): Promise<Founder
     .map(mapEntry);
 
   const memoryBlockers = recentEntries
-    .filter((entry) => BLOCKER_TYPES.has(entry.entry_type))
+    .filter((entry) => {
+      if (BLOCKER_TYPES.has(entry.entry_type)) return true;
+      return entry.metadata?.memory_category === "blocker" || entry.metadata?.memory_category === "launch_status";
+    })
     .slice(0, 4)
     .map(mapEntry);
 

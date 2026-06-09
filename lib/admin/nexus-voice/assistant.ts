@@ -18,7 +18,11 @@ import type {
   NexusVoiceConfirmToolName,
   NexusVoiceToolName,
 } from "@/lib/admin/nexus-voice/types";
-import { NEXUS_VOICE_CONFIRM_TOOLS, NEXUS_VOICE_FOUNDER_TOOLS } from "@/lib/admin/nexus-voice/types";
+import {
+  NEXUS_VOICE_CONFIRM_TOOLS,
+  NEXUS_VOICE_FOUNDER_TOOLS,
+  isNexusVoiceOwnerConfirmTool,
+} from "@/lib/admin/nexus-voice/types";
 
 export { resolveNexusVoiceTool, NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
 export { formatNexusVoiceResponse } from "@/lib/admin/nexus-voice/formatters";
@@ -87,6 +91,14 @@ export async function runNexusVoiceAssistant(
   }
 
   if (isConfirmTool(tool)) {
+    if (isNexusVoiceOwnerConfirmTool(tool) && options.isPlatformOwner !== true) {
+      return {
+        transcript: trimmed,
+        response: "Founder memory capture is available to platform owners only.",
+        tool: null,
+      };
+    }
+
     const draft = buildActionDraft(tool, trimmed);
     const { token, expiresAt } = createNexusVoiceConfirmationToken({
       userId,

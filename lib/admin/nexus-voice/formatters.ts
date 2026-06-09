@@ -1,5 +1,6 @@
 import {
   formatFounderBriefingResponse,
+  formatFounderMemoryResponse,
   formatFounderQuestionResponse,
   formatFounderRecommendationsResponse,
   formatFounderTimelineResponse,
@@ -160,6 +161,8 @@ export function formatNexusVoiceResponse(
       return formatFounderBriefingResponse(actionResult);
     case "getMorningBriefing":
       return formatMorningBriefingResponse(actionResult);
+    case "queryFounderMemory":
+      return formatFounderMemoryResponse(actionResult);
     case "getFounderRecommendations":
       return formatFounderRecommendationsResponse(actionResult);
     case "getFounderTimeline":
@@ -184,6 +187,8 @@ export function formatNexusVoiceConfirmSuccess(
       return `Runbook created: ${actionResult.data.title}.`;
     case "createNexusObservationDraft":
       return `Observation created: ${actionResult.data.title}.`;
+    case "createFounderMemoryDraft":
+      return `Founder memory saved: ${actionResult.data.title} (${actionResult.data.memory_category}).`;
     default:
       return "Action completed successfully.";
   }
