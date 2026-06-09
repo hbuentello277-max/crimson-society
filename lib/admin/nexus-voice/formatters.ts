@@ -1,4 +1,10 @@
 import {
+  formatExecutiveBiggestOpportunityResponse,
+  formatExecutiveBiggestRiskResponse,
+  formatExecutivePrioritiesResponse,
+  formatExecutiveSummaryResponse,
+} from "@/lib/admin/nexus-voice/executive-formatters";
+import {
   formatFounderBriefingResponse,
   formatFounderQuestionResponse,
   formatFounderRecommendationsResponse,
@@ -225,6 +231,14 @@ export function formatNexusVoiceResponse(
       const actions = (actionResult.data.actions as NexusActionCard[] | undefined) ?? [];
       return formatNexusActionQueueResponse(actions);
     }
+    case "getExecutiveSummary":
+      return formatExecutiveSummaryResponse(actionResult);
+    case "getExecutivePriorities":
+      return formatExecutivePrioritiesResponse(actionResult);
+    case "getExecutiveBiggestRisk":
+      return formatExecutiveBiggestRiskResponse(actionResult);
+    case "getExecutiveBiggestOpportunity":
+      return formatExecutiveBiggestOpportunityResponse(actionResult);
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }

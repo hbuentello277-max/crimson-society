@@ -10,6 +10,12 @@ describe("resolveVoiceCommand", () => {
     assert.equal(resolveVoiceCommand("Open founder")?.href, "/admin/nexus");
   });
 
+  it("maps executive command center phrases", () => {
+    const match = resolveVoiceCommand("open executive command center");
+    assert.equal(match?.href, "/admin/nexus");
+    assert.equal(match?.label, "Executive Command Center");
+  });
+
   it("maps admin staff navigation targets", () => {
     assert.equal(resolveVoiceCommand("go to shop admin")?.href, "/admin/shop");
     assert.equal(resolveVoiceCommand("go to blackcard")?.href, "/admin/blackcard");

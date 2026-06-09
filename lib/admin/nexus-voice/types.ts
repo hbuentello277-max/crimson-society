@@ -28,6 +28,13 @@ export const NEXUS_VOICE_FOUNDER_TOOLS = [
   "answerFounderQuestion",
 ] as const;
 
+export const NEXUS_VOICE_EXECUTIVE_TOOLS = [
+  "getExecutiveSummary",
+  "getExecutivePriorities",
+  "getExecutiveBiggestRisk",
+  "getExecutiveBiggestOpportunity",
+] as const;
+
 export const NEXUS_VOICE_ACTION_CENTER_TOOLS = [
   "prepareNexusActionDraft",
   "prepareIntelligenceActionDraft",
@@ -67,6 +74,7 @@ export const NEXUS_VOICE_TOOLS = [
   ...NEXUS_VOICE_CONFIRM_TOOLS,
   ...NEXUS_VOICE_MONITORING_TOOLS,
   ...NEXUS_VOICE_FOUNDER_TOOLS,
+  ...NEXUS_VOICE_EXECUTIVE_TOOLS,
   ...NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   ...NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
   ...NEXUS_VOICE_ACTION_CENTER_TOOLS,
@@ -77,6 +85,7 @@ export type NexusVoiceActionReadToolName = (typeof NEXUS_VOICE_ACTION_READ_TOOLS
 export type NexusVoiceConfirmToolName = (typeof NEXUS_VOICE_CONFIRM_TOOLS)[number];
 export type NexusVoiceMonitoringToolName = (typeof NEXUS_VOICE_MONITORING_TOOLS)[number];
 export type NexusVoiceFounderToolName = (typeof NEXUS_VOICE_FOUNDER_TOOLS)[number];
+export type NexusVoiceExecutiveToolName = (typeof NEXUS_VOICE_EXECUTIVE_TOOLS)[number];
 export type NexusVoiceActionCenterToolName = (typeof NEXUS_VOICE_ACTION_CENTER_TOOLS)[number];
 export type NexusVoiceCrossSystemToolName = (typeof NEXUS_VOICE_CROSS_SYSTEM_TOOLS)[number];
 export type NexusVoiceOperationsPlannerToolName =

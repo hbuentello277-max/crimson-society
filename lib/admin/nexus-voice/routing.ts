@@ -9,6 +9,40 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "getExecutiveSummary",
+    patterns: [
+      /\bgive me (?:an |the )?executive summary\b/i,
+      /\bexecutive summary\b/i,
+      /\bwhat should i focus on right now\b/i,
+      /\bwhat should i focus on now\b/i,
+    ],
+    exclude: [/\btoday(?:'s|s)? priorities\b/i],
+  },
+  {
+    tool: "getExecutivePriorities",
+    patterns: [
+      /\bshow today(?:'s|s)? priorities\b/i,
+      /\btoday(?:'s|s)? priorities\b/i,
+      /\bwhat are (?:my |today(?:'s|s)? )priorities\b/i,
+    ],
+  },
+  {
+    tool: "getExecutiveBiggestRisk",
+    patterns: [
+      /\bwhat is the biggest risk today\b/i,
+      /\bwhat(?:'s| is) the biggest risk today\b/i,
+      /\bbiggest risk today\b/i,
+    ],
+  },
+  {
+    tool: "getExecutiveBiggestOpportunity",
+    patterns: [
+      /\bwhat is the biggest opportunity today\b/i,
+      /\bwhat(?:'s| is) the biggest opportunity today\b/i,
+      /\bbiggest opportunity today\b/i,
+    ],
+  },
+  {
     tool: "getPlatformIntelligenceBriefing",
     patterns: [
       /\bwhy is revenue down\b/i,
@@ -80,6 +114,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bwhat actions (?:are )?waiting for approval\b/i,
       /\bwhat should i approve today\b/i,
       /\bwhat actions need approval\b/i,
+      /\bwhat needs approval\b/i,
       /\bwhat marketing actions have been prepared\b/i,
       /\bpending actions\b/i,
     ],
@@ -96,6 +131,13 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bwhat is the biggest risk\b/i,
       /\bhow healthy is crimson society\b/i,
       /\bwhat should i do next\b/i,
+    ],
+    exclude: [
+      /\bright now\b/i,
+      /\bexecutive summary\b/i,
+      /\bbiggest risk today\b/i,
+      /\bbiggest opportunity today\b/i,
+      /\btoday(?:'s|s)? priorities\b/i,
     ],
   },
   {
@@ -381,7 +423,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can give founder briefings and recommendations, answer what to focus on today, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can open the Executive Command Center, give founder briefings and executive summaries, show today's priorities, answer what to focus on, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

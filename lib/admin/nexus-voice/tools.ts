@@ -7,10 +7,12 @@ import { runNexusVoiceActionCenterTool } from "@/lib/admin/nexus-voice/action-ce
 import { runNexusCrossSystemVoiceTool } from "@/lib/admin/nexus-voice/cross-system-tools";
 import { runNexusOperationsPlannerVoiceTool } from "@/lib/admin/nexus-voice/operations-planner-tools";
 import { runNexusVoiceFounderTool } from "@/lib/admin/nexus-voice/founder-tools";
+import { runNexusVoiceExecutiveTool } from "@/lib/admin/nexus-voice/executive-tools";
 import {
   NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_ACTION_READ_TOOLS,
   NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
+  NEXUS_VOICE_EXECUTIVE_TOOLS,
   NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
   NEXUS_VOICE_MONITORING_TOOLS,
@@ -211,6 +213,12 @@ function isOperationsPlannerTool(
   return (NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS as readonly string[]).includes(tool);
 }
 
+function isExecutiveTool(
+  tool: NexusVoiceToolName,
+): tool is (typeof NEXUS_VOICE_EXECUTIVE_TOOLS)[number] {
+  return (NEXUS_VOICE_EXECUTIVE_TOOLS as readonly string[]).includes(tool);
+}
+
 export type NexusVoiceToolOptions = {
   transcript?: string;
   ownerId?: string;
@@ -235,6 +243,10 @@ export async function runNexusVoiceTool(
 
   if (isFounderTool(tool)) {
     return runNexusVoiceFounderTool(tool, admin, options);
+  }
+
+  if (isExecutiveTool(tool)) {
+    return runNexusVoiceExecutiveTool(tool, admin);
   }
 
   if (isCrossSystemTool(tool)) {

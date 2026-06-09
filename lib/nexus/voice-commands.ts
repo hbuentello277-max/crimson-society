@@ -29,6 +29,17 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     access: "owner",
   },
   {
+    phrases: [
+      "open executive command center",
+      "executive command center",
+      "open command center",
+      "executive summary",
+    ],
+    href: "/admin/nexus",
+    label: "Executive Command Center",
+    access: "owner",
+  },
+  {
     phrases: ["go to shop admin", "open shop admin", "shop admin", "open shop"],
     href: "/admin/shop",
     label: "Shop Admin",

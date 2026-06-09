@@ -1,15 +1,8 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { ExecutiveCommandCenter } from "@/components/nexus/executive/ExecutiveCommandCenter";
 import { buildOrbitMetrics, FounderHero } from "@/components/nexus/founder/FounderHero";
-import { FounderBriefCard } from "@/components/nexus/founder/FounderBriefCard";
-import { MorningBriefingCard } from "@/components/nexus/founder/MorningBriefingCard";
-import { FounderSnapshotStrip } from "@/components/nexus/founder/FounderSnapshotStrip";
-import { FounderPriorityList } from "@/components/nexus/founder/FounderPriorityList";
-import { FounderOpportunityGrid } from "@/components/nexus/founder/FounderOpportunityGrid";
-import { FounderQuickActions } from "@/components/nexus/founder/FounderQuickActions";
-import { PlatformIntelligenceSection } from "@/components/nexus/founder/PlatformIntelligenceSection";
-import { OperationsPlannerSection } from "@/components/nexus/founder/OperationsPlannerSection";
 import { NexusLoadingPanel } from "@/components/nexus/NexusShared";
 import { useNexusFounderDashboard } from "@/hooks/nexus/useNexusFounderDashboard";
 import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
@@ -26,9 +19,6 @@ export function NexusFounderDashboard() {
     observations,
     commands,
     platformStatus,
-    brief,
-    priorities,
-    opportunities,
     errors,
     loading,
     refresh,
@@ -61,23 +51,6 @@ export function NexusFounderDashboard() {
         insights: observations?.counts?.active ?? null,
       }),
     [alerts, commands, health, incidents, metrics, mission, observations],
-  );
-
-  const snapshot = useMemo(
-    () => ({
-      totalMembers: metrics?.growth?.total_users ?? null,
-      newMembers: metrics?.growth?.new_users_this_week ?? null,
-      activeProfiles: metrics?.growth?.active_profiles ?? null,
-      blackcardMembers: metrics?.blackcard?.active_members ?? null,
-      estimatedMrr: metrics?.revenue?.estimated_mrr ?? null,
-      estimatedArr: metrics?.revenue?.estimated_arr ?? null,
-      openAlerts: alerts?.counts?.active ?? null,
-      openIncidents: incidents?.open?.length ?? null,
-      activeInsights: observations?.counts?.active ?? null,
-      pendingCommands:
-        (commands?.counts?.suggested ?? 0) + (commands?.counts?.pending_approval ?? 0),
-    }),
-    [alerts, commands, incidents, metrics, observations],
   );
 
   if (loading) {
@@ -122,16 +95,7 @@ export function NexusFounderDashboard() {
         lastSyncedAt={lastSyncedAt}
       />
 
-      <MorningBriefingCard />
-      <PlatformIntelligenceSection />
-      <OperationsPlannerSection />
-      <FounderBriefCard brief={brief} />
-
-      <FounderSnapshotStrip snapshot={snapshot} />
-
-      <FounderPriorityList priorities={priorities} />
-      <FounderOpportunityGrid opportunities={opportunities} />
-      <FounderQuickActions />
+      <ExecutiveCommandCenter onRefresh={handleSync} />
     </div>
   );
 }
