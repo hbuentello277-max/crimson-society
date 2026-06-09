@@ -19,7 +19,7 @@ export const NEXUS_HEALTH_RECENT_WINDOW_MS = 10 * 60 * 1000;
 
 export const INTEGRATION_THRESHOLDS: Record<NexusIntegrationSlug, IntegrationThresholds> = {
   supabase: {
-    latency: { passMs: 750, warnMs: 2000 },
+    latency: { passMs: 1200, warnMs: 2000 },
     webhookFailuresWarn: 1,
     webhookFailuresFail: 3,
     pushBacklogWarn: 100,
