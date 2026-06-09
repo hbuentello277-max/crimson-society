@@ -32,6 +32,7 @@ export type ProductRowPatch = {
   inventory_total?: number | null;
   inventory_remaining?: number | null;
   size_inventory?: SizeInventoryMap | null;
+  linked_merch_product_id?: string | null;
 };
 
 function isProductStatus(value: unknown): value is ProductStatus {
@@ -115,6 +116,11 @@ export function sanitizeProductPatch(
   }
   if (patch.size_inventory !== undefined) {
     out.size_inventory = patch.size_inventory;
+  }
+  if (patch.linked_merch_product_id !== undefined) {
+    const value = patch.linked_merch_product_id;
+    out.linked_merch_product_id =
+      value === null || value === "" ? null : String(value).trim() || null;
   }
 
   return out;

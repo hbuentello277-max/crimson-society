@@ -1,25 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { useState } from "react";
-import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
+import type { CreditsRewardBuyProduct, CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
 import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
 import {
   CRIMSON_CREDIT_SHIRT_SIZES,
   formatRewardCategoryLabel,
   getRewardActionState,
+  rewardRequiresShirtSizeForAction,
+  rewardSizeInventoryForAction,
 } from "@/lib/credits/rewards-ui";
 import { SCALAR_INVENTORY_KEY } from "@/lib/shop/inventory";
 import type { CreditsRewardsSummary } from "@/lib/credits/rewards-api-types";
+import { RewardActionButtons } from "@/components/credits/RewardActionButtons";
 
 type Props = {
   reward: CreditsRewardCatalogItem;
   summary: CreditsRewardsSummary;
   onRedeem: (reward: CreditsRewardCatalogItem, shirtSize: string | null) => void;
+  onBuyNow?: (buyProduct: CreditsRewardBuyProduct, shirtSize: string | null) => void;
 };
 
-export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
+export function CreditRewardCard({ reward, summary, onRedeem, onBuyNow }: Props) {
   const [shirtSize, setShirtSize] = useState<string | null>(null);
 
   const action = getRewardActionState({
@@ -33,12 +36,21 @@ export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
     sizeInventory: reward.size_inventory,
     requiresShirtSize: reward.requires_shirt_size,
     selectedShirtSize: shirtSize,
+    buyProduct: reward.buy_product,
   });
 
-  const shirtSizes = reward.requires_shirt_size
-    ? reward.size_inventory
-      ? Object.keys(reward.size_inventory).filter((k) => k !== SCALAR_INVENTORY_KEY)
-      : [...CRIMSON_CREDIT_SHIRT_SIZES]
+  const requiresSize = rewardRequiresShirtSizeForAction(
+    reward.requires_shirt_size,
+    reward.buy_product,
+    action,
+  );
+  const sizeInventory = rewardSizeInventoryForAction(reward.size_inventory, reward.buy_product);
+  const shirtSizes = requiresSize
+    ? sizeInventory
+      ? Object.keys(sizeInventory).filter((k) => k !== SCALAR_INVENTORY_KEY)
+      : reward.buy_product?.sizes?.length
+        ? reward.buy_product.sizes
+        : [...CRIMSON_CREDIT_SHIRT_SIZES]
     : [];
 
   const limitedStock =
@@ -79,46 +91,27 @@ export function CreditRewardCard({ reward, summary, onRedeem }: Props) {
         </div>
       </div>
 
-      {reward.requires_shirt_size ? (
+      {requiresSize ? (
         <div className="border-t border-white/8 px-3.5 py-3">
           <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Shirt size</p>
           <div className="mt-2">
             <SizeSelectorButtons
               sizes={shirtSizes.length > 0 ? shirtSizes : [...CRIMSON_CREDIT_SHIRT_SIZES]}
-              sizeInventory={reward.size_inventory}
+              sizeInventory={sizeInventory}
               selected={shirtSize}
               onSelect={setShirtSize}
-              disabled={action.kind === "upgrade"}
+              disabled={action.kind === "disabled" && action.message !== "Select a size"}
             />
           </div>
         </div>
       ) : null}
 
       <div className="border-t border-white/8 px-3.5 py-3">
-        {action.kind === "upgrade" ? (
-          <Link
-            href="/blackcard"
-            className="flex min-h-11 w-full items-center justify-center rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-4 text-xs uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:border-[#b4141e]/75 hover:bg-[#b4141e]/20"
-          >
-            Upgrade to Blackcard to Redeem
-          </Link>
-        ) : action.kind === "disabled" ? (
-          <button
-            type="button"
-            disabled
-            className="flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs uppercase tracking-[0.18em] text-zinc-600"
-          >
-            {action.message}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onRedeem(reward, shirtSize)}
-            className="flex min-h-11 w-full items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-4 text-xs uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:border-[#b4141e]/80 hover:bg-[#b4141e]/30"
-          >
-            Redeem
-          </button>
-        )}
+        <RewardActionButtons
+          action={action}
+          onRedeem={() => onRedeem(reward, shirtSize)}
+          onBuyNow={(buyProduct) => onBuyNow?.(buyProduct, shirtSize)}
+        />
       </div>
     </article>
   );

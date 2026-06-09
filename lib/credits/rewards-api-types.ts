@@ -13,6 +13,18 @@ export type CreditsRewardsSummary = {
   can_redeem: boolean;
 };
 
+/** Purchasable merch product linked to a credit reward for Buy Now fallback. */
+export type CreditsRewardBuyProduct = {
+  product_id: string;
+  slug: string;
+  title: string;
+  price: number;
+  requires_shirt_size: boolean;
+  sizes: string[];
+  size_inventory: SizeInventoryMap | null;
+  inventory_remaining: number | null;
+};
+
 /** `id` is the crimson_credit_rewards row used by redeem RPC. */
 export type CreditsRewardCatalogItem = {
   id: string;
@@ -31,6 +43,7 @@ export type CreditsRewardCatalogItem = {
   requires_shirt_size: boolean;
   is_active: boolean;
   sort_order: number;
+  buy_product: CreditsRewardBuyProduct | null;
 };
 
 export type CreditsRewardsCatalogResponse = {

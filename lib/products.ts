@@ -38,6 +38,7 @@ export type Product = {
   inventory_remaining: number | null;
   size_inventory: SizeInventoryMap | null;
   credit_reward_id: string | null;
+  linked_merch_product_id: string | null;
 };
 
 export const categoryLabels: Record<Category, string> = {

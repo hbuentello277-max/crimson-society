@@ -417,6 +417,7 @@ function AdminShopPageInner() {
                   <AdminProductEditor
                     key="admin-new-product"
                     isNew
+                    merchProducts={products}
                     disabled={creating}
                     onBack={closeEditor}
                     onSave={createProductFromPatch}
@@ -427,6 +428,7 @@ function AdminShopPageInner() {
                   <AdminProductEditor
                     key={editingProduct.id}
                     product={editingProduct}
+                    merchProducts={products}
                     disabled={savingId === editingProduct.id}
                     onBack={closeEditor}
                     onSave={(patch) => updateProduct(editingProduct.id, patch)}

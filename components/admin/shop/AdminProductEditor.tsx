@@ -22,6 +22,7 @@ import {
   ProductType,
   formatCreditCost,
   formatPrice,
+  isMerchProduct,
 } from "@/lib/products";
 
 const STATUS_OPTIONS: { value: ProductStatus; label: string }[] = [
@@ -46,6 +47,7 @@ export type AdminProductSaveOptions = {
 
 type Props = {
   product?: Product;
+  merchProducts?: Product[];
   isNew?: boolean;
   disabled?: boolean;
   onSave: (patch: Partial<Product>, options?: AdminProductSaveOptions) => Promise<void>;
@@ -64,6 +66,7 @@ function inputClass() {
 
 export function AdminProductEditor({
   product,
+  merchProducts = [],
   isNew = false,
   disabled = false,
   onSave,
@@ -93,6 +96,7 @@ export function AdminProductEditor({
     badge: product?.badge ?? null,
     category: product?.category ?? "accessories",
     credit_reward_id: product?.credit_reward_id ?? null,
+    linked_merch_product_id: product?.linked_merch_product_id ?? null,
   }));
   const [saving, setSaving] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -100,6 +104,17 @@ export function AdminProductEditor({
 
   const isCreditReward = productType === "credit_reward";
   const usePerSizeInventory = !isCreditReward || Boolean(draft.requires_shirt_size);
+  const linkedMerchOptions = useMemo(
+    () =>
+      merchProducts.filter(
+        (item) =>
+          isMerchProduct(item) &&
+          item.id !== product?.id &&
+          item.status !== "archived" &&
+          Number(item.price) > 0,
+      ),
+    [merchProducts, product?.id],
+  );
 
   const title = isNew
     ? "New product"
@@ -199,6 +214,7 @@ export function AdminProductEditor({
             : [...STANDARD_SHIRT_SIZES]
           : [];
         patch.category = "accessories";
+        patch.linked_merch_product_id = draft.linked_merch_product_id ?? null;
       } else {
         const price = Number(draft.price);
         patch.price = Number.isFinite(price) && price > 0 ? Math.round(price * 100) / 100 : 0;
@@ -360,6 +376,33 @@ export function AdminProductEditor({
                     Community
                   </option>
                 </select>
+              </div>
+              <div>
+                <label className={labelClass()}>Buy Now merch link</label>
+                <select
+                  value={draft.linked_merch_product_id ?? ""}
+                  disabled={disabled || saving}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      linked_merch_product_id: e.target.value ? e.target.value : null,
+                    }))
+                  }
+                  className={inputClass()}
+                >
+                  <option value="" className="bg-black">
+                    No linked merch product
+                  </option>
+                  {linkedMerchOptions.map((item) => (
+                    <option key={item.id} value={item.id} className="bg-black">
+                      {item.name} · {formatPrice(item.price)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] leading-5 text-zinc-600">
+                  When members cannot redeem with credits, Shop shows Buy Now and routes checkout to
+                  this merch product. No credits are spent.
+                </p>
               </div>
               <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <input

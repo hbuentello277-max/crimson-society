@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
+import { mapProductToBuyProduct } from "@/lib/credits/buy-product";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
 import { memberCanRedeemFromProfileAndSubscription } from "@/lib/credits/member-redeem-eligibility";
 import type { CreditsRewardCatalogItem, CreditsRewardsCatalogResponse } from "@/lib/credits/rewards-api-types";
 import type { MembershipRow } from "@/lib/membership";
+import type { Product } from "@/lib/products";
 import { parseSizeInventory } from "@/lib/shop/inventory";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const PRODUCT_COLUMNS =
-  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, size_inventory, requires_shirt_size, status, sort_order, credit_reward_id";
+  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, size_inventory, requires_shirt_size, status, sort_order, credit_reward_id, linked_merch_product_id";
+
+const MERCH_PRODUCT_COLUMNS =
+  "id, slug, name, price, sizes, size_inventory, inventory_remaining, requires_shirt_size, status, product_type";
 
 export async function GET(request: Request) {
   const auth = await getAuthedSupabaseFromRequest(request);
@@ -77,32 +82,60 @@ export async function GET(request: Request) {
   const balance =
     (summaryResult.data as { credits_balance?: number } | null)?.credits_balance ?? 0;
 
-  const rewards: CreditsRewardCatalogItem[] = (productsResult.data ?? [])
-    .filter((row) => row.credit_reward_id)
-    .map((row) => {
-      const outOfStock =
-        row.status === "out_of_stock" ||
-        (row.inventory_remaining != null && row.inventory_remaining <= 0);
+  const rewardRows = (productsResult.data ?? []).filter((row) => row.credit_reward_id);
+  const linkedMerchIds = [
+    ...new Set(
+      rewardRows
+        .map((row) => row.linked_merch_product_id as string | null)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
 
-      return {
-        id: row.credit_reward_id as string,
-        product_id: row.id,
-        slug: row.slug,
-        title: row.name,
-        description: row.description,
-        credit_cost: row.credit_cost ?? 0,
-        reward_category: row.reward_category as CreditsRewardCatalogItem["reward_category"],
-        reward_kind: row.reward_kind as CreditsRewardCatalogItem["reward_kind"],
-        metadata: {},
-        image_url: row.images?.[0] ?? null,
-        inventory_total: row.inventory_total,
-        inventory_remaining: outOfStock ? 0 : row.inventory_remaining,
-        size_inventory: parseSizeInventory(row.size_inventory),
-        requires_shirt_size: Boolean(row.requires_shirt_size),
-        is_active: row.status !== "coming_soon" && row.status !== "archived",
-        sort_order: row.sort_order ?? 0,
-      };
-    });
+  const merchById = new Map<string, Product>();
+  if (linkedMerchIds.length > 0) {
+    const { data: merchRows, error: merchError } = await auth.supabase
+      .from("products")
+      .select(MERCH_PRODUCT_COLUMNS)
+      .in("id", linkedMerchIds);
+
+    if (merchError) {
+      return NextResponse.json({ error: merchError.message }, { status: 500 });
+    }
+
+    for (const row of merchRows ?? []) {
+      merchById.set(row.id as string, row as Product);
+    }
+  }
+
+  const rewards: CreditsRewardCatalogItem[] = rewardRows.map((row) => {
+    const outOfStock =
+      row.status === "out_of_stock" ||
+      (row.inventory_remaining != null && row.inventory_remaining <= 0);
+
+    const linkedMerch = row.linked_merch_product_id
+      ? merchById.get(row.linked_merch_product_id as string)
+      : undefined;
+
+    return {
+      id: row.credit_reward_id as string,
+      product_id: row.id,
+      slug: row.slug,
+      title: row.name,
+      description: row.description,
+      credit_cost: row.credit_cost ?? 0,
+      reward_category: row.reward_category as CreditsRewardCatalogItem["reward_category"],
+      reward_kind: row.reward_kind as CreditsRewardCatalogItem["reward_kind"],
+      metadata: {},
+      image_url: row.images?.[0] ?? null,
+      inventory_total: row.inventory_total,
+      inventory_remaining: outOfStock ? 0 : row.inventory_remaining,
+      size_inventory: parseSizeInventory(row.size_inventory),
+      requires_shirt_size: Boolean(row.requires_shirt_size),
+      is_active: row.status !== "coming_soon" && row.status !== "archived",
+      sort_order: row.sort_order ?? 0,
+      buy_product: linkedMerch ? mapProductToBuyProduct(linkedMerch) : null,
+    };
+  });
 
   const payload: CreditsRewardsCatalogResponse = {
     rewards,
