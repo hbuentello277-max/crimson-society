@@ -8,7 +8,7 @@ import { requireOwnerSession } from "@/lib/nexus/auth";
 
 describe("executive summary composition", () => {
   it("exposes the current NEXUS phase constant", () => {
-    assert.equal(NEXUS_CURRENT_PHASE, 14);
+    assert.equal(NEXUS_CURRENT_PHASE, 15);
   });
 
   it("ranks launch blockers and proactive alerts ahead of opportunities", () => {

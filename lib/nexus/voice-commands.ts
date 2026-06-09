@@ -17,6 +17,20 @@ type VoiceCommandDefinition = {
 export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
   {
     phrases: [
+      "open copilot mode",
+      "open mobile copilot",
+      "copilot mode",
+      "open founder copilot",
+      "show founder snapshot",
+      "open launch plan",
+      "show launch plan",
+    ],
+    href: "/admin/nexus/copilot",
+    label: "Mobile Copilot",
+    access: "owner",
+  },
+  {
+    phrases: [
       "open founder",
       "open founder dashboard",
       "founder dashboard",
@@ -37,6 +51,18 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     ],
     href: "/admin/nexus",
     label: "Executive Command Center",
+    access: "owner",
+  },
+  {
+    phrases: ["show my founder dashboard", "open founder dashboard home"],
+    href: "/admin/nexus",
+    label: "Founder",
+    access: "owner",
+  },
+  {
+    phrases: ["open approvals", "open approval inbox", "show approvals"],
+    href: "/admin/nexus/actions",
+    label: "Actions",
     access: "owner",
   },
   {

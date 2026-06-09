@@ -168,7 +168,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/nexus/copilot",
-    label: "Copilot",
+    label: "Mobile Copilot",
     icon: NexusNavCopilotIcon,
   },
   {
@@ -249,10 +249,14 @@ function NavLink({
 export function NexusShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const founderHome = pathname === "/admin/nexus";
-  const showSectionNav = !founderHome;
+  const mobileCopilot = pathname === "/admin/nexus/copilot";
+  const showSectionNav = !founderHome && !mobileCopilot;
 
   return (
-    <NexusVoiceAssistantShell enabled={true}>
+    <NexusVoiceAssistantShell
+      enabled={true}
+      floatingClassName={mobileCopilot ? "hidden" : undefined}
+    >
     <main className="relative min-h-screen overflow-x-hidden bg-[#010101] text-white">
       <div
         aria-hidden
@@ -327,10 +331,10 @@ export function NexusShell({ children }: { children: ReactNode }) {
 
           <div
             className={`flex min-h-0 flex-1 flex-col px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-4 ${
-              founderHome ? "pt-1 lg:pt-2" : "py-3 lg:py-4"
+              founderHome || mobileCopilot ? "pt-1 lg:pt-2" : "py-3 lg:py-4"
             }`}
           >
-            <NexusWelcomeBriefing />
+            {mobileCopilot ? null : <NexusWelcomeBriefing />}
             {children}
           </div>
         </div>

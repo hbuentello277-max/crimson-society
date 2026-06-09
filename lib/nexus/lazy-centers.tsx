@@ -43,8 +43,8 @@ export const LazyNexusOperationalIntelligenceCenter = lazyCenter(
   "NexusOperationalIntelligenceCenter",
 );
 export const LazyNexusCopilotCenter = lazyCenter(
-  () => import("@/components/nexus/NexusCopilotCenter"),
-  "NexusCopilotCenter",
+  () => import("@/components/nexus/mobile-copilot/MobileCopilotCenter"),
+  "MobileCopilotCenter",
 );
 export const LazyNexusForecastingCenter = lazyCenter(
   () => import("@/components/nexus/NexusForecastingCenter"),

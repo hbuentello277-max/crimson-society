@@ -62,6 +62,7 @@ export function useNexusVoiceAssistant() {
   const [pendingConfirmation, setPendingConfirmation] =
     useState<NexusVoicePendingConfirmation | null>(null);
   const [history, setHistory] = useState<NexusVoiceHistoryEntry[]>(() => readNexusVoiceHistory());
+  const [conversationPaused, setConversationPaused] = useState(false);
   const recorderRef = useRef<Awaited<ReturnType<typeof startVoiceRecorderSession>> | null>(null);
   const ttsRef = useRef<ReturnType<typeof createNexusVoiceTtsAdapter> | null>(null);
 
@@ -235,6 +236,7 @@ export function useNexusVoiceAssistant() {
         return;
       }
 
+      setConversationPaused(false);
       setTranscript(trimmed);
       setStatus("thinking");
       setError(null);
@@ -359,6 +361,7 @@ export function useNexusVoiceAssistant() {
 
     setOpen(true);
     setError(null);
+    setConversationPaused(false);
     setStatus("listening");
 
     try {
@@ -370,8 +373,38 @@ export function useNexusVoiceAssistant() {
     }
   }, [applyVoiceFailure, recordingSupported, status, stopListening, transcriptionUnavailable]);
 
+  const stopSpeaking = useCallback(() => {
+    ttsRef.current?.stop();
+    setStatus("idle");
+  }, []);
+
+  const pauseConversation = useCallback(() => {
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    ttsRef.current?.stop();
+    setConversationPaused(true);
+    setStatus("idle");
+  }, []);
+
+  const resumeConversation = useCallback(() => {
+    setConversationPaused(false);
+    setError(null);
+    setStatus("idle");
+  }, []);
+
+  const stopAll = useCallback(async () => {
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    ttsRef.current?.stop();
+    setConversationPaused(false);
+    setStatus("idle");
+    setError(null);
+  }, []);
+
   const statusLabel =
-    status === "listening"
+    conversationPaused
+      ? "Conversation paused"
+      : status === "listening"
       ? "Listening..."
       : status === "transcribing"
         ? "Transcribing..."
@@ -403,6 +436,11 @@ export function useNexusVoiceAssistant() {
     confirmPendingAction,
     cancelConfirmation,
     navigateTo,
+    conversationPaused,
+    pauseConversation,
+    resumeConversation,
+    stopSpeaking,
+    stopAll,
     isListening: status === "listening",
     isBusy:
       status === "transcribing" ||
