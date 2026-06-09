@@ -87,6 +87,8 @@ export type NexusVoiceAssistantResult = {
   pendingConfirmation?: NexusVoicePendingConfirmation;
   requiresConfirmation?: boolean;
   navigation?: NexusVoiceNavigationAction;
+  sessionContext?: import("@/lib/admin/nexus-voice/conversation").NexusVoiceSessionContext;
+  resolvedTranscript?: string;
 };
 
 export type NexusVoiceConfirmResult = {
@@ -100,11 +102,15 @@ export type NexusVoiceConfirmResult = {
 export type NexusVoiceStatus =
   | "idle"
   | "listening"
+  | "listening_followup"
   | "transcribing"
   | "thinking"
   | "speaking"
   | "confirming"
+  | "conversation_paused"
   | "error";
+
+export type { NexusVoiceSessionContext } from "@/lib/admin/nexus-voice/conversation";
 
 export function isNexusVoiceConfirmTool(tool: string): tool is NexusVoiceConfirmToolName {
   return (NEXUS_VOICE_CONFIRM_TOOLS as readonly string[]).includes(tool);

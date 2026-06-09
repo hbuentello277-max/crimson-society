@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
 import type {
   NexusVoiceNavigationAction,
@@ -15,6 +16,9 @@ type NexusVoicePanelProps = {
   response: string;
   error: string | null;
   transcriptionUnavailable?: boolean;
+  conversationModeEnabled?: boolean;
+  conversationActive?: boolean;
+  conversationPaused?: boolean;
   history: NexusVoiceHistoryEntry[];
   pendingConfirmation: NexusVoicePendingConfirmation | null;
   pendingNavigation: NexusVoiceNavigationAction | null;
@@ -27,6 +31,10 @@ type NexusVoicePanelProps = {
   onToggleListening: () => void;
   onNavigate: (navigation: NexusVoiceNavigationAction) => void;
   onSubmitTranscript: (transcript: string) => void;
+  onEndConversation?: () => void;
+  onPauseConversation?: () => void;
+  onResumeConversation?: () => void;
+  onToggleConversationMode?: () => void;
   variant?: "sheet" | "page";
 };
 
@@ -58,6 +66,46 @@ function kindLabel(kind: NexusVoiceHistoryEntry["kind"]) {
   }
 }
 
+function CommandInput({
+  transcript,
+  onSubmitTranscript,
+  label = "Type a command",
+  placeholder = 'Try "open platform status" or "tell me more"',
+}: {
+  transcript: string;
+  onSubmitTranscript: (transcript: string) => void;
+  label?: string;
+  placeholder?: string;
+}) {
+  const [value, setValue] = useState(transcript);
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmitTranscript(value);
+        setValue("");
+      }}
+    >
+      <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500">{label}</label>
+      <textarea
+        rows={2}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#b4141e]/50"
+      />
+      <button
+        type="submit"
+        className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
+      >
+        Send
+      </button>
+    </form>
+  );
+}
+
 export function NexusVoicePanel({
   open,
   status,
@@ -66,6 +114,9 @@ export function NexusVoicePanel({
   response,
   error,
   transcriptionUnavailable = false,
+  conversationModeEnabled = false,
+  conversationActive = false,
+  conversationPaused = false,
   history,
   pendingConfirmation,
   pendingNavigation,
@@ -78,8 +129,14 @@ export function NexusVoicePanel({
   onToggleListening,
   onNavigate,
   onSubmitTranscript,
+  onEndConversation,
+  onPauseConversation,
+  onResumeConversation,
+  onToggleConversationMode,
   variant = "sheet",
 }: NexusVoicePanelProps) {
+  const [showTypedInput, setShowTypedInput] = useState(false);
+
   if (!open && variant === "sheet") {
     return null;
   }
@@ -94,6 +151,12 @@ export function NexusVoicePanel({
       ? ""
       : "fixed inset-x-0 bottom-0 z-[9991] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4";
 
+  const showFollowUpInput =
+    showTypedInput ||
+    transcriptionUnavailable ||
+    status === "listening_followup" ||
+    (conversationModeEnabled && conversationActive);
+
   return (
     <div className={wrapperClassName}>
       <section className={shellClassName} aria-label="NEXUS Voice panel">
@@ -104,17 +167,17 @@ export function NexusVoicePanel({
 
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
-            <MicIcon active={status === "listening"} />
+            <MicIcon active={isListening} />
             <div>
               <p className="text-[10px] uppercase tracking-[0.28em] text-[#b4141e]">NEXUS</p>
               <h2 className="text-sm font-medium text-white">Voice Assistant</h2>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
               onClick={onToggleListening}
-              disabled={(isBusy && !isListening) || transcriptionUnavailable}
+              disabled={(isBusy && !isListening) || (transcriptionUnavailable && !conversationModeEnabled)}
               aria-pressed={isListening}
               aria-label={isListening ? "Stop listening" : "Start listening"}
               className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -139,6 +202,32 @@ export function NexusVoicePanel({
         </div>
 
         <div className="space-y-4 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Conversation mode</p>
+              <p className="mt-1 text-xs text-zinc-300">
+                {conversationModeEnabled
+                  ? conversationActive
+                    ? conversationPaused
+                      ? "Paused"
+                      : "Active"
+                    : "On — waiting for first command"
+                  : "Off"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleConversationMode}
+              className={`rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] transition ${
+                conversationModeEnabled
+                  ? "border-[#b4141e]/60 bg-[#b4141e]/20 text-[#f1c3c7]"
+                  : "border-white/10 bg-black/40 text-zinc-400 hover:border-white/25"
+              }`}
+            >
+              {conversationModeEnabled ? "On" : "Off"}
+            </button>
+          </div>
+
           {statusLabel ? (
             <p className="text-center text-xs uppercase tracking-[0.22em] text-[#f1c3c7]">
               {statusLabel}
@@ -162,6 +251,43 @@ export function NexusVoicePanel({
               </p>
             </div>
           ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            {conversationActive && onEndConversation ? (
+              <button
+                type="button"
+                onClick={onEndConversation}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/30"
+              >
+                End conversation
+              </button>
+            ) : null}
+            {conversationModeEnabled && !conversationPaused && onPauseConversation ? (
+              <button
+                type="button"
+                onClick={onPauseConversation}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/30"
+              >
+                Pause
+              </button>
+            ) : null}
+            {conversationPaused && onResumeConversation ? (
+              <button
+                type="button"
+                onClick={onResumeConversation}
+                className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:border-[#b4141e]/60"
+              >
+                Resume
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowTypedInput((value) => !value)}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/30"
+            >
+              Type instead
+            </button>
+          </div>
 
           {pendingNavigation ? (
             <div className="rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/10 p-4">
@@ -230,33 +356,18 @@ export function NexusVoicePanel({
             </p>
           </div>
 
-          {variant === "page" ? (
-            <form
-              className="space-y-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const field = form.elements.namedItem("transcript") as HTMLTextAreaElement | null;
-                onSubmitTranscript(field?.value ?? "");
-              }}
-            >
-              <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                Type a command
-              </label>
-              <textarea
-                name="transcript"
-                rows={2}
-                defaultValue={transcript}
-                placeholder='Try "open platform status" or "how many members"'
-                className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#b4141e]/50"
-              />
-              <button
-                type="submit"
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
-              >
-                Send command
-              </button>
-            </form>
+          {showFollowUpInput ? (
+            <CommandInput
+              transcript={transcript}
+              onSubmitTranscript={onSubmitTranscript}
+              label={
+                transcriptionUnavailable
+                  ? "Type a follow-up"
+                  : conversationModeEnabled
+                    ? "Type a follow-up command"
+                    : "Type a command"
+              }
+            />
           ) : null}
 
           <div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 import { runNexusVoiceAssistant } from "@/lib/admin/nexus-voice/assistant";
+import type { NexusVoiceSessionContext } from "@/lib/admin/nexus-voice/conversation";
 import { isNexusVoiceAiConfigured, NEXUS_VOICE_NOT_CONFIGURED_MESSAGE } from "@/lib/admin/nexus-voice/config";
 import {
   NexusVoiceTranscriptionError,
@@ -9,15 +10,49 @@ import {
 
 export const runtime = "nodejs";
 
+function parseSessionContext(value: unknown): NexusVoiceSessionContext | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.lastTranscript !== "string" || typeof record.lastResponse !== "string") {
+    return null;
+  }
+
+  return {
+    lastTranscript: record.lastTranscript,
+    lastResponse: record.lastResponse,
+    lastTool: typeof record.lastTool === "string" ? record.lastTool : null,
+    lastNavigation:
+      record.lastNavigation &&
+      typeof record.lastNavigation === "object" &&
+      typeof (record.lastNavigation as { href?: string }).href === "string" &&
+      typeof (record.lastNavigation as { label?: string }).label === "string"
+        ? {
+            href: (record.lastNavigation as { href: string }).href,
+            label: (record.lastNavigation as { label: string }).label,
+          }
+        : null,
+    lastFounderRecommendation:
+      typeof record.lastFounderRecommendation === "string"
+        ? record.lastFounderRecommendation
+        : null,
+    lastBlocker: typeof record.lastBlocker === "string" ? record.lastBlocker : null,
+    lastActionItem: typeof record.lastActionItem === "string" ? record.lastActionItem : null,
+  };
+}
+
 async function readTranscriptFromRequest(request: Request): Promise<{
   transcript?: string;
   hadAudio: boolean;
   audioMimeType?: string;
+  sessionContext?: unknown;
 }> {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    let body: { transcript?: string };
+    let body: { transcript?: string; sessionContext?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -25,26 +60,35 @@ async function readTranscriptFromRequest(request: Request): Promise<{
     }
 
     const transcript = typeof body.transcript === "string" ? body.transcript.trim() : "";
-    return { transcript, hadAudio: false };
+    return { transcript, hadAudio: false, sessionContext: body.sessionContext };
   }
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
     const transcriptField = formData.get("transcript");
     const audio = formData.get("audio");
+    const sessionContextField = formData.get("sessionContext");
+    let sessionContext: unknown;
+    if (typeof sessionContextField === "string") {
+      try {
+        sessionContext = JSON.parse(sessionContextField);
+      } catch {
+        sessionContext = undefined;
+      }
+    }
 
     if (typeof transcriptField === "string" && transcriptField.trim()) {
-      return { transcript: transcriptField.trim(), hadAudio: false };
+      return { transcript: transcriptField.trim(), hadAudio: false, sessionContext };
     }
 
     if (audio instanceof File && audio.size > 0) {
       const buffer = Buffer.from(await audio.arrayBuffer());
       const mimeType = audio.type || "audio/webm";
       const transcript = await transcribeNexusVoiceAudio(buffer, mimeType);
-      return { transcript, hadAudio: true, audioMimeType: mimeType };
+      return { transcript, hadAudio: true, audioMimeType: mimeType, sessionContext };
     }
 
-    return { hadAudio: Boolean(audio) };
+    return { hadAudio: Boolean(audio), sessionContext };
   }
 
   throw new Error("Unsupported content type. Send JSON or multipart form data.");
@@ -57,7 +101,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { transcript, hadAudio } = await readTranscriptFromRequest(request);
+    const { transcript, hadAudio, sessionContext } = await readTranscriptFromRequest(request);
 
     if (!transcript) {
       if (hadAudio && !isNexusVoiceAiConfigured()) {
@@ -76,6 +120,7 @@ export async function POST(request: Request) {
     const admin = createAdminServiceClient();
     const result = await runNexusVoiceAssistant(transcript, admin, auth.session.userId, {
       isPlatformOwner: auth.session.isPlatformOwner,
+      sessionContext: parseSessionContext(sessionContext),
     });
 
     return NextResponse.json({

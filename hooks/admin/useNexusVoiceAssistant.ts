@@ -2,6 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  formatConversationControlResponse,
+  readConversationModePreference,
+  resolveConversationControlCommand,
+  shouldResumeConversationListening,
+  writeConversationModePreference,
+  type NexusVoiceSessionContext,
+} from "@/lib/admin/nexus-voice/conversation";
 import { appendNexusVoiceHistory, readNexusVoiceHistory } from "@/lib/admin/nexus-voice/history";
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
 import { createNexusVoiceTtsAdapter } from "@/lib/admin/nexus-voice/client-tts";
@@ -31,6 +39,8 @@ type NexusVoiceApiResponse = {
   pendingConfirmation?: NexusVoicePendingConfirmation;
   requiresConfirmation?: boolean;
   navigation?: NexusVoiceNavigationAction;
+  sessionContext?: NexusVoiceSessionContext;
+  resolvedTranscript?: string;
 };
 
 function speakResponse(
@@ -43,7 +53,6 @@ function speakResponse(
   if (ttsSupported && text) {
     ttsRef.current?.speak(text, onComplete);
   } else {
-    setStatus("idle");
     onComplete?.();
   }
 }
@@ -56,6 +65,10 @@ export function useNexusVoiceAssistant() {
   const [response, setResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [transcriptionUnavailable, setTranscriptionUnavailable] = useState(false);
+  const [conversationModeEnabled, setConversationModeEnabled] = useState(false);
+  const [conversationActive, setConversationActive] = useState(false);
+  const [conversationPaused, setConversationPaused] = useState(false);
+  const [sessionContext, setSessionContext] = useState<NexusVoiceSessionContext | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<NexusVoiceNavigationAction | null>(
     null,
   );
@@ -64,14 +77,43 @@ export function useNexusVoiceAssistant() {
   const [history, setHistory] = useState<NexusVoiceHistoryEntry[]>(() => readNexusVoiceHistory());
   const recorderRef = useRef<Awaited<ReturnType<typeof startVoiceRecorderSession>> | null>(null);
   const ttsRef = useRef<ReturnType<typeof createNexusVoiceTtsAdapter> | null>(null);
+  const sessionContextRef = useRef<NexusVoiceSessionContext | null>(null);
+  const conversationModeRef = useRef(false);
+  const conversationActiveRef = useRef(false);
+  const conversationPausedRef = useRef(false);
+  const transcriptionUnavailableRef = useRef(false);
 
   const recordingSupported = isVoiceRecordingSupported();
   const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
   useEffect(() => {
+    setConversationModeEnabled(readConversationModePreference());
+  }, []);
+
+  useEffect(() => {
+    sessionContextRef.current = sessionContext;
+  }, [sessionContext]);
+
+  useEffect(() => {
+    conversationModeRef.current = conversationModeEnabled;
+  }, [conversationModeEnabled]);
+
+  useEffect(() => {
+    conversationActiveRef.current = conversationActive;
+  }, [conversationActive]);
+
+  useEffect(() => {
+    conversationPausedRef.current = conversationPaused;
+  }, [conversationPaused]);
+
+  useEffect(() => {
+    transcriptionUnavailableRef.current = transcriptionUnavailable;
+  }, [transcriptionUnavailable]);
+
+  useEffect(() => {
     ttsRef.current = createNexusVoiceTtsAdapter(
       () => setStatus("speaking"),
-      () => setStatus((current) => (current === "confirming" ? "confirming" : "idle")),
+      () => undefined,
     );
   }, []);
 
@@ -102,6 +144,91 @@ export function useNexusVoiceAssistant() {
     [router],
   );
 
+  const stopRecorder = useCallback(() => {
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+  }, []);
+
+  const endConversation = useCallback(() => {
+    stopRecorder();
+    setConversationActive(false);
+    setConversationPaused(false);
+    setSessionContext(null);
+    if (status === "listening" || status === "listening_followup") {
+      setStatus("idle");
+    }
+  }, [status, stopRecorder]);
+
+  const setConversationMode = useCallback((enabled: boolean) => {
+    writeConversationModePreference(enabled);
+    setConversationModeEnabled(enabled);
+    if (!enabled) {
+      setConversationActive(false);
+      setConversationPaused(false);
+    }
+  }, []);
+
+  const startListeningSession = useCallback(
+    async (mode: "manual" | "followup") => {
+      if (!recordingSupported || transcriptionUnavailableRef.current) {
+        if (mode === "followup") {
+          setStatus("listening_followup");
+        } else {
+          setError(
+            "NEXUS voice transcription is temporarily unavailable. You can still type a follow-up.",
+          );
+          setStatus(transcriptionUnavailableRef.current ? "idle" : "error");
+        }
+        return;
+      }
+
+      setOpen(true);
+      setError(null);
+      setStatus(mode === "followup" ? "listening_followup" : "listening");
+
+      try {
+        stopRecorder();
+        recorderRef.current = await startVoiceRecorderSession(MAX_RECORD_SECONDS);
+      } catch (recordError) {
+        const { message } = toNexusVoiceUserError(
+          recordError,
+          "Could not start recording. Try typing a command.",
+        );
+        setError(message);
+        setStatus("error");
+        recorderRef.current = null;
+      }
+    },
+    [recordingSupported, stopRecorder],
+  );
+
+  const resumeConversationListening = useCallback(
+    async (input: { hadError?: boolean; requiresConfirmation?: boolean }) => {
+      const decision = shouldResumeConversationListening({
+        conversationModeEnabled: conversationModeRef.current,
+        conversationActive: conversationActiveRef.current,
+        conversationPaused: conversationPausedRef.current,
+        transcriptionUnavailable: transcriptionUnavailableRef.current,
+        recordingSupported,
+        hadError: input.hadError === true,
+        requiresConfirmation: input.requiresConfirmation === true,
+      });
+
+      if (decision.shouldResumeListening) {
+        await startListeningSession("followup");
+        return;
+      }
+
+      if (decision.nextStatus === "listening_followup") {
+        setStatus("listening_followup");
+        return;
+      }
+
+      setStatus("idle");
+    },
+    [recordingSupported, startListeningSession],
+  );
+
   const applyVoiceResponse = useCallback(
     (payload: NexusVoiceApiResponse, sourceTranscript: string) => {
       const nextTranscript = payload.transcript?.trim() || sourceTranscript;
@@ -112,7 +239,12 @@ export function useNexusVoiceAssistant() {
       setResponse(nextResponse);
       setPendingConfirmation(payload.pendingConfirmation ?? null);
       setPendingNavigation(navigation);
+      setSessionContext(payload.sessionContext ?? null);
       setStatus(payload.requiresConfirmation ? "confirming" : "thinking");
+
+      if (conversationModeRef.current) {
+        setConversationActive(true);
+      }
 
       recordHistory({
         transcript: nextTranscript,
@@ -126,13 +258,67 @@ export function useNexusVoiceAssistant() {
       });
 
       if (!payload.requiresConfirmation) {
-        const afterSpeech = navigation ? () => navigateTo(navigation) : undefined;
+        const afterSpeech = () => {
+          if (navigation) {
+            navigateTo(navigation);
+          }
+          void resumeConversationListening({ requiresConfirmation: false, hadError: false });
+        };
         speakResponse(ttsSupported, ttsRef, nextResponse, setStatus, afterSpeech);
       } else {
         setStatus("confirming");
       }
     },
-    [navigateTo, recordHistory, ttsSupported],
+    [navigateTo, recordHistory, resumeConversationListening, ttsSupported],
+  );
+
+  const handleConversationControl = useCallback(
+    (command: NonNullable<ReturnType<typeof resolveConversationControlCommand>>) => {
+      const message = formatConversationControlResponse(command);
+
+      switch (command) {
+        case "start_mode":
+          setConversationMode(true);
+          setConversationActive(true);
+          setConversationPaused(false);
+          break;
+        case "stop_mode":
+          setConversationMode(false);
+          endConversation();
+          break;
+        case "end_conversation":
+          endConversation();
+          break;
+        case "pause_listening":
+          stopRecorder();
+          setConversationPaused(true);
+          setStatus("conversation_paused");
+          break;
+        case "resume_listening":
+          setConversationPaused(false);
+          if (conversationModeRef.current) {
+            setConversationActive(true);
+            void startListeningSession("followup");
+          } else {
+            setStatus("idle");
+          }
+          break;
+        default:
+          break;
+      }
+
+      setTranscript("");
+      setResponse(message);
+      recordHistory({ transcript: command, response: message, tool: "conversation" });
+      speakResponse(ttsSupported, ttsRef, message, setStatus, () => {
+        if (command === "resume_listening" && conversationModeRef.current) {
+          return;
+        }
+        setStatus(command === "pause_listening" ? "conversation_paused" : "idle");
+      });
+      return true;
+    },
+    [endConversation, recordHistory, setConversationMode, startListeningSession, stopRecorder, ttsSupported],
   );
 
   const openPanel = useCallback(() => {
@@ -156,23 +342,24 @@ export function useNexusVoiceAssistant() {
     setError(message);
     if (degraded) {
       setTranscriptionUnavailable(true);
-      setStatus("idle");
+      void resumeConversationListening({ hadError: false, requiresConfirmation: false });
       return;
     }
     setStatus("error");
-  }, []);
+    void resumeConversationListening({ hadError: true, requiresConfirmation: false });
+  }, [resumeConversationListening]);
 
   const closePanel = useCallback(() => {
-    recorderRef.current?.cancel();
-    recorderRef.current = null;
+    stopRecorder();
     ttsRef.current?.stop();
+    endConversation();
     setOpen(false);
     setStatus("idle");
     setError(null);
     setTranscriptionUnavailable(false);
     setPendingConfirmation(null);
     setPendingNavigation(null);
-  }, []);
+  }, [endConversation, stopRecorder]);
 
   const cancelConfirmation = useCallback(() => {
     setPendingConfirmation(null);
@@ -184,7 +371,8 @@ export function useNexusVoiceAssistant() {
       tool: "confirm",
       kind: "confirmation",
     });
-  }, [recordHistory, transcript]);
+    void resumeConversationListening({ hadError: false, requiresConfirmation: false });
+  }, [recordHistory, resumeConversationListening, transcript]);
 
   const confirmPendingAction = useCallback(async () => {
     if (!pendingConfirmation) {
@@ -214,17 +402,29 @@ export function useNexusVoiceAssistant() {
       const nextResponse = payload.response?.trim() || "Action completed.";
       setPendingConfirmation(null);
       setResponse(nextResponse);
+      if (payload.sessionContext) {
+        setSessionContext(payload.sessionContext);
+      }
       recordHistory({
         transcript,
         response: nextResponse,
         tool: payload.tool ?? pendingConfirmation.tool,
         kind: "confirmation",
       });
-      speakResponse(ttsSupported, ttsRef, nextResponse, setStatus);
+      speakResponse(ttsSupported, ttsRef, nextResponse, setStatus, () => {
+        void resumeConversationListening({ hadError: false, requiresConfirmation: false });
+      });
     } catch (confirmError) {
       applyVoiceFailure(confirmError, "NEXUS confirmation failed. Try again or type a command.");
     }
-  }, [applyVoiceFailure, pendingConfirmation, recordHistory, transcript, ttsSupported]);
+  }, [
+    applyVoiceFailure,
+    pendingConfirmation,
+    recordHistory,
+    resumeConversationListening,
+    transcript,
+    ttsSupported,
+  ]);
 
   const submitTranscript = useCallback(
     async (nextTranscript: string) => {
@@ -235,17 +435,30 @@ export function useNexusVoiceAssistant() {
         return;
       }
 
+      const control = resolveConversationControlCommand(trimmed);
+      if (control) {
+        handleConversationControl(control);
+        return;
+      }
+
       setTranscript(trimmed);
       setStatus("thinking");
       setError(null);
       setPendingConfirmation(null);
       setPendingNavigation(null);
 
+      if (conversationModeRef.current) {
+        setConversationActive(true);
+      }
+
       try {
         const apiResponse = await fetch("/api/admin/nexus/voice", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript: trimmed }),
+          body: JSON.stringify({
+            transcript: trimmed,
+            sessionContext: sessionContextRef.current,
+          }),
         });
 
         const payload = (await apiResponse.json()) as NexusVoiceApiResponse;
@@ -267,7 +480,7 @@ export function useNexusVoiceAssistant() {
         applyVoiceFailure(submitError, "NEXUS voice request failed. Try again or type a command.");
       }
     },
-    [applyVoiceResponse],
+    [applyVoiceFailure, applyVoiceResponse, handleConversationControl],
   );
 
   const submitAudio = useCallback(
@@ -277,8 +490,15 @@ export function useNexusVoiceAssistant() {
       setPendingConfirmation(null);
       setPendingNavigation(null);
 
+      if (conversationModeRef.current) {
+        setConversationActive(true);
+      }
+
       const formData = new FormData();
       formData.append("audio", file);
+      if (sessionContextRef.current) {
+        formData.append("sessionContext", JSON.stringify(sessionContextRef.current));
+      }
 
       try {
         const apiResponse = await fetch("/api/admin/nexus/voice", {
@@ -305,7 +525,7 @@ export function useNexusVoiceAssistant() {
         applyVoiceFailure(submitError, "NEXUS voice request failed. Try again or type a command.");
       }
     },
-    [applyVoiceResponse],
+    [applyVoiceFailure, applyVoiceResponse],
   );
 
   const stopListening = useCallback(async () => {
@@ -313,7 +533,7 @@ export function useNexusVoiceAssistant() {
     recorderRef.current = null;
 
     if (!session) {
-      setStatus("idle");
+      setStatus(conversationPaused ? "conversation_paused" : "idle");
       return;
     }
 
@@ -321,15 +541,16 @@ export function useNexusVoiceAssistant() {
     if (!recording || recording.durationSeconds < 0.5) {
       setError("Recording was too short. Hold the mic and speak clearly.");
       setStatus("error");
+      void resumeConversationListening({ hadError: true, requiresConfirmation: false });
       return;
     }
 
     const file = voiceBlobToFile(recording.blob, recording.mimeType);
     await submitAudio(file);
-  }, [submitAudio]);
+  }, [conversationPaused, resumeConversationListening, submitAudio]);
 
   const toggleListening = useCallback(async () => {
-    if (status === "listening") {
+    if (status === "listening" || status === "listening_followup") {
       await stopListening();
       return;
     }
@@ -341,6 +562,10 @@ export function useNexusVoiceAssistant() {
       status === "confirming"
     ) {
       return;
+    }
+
+    if (conversationPaused) {
+      setConversationPaused(false);
     }
 
     if (!recordingSupported || transcriptionUnavailable) {
@@ -357,31 +582,66 @@ export function useNexusVoiceAssistant() {
       return;
     }
 
-    setOpen(true);
-    setError(null);
-    setStatus("listening");
-
-    try {
-      recorderRef.current?.cancel();
-      recorderRef.current = await startVoiceRecorderSession(MAX_RECORD_SECONDS);
-    } catch (recordError) {
-      applyVoiceFailure(recordError, "Could not start recording. Try typing a command.");
-      recorderRef.current = null;
+    if (conversationModeEnabled) {
+      setConversationActive(true);
     }
-  }, [applyVoiceFailure, recordingSupported, status, stopListening, transcriptionUnavailable]);
+
+    await startListeningSession("manual");
+  }, [
+    conversationModeEnabled,
+    conversationPaused,
+    recordingSupported,
+    startListeningSession,
+    status,
+    stopListening,
+    transcriptionUnavailable,
+  ]);
+
+  const pauseConversation = useCallback(() => {
+    stopRecorder();
+    setConversationPaused(true);
+    setStatus("conversation_paused");
+  }, [stopRecorder]);
+
+  const resumeConversation = useCallback(() => {
+    setConversationPaused(false);
+    if (conversationModeEnabled) {
+      setConversationActive(true);
+      void startListeningSession("followup");
+    } else {
+      setStatus("idle");
+    }
+  }, [conversationModeEnabled, startListeningSession]);
+
+  const toggleConversationMode = useCallback(() => {
+    const next = !conversationModeEnabled;
+    setConversationMode(next);
+    if (next) {
+      setResponse("Conversation mode is on. I will listen for follow-ups after each response.");
+    } else {
+      endConversation();
+      setResponse("Conversation mode is off.");
+    }
+  }, [conversationModeEnabled, endConversation, setConversationMode]);
 
   const statusLabel =
-    status === "listening"
-      ? "Listening..."
-      : status === "transcribing"
-        ? "Transcribing..."
-        : status === "thinking"
-          ? "Thinking..."
-          : status === "speaking"
-            ? "Speaking..."
-            : status === "confirming"
-              ? "Awaiting confirmation..."
-              : null;
+    transcriptionUnavailable && (status === "idle" || status === "listening_followup")
+      ? "Transcription unavailable — type a follow-up"
+      : status === "listening"
+        ? "Listening..."
+        : status === "listening_followup"
+          ? "Listening for follow-up..."
+          : status === "transcribing"
+            ? "Transcribing..."
+            : status === "thinking"
+              ? "Thinking..."
+              : status === "speaking"
+                ? "Speaking..."
+                : status === "confirming"
+                  ? "Awaiting confirmation..."
+                  : status === "conversation_paused"
+                    ? "Conversation paused"
+                    : null;
 
   return {
     open,
@@ -393,6 +653,10 @@ export function useNexusVoiceAssistant() {
     response,
     error,
     transcriptionUnavailable,
+    conversationModeEnabled,
+    conversationActive,
+    conversationPaused,
+    sessionContext,
     history,
     pendingConfirmation,
     pendingNavigation,
@@ -403,7 +667,11 @@ export function useNexusVoiceAssistant() {
     confirmPendingAction,
     cancelConfirmation,
     navigateTo,
-    isListening: status === "listening",
+    endConversation,
+    pauseConversation,
+    resumeConversation,
+    toggleConversationMode,
+    isListening: status === "listening" || status === "listening_followup",
     isBusy:
       status === "transcribing" ||
       status === "thinking" ||

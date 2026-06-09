@@ -13,6 +13,11 @@ import {
 } from "@/lib/admin/nexus-voice/navigation";
 import { NEXUS_VOICE_HELP_RESPONSE, resolveNexusVoiceTool } from "@/lib/admin/nexus-voice/routing";
 import { runNexusVoiceTool } from "@/lib/admin/nexus-voice/tools";
+import {
+  buildSessionContextFromResult,
+  resolveFollowUpTranscript,
+  type NexusVoiceSessionContext,
+} from "@/lib/admin/nexus-voice/conversation";
 import type {
   NexusVoiceAssistantResult,
   NexusVoiceConfirmToolName,
@@ -29,7 +34,19 @@ function isConfirmTool(tool: NexusVoiceToolName): tool is NexusVoiceConfirmToolN
 
 export type NexusVoiceAssistantOptions = {
   isPlatformOwner?: boolean;
+  sessionContext?: NexusVoiceSessionContext | null;
 };
+
+function withSessionContext(
+  transcript: string,
+  result: NexusVoiceAssistantResult,
+  sessionContext?: NexusVoiceSessionContext | null,
+): NexusVoiceAssistantResult {
+  return {
+    ...result,
+    sessionContext: buildSessionContextFromResult(transcript, result, sessionContext ?? null),
+  };
+}
 
 export async function runNexusVoiceAssistant(
   transcript: string,
@@ -46,17 +63,22 @@ export async function runNexusVoiceAssistant(
     };
   }
 
-  const navigation = resolveNexusVoiceNavigation(trimmed);
+  const effectiveTranscript = resolveFollowUpTranscript(trimmed, options.sessionContext);
+  const resolvedTranscript =
+    effectiveTranscript !== trimmed ? effectiveTranscript : undefined;
+
+  const navigation = resolveNexusVoiceNavigation(effectiveTranscript);
   if (navigation) {
     if (!canAccessVoiceNavigation(navigation, options.isPlatformOwner === true)) {
-      return {
-        transcript: trimmed,
-        response: formatNexusVoiceNavigationDenied(navigation.label),
-        tool: null,
-      };
-    }
+    return withSessionContext(trimmed, {
+      transcript: trimmed,
+      response: formatNexusVoiceNavigationDenied(navigation.label),
+      tool: null,
+      resolvedTranscript,
+    }, options.sessionContext);
+  }
 
-    return {
+    return withSessionContext(trimmed, {
       transcript: trimmed,
       response: formatNexusVoiceNavigationResponse(navigation.label),
       tool: null,
@@ -64,37 +86,40 @@ export async function runNexusVoiceAssistant(
         href: navigation.href,
         label: navigation.label,
       },
-    };
+      resolvedTranscript,
+    }, options.sessionContext);
   }
 
-  const tool = resolveNexusVoiceTool(trimmed);
+  const tool = resolveNexusVoiceTool(effectiveTranscript);
   if (!tool) {
-    return {
+    return withSessionContext(trimmed, {
       transcript: trimmed,
       response: NEXUS_VOICE_HELP_RESPONSE,
       tool: null,
-    };
+      resolvedTranscript,
+    }, options.sessionContext);
   }
 
   if ((NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool)) {
     if (options.isPlatformOwner !== true) {
-      return {
+      return withSessionContext(trimmed, {
         transcript: trimmed,
         response: "Founder copilot is available to platform owners only.",
         tool: null,
-      };
+        resolvedTranscript,
+      }, options.sessionContext);
     }
   }
 
   if (isConfirmTool(tool)) {
-    const draft = buildActionDraft(tool, trimmed);
+    const draft = buildActionDraft(tool, effectiveTranscript);
     const { token, expiresAt } = createNexusVoiceConfirmationToken({
       userId,
       tool,
       draft: draft.draft,
     });
 
-    return {
+    return withSessionContext(trimmed, {
       transcript: trimmed,
       response: `I prepared "${draft.summary}". Review the action and tap Confirm to execute, or Cancel to discard.`,
       tool,
@@ -107,17 +132,19 @@ export async function runNexusVoiceAssistant(
         details: draft.details,
         expiresAt,
       },
-    };
+      resolvedTranscript,
+    }, options.sessionContext);
   }
 
-  const actionResult = await runNexusVoiceTool(tool, admin, { transcript: trimmed });
+  const actionResult = await runNexusVoiceTool(tool, admin, { transcript: effectiveTranscript });
 
-  return {
+  return withSessionContext(trimmed, {
     transcript: trimmed,
     response: formatNexusVoiceResponse(tool, actionResult),
     actionResult,
     tool,
-  };
+    resolvedTranscript,
+  }, options.sessionContext);
 }
 
 export async function confirmNexusVoiceAction(

@@ -134,4 +134,26 @@ describe("runNexusVoiceAssistant", () => {
     assert.ok(result.pendingConfirmation?.token);
     assert.match(result.response, /Confirm/i);
   });
+
+  it("resolves follow-up navigation from session context", async () => {
+    const result = await runNexusVoiceAssistant("open that", {} as never, "owner-1", {
+      isPlatformOwner: true,
+      sessionContext: {
+        lastTranscript: "open platform status",
+        lastResponse: "Opening Platform Status.",
+        lastTool: "navigate",
+        lastNavigation: {
+          href: "/admin/nexus/mission-control",
+          label: "Platform Status",
+        },
+        lastFounderRecommendation: null,
+        lastBlocker: null,
+        lastActionItem: null,
+      },
+    });
+
+    assert.equal(result.navigation?.label, "Platform Status");
+    assert.equal(result.resolvedTranscript, "open Platform Status");
+    assert.ok(result.sessionContext?.lastNavigation?.label === "Platform Status");
+  });
 });

@@ -35,6 +35,9 @@ function NexusVoiceChrome({ enabled, floatingClassName }: NexusVoiceChromeProps)
         response={voice.response}
         error={voice.error}
         transcriptionUnavailable={voice.transcriptionUnavailable}
+        conversationModeEnabled={voice.conversationModeEnabled}
+        conversationActive={voice.conversationActive}
+        conversationPaused={voice.conversationPaused}
         history={voice.history}
         pendingConfirmation={voice.pendingConfirmation}
         pendingNavigation={voice.pendingNavigation}
@@ -47,6 +50,10 @@ function NexusVoiceChrome({ enabled, floatingClassName }: NexusVoiceChromeProps)
         onToggleListening={() => void voice.toggleListening()}
         onNavigate={voice.navigateTo}
         onSubmitTranscript={(value) => void voice.submitTranscript(value)}
+        onEndConversation={voice.endConversation}
+        onPauseConversation={voice.pauseConversation}
+        onResumeConversation={voice.resumeConversation}
+        onToggleConversationMode={voice.toggleConversationMode}
       />
     </>,
     document.body,

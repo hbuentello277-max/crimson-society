@@ -29,8 +29,8 @@ export function NexusVoiceCenter() {
         <div className="rounded-lg border border-[#b4141e]/35 bg-[#0a0608]/90 px-4 py-3 text-sm text-[#f1c3c7]">
           <p className="font-medium">Unified NEXUS Voice</p>
           <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-            Use the microphone for voice commands or type below. Navigation opens pages without
-            confirmation. Write actions still require your approval.
+            Turn on conversation mode to keep talking after each response. Navigation opens pages
+            without confirmation. Write actions still require your approval.
           </p>
         </div>
 
@@ -43,6 +43,9 @@ export function NexusVoiceCenter() {
           response={voice.response}
           error={voice.error}
           transcriptionUnavailable={voice.transcriptionUnavailable}
+          conversationModeEnabled={voice.conversationModeEnabled}
+          conversationActive={voice.conversationActive}
+          conversationPaused={voice.conversationPaused}
           history={voice.history}
           pendingConfirmation={voice.pendingConfirmation}
           pendingNavigation={voice.pendingNavigation}
@@ -55,6 +58,10 @@ export function NexusVoiceCenter() {
           onToggleListening={() => void voice.toggleListening()}
           onNavigate={voice.navigateTo}
           onSubmitTranscript={(value) => void voice.submitTranscript(value)}
+          onEndConversation={voice.endConversation}
+          onPauseConversation={voice.pauseConversation}
+          onResumeConversation={voice.resumeConversation}
+          onToggleConversationMode={voice.toggleConversationMode}
         />
 
         <NexusCommandFrame className="p-4">
