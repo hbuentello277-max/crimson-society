@@ -3,6 +3,7 @@ import { getOrdersNeedingPickup } from "@/lib/admin/nexus-voice/action-tools";
 import { getFounderBriefing } from "@/lib/founder-copilot/briefing";
 import { buildFounderPriorityEngine } from "@/lib/proactive-intelligence/priority-engine";
 import { detectProactiveAlerts } from "@/lib/proactive-intelligence/proactive-alerts";
+import { buildMorningGuidance } from "@/lib/founder-personality/briefing";
 import type { MorningBriefing } from "@/lib/proactive-intelligence/types";
 
 function sectionStatus(
@@ -87,7 +88,7 @@ export async function generateMorningBriefing(admin: SupabaseClient): Promise<Mo
       ? `${proactive.alerts.length} proactive signal(s) need founder review.`
       : "Platform is stable — review opportunities and growth signals.";
 
-  return {
+  const morningBriefing: MorningBriefing = {
     generatedAt: new Date().toISOString(),
     headline,
     sections,
@@ -98,5 +99,10 @@ export async function generateMorningBriefing(admin: SupabaseClient): Promise<Mo
     readOnly: true,
     partial: founderBriefing.partial || proactive.partial || pickupOrders.partial,
     warnings: warnings.length > 0 ? [...new Set(warnings)] : undefined,
+  };
+
+  return {
+    ...morningBriefing,
+    founderGuidance: buildMorningGuidance(morningBriefing),
   };
 }

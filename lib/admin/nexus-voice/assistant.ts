@@ -14,6 +14,12 @@ import {
 import { NEXUS_VOICE_HELP_RESPONSE, resolveNexusVoiceTool } from "@/lib/admin/nexus-voice/routing";
 import { runNexusVoiceTool } from "@/lib/admin/nexus-voice/tools";
 import {
+  formatFounderModeAcknowledgement,
+  normalizeFounderMode,
+  resolveFounderModeCommand,
+} from "@/lib/founder-personality/modes";
+import type { FounderMode } from "@/lib/founder-personality/types";
+import {
   buildSessionContextFromResult,
   resolveFollowUpTranscript,
   type NexusVoiceSessionContext,
@@ -35,6 +41,7 @@ function isConfirmTool(tool: NexusVoiceToolName): tool is NexusVoiceConfirmToolN
 export type NexusVoiceAssistantOptions = {
   isPlatformOwner?: boolean;
   sessionContext?: NexusVoiceSessionContext | null;
+  founderMode?: FounderMode;
 };
 
 function withSessionContext(
@@ -66,6 +73,22 @@ export async function runNexusVoiceAssistant(
   const effectiveTranscript = resolveFollowUpTranscript(trimmed, options.sessionContext);
   const resolvedTranscript =
     effectiveTranscript !== trimmed ? effectiveTranscript : undefined;
+  const founderMode = normalizeFounderMode(options.founderMode);
+
+  const modeCommand = resolveFounderModeCommand(effectiveTranscript);
+  if (modeCommand) {
+    return withSessionContext(
+      trimmed,
+      {
+        transcript: trimmed,
+        response: formatFounderModeAcknowledgement(modeCommand),
+        tool: null,
+        founderMode: modeCommand,
+        resolvedTranscript,
+      },
+      options.sessionContext,
+    );
+  }
 
   const navigation = resolveNexusVoiceNavigation(effectiveTranscript);
   if (navigation) {
@@ -136,15 +159,23 @@ export async function runNexusVoiceAssistant(
     }, options.sessionContext);
   }
 
-  const actionResult = await runNexusVoiceTool(tool, admin, { transcript: effectiveTranscript });
+  const actionResult = await runNexusVoiceTool(tool, admin, {
+    transcript: effectiveTranscript,
+    founderMode,
+  });
 
-  return withSessionContext(trimmed, {
-    transcript: trimmed,
-    response: formatNexusVoiceResponse(tool, actionResult),
-    actionResult,
-    tool,
-    resolvedTranscript,
-  }, options.sessionContext);
+  return withSessionContext(
+    trimmed,
+    {
+      transcript: trimmed,
+      response: formatNexusVoiceResponse(tool, actionResult, { founderMode }),
+      actionResult,
+      tool,
+      resolvedTranscript,
+      founderMode,
+    },
+    options.sessionContext,
+  );
 }
 
 export async function confirmNexusVoiceAction(

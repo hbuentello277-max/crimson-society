@@ -10,6 +10,13 @@ import {
   writeConversationModePreference,
   type NexusVoiceSessionContext,
 } from "@/lib/admin/nexus-voice/conversation";
+import {
+  formatFounderModeAcknowledgement,
+  readFounderModePreference,
+  resolveFounderModeCommand,
+  writeFounderModePreference,
+} from "@/lib/founder-personality/modes";
+import type { FounderMode } from "@/lib/founder-personality/types";
 import { appendNexusVoiceHistory, readNexusVoiceHistory } from "@/lib/admin/nexus-voice/history";
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
 import { createNexusVoiceTtsAdapter } from "@/lib/admin/nexus-voice/client-tts";
@@ -41,6 +48,7 @@ type NexusVoiceApiResponse = {
   navigation?: NexusVoiceNavigationAction;
   sessionContext?: NexusVoiceSessionContext;
   resolvedTranscript?: string;
+  founderMode?: FounderMode;
 };
 
 function speakResponse(
@@ -65,6 +73,7 @@ export function useNexusVoiceAssistant() {
   const [response, setResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [transcriptionUnavailable, setTranscriptionUnavailable] = useState(false);
+  const [founderMode, setFounderMode] = useState<FounderMode>("founder");
   const [conversationModeEnabled, setConversationModeEnabled] = useState(false);
   const [conversationActive, setConversationActive] = useState(false);
   const [conversationPaused, setConversationPaused] = useState(false);
@@ -82,13 +91,21 @@ export function useNexusVoiceAssistant() {
   const conversationActiveRef = useRef(false);
   const conversationPausedRef = useRef(false);
   const transcriptionUnavailableRef = useRef(false);
+  const founderModeRef = useRef<FounderMode>("founder");
 
   const recordingSupported = isVoiceRecordingSupported();
   const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
   useEffect(() => {
     setConversationModeEnabled(readConversationModePreference());
+    const storedMode = readFounderModePreference();
+    setFounderMode(storedMode);
+    founderModeRef.current = storedMode;
   }, []);
+
+  useEffect(() => {
+    founderModeRef.current = founderMode;
+  }, [founderMode]);
 
   useEffect(() => {
     sessionContextRef.current = sessionContext;
@@ -240,6 +257,10 @@ export function useNexusVoiceAssistant() {
       setPendingConfirmation(payload.pendingConfirmation ?? null);
       setPendingNavigation(navigation);
       setSessionContext(payload.sessionContext ?? null);
+      if (payload.founderMode) {
+        writeFounderModePreference(payload.founderMode);
+        setFounderMode(payload.founderMode);
+      }
       setStatus(payload.requiresConfirmation ? "confirming" : "thinking");
 
       if (conversationModeRef.current) {
@@ -270,6 +291,23 @@ export function useNexusVoiceAssistant() {
       }
     },
     [navigateTo, recordHistory, resumeConversationListening, ttsSupported],
+  );
+
+  const handleFounderModeCommand = useCallback(
+    (mode: FounderMode, sourceTranscript: string) => {
+      writeFounderModePreference(mode);
+      setFounderMode(mode);
+      const message = formatFounderModeAcknowledgement(mode);
+      setTranscript(sourceTranscript);
+      setResponse(message);
+      setStatus("speaking");
+      recordHistory({ transcript: sourceTranscript, response: message, tool: "founder_mode" });
+      speakResponse(ttsSupported, ttsRef, message, setStatus, () => {
+        void resumeConversationListening({ hadError: false, requiresConfirmation: false });
+      });
+      return true;
+    },
+    [recordHistory, resumeConversationListening, ttsSupported],
   );
 
   const handleConversationControl = useCallback(
@@ -441,6 +479,12 @@ export function useNexusVoiceAssistant() {
         return;
       }
 
+      const modeCommand = resolveFounderModeCommand(trimmed);
+      if (modeCommand) {
+        handleFounderModeCommand(modeCommand, trimmed);
+        return;
+      }
+
       setTranscript(trimmed);
       setStatus("thinking");
       setError(null);
@@ -458,6 +502,7 @@ export function useNexusVoiceAssistant() {
           body: JSON.stringify({
             transcript: trimmed,
             sessionContext: sessionContextRef.current,
+            founderMode: founderModeRef.current,
           }),
         });
 
@@ -480,7 +525,7 @@ export function useNexusVoiceAssistant() {
         applyVoiceFailure(submitError, "NEXUS voice request failed. Try again or type a command.");
       }
     },
-    [applyVoiceFailure, applyVoiceResponse, handleConversationControl],
+    [applyVoiceFailure, applyVoiceResponse, handleConversationControl, handleFounderModeCommand],
   );
 
   const submitAudio = useCallback(
@@ -499,6 +544,7 @@ export function useNexusVoiceAssistant() {
       if (sessionContextRef.current) {
         formData.append("sessionContext", JSON.stringify(sessionContextRef.current));
       }
+      formData.append("founderMode", founderModeRef.current);
 
       try {
         const apiResponse = await fetch("/api/admin/nexus/voice", {
@@ -653,6 +699,7 @@ export function useNexusVoiceAssistant() {
     response,
     error,
     transcriptionUnavailable,
+    founderMode,
     conversationModeEnabled,
     conversationActive,
     conversationPaused,

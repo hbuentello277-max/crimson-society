@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
 import { runNexusVoiceAssistant } from "@/lib/admin/nexus-voice/assistant";
 import type { NexusVoiceSessionContext } from "@/lib/admin/nexus-voice/conversation";
+import { normalizeFounderMode } from "@/lib/founder-personality/modes";
 import { isNexusVoiceAiConfigured, NEXUS_VOICE_NOT_CONFIGURED_MESSAGE } from "@/lib/admin/nexus-voice/config";
 import {
   NexusVoiceTranscriptionError,
@@ -48,11 +49,12 @@ async function readTranscriptFromRequest(request: Request): Promise<{
   hadAudio: boolean;
   audioMimeType?: string;
   sessionContext?: unknown;
+  founderMode?: string;
 }> {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    let body: { transcript?: string; sessionContext?: unknown };
+    let body: { transcript?: string; sessionContext?: unknown; founderMode?: string };
     try {
       body = await request.json();
     } catch {
@@ -60,7 +62,12 @@ async function readTranscriptFromRequest(request: Request): Promise<{
     }
 
     const transcript = typeof body.transcript === "string" ? body.transcript.trim() : "";
-    return { transcript, hadAudio: false, sessionContext: body.sessionContext };
+    return {
+      transcript,
+      hadAudio: false,
+      sessionContext: body.sessionContext,
+      founderMode: typeof body.founderMode === "string" ? body.founderMode : undefined,
+    };
   }
 
   if (contentType.includes("multipart/form-data")) {
@@ -68,6 +75,7 @@ async function readTranscriptFromRequest(request: Request): Promise<{
     const transcriptField = formData.get("transcript");
     const audio = formData.get("audio");
     const sessionContextField = formData.get("sessionContext");
+    const founderModeField = formData.get("founderMode");
     let sessionContext: unknown;
     if (typeof sessionContextField === "string") {
       try {
@@ -77,18 +85,20 @@ async function readTranscriptFromRequest(request: Request): Promise<{
       }
     }
 
+    const founderMode = typeof founderModeField === "string" ? founderModeField : undefined;
+
     if (typeof transcriptField === "string" && transcriptField.trim()) {
-      return { transcript: transcriptField.trim(), hadAudio: false, sessionContext };
+      return { transcript: transcriptField.trim(), hadAudio: false, sessionContext, founderMode };
     }
 
     if (audio instanceof File && audio.size > 0) {
       const buffer = Buffer.from(await audio.arrayBuffer());
       const mimeType = audio.type || "audio/webm";
       const transcript = await transcribeNexusVoiceAudio(buffer, mimeType);
-      return { transcript, hadAudio: true, audioMimeType: mimeType, sessionContext };
+      return { transcript, hadAudio: true, audioMimeType: mimeType, sessionContext, founderMode };
     }
 
-    return { hadAudio: Boolean(audio), sessionContext };
+    return { hadAudio: Boolean(audio), sessionContext, founderMode };
   }
 
   throw new Error("Unsupported content type. Send JSON or multipart form data.");
@@ -101,7 +111,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { transcript, hadAudio, sessionContext } = await readTranscriptFromRequest(request);
+    const { transcript, hadAudio, sessionContext, founderMode } = await readTranscriptFromRequest(request);
 
     if (!transcript) {
       if (hadAudio && !isNexusVoiceAiConfigured()) {
@@ -121,6 +131,7 @@ export async function POST(request: Request) {
     const result = await runNexusVoiceAssistant(transcript, admin, auth.session.userId, {
       isPlatformOwner: auth.session.isPlatformOwner,
       sessionContext: parseSessionContext(sessionContext),
+      founderMode: normalizeFounderMode(founderMode),
     });
 
     return NextResponse.json({

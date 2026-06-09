@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getNexusCopilot } from "@/lib/copilot/engine";
+import { rankFounderRecommendations } from "@/lib/founder-personality/priority";
 import type { FounderRecommendation, FounderRecommendations } from "@/lib/founder-copilot/types";
 import { getNexusPlatformJobsSummary } from "@/lib/nexus/cron-monitor";
 import { getNexusPlanning } from "@/lib/planning/engine";
@@ -91,7 +92,7 @@ export async function getFounderRecommendations(
     });
   }
 
-  recommendations.sort((a, b) => a.priority - b.priority);
+  const rankedRecommendations = rankFounderRecommendations(recommendations);
 
   const launchBlockers: string[] = [];
   if ((report.alerts.counts.critical ?? 0) > 0) {
@@ -117,7 +118,7 @@ export async function getFounderRecommendations(
 
   return {
     generatedAt: new Date().toISOString(),
-    recommendations: recommendations.slice(0, 8),
+    recommendations: rankedRecommendations.slice(0, 8),
     topRisk: copilot.top_risk?.title ?? null,
     launchBlockers: [...new Set(launchBlockers)].slice(0, 6),
     partial: pendingReports.partial,

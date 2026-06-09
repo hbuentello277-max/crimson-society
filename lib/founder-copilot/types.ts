@@ -98,6 +98,8 @@ export type FounderQuestionType =
   | "launch_readiness"
   | "changed_today"
   | "biggest_risk"
+  | "biggest_opportunity"
+  | "matters_today"
   | "platform_health"
   | "next_steps"
   | "general";

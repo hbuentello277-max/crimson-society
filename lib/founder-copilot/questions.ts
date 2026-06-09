@@ -28,6 +28,8 @@ export function resolveFounderQuestionType(transcript: string): FounderQuestionT
   if (/\bwhat is the biggest risk\b/i.test(normalized)) return "biggest_risk";
   if (/\bhow healthy is crimson society\b/i.test(normalized)) return "platform_health";
   if (/\bwhat should i do next\b/i.test(normalized)) return "next_steps";
+  if (/\bwhat is the biggest opportunity\b/i.test(normalized)) return "biggest_opportunity";
+  if (/\bwhat matters most today\b/i.test(normalized)) return "matters_today";
 
   return null;
 }
@@ -65,7 +67,8 @@ export async function answerFounderQuestion(
         data: { topRisk: getTopRiskRecommendation(recommendations), recommendations },
       };
     }
-    case "focus_today": {
+    case "focus_today":
+    case "matters_today": {
       const [recommendations, proactive] = await Promise.all([
         getFounderRecommendations(admin),
         detectProactiveAlerts(admin),
@@ -78,6 +81,17 @@ export async function answerFounderQuestion(
           recommendations,
           priority,
         },
+      };
+    }
+    case "biggest_opportunity": {
+      const [recommendations, proactive] = await Promise.all([
+        getFounderRecommendations(admin),
+        detectProactiveAlerts(admin),
+      ]);
+      const priority = await buildFounderPriorityEngine(admin, proactive.alerts);
+      return {
+        questionType,
+        data: { recommendations, priority },
       };
     }
     case "next_steps":

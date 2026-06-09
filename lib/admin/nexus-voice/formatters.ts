@@ -4,7 +4,9 @@ import {
   formatFounderRecommendationsResponse,
   formatFounderTimelineResponse,
   formatMorningBriefingResponse,
+  type FounderFormatOptions,
 } from "@/lib/admin/nexus-voice/founder-formatters";
+import { buildMetricResponse } from "@/lib/founder-personality/formatter";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
 
@@ -72,13 +74,22 @@ function formatNexusLastRun(actionResult: NexusVoiceActionResult): string {
   return `NEXUS last recorded platform activity at ${lastRun}.${recentText}${partialSuffix(actionResult)}`;
 }
 
-function formatFailedPlatformJobs(actionResult: NexusVoiceActionResult): string {
+function formatFailedPlatformJobs(
+  actionResult: NexusVoiceActionResult,
+  options?: FounderFormatOptions,
+): string {
   const failed = platformJobsFromResult(actionResult).filter(
     (job) => job.status === "failed" || job.status === "overdue" || job.status === "never_run",
   );
 
   if (failed.length === 0) {
-    return `No failed or overdue platform jobs right now.${partialSuffix(actionResult)}`;
+    return buildMetricResponse({
+      situation: "No failed or overdue platform jobs right now.",
+      risk: "Quiet job queues can still hide upstream media or checkout drift.",
+      recommendation: "Confirm Platform Health and scheduled job cadence during your next review.",
+      nextAction: "Open Platform Status.",
+      mode: options?.founderMode,
+    }) + partialSuffix(actionResult);
   }
 
   const labels = failed
@@ -88,12 +99,27 @@ function formatFailedPlatformJobs(actionResult: NexusVoiceActionResult): string 
     })
     .join("; ");
 
-  return `Failed or overdue platform jobs: ${labels}.${partialSuffix(actionResult)}`;
+  const mediaRelated = failed.some((job) =>
+    /\b(media|video|transcode|upload|processing)\b/i.test(`${job.label ?? ""} ${job.error_message ?? ""}`),
+  );
+
+  return (
+    buildMetricResponse({
+      situation: `${failed.length} platform job${failed.length === 1 ? "" : "s"} failed or are overdue during the last execution window. Affected: ${labels}.`,
+      risk: mediaRelated
+        ? "Media processing delays may impact post uploads and member-facing content."
+        : "Failed platform jobs can degrade Platform Health and delay operational workflows.",
+      recommendation: "Review failed job logs and retry the affected queue.",
+      nextAction: "Open Platform Status → Failed Jobs.",
+      mode: options?.founderMode,
+    }) + partialSuffix(actionResult)
+  );
 }
 
 export function formatNexusVoiceResponse(
   tool: NexusVoiceToolName,
   actionResult: NexusVoiceActionResult,
+  options?: FounderFormatOptions,
 ): string {
   switch (tool) {
     case "getMemberCount":
@@ -144,7 +170,7 @@ export function formatNexusVoiceResponse(
     case "getNexusLastRun":
       return formatNexusLastRun(actionResult);
     case "getFailedPlatformJobs":
-      return formatFailedPlatformJobs(actionResult);
+      return formatFailedPlatformJobs(actionResult, options);
     case "getRevenueRiskSummary":
       return `Revenue risk is ${actionResult.data.status}. Revenue today: ${actionResult.data.revenueToday}, pending orders: ${actionResult.data.pendingOrdersToday}.${partialSuffix(actionResult)}`;
     case "getBlackcardConversionSummary":
@@ -157,15 +183,15 @@ export function formatNexusVoiceResponse(
       return `Operator briefing: ${attention.join("; ")}.${partialSuffix(actionResult)}`;
     }
     case "getFounderBriefing":
-      return formatFounderBriefingResponse(actionResult);
+      return formatFounderBriefingResponse(actionResult, options);
     case "getMorningBriefing":
-      return formatMorningBriefingResponse(actionResult);
+      return formatMorningBriefingResponse(actionResult, options);
     case "getFounderRecommendations":
-      return formatFounderRecommendationsResponse(actionResult);
+      return formatFounderRecommendationsResponse(actionResult, options);
     case "getFounderTimeline":
-      return formatFounderTimelineResponse(actionResult);
+      return formatFounderTimelineResponse(actionResult, options);
     case "answerFounderQuestion":
-      return formatFounderQuestionResponse(actionResult);
+      return formatFounderQuestionResponse(actionResult, options);
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }

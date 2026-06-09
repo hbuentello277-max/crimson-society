@@ -4,13 +4,12 @@ import { getFounderRecommendations } from "@/lib/founder-copilot/recommendations
 import { buildFounderPriorities } from "@/lib/nexus/founder-derive";
 import { loadReportContext } from "@/lib/reports/context";
 import { computeLaunchReadiness } from "@/lib/proactive-intelligence/launch-readiness";
+import { rankFounderPriorityItems } from "@/lib/founder-personality/priority";
 import type {
   FounderPriorityEngine,
   FounderPriorityItem,
   ProactiveAlert,
 } from "@/lib/proactive-intelligence/types";
-
-const URGENCY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
 
 function alertToPriority(alert: ProactiveAlert, rank: number): FounderPriorityItem {
   return {
@@ -97,10 +96,7 @@ export async function buildFounderPriorityEngine(
     }
   }
 
-  const sorted = [...deduped.values()]
-    .sort((a, b) => URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency] || a.rank - b.rank)
-    .map((item, index) => ({ ...item, rank: index + 1 }))
-    .slice(0, 10);
+  const sorted = rankFounderPriorityItems([...deduped.values()]).slice(0, 10);
 
   const issues = sorted.filter((item) => item.type === "issue");
   const opportunities = sorted.filter((item) => item.type === "opportunity");

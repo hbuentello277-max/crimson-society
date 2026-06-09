@@ -16,6 +16,8 @@ describe("resolveFounderQuestionType", () => {
     assert.equal(resolveFounderQuestionType("What should I focus on?"), "focus_today");
     assert.equal(resolveFounderQuestionType("Are we launch ready?"), "launch_readiness");
     assert.equal(resolveFounderQuestionType("What is my biggest risk?"), "biggest_risk");
+    assert.equal(resolveFounderQuestionType("What is the biggest opportunity?"), "biggest_opportunity");
+    assert.equal(resolveFounderQuestionType("What matters most today?"), "matters_today");
   });
 });
 
@@ -28,11 +30,13 @@ describe("resolveNexusVoiceTool founder patterns", () => {
     assert.equal(resolveNexusVoiceTool("Are we launch ready?"), "answerFounderQuestion");
     assert.equal(resolveNexusVoiceTool("Founder recommendations"), "getFounderRecommendations");
     assert.equal(resolveNexusVoiceTool("Founder timeline"), "getFounderTimeline");
+    assert.equal(resolveNexusVoiceTool("What is the biggest opportunity?"), "answerFounderQuestion");
+    assert.equal(resolveNexusVoiceTool("What matters most today?"), "answerFounderQuestion");
   });
 });
 
 describe("formatFounderQuestionResponse", () => {
-  it("formats launch blockers", () => {
+  it("formats launch blockers with structured guidance", () => {
     const text = formatFounderQuestionResponse({
       tool: "answerFounderQuestion",
       data: {
@@ -40,11 +44,13 @@ describe("formatFounderQuestionResponse", () => {
         data: { launchBlockers: ["2 critical alert(s) open", "1 failed platform job(s)"] },
       },
     });
+    assert.match(text, /Situation:/i);
     assert.match(text, /Launch blockers/i);
     assert.match(text, /critical alert/i);
+    assert.match(text, /Next action:/i);
   });
 
-  it("formats launch readiness", () => {
+  it("formats launch readiness with ready and blocked sections", () => {
     const text = formatFounderQuestionResponse({
       tool: "answerFounderQuestion",
       data: {
@@ -67,22 +73,52 @@ describe("formatFounderQuestionResponse", () => {
         },
       },
     });
-    assert.match(text, /Launch readiness score: 72/i);
-    assert.match(text, /ready/i);
+    assert.match(text, /Situation:/i);
+    assert.match(text, /72\/100/i);
+    assert.match(text, /Ready systems/i);
   });
 
-  it("formats focus today", () => {
+  it("formats focus today with structured guidance", () => {
     const text = formatFounderQuestionResponse({
       tool: "answerFounderQuestion",
       data: {
         questionType: "focus_today",
         data: {
-          focus: [{ title: "Resolve critical alerts", reason: "2 critical alerts open" }],
+          priority: {
+            generatedAt: new Date().toISOString(),
+            highestPriorityIssue: null,
+            highestOpportunity: null,
+            recommendedNextAction: {
+              id: "action-1",
+              rank: 1,
+              type: "action",
+              title: "Resolve critical alerts",
+              reason: "2 critical alerts open",
+              urgency: "critical",
+              relatedRoute: "/admin/nexus/alerts",
+            },
+            estimatedLaunchReadiness: {
+              score: 70,
+              status: "ready",
+              summary: "Ready",
+              blockers: [],
+              factors: {
+                platformHealth: 80,
+                openIncidents: 90,
+                failedJobs: 85,
+                appStoreReadiness: 70,
+                betaFeedback: 75,
+                operationalStability: 68,
+              },
+            },
+            rankedItems: [],
+          },
         },
       },
     });
-    assert.match(text, /Focus today/i);
-    assert.match(text, /critical alerts/i);
+    assert.match(text, /Situation:/i);
+    assert.match(text, /Resolve critical alerts/i);
+    assert.match(text, /Next action:/i);
   });
 });
 

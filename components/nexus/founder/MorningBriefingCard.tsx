@@ -36,6 +36,8 @@ export function MorningBriefingCard() {
 
   if (!briefing) return null;
 
+  const guidance = briefing.founderGuidance;
+
   return (
     <section className="rounded-2xl border border-[#b4141e]/25 bg-black/40 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -58,6 +60,30 @@ export function MorningBriefingCard() {
         ))}
       </div>
 
+      {guidance ? (
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <GuidanceBlock title="Platform Status" value={guidance.platformStatus} />
+          <GuidanceBlock title="Launch readiness" value={guidance.launchReadiness} />
+          <GuidanceBlock title="Biggest risk" value={guidance.biggestRisk} highlight="risk" />
+          <GuidanceBlock title="Biggest opportunity" value={guidance.biggestOpportunity} highlight="opportunity" />
+          <div className="rounded-xl border border-[#b4141e]/35 bg-[#b4141e]/5 px-3 py-3 lg:col-span-2">
+            <p className="text-[9px] uppercase tracking-[0.18em] text-[#e87a82]">Recommended focus today</p>
+            <p className="mt-2 text-sm font-medium text-zinc-100">{guidance.recommendedFocusToday}</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 lg:col-span-2">
+            <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">Top 3 actions</p>
+            <ul className="mt-2 space-y-1.5 text-sm leading-6 text-zinc-200">
+              {guidance.topActions.map((action) => (
+                <li key={action} className="flex gap-2">
+                  <span className="text-[#e87a82]">•</span>
+                  <span>{action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
+
       {briefing.priority.highestPriorityIssue ? (
         <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-3">
           <p className="text-[9px] uppercase tracking-[0.18em] text-amber-200/80">Highest priority issue</p>
@@ -69,6 +95,12 @@ export function MorningBriefingCard() {
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href="/admin/nexus/mission-control"
+          className="rounded-lg border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-zinc-300 transition hover:border-white/25"
+        >
+          Platform Status
+        </Link>
         <Link
           href="/admin/nexus/alerts"
           className="rounded-lg border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-zinc-300 transition hover:border-white/25"
@@ -83,5 +115,29 @@ export function MorningBriefingCard() {
         </Link>
       </div>
     </section>
+  );
+}
+
+function GuidanceBlock({
+  title,
+  value,
+  highlight,
+}: {
+  title: string;
+  value: string;
+  highlight?: "risk" | "opportunity";
+}) {
+  const borderClass =
+    highlight === "risk"
+      ? "border-amber-500/25 bg-amber-500/5"
+      : highlight === "opportunity"
+        ? "border-emerald-500/25 bg-emerald-500/5"
+        : "border-white/10 bg-black/30";
+
+  return (
+    <div className={`rounded-xl border px-3 py-3 ${borderClass}`}>
+      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-200">{value}</p>
+    </div>
   );
 }

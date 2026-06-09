@@ -17,6 +17,8 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bwhat changed today\b/i,
       /\bwhat is (?:the )?my biggest risk\b/i,
       /\bwhat is the biggest risk\b/i,
+      /\bwhat is the biggest opportunity\b/i,
+      /\bwhat matters most today\b/i,
       /\bhow healthy is crimson society\b/i,
       /\bwhat should i do next\b/i,
     ],

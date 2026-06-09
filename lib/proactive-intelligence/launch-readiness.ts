@@ -4,6 +4,7 @@ import { getNexusPlatformJobsSummary } from "@/lib/nexus/cron-monitor";
 import { clampScore } from "@/lib/nexus/scoring";
 import { loadReportContext } from "@/lib/reports/context";
 import { safeCount } from "@/lib/admin/nexus-voice/safe-query";
+import { buildLaunchReadinessBreakdown } from "@/lib/founder-personality/launch-summary";
 import type { LaunchReadiness, LaunchReadinessStatus } from "@/lib/proactive-intelligence/types";
 
 export function deriveLaunchReadinessStatus(score: number): LaunchReadinessStatus {
@@ -98,11 +99,16 @@ export async function computeLaunchReadiness(admin: SupabaseClient): Promise<Lau
           ? "Approaching launch readiness — resolve blockers before shipping."
           : "Not launch ready — critical operational issues need founder review.";
 
-  return {
+  const launchReadiness: LaunchReadiness = {
     score,
     status,
     factors,
     blockers: [...new Set(blockers)].slice(0, 6),
     summary,
+  };
+
+  return {
+    ...launchReadiness,
+    breakdown: buildLaunchReadinessBreakdown(launchReadiness),
   };
 }

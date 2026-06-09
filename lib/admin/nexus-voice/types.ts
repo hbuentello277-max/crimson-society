@@ -89,6 +89,7 @@ export type NexusVoiceAssistantResult = {
   navigation?: NexusVoiceNavigationAction;
   sessionContext?: import("@/lib/admin/nexus-voice/conversation").NexusVoiceSessionContext;
   resolvedTranscript?: string;
+  founderMode?: import("@/lib/founder-personality/types").FounderMode;
 };
 
 export type NexusVoiceConfirmResult = {

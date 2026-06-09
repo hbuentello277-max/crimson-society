@@ -189,6 +189,7 @@ function isFounderTool(tool: NexusVoiceToolName): tool is (typeof NEXUS_VOICE_FO
 
 export type NexusVoiceToolOptions = {
   transcript?: string;
+  founderMode?: import("@/lib/founder-personality/types").FounderMode;
 };
 
 export async function runNexusVoiceTool(

@@ -32,12 +32,29 @@ export type LaunchReadinessFactors = {
   operationalStability: number;
 };
 
+export type LaunchReadinessBreakdown = {
+  ready: string[];
+  atRisk: string[];
+  blocked: string[];
+  nextMilestone: string;
+};
+
 export type LaunchReadiness = {
   score: number;
   status: LaunchReadinessStatus;
   factors: LaunchReadinessFactors;
   blockers: string[];
   summary: string;
+  breakdown?: LaunchReadinessBreakdown;
+};
+
+export type FounderMorningGuidance = {
+  platformStatus: string;
+  launchReadiness: string;
+  biggestRisk: string;
+  biggestOpportunity: string;
+  recommendedFocusToday: string;
+  topActions: string[];
 };
 
 export type FounderPriorityType = "issue" | "opportunity" | "action";
@@ -75,6 +92,7 @@ export type MorningBriefing = {
   priority: FounderPriorityEngine;
   launchReadiness: LaunchReadiness;
   recommendedActions: string[];
+  founderGuidance?: FounderMorningGuidance;
   readOnly: true;
   partial?: boolean;
   warnings?: string[];
