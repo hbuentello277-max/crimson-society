@@ -109,7 +109,7 @@ export const CS_AVATAR_FALLBACK =
   "flex h-full w-full items-center justify-center bg-[#b4141e]/20 font-serif italic text-[#e87a82]";
 
 /** Dock controls tight to home indicator — minimal gutter, still clears indicator on notch iPhones. */
-export const MOBILE_BOTTOM_SAFE_INSET = "max(0px, calc(env(safe-area-inset-bottom) - 18px))";
+export const MOBILE_BOTTOM_SAFE_INSET = "env(safe-area-inset-bottom, 0px)";
 
 /** Shop header bag control — Connect ALL pill language */
 export const CS_SHOP_BAG_BTN = `${CS_CTA_PRIMARY} relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.25em]`;

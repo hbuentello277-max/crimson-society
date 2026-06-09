@@ -64,7 +64,7 @@ export default function LandingPage() {
               fill
               priority
               sizes="100vw"
-              className="object-contain object-[center_54%] scale-[1.03]"
+              className="object-contain object-[center_60%] scale-[1.03]"
               onError={() => setSplashFailed(true)}
             />
           )}

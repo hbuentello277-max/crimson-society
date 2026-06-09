@@ -1319,37 +1319,43 @@ if (livePostIds.length > 0) {
             )}
 
             <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
-              <button
-                type="button"
-                onClick={() => setActiveNowExpanded((current) => !current)}
-                className="flex w-full items-center justify-between gap-3 text-left"
-                aria-expanded={activeNowExpanded}
-              >
-                <div className="flex min-w-0 items-center gap-2">
+              {activeMapMeets.length === 0 ? (
+                <div className="flex w-full items-center">
                   <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
-                    Active Now ({activeMapMeets.length})
+                    Active Now (0)
                   </p>
-                  {activeMapMeets.length > 0 ? (
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveNowExpanded((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                  aria-expanded={activeNowExpanded}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                      Active Now ({activeMapMeets.length})
+                    </p>
                     <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#f1c3c7]">
                       {activeMapMeets.length} live
                     </span>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Link
-                    href="/meets"
-                    onClick={(event) => event.stopPropagation()}
-                    className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                  >
-                    See All
-                  </Link>
-                  <span className="text-sm text-zinc-500" aria-hidden>
-                    {activeNowExpanded ? "−" : "+"}
-                  </span>
-                </div>
-              </button>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      href="/meets"
+                      onClick={(event) => event.stopPropagation()}
+                      className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                    >
+                      See All
+                    </Link>
+                    <span className="text-sm text-zinc-500" aria-hidden>
+                      {activeNowExpanded ? "−" : "+"}
+                    </span>
+                  </div>
+                </button>
+              )}
 
-              {activeNowExpanded ? (
+              {activeNowExpanded && activeMapMeets.length > 0 ? (
                 <div className="mt-3 grid gap-3">
                   {dashboardLoading &&
                     Array.from({ length: 2 }).map((_, index) => (
