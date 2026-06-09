@@ -11,6 +11,7 @@ import type {
   NexusVoicePendingConfirmation,
   NexusVoiceStatus,
 } from "@/lib/admin/nexus-voice/types";
+import { toNexusVoiceUserError } from "@/lib/admin/nexus-voice/user-errors";
 import {
   isVoiceRecordingSupported,
   startVoiceRecorderSession,
@@ -26,6 +27,7 @@ type NexusVoiceApiResponse = {
   tool?: string | null;
   configured?: boolean;
   error?: string;
+  transcriptionUnavailable?: boolean;
   pendingConfirmation?: NexusVoicePendingConfirmation;
   requiresConfirmation?: boolean;
   navigation?: NexusVoiceNavigationAction;
@@ -53,6 +55,7 @@ export function useNexusVoiceAssistant() {
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [transcriptionUnavailable, setTranscriptionUnavailable] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<NexusVoiceNavigationAction | null>(
     null,
   );
@@ -137,6 +140,28 @@ export function useNexusVoiceAssistant() {
     setError(null);
   }, []);
 
+  const applyVoiceFailure = useCallback((failure: unknown, fallback?: string) => {
+    const payloadUnavailable =
+      typeof failure === "object" &&
+      failure !== null &&
+      "transcriptionUnavailable" in failure &&
+      Boolean((failure as { transcriptionUnavailable?: boolean }).transcriptionUnavailable);
+
+    const { message, transcriptionUnavailable: unavailable } = toNexusVoiceUserError(
+      failure,
+      fallback,
+    );
+    const degraded = unavailable || payloadUnavailable;
+
+    setError(message);
+    if (degraded) {
+      setTranscriptionUnavailable(true);
+      setStatus("idle");
+      return;
+    }
+    setStatus("error");
+  }, []);
+
   const closePanel = useCallback(() => {
     recorderRef.current?.cancel();
     recorderRef.current = null;
@@ -144,6 +169,7 @@ export function useNexusVoiceAssistant() {
     setOpen(false);
     setStatus("idle");
     setError(null);
+    setTranscriptionUnavailable(false);
     setPendingConfirmation(null);
     setPendingNavigation(null);
   }, []);
@@ -178,7 +204,11 @@ export function useNexusVoiceAssistant() {
       const payload = (await apiResponse.json()) as NexusVoiceApiResponse;
 
       if (!apiResponse.ok) {
-        throw new Error(payload.error || "NEXUS confirmation failed.");
+        const failure = toNexusVoiceUserError(
+          payload.error || payload,
+          "NEXUS confirmation failed. Try again or type a command.",
+        );
+        throw Object.assign(new Error(failure.message), failure);
       }
 
       const nextResponse = payload.response?.trim() || "Action completed.";
@@ -192,12 +222,9 @@ export function useNexusVoiceAssistant() {
       });
       speakResponse(ttsSupported, ttsRef, nextResponse, setStatus);
     } catch (confirmError) {
-      const message =
-        confirmError instanceof Error ? confirmError.message : "NEXUS confirmation failed.";
-      setError(message);
-      setStatus("error");
+      applyVoiceFailure(confirmError, "NEXUS confirmation failed. Try again or type a command.");
     }
-  }, [pendingConfirmation, recordHistory, transcript, ttsSupported]);
+  }, [applyVoiceFailure, pendingConfirmation, recordHistory, transcript, ttsSupported]);
 
   const submitTranscript = useCallback(
     async (nextTranscript: string) => {
@@ -224,15 +251,20 @@ export function useNexusVoiceAssistant() {
         const payload = (await apiResponse.json()) as NexusVoiceApiResponse;
 
         if (!apiResponse.ok) {
-          throw new Error(payload.error || "NEXUS voice request failed.");
+          const failure = toNexusVoiceUserError(
+            payload.error || payload,
+            "NEXUS voice request failed. Try again or type a command.",
+          );
+          throw Object.assign(new Error(failure.message), {
+            ...failure,
+            transcriptionUnavailable:
+              failure.transcriptionUnavailable || Boolean(payload.transcriptionUnavailable),
+          });
         }
 
         applyVoiceResponse(payload, trimmed);
       } catch (submitError) {
-        const message =
-          submitError instanceof Error ? submitError.message : "NEXUS voice request failed.";
-        setError(message);
-        setStatus("error");
+        applyVoiceFailure(submitError, "NEXUS voice request failed. Try again or type a command.");
       }
     },
     [applyVoiceResponse],
@@ -257,15 +289,20 @@ export function useNexusVoiceAssistant() {
         const payload = (await apiResponse.json()) as NexusVoiceApiResponse;
 
         if (!apiResponse.ok) {
-          throw new Error(payload.error || "NEXUS voice request failed.");
+          const failure = toNexusVoiceUserError(
+            payload.error || payload,
+            "NEXUS voice request failed. Try again or type a command.",
+          );
+          throw Object.assign(new Error(failure.message), {
+            ...failure,
+            transcriptionUnavailable:
+              failure.transcriptionUnavailable || Boolean(payload.transcriptionUnavailable),
+          });
         }
 
         applyVoiceResponse(payload, payload.transcript?.trim() || "");
       } catch (submitError) {
-        const message =
-          submitError instanceof Error ? submitError.message : "NEXUS voice request failed.";
-        setError(message);
-        setStatus("error");
+        applyVoiceFailure(submitError, "NEXUS voice request failed. Try again or type a command.");
       }
     },
     [applyVoiceResponse],
@@ -306,10 +343,17 @@ export function useNexusVoiceAssistant() {
       return;
     }
 
-    if (!recordingSupported) {
+    if (!recordingSupported || transcriptionUnavailable) {
       setOpen(true);
-      setError("Voice recording is not supported on this device.");
-      setStatus("error");
+      if (transcriptionUnavailable) {
+        setError(
+          "NEXUS voice transcription is temporarily unavailable. You can still type a command.",
+        );
+        setStatus("idle");
+      } else {
+        setError("Voice recording is not supported on this device.");
+        setStatus("error");
+      }
       return;
     }
 
@@ -321,13 +365,10 @@ export function useNexusVoiceAssistant() {
       recorderRef.current?.cancel();
       recorderRef.current = await startVoiceRecorderSession(MAX_RECORD_SECONDS);
     } catch (recordError) {
-      const message =
-        recordError instanceof Error ? recordError.message : "Could not start recording.";
-      setError(message);
-      setStatus("error");
+      applyVoiceFailure(recordError, "Could not start recording. Try typing a command.");
       recorderRef.current = null;
     }
-  }, [recordingSupported, status, stopListening]);
+  }, [applyVoiceFailure, recordingSupported, status, stopListening, transcriptionUnavailable]);
 
   const statusLabel =
     status === "listening"
@@ -351,10 +392,11 @@ export function useNexusVoiceAssistant() {
     transcript,
     response,
     error,
+    transcriptionUnavailable,
     history,
     pendingConfirmation,
     pendingNavigation,
-    recordingSupported,
+    recordingSupported: recordingSupported && !transcriptionUnavailable,
     ttsSupported,
     toggleListening,
     submitTranscript,

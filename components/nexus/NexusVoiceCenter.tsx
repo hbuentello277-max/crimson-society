@@ -42,6 +42,7 @@ export function NexusVoiceCenter() {
           transcript={voice.transcript}
           response={voice.response}
           error={voice.error}
+          transcriptionUnavailable={voice.transcriptionUnavailable}
           history={voice.history}
           pendingConfirmation={voice.pendingConfirmation}
           pendingNavigation={voice.pendingNavigation}

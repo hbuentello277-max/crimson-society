@@ -84,17 +84,26 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof NexusVoiceTranscriptionError) {
-      const status = error.code === "not_configured" ? 503 : 400;
+      const status =
+        error.code === "not_configured"
+          ? 503
+          : error.code === "quota_exceeded"
+            ? 503
+            : 400;
       return NextResponse.json(
         {
           error: error.message,
           configured: error.code !== "not_configured",
+          transcriptionUnavailable: error.code === "quota_exceeded",
         },
         { status },
       );
     }
 
-    const message = error instanceof Error ? error.message : "NEXUS voice request failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[nexus-voice] request failed", error);
+    return NextResponse.json(
+      { error: "NEXUS voice request failed. Try again or type a command." },
+      { status: 500 },
+    );
   }
 }

@@ -1,11 +1,18 @@
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { isNexusVoiceAiConfigured } from "@/lib/admin/nexus-voice/config";
+import {
+  isOpenAiQuotaOrRateLimitError,
+  NEXUS_VOICE_TRANSCRIPTION_UNAVAILABLE_MESSAGE,
+} from "@/lib/admin/nexus-voice/user-errors";
 
 export class NexusVoiceTranscriptionError extends Error {
-  readonly code: "not_configured" | "transcription_failed";
+  readonly code: "not_configured" | "transcription_failed" | "quota_exceeded";
 
-  constructor(code: "not_configured" | "transcription_failed", message: string) {
+  constructor(
+    code: "not_configured" | "transcription_failed" | "quota_exceeded",
+    message: string,
+  ) {
     super(message);
     this.name = "NexusVoiceTranscriptionError";
     this.code = code;
@@ -62,8 +69,18 @@ export async function transcribeNexusVoiceAudio(
       throw error;
     }
 
-    const message =
-      error instanceof Error ? error.message : "Speech transcription failed.";
-    throw new NexusVoiceTranscriptionError("transcription_failed", message);
+    if (isOpenAiQuotaOrRateLimitError(error)) {
+      console.error("[nexus-voice] OpenAI transcription quota exceeded", error);
+      throw new NexusVoiceTranscriptionError(
+        "quota_exceeded",
+        NEXUS_VOICE_TRANSCRIPTION_UNAVAILABLE_MESSAGE,
+      );
+    }
+
+    console.error("[nexus-voice] transcription failed", error);
+    throw new NexusVoiceTranscriptionError(
+      "transcription_failed",
+      "Could not transcribe audio. Try again or type your command.",
+    );
   }
 }

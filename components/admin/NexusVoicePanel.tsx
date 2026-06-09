@@ -14,6 +14,7 @@ type NexusVoicePanelProps = {
   transcript: string;
   response: string;
   error: string | null;
+  transcriptionUnavailable?: boolean;
   history: NexusVoiceHistoryEntry[];
   pendingConfirmation: NexusVoicePendingConfirmation | null;
   pendingNavigation: NexusVoiceNavigationAction | null;
@@ -64,6 +65,7 @@ export function NexusVoicePanel({
   transcript,
   response,
   error,
+  transcriptionUnavailable = false,
   history,
   pendingConfirmation,
   pendingNavigation,
@@ -112,7 +114,7 @@ export function NexusVoicePanel({
             <button
               type="button"
               onClick={onToggleListening}
-              disabled={isBusy && !isListening}
+              disabled={(isBusy && !isListening) || transcriptionUnavailable}
               aria-pressed={isListening}
               aria-label={isListening ? "Stop listening" : "Start listening"}
               className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -144,8 +146,20 @@ export function NexusVoicePanel({
           ) : null}
 
           {error ? (
-            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
-              <p className="text-sm text-red-300">{error}</p>
+            <div
+              className={`rounded-2xl border p-3 ${
+                transcriptionUnavailable
+                  ? "border-amber-500/30 bg-amber-500/10"
+                  : "border-red-500/30 bg-red-500/10"
+              }`}
+            >
+              <p
+                className={`text-sm ${
+                  transcriptionUnavailable ? "text-amber-100" : "text-red-300"
+                }`}
+              >
+                {error}
+              </p>
             </div>
           ) : null}
 
