@@ -9,15 +9,15 @@ describe("CrimsonRewardsIcon", () => {
     assert.deepEqual(CRIMSON_REWARDS_SIZES, [20, 24, 32, 48]);
   });
 
-  it("defines simple crimson crown branding without coin graphics", () => {
+  it("uses the shared crown glyph without coin graphics", () => {
     const source = readFileSync(
       path.join(process.cwd(), "components/credits/CrimsonRewardsIcon.tsx"),
       "utf8",
     );
-    assert.match(source, /viewBox="0 0 24 24"/);
-    assert.match(source, /#e87a82/);
-    assert.match(source, /#b4141e/);
-    assert.doesNotMatch(source, /icon\.png/);
+    assert.match(source, /👑/);
+    assert.doesNotMatch(source, /<svg/i);
+    assert.doesNotMatch(source, /<circle/i);
+    assert.doesNotMatch(source, /coin/i);
     assert.doesNotMatch(source, /swirl/i);
   });
 });

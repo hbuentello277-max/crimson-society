@@ -411,8 +411,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505] pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl">
-      <ul className="mx-auto flex w-full max-w-full items-end justify-between gap-0 overflow-x-hidden pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:max-w-3xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505] pb-[length:var(--bottom-nav-home-offset)] backdrop-blur-xl">
+      <ul className="mx-auto flex h-8 w-full max-w-full items-end justify-between gap-0 overflow-x-hidden pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (
@@ -422,7 +422,7 @@ export default function BottomNav() {
                 prefetch
                 onFocus={() => router.prefetch(n.href)}
                 onMouseEnter={() => router.prefetch(n.href)}
-                className={`flex min-w-0 w-full flex-col items-center gap-0 px-0.5 transition ${
+                className={`flex min-w-0 w-full flex-col items-center gap-0 px-0.5 pb-0 pt-0 transition ${
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >

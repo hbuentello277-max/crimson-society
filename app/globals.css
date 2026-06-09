@@ -16,8 +16,10 @@
   --cs-accent-surface: rgb(180 20 30 / 0.2);
   --cs-accent-border: rgb(180 20 30 / 1);
 
-  /* Fixed bottom nav: icon row + home-indicator clearance */
-  --bottom-nav-clearance: calc(2.25rem + env(safe-area-inset-bottom, 0px));
+  /* Fixed bottom nav: compact tab row + tight home-indicator offset (TikTok/IG style) */
+  --bottom-nav-tabs-height: 2rem;
+  --bottom-nav-home-offset: max(0.25rem, calc(env(safe-area-inset-bottom, 0px) - 1.875rem));
+  --bottom-nav-clearance: calc(var(--bottom-nav-tabs-height) + var(--bottom-nav-home-offset));
 }
 
 @theme inline {
