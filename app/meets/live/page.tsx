@@ -13,6 +13,7 @@ import {
   readActiveMeetSession,
   writeActiveMeetSession,
 } from "@/lib/meets/active-meet-session";
+import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { hasRoadGeometry, parseRoute } from "@/lib/meets/route-geometry";
 
@@ -1199,7 +1200,7 @@ export default function MeetLiveMapPage() {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1080px] flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+      <div className={`relative mx-auto flex min-h-screen max-w-[1080px] flex-col px-4 pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
             Ride Tracking

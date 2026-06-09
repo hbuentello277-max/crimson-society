@@ -23,7 +23,7 @@ import {
   serializeRouteSteps,
 } from "@/lib/meets/navigation/steps";
 import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
-import { CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import {
   deriveMeetLifecycle,
@@ -1462,7 +1462,7 @@ const ridesWithRoutes = await Promise.all(
         }}
       />
 
-      <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+      <div className={`relative mx-auto max-w-[1080px] px-4 pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
             Meet Ledger
@@ -1567,7 +1567,7 @@ const ridesWithRoutes = await Promise.all(
       )}
 
       {toast && (
-        <div className="fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+86px)] z-50 mx-auto max-w-sm rounded-lg border border-[#b4141e]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">
+        <div className="fixed inset-x-4 bottom-[calc(var(--bottom-nav-clearance)+0.5rem)] z-50 mx-auto max-w-sm rounded-lg border border-[#b4141e]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">
           {toast}
         </div>
       )}
@@ -1580,7 +1580,7 @@ export default function MeetsPage() {
     <Suspense
       fallback={
         <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
-          <div className="relative mx-auto max-w-[1080px] px-4 pb-[calc(env(safe-area-inset-bottom)+112px)] pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6">
+          <div className={`relative mx-auto max-w-[1080px] px-4 pt-[calc(env(safe-area-inset-top)+28px)] sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}>
             <div className="h-80 animate-pulse rounded-lg border border-white/10 bg-white/[0.03]" />
           </div>
         </main>

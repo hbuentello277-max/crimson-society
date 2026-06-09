@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAuth } from "@/components/AuthProvider";
-import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { fetchBlockState, getBlockedUserIds } from "@/lib/blocking";
 import { authedFetch } from "@/lib/auth/authed-fetch";
@@ -1172,7 +1172,7 @@ if (livePostIds.length > 0) {
 
   return (
     <main
-      className="min-h-screen bg-[#050505] pb-32 text-white"
+      className={`min-h-screen bg-[#050505] text-white ${BOTTOM_NAV_CLEARANCE}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

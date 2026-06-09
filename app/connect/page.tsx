@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 
@@ -493,7 +493,7 @@ export default function ConnectPage() {
         }}
       />
 
-      <div className="relative mx-auto max-w-3xl px-6 pb-20 pt-[calc(env(safe-area-inset-top)+3rem)]">
+      <div className={`relative mx-auto max-w-3xl px-6 pt-[calc(env(safe-area-inset-top)+3rem)] ${BOTTOM_NAV_CLEARANCE}`}>
         <div className="flex items-center justify-between">
           <Link
             href="/dashboard"

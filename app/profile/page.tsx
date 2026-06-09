@@ -19,7 +19,7 @@ import {
 } from "@/lib/account-deletion";
 import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
-import { CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
 import { ProfileSettingsMenuSheet } from "@/components/profile/ProfileSettingsMenuSheet";
 import {
@@ -509,7 +509,7 @@ Your account cannot use app features right now. </p> </div> </main>
 
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-  <div className="relative mx-auto max-w-5xl px-4 pb-[calc(env(safe-area-inset-bottom)+96px)] pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8">
+  <div className={`relative mx-auto max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8 ${BOTTOM_NAV_CLEARANCE}`}>
     <div className="flex items-start justify-between gap-3">
       <div>
         <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>

@@ -108,8 +108,14 @@ export const CS_AVATAR_RING =
 export const CS_AVATAR_FALLBACK =
   "flex h-full w-full items-center justify-center bg-[#b4141e]/20 font-serif italic text-[#e87a82]";
 
-/** Dock controls tight to home indicator — minimal gutter, still clears indicator on notch iPhones. */
+/** Home-indicator inset only — for controls docked to screen bottom. */
 export const MOBILE_BOTTOM_SAFE_INSET = "env(safe-area-inset-bottom, 0px)";
+
+/** Scroll clearance for fixed bottom nav (tab row + safe area). */
+export const BOTTOM_NAV_CLEARANCE = "pb-[length:var(--bottom-nav-clearance)]";
+
+/** Inline style value for sheets/overlays clearing the bottom nav. */
+export const BOTTOM_NAV_CLEARANCE_VALUE = "var(--bottom-nav-clearance)";
 
 /** Shop header bag control — Connect ALL pill language */
 export const CS_SHOP_BAG_BTN = `${CS_CTA_PRIMARY} relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.25em]`;

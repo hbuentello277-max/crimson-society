@@ -11,6 +11,7 @@ import type { CheckoutCartItemPayload } from "@/lib/shop/orders";
 import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-cart";
 import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
 import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
+import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 
 export default function ShopCheckoutPage() {
   return (
@@ -166,7 +167,7 @@ function ShopCheckoutPageInner() {
   const isEmpty = cartItems.length === 0;
 
   return (
-    <main className="relative min-h-screen bg-[#050405] pb-32 text-white">
+    <main className={`relative min-h-screen bg-[#050405] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"

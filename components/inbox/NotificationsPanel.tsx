@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import {
   actorDisplayName,
@@ -481,7 +481,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
       />
 
       <div
-        className={`relative mx-auto max-w-[760px] pb-[calc(env(safe-area-inset-bottom)+112px)] ${topPadding} sm:px-6`}
+        className={`relative mx-auto max-w-[760px] ${topPadding} sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}
       >
         <header className="px-4 sm:px-0">
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Activity</p>

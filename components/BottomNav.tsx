@@ -109,7 +109,7 @@ export default function BottomNav() {
 
   const meetUnreadTotal = useMemo(
     () => Object.values(meetUnreadCounts).reduce((total, count) => total + count, 0),
-    [meetUnreadCounts]
+    [meetUnreadCounts],
   );
   const meetBadgeLabel = meetUnreadTotal > 9 ? "9+" : String(meetUnreadTotal);
   const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
@@ -174,7 +174,7 @@ export default function BottomNav() {
     }
 
     const readMap = new Map(
-      ((readRows || []) as RideReadRow[]).map((row) => [row.ride_id, row.last_read_at])
+      ((readRows || []) as RideReadRow[]).map((row) => [row.ride_id, row.last_read_at]),
     );
     const nextCounts = Object.fromEntries(rideIds.map((rideId) => [rideId, 0]));
 
@@ -296,7 +296,7 @@ export default function BottomNav() {
           if (!message.ride_id || !message.user_id || message.user_id === userId) return;
 
           void loadMeetUnreadCounts();
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -307,7 +307,7 @@ export default function BottomNav() {
         },
         () => {
           void loadMeetUnreadCounts();
-        }
+        },
       )
       .subscribe();
 
@@ -344,7 +344,7 @@ export default function BottomNav() {
         },
         () => {
           void loadMessageUnreadCount();
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -355,7 +355,7 @@ export default function BottomNav() {
         },
         () => {
           void loadMessageUnreadCount();
-        }
+        },
       )
       .subscribe();
 
@@ -380,7 +380,7 @@ export default function BottomNav() {
         },
         () => {
           void loadNotificationUnreadCount();
-        }
+        },
       )
       .subscribe();
 
@@ -411,8 +411,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl">
-      <ul className="mx-auto flex h-11 w-full max-w-full items-center justify-between gap-0 overflow-x-hidden pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:max-w-3xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505] backdrop-blur-xl">
+      <ul className="mx-auto flex w-full max-w-full items-end justify-between gap-0 overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-1 sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (
@@ -422,7 +422,7 @@ export default function BottomNav() {
                 prefetch
                 onFocus={() => router.prefetch(n.href)}
                 onMouseEnter={() => router.prefetch(n.href)}
-                className={`flex min-h-11 min-w-0 w-full flex-col items-center justify-center gap-0 px-0.5 py-0 transition ${
+                className={`flex min-w-0 w-full flex-col items-center gap-0 px-0.5 transition ${
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
@@ -443,7 +443,7 @@ export default function BottomNav() {
                     </span>
                   )}
                 </span>
-                <span className="max-w-full truncate text-center text-[9px] uppercase tracking-[0.2em]">
+                <span className="max-w-full truncate text-center text-[9px] uppercase leading-none tracking-[0.2em]">
                   {n.label}
                 </span>
               </Link>

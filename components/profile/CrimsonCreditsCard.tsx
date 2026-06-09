@@ -16,7 +16,7 @@ type Props = {
   membershipTier: CrimsonMembershipTier;
 };
 
-/** Minimal profile-card coin — circular ring, dark face, simple C mark. */
+/** Plain profile-card coin — outer ring, inner face, center dot. */
 function CreditsProfileCoinIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -26,17 +26,9 @@ function CreditsProfileCoinIcon({ className }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
     >
-      <defs>
-        <linearGradient id="credits-profile-coin-ring" x1="6" y1="4" x2="30" y2="32">
-          <stop offset="0%" stopColor="#f1c3c7" />
-          <stop offset="45%" stopColor="#e87a82" />
-          <stop offset="100%" stopColor="#7a1018" />
-        </linearGradient>
-      </defs>
-      <circle cx="18" cy="18" r="16.5" fill="url(#credits-profile-coin-ring)" />
-      <circle cx="18" cy="18" r="12.5" fill="#0a0809" />
-      <circle cx="18" cy="18" r="12.5" fill="none" stroke="#b4141e" strokeOpacity="0.35" strokeWidth="0.75" />
-      <circle cx="18" cy="18" r="2.1" fill="#e87a82" fillOpacity="0.9" />
+      <circle cx="18" cy="18" r="16" stroke="#d4a84a" strokeWidth="2" />
+      <circle cx="18" cy="18" r="11.5" fill="#120608" stroke="#b4141e" strokeWidth="1" />
+      <circle cx="18" cy="18" r="2.5" fill="#d4a84a" />
     </svg>
   );
 }

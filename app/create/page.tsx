@@ -20,7 +20,7 @@ import { triggerReelProcessing } from "@/lib/media/trigger-reel-processing";
 import CrimsonSoundPicker from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
 type PostType = "photo" | "reel" | "status";
 type TaggableRider = {
@@ -447,7 +447,7 @@ export default function CreatePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#050505] pb-32 text-white">
+    <main className={`min-h-screen bg-[#050505] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
           <Link

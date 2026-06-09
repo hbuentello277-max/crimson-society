@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
 import {
@@ -71,7 +72,7 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
   }, [orderId]);
 
   return (
-    <main className="relative min-h-screen bg-[#050405] pb-32 text-white">
+    <main className={`relative min-h-screen bg-[#050405] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 backdrop-blur-xl pt-[calc(env(safe-area-inset-top)+14px)]">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
           <Link

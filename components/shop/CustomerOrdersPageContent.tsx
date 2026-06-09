@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import {
   formatCentsUsd,
@@ -58,7 +59,7 @@ export function CustomerOrdersPageContent() {
   }, []);
 
   return (
-    <main className="relative min-h-screen bg-[#050405] pb-32 text-white">
+    <main className={`relative min-h-screen bg-[#050405] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"

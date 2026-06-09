@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
+import { BOTTOM_NAV_CLEARANCE_VALUE } from "@/lib/crimson-accent";
 
 export type NewMessageSuggestion = {
   id: string;
@@ -23,7 +24,6 @@ type NewMessageSheetProps = {
 };
 
 const DISMISS_DRAG_THRESHOLD_PX = 72;
-const BOTTOM_NAV_CLEARANCE = "calc(3.75rem + env(safe-area-inset-bottom))";
 
 export function NewMessageSheet({
   open,
@@ -107,7 +107,7 @@ export function NewMessageSheet({
       className="fixed inset-x-0 z-[300] flex justify-center"
       style={{
         top: sheetTop,
-        bottom: BOTTOM_NAV_CLEARANCE,
+        bottom: BOTTOM_NAV_CLEARANCE_VALUE,
       }}
       role="presentation"
     >

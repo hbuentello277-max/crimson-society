@@ -31,7 +31,7 @@ import {
   sizeKeysFromMap,
 } from "@/lib/shop/inventory";
 import { useCart, useCartCount } from "@/lib/cart-store";
-import { CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
+import { BOTTOM_NAV_CLEARANCE, CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
 type SortKey = "featured" | "newest" | "price-low" | "price-high";
 
@@ -203,7 +203,7 @@ function ShopPageInner() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050405] pb-32 text-white">
+    <main className={`relative min-h-screen overflow-hidden bg-[#050405] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
