@@ -1,16 +1,28 @@
+export type NexusVoiceHistoryKind = "command" | "action" | "operator" | "confirmation";
+
 export type NexusVoiceHistoryEntry = {
   id: string;
   transcript: string;
   response: string;
   tool: string | null;
+  kind: NexusVoiceHistoryKind;
   createdAt: string;
 };
 
-const STORAGE_KEY = "nexus-admin-voice-history-v1";
-const MAX_ENTRIES = 20;
+const STORAGE_KEY = "nexus-admin-voice-history-v2";
+const MAX_ENTRIES = 30;
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function inferKind(tool: string | null): NexusVoiceHistoryKind {
+  if (!tool) return "command";
+  if (tool.startsWith("create")) return "action";
+  if (tool.startsWith("get") && tool.includes("Health")) return "operator";
+  if (tool === "getDailyOperatorBriefing" || tool === "getRevenueRiskSummary") return "operator";
+  if (tool === "confirm") return "confirmation";
+  return "command";
 }
 
 export function readNexusVoiceHistory(): NexusVoiceHistoryEntry[] {
@@ -21,7 +33,14 @@ export function readNexusVoiceHistory(): NexusVoiceHistoryEntry[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return [];
+      const legacy = window.localStorage.getItem("nexus-admin-voice-history-v1");
+      if (!legacy) return [];
+      const parsedLegacy = JSON.parse(legacy) as NexusVoiceHistoryEntry[];
+      if (!Array.isArray(parsedLegacy)) return [];
+      return parsedLegacy.map((entry) => ({
+        ...entry,
+        kind: entry.kind ?? inferKind(entry.tool),
+      }));
     }
 
     const parsed = JSON.parse(raw) as NexusVoiceHistoryEntry[];
@@ -45,7 +64,9 @@ export function readNexusVoiceHistory(): NexusVoiceHistoryEntry[] {
 }
 
 export function appendNexusVoiceHistory(
-  entry: Omit<NexusVoiceHistoryEntry, "id" | "createdAt">,
+  entry: Omit<NexusVoiceHistoryEntry, "id" | "createdAt" | "kind"> & {
+    kind?: NexusVoiceHistoryKind;
+  },
 ): NexusVoiceHistoryEntry[] {
   if (!canUseStorage()) {
     return [];
@@ -54,6 +75,7 @@ export function appendNexusVoiceHistory(
   const nextEntry: NexusVoiceHistoryEntry = {
     id: `nexus-voice-${Date.now()}`,
     createdAt: new Date().toISOString(),
+    kind: entry.kind ?? inferKind(entry.tool),
     ...entry,
   };
 

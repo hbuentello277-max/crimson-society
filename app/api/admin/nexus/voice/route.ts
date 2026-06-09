@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminServiceClient();
-    const result = await runNexusVoiceAssistant(transcript, admin);
+    const result = await runNexusVoiceAssistant(transcript, admin, auth.session.userId);
 
     return NextResponse.json({
       ...result,

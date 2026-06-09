@@ -1,7 +1,7 @@
 "use client";
 
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
-import type { NexusVoiceStatus } from "@/lib/admin/nexus-voice/types";
+import type { NexusVoicePendingConfirmation, NexusVoiceStatus } from "@/lib/admin/nexus-voice/types";
 
 type NexusVoicePanelProps = {
   open: boolean;
@@ -11,7 +11,10 @@ type NexusVoicePanelProps = {
   response: string;
   error: string | null;
   history: NexusVoiceHistoryEntry[];
+  pendingConfirmation: NexusVoicePendingConfirmation | null;
   onClose: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
 };
 
 function MicIcon({ active }: { active: boolean }) {
@@ -27,6 +30,19 @@ function MicIcon({ active }: { active: boolean }) {
   );
 }
 
+function kindLabel(kind: NexusVoiceHistoryEntry["kind"]) {
+  switch (kind) {
+    case "action":
+      return "Action";
+    case "operator":
+      return "Operator";
+    case "confirmation":
+      return "Confirmed";
+    default:
+      return "Command";
+  }
+}
+
 export function NexusVoicePanel({
   open,
   status,
@@ -35,7 +51,10 @@ export function NexusVoicePanel({
   response,
   error,
   history,
+  pendingConfirmation,
   onClose,
+  onConfirm,
+  onCancel,
 }: NexusVoicePanelProps) {
   if (!open) {
     return null;
@@ -82,6 +101,42 @@ export function NexusVoicePanel({
             </div>
           ) : null}
 
+          {pendingConfirmation ? (
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-amber-200/80">
+                Confirmation required
+              </p>
+              <p className="mt-2 text-sm font-medium text-white">{pendingConfirmation.label}</p>
+              <p className="mt-1 text-sm text-amber-100/90">{pendingConfirmation.summary}</p>
+              <dl className="mt-3 space-y-1 text-xs text-amber-100/80">
+                {Object.entries(pendingConfirmation.details).map(([key, value]) => (
+                  <div key={key} className="flex gap-2">
+                    <dt className="uppercase tracking-[0.14em] text-amber-200/70">{key}</dt>
+                    <dd className="flex-1 break-words text-amber-50">
+                      {typeof value === "string" ? value : JSON.stringify(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-100 transition hover:bg-emerald-500/30"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-zinc-200 transition hover:border-white/30"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">You said</p>
             <p className="mt-2 min-h-[2.5rem] text-sm text-zinc-200">
@@ -92,12 +147,15 @@ export function NexusVoicePanel({
           <div className="rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-3">
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#f1c3c7]/80">NEXUS</p>
             <p className="mt-2 min-h-[2.5rem] text-sm text-white">
-              {response || "Ask about members, Blackcard, signups, reports, revenue, or system status."}
+              {response ||
+                "Ask about health, operator priorities, reports, revenue, or prepare a confirmed draft."}
             </p>
           </div>
 
           <div>
-            <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500">Recent commands</p>
+            <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+              Recent commands
+            </p>
             {history.length === 0 ? (
               <p className="text-xs text-zinc-500">No voice commands yet.</p>
             ) : (
@@ -107,7 +165,12 @@ export function NexusVoicePanel({
                     key={entry.id}
                     className="rounded-xl border border-white/5 bg-black/40 px-3 py-2"
                   >
-                    <p className="truncate text-xs text-zinc-300">{entry.transcript}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-zinc-300">{entry.transcript}</p>
+                      <span className="shrink-0 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                        {kindLabel(entry.kind)}
+                      </span>
+                    </div>
                     <p className="mt-1 truncate text-[11px] text-zinc-500">{entry.response}</p>
                   </li>
                 ))}

@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isNexusVoiceAiConfigured } from "@/lib/admin/nexus-voice/config";
+import { runNexusVoiceActionReadTool } from "@/lib/admin/nexus-voice/action-tools";
+import { runNexusVoiceMonitoringTool } from "@/lib/admin/nexus-voice/monitoring-tools";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
+import {
+  NEXUS_VOICE_ACTION_READ_TOOLS,
+  NEXUS_VOICE_MONITORING_TOOLS,
+  NEXUS_VOICE_PHASE2_TOOLS,
+} from "@/lib/admin/nexus-voice/types";
 
 function startOfUtcDayIso(): string {
   const now = new Date();
@@ -153,22 +160,42 @@ async function getSystemStatus(admin: SupabaseClient): Promise<NexusVoiceActionR
   };
 }
 
-const TOOL_RUNNERS: Record<
-  NexusVoiceToolName,
-  (admin: SupabaseClient) => Promise<NexusVoiceActionResult>
-> = {
+const PHASE2_RUNNERS = {
   getMemberCount,
   getBlackcardCount,
   getRecentSignups,
   getPendingReports,
   getRevenueToday,
   getSystemStatus,
-};
+} as const;
+
+function isPhase2Tool(tool: NexusVoiceToolName): tool is (typeof NEXUS_VOICE_PHASE2_TOOLS)[number] {
+  return (NEXUS_VOICE_PHASE2_TOOLS as readonly string[]).includes(tool);
+}
+
+function isActionReadTool(tool: NexusVoiceToolName): tool is (typeof NEXUS_VOICE_ACTION_READ_TOOLS)[number] {
+  return (NEXUS_VOICE_ACTION_READ_TOOLS as readonly string[]).includes(tool);
+}
+
+function isMonitoringTool(tool: NexusVoiceToolName): tool is (typeof NEXUS_VOICE_MONITORING_TOOLS)[number] {
+  return (NEXUS_VOICE_MONITORING_TOOLS as readonly string[]).includes(tool);
+}
 
 export async function runNexusVoiceTool(
   tool: NexusVoiceToolName,
   admin: SupabaseClient,
 ): Promise<NexusVoiceActionResult> {
-  const runner = TOOL_RUNNERS[tool];
-  return runner(admin);
+  if (isPhase2Tool(tool)) {
+    return PHASE2_RUNNERS[tool](admin);
+  }
+
+  if (isActionReadTool(tool)) {
+    return runNexusVoiceActionReadTool(tool, admin);
+  }
+
+  if (isMonitoringTool(tool)) {
+    return runNexusVoiceMonitoringTool(tool, admin);
+  }
+
+  throw new Error(`Tool ${tool} requires confirmation and cannot run directly.`);
 }

@@ -7,29 +7,29 @@ import {
 } from "@/lib/admin/nexus-voice/assistant";
 
 describe("resolveNexusVoiceTool", () => {
-  it("maps member count phrases", () => {
+  it("maps phase 2 member count phrases", () => {
     assert.equal(resolveNexusVoiceTool("How many members do we have?"), "getMemberCount");
-    assert.equal(resolveNexusVoiceTool("get member count"), "getMemberCount");
   });
 
-  it("maps blackcard phrases", () => {
-    assert.equal(resolveNexusVoiceTool("How many blackcard members?"), "getBlackcardCount");
+  it("maps phase 3 action read tools", () => {
+    assert.equal(resolveNexusVoiceTool("Show pickup orders"), "getOrdersNeedingPickup");
+    assert.equal(resolveNexusVoiceTool("Summarize pending reports"), "summarizePendingReports");
   });
 
-  it("maps recent signups phrases", () => {
-    assert.equal(resolveNexusVoiceTool("Show recent signups"), "getRecentSignups");
+  it("maps phase 3 confirmation tools", () => {
+    assert.equal(resolveNexusVoiceTool("Create system alert"), "createSystemAlertDraft");
+    assert.equal(resolveNexusVoiceTool("Draft weekly briefing"), "createAdminBriefingDraft");
+    assert.equal(resolveNexusVoiceTool("Create runbook for outage"), "createRunbookDraft");
+    assert.equal(resolveNexusVoiceTool("Prepare observation draft"), "createNexusObservationDraft");
   });
 
-  it("maps pending reports phrases", () => {
-    assert.equal(resolveNexusVoiceTool("Any pending reports?"), "getPendingReports");
-  });
-
-  it("maps revenue today phrases", () => {
-    assert.equal(resolveNexusVoiceTool("What is revenue today?"), "getRevenueToday");
-  });
-
-  it("maps system status phrases", () => {
-    assert.equal(resolveNexusVoiceTool("System status"), "getSystemStatus");
+  it("maps phase 4 monitoring tools", () => {
+    assert.equal(resolveNexusVoiceTool("NEXUS, check app health."), "getNexusSystemHealth");
+    assert.equal(resolveNexusVoiceTool("NEXUS, check checkout issues."), "getCheckoutHealth");
+    assert.equal(resolveNexusVoiceTool("NEXUS, check signup failures."), "getSignupHealth");
+    assert.equal(resolveNexusVoiceTool("NEXUS, show media processing failures."), "getMediaProcessingHealth");
+    assert.equal(resolveNexusVoiceTool("What needs my attention?"), "getDailyOperatorBriefing");
+    assert.equal(resolveNexusVoiceTool("NEXUS, summarize today."), "getDailyOperatorBriefing");
   });
 
   it("returns null for unsupported commands", () => {
@@ -45,6 +45,16 @@ describe("formatNexusVoiceResponse", () => {
       data: { count: 42 },
     });
     assert.match(text, /42 members/);
+  });
+
+  it("includes partial warning for monitoring responses", () => {
+    const text = formatNexusVoiceResponse("getCheckoutHealth", {
+      tool: "getCheckoutHealth",
+      data: { status: "warning", pendingOrders24h: 2, paidOrders24h: 1 },
+      partial: true,
+      warnings: ["Some monitoring data is unavailable in this environment."],
+    });
+    assert.match(text, /unavailable/i);
   });
 });
 
@@ -80,9 +90,22 @@ describe("runNexusVoiceAssistant", () => {
       },
     };
 
-    const result = await runNexusVoiceAssistant("ban everyone now", admin as never);
+    const result = await runNexusVoiceAssistant("ban everyone now", admin as never, "admin-1");
     assert.equal(result.tool, null);
-    assert.match(result.response, /member count/i);
+    assert.match(result.response, /platform stats/i);
     assert.equal(calls.length, 0);
+  });
+
+  it("requires confirmation for write action tools", async () => {
+    const result = await runNexusVoiceAssistant(
+      "Create system alert titled checkout delay",
+      {} as never,
+      "admin-1",
+    );
+
+    assert.equal(result.tool, "createSystemAlertDraft");
+    assert.equal(result.requiresConfirmation, true);
+    assert.ok(result.pendingConfirmation?.token);
+    assert.match(result.response, /Confirm/i);
   });
 });

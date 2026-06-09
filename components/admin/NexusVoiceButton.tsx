@@ -51,7 +51,10 @@ export function NexusVoiceButton({ enabled }: NexusVoiceButtonProps) {
         response={voice.response}
         error={voice.error}
         history={voice.history}
+        pendingConfirmation={voice.pendingConfirmation}
         onClose={voice.closePanel}
+        onConfirm={() => void voice.confirmPendingAction()}
+        onCancel={voice.cancelConfirmation}
       />
     </>
   );
