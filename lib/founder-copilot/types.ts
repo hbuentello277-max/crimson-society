@@ -95,6 +95,7 @@ export type FounderTimeline = {
 export type FounderQuestionType =
   | "focus_today"
   | "launch_blockers"
+  | "launch_readiness"
   | "changed_today"
   | "biggest_risk"
   | "platform_health"

@@ -11,22 +11,34 @@ const TOOL_PATTERNS: ToolPattern[] = [
   {
     tool: "answerFounderQuestion",
     patterns: [
-      /\bwhat should i focus on today\b/i,
+      /\bwhat should i focus on(?: today)?\b/i,
       /\bwhat is blocking launch\b/i,
+      /\bare we launch ready\b/i,
       /\bwhat changed today\b/i,
+      /\bwhat is (?:the )?my biggest risk\b/i,
       /\bwhat is the biggest risk\b/i,
       /\bhow healthy is crimson society\b/i,
       /\bwhat should i do next\b/i,
     ],
   },
   {
+    tool: "getMorningBriefing",
+    patterns: [
+      /\bnexus morning briefing\b/i,
+      /\bgive me (?:a |the )?morning briefing\b/i,
+      /\bmorning briefing\b/i,
+    ],
+    exclude: [/\boperator briefing\b/i, /\bfounder briefing\b/i],
+  },
+  {
     tool: "getFounderBriefing",
     patterns: [
       /\bfounder briefing\b/i,
       /\bdaily founder briefing\b/i,
-      /\bgive me the founder briefing\b/i,
+      /\bgive me (?:a |the )?founder briefing\b/i,
       /\bsummarize the platform for me\b/i,
     ],
+    exclude: [/\boperator briefing\b/i, /\bmorning briefing\b/i],
   },
   {
     tool: "getFounderRecommendations",

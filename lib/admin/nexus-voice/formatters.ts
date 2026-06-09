@@ -3,6 +3,7 @@ import {
   formatFounderQuestionResponse,
   formatFounderRecommendationsResponse,
   formatFounderTimelineResponse,
+  formatMorningBriefingResponse,
 } from "@/lib/admin/nexus-voice/founder-formatters";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
@@ -157,6 +158,8 @@ export function formatNexusVoiceResponse(
     }
     case "getFounderBriefing":
       return formatFounderBriefingResponse(actionResult);
+    case "getMorningBriefing":
+      return formatMorningBriefingResponse(actionResult);
     case "getFounderRecommendations":
       return formatFounderRecommendationsResponse(actionResult);
     case "getFounderTimeline":

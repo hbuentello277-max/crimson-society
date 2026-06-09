@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { buildOrbitMetrics, FounderHero } from "@/components/nexus/founder/FounderHero";
 import { FounderBriefCard } from "@/components/nexus/founder/FounderBriefCard";
+import { MorningBriefingCard } from "@/components/nexus/founder/MorningBriefingCard";
 import { FounderSnapshotStrip } from "@/components/nexus/founder/FounderSnapshotStrip";
 import { FounderPriorityList } from "@/components/nexus/founder/FounderPriorityList";
 import { FounderOpportunityGrid } from "@/components/nexus/founder/FounderOpportunityGrid";
@@ -119,6 +120,7 @@ export function NexusFounderDashboard() {
         lastSyncedAt={lastSyncedAt}
       />
 
+      <MorningBriefingCard />
       <FounderBriefCard brief={brief} />
 
       <FounderSnapshotStrip snapshot={snapshot} />

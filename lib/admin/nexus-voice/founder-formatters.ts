@@ -1,4 +1,5 @@
 import type { FounderBriefing, FounderRecommendations, FounderTimeline } from "@/lib/founder-copilot/types";
+import type { LaunchReadiness, MorningBriefing } from "@/lib/proactive-intelligence/types";
 import type { FounderQuestionResult } from "@/lib/founder-copilot/questions";
 import type { NexusVoiceActionResult } from "@/lib/admin/nexus-voice/types";
 
@@ -6,6 +7,30 @@ function partialSuffix(result: NexusVoiceActionResult): string {
   if (!result.partial && !result.warnings?.length) return "";
   const warning = result.warnings?.[0] ?? "Some founder data may be incomplete.";
   return ` ${warning}`;
+}
+
+export function formatMorningBriefingResponse(actionResult: NexusVoiceActionResult): string {
+  const briefing = actionResult.data.morningBriefing as MorningBriefing | undefined;
+  if (!briefing) {
+    return "I could not compile the morning briefing right now.";
+  }
+
+  const sections = briefing.sections
+    .slice(0, 4)
+    .map((section) => `${section.label}: ${section.value}`)
+    .join("; ");
+
+  const alerts =
+    briefing.proactiveAlerts.length > 0
+      ? ` Proactive alerts: ${briefing.proactiveAlerts
+          .slice(0, 2)
+          .map((alert) => alert.title)
+          .join("; ")}.`
+      : "";
+
+  const launch = ` Launch readiness: ${briefing.launchReadiness.score}/100 (${briefing.launchReadiness.status}).`;
+
+  return `Morning briefing: ${briefing.headline} ${sections}.${alerts}${launch}${partialSuffix(actionResult)}`;
 }
 
 export function formatFounderBriefingResponse(
@@ -116,6 +141,17 @@ export function formatFounderQuestionResponse(actionResult: NexusVoiceActionResu
       }
       return `Launch blockers: ${blockers.join("; ")}.`;
     }
+    case "launch_readiness": {
+      const launchReadiness = result.data.launchReadiness as LaunchReadiness;
+      if (!launchReadiness) {
+        return "I could not compute launch readiness right now.";
+      }
+      const blockers =
+        launchReadiness.blockers.length > 0
+          ? ` Blockers: ${launchReadiness.blockers.slice(0, 3).join("; ")}.`
+          : " No major blockers detected.";
+      return `Launch readiness score: ${launchReadiness.score} out of 100 (${launchReadiness.status}). ${launchReadiness.summary}${blockers}`;
+    }
     case "biggest_risk": {
       const topRisk = result.data.topRisk as { title: string; reason: string } | null;
       if (!topRisk) {
@@ -125,6 +161,12 @@ export function formatFounderQuestionResponse(actionResult: NexusVoiceActionResu
     }
     case "focus_today": {
       const focus = result.data.focus as Array<{ title: string; reason: string }>;
+      const priority = result.data.priority as
+        | { recommendedNextAction?: { title: string; reason: string } | null }
+        | undefined;
+      if (priority?.recommendedNextAction) {
+        return `What to focus on: ${priority.recommendedNextAction.title}. ${priority.recommendedNextAction.reason}`;
+      }
       if (!focus || focus.length === 0) {
         return "Focus today on maintaining platform stability and reviewing Platform Status.";
       }
