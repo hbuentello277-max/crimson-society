@@ -97,7 +97,7 @@ export function NexusChatCenter() {
     >
       <div className="min-w-0 space-y-4 overflow-x-hidden">
         <div className="rounded-2xl border border-[#b4141e]/20 bg-[#b4141e]/5 p-4 text-sm leading-6 text-zinc-300">
-          Ask about status, risks, growth, strategy, or history. Nexus pulls from Platform Control,
+          Ask about status, risks, growth, strategy, or history. Nexus pulls from Platform Status,
           Copilot, Forecasting, and the rest of the command stack — never inventing facts.
         </div>
 
@@ -124,7 +124,7 @@ export function NexusChatCenter() {
                 href="/admin/nexus/mission-control"
                 className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[#e87a82] hover:text-[#f1c3c7]"
               >
-                Open Platform Control →
+                Open Platform Status →
               </Link>
             </div>
           ) : (

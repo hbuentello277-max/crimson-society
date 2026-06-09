@@ -100,22 +100,22 @@ export function buildMissionSummary(input: {
   const status = missionStatusLabel(input.mission_status);
 
   if (input.mission_status === "critical") {
-    return `Mission is ${status} at score ${input.mission_score}. Immediate attention required: ${input.primary_focus}. Primary threat: ${input.top_threat}.`;
+    return `Platform is ${status} at score ${input.mission_score}. Immediate attention required: ${input.primary_focus}. Primary threat: ${input.top_threat}.`;
   }
 
   if (input.mission_status === "at_risk") {
-    return `Mission is ${status} at score ${input.mission_score}. Stabilize ${input.primary_focus} before expanding initiatives. Watch ${input.top_threat}.`;
+    return `Platform is ${status} at score ${input.mission_score}. Stabilize ${input.primary_focus} before expanding initiatives. Watch ${input.top_threat}.`;
   }
 
   if (input.mission_status === "dominating") {
-    return `Mission is ${status} at score ${input.mission_score}. Growth and engagement signals are strong. Maintain focus on ${input.primary_focus}.`;
+    return `Platform is ${status} at score ${input.mission_score}. Growth and engagement signals are strong. Maintain focus on ${input.primary_focus}.`;
   }
 
   if (input.mission_status === "growing") {
-    return `Mission is ${status} at score ${input.mission_score}. Momentum is positive with focus on ${input.primary_focus}.`;
+    return `Platform is ${status} at score ${input.mission_score}. Momentum is positive with focus on ${input.primary_focus}.`;
   }
 
-  return `Mission is ${status} at score ${input.mission_score}. Current focus: ${input.primary_focus}.`;
+  return `Platform is ${status} at score ${input.mission_score}. Current focus: ${input.primary_focus}.`;
 }
 
 export { WEIGHTS };

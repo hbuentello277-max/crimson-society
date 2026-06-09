@@ -93,7 +93,7 @@ export function NexusMissionControlCenter() {
 
   return (
     <NexusSectionFrame
-      title="Platform Control"
+      title="Platform Status"
       description="Highest-level strategic view for the founder. Aggregates Planning, Forecasting, Copilot, Operational Intelligence, Memory, Alerts, Incidents, and Health. Read-only — no AI, no execution."
       loading={loading}
       error={error}

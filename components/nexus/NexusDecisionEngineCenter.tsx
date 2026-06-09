@@ -44,7 +44,7 @@ export function NexusDecisionEngineCenter() {
   return (
     <NexusSectionFrame
       title="Decision Engine"
-      description="Deterministic strategic decision support from Platform Control, Planning, Forecasting, Copilot, Intelligence, Correlations, Memory, Reports, Commands, Alerts, and Incidents. Read-only — no AI, no execution."
+      description="Deterministic strategic decision support from Platform Status, Planning, Forecasting, Copilot, Intelligence, Correlations, Memory, Reports, Commands, Alerts, and Incidents. Read-only — no AI, no execution."
       loading={loading}
       error={error}
       onRefresh={refresh}

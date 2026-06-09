@@ -99,7 +99,7 @@ export async function runNexusSyncPipeline(
   ]);
 
   if (!health.ok) errors.push(health.error ?? "Health refresh failed");
-  if (!mission.ok) errors.push(mission.error ?? "Mission workflow refresh failed");
+  if (!mission.ok) errors.push(mission.error ?? "Platform workflow refresh failed");
   if (!metrics.ok) errors.push(metrics.error ?? "Metrics refresh failed");
 
   const alerts = await runNexusAlertEngine();

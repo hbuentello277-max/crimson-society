@@ -100,7 +100,7 @@ export function recommendationForOperational(
 ): string {
   if (!available) return "Operational forecast unavailable until workflow history stabilizes.";
   if (riskScore >= 75) return "Review workflow degradation trends immediately.";
-  if (riskScore >= 50) return "Monitor mission workflows and linked alerts closely.";
+  if (riskScore >= 50) return "Monitor platform workflows and linked alerts closely.";
   return "Operational trajectory appears stable on current path.";
 }
 

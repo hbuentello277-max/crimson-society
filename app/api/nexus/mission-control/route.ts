@@ -6,5 +6,5 @@ export const runtime = "nodejs";
 
 export const GET = ownerReadRoute(
   async ({ supabase }) => nexusOk(await getNexusMissionControl(supabase)),
-  "Failed to load Founder Platform Control.",
+  "Failed to load Founder Platform Status.",
 );

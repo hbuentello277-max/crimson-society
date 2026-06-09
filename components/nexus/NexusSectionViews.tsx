@@ -224,7 +224,7 @@ export function NexusMissionHealthView() {
 
   return (
     <NexusSectionFrame
-      title={NEXUS_LABELS.userWorkflows}
+      title={NEXUS_LABELS.platformHealth}
       description="Signup, login, posting, meets, messaging, and Blackcard purchase reliability. Quiet activity is tracked as opportunity, not failure."
       loading={loading}
       error={error}

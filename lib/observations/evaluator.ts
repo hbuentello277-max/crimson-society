@@ -168,8 +168,8 @@ function evaluateMissionHealthDiagnosis(
       scope_id: "mission.health",
       observation_type: rule.observation_type,
       category: rule.category,
-      title: `Platform Status is ${context.mission.status}`,
-      summary: `Platform Status is ${context.mission.status} because ${workflowList || "multiple workflows"} are ${workflowState}. Score: ${context.mission.score}.`,
+      title: `Platform Health is ${context.mission.status}`,
+      summary: `Platform Health is ${context.mission.status} because ${workflowList || "multiple workflows"} are ${workflowState}. Platform Score: ${context.mission.score}.`,
       evidence: {
         mission_score: context.mission.score,
         mission_status: context.mission.status,

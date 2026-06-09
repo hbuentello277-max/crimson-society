@@ -75,7 +75,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/nexus/mission-health",
-    label: "Platform Status",
+    label: "Platform Health",
     icon: NexusNavWorkflowIcon,
   },
   {
@@ -170,7 +170,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/nexus/mission-control",
-    label: "Platform Control",
+    label: "Platform Status",
     icon: NexusNavMissionControlIcon,
   },
   {

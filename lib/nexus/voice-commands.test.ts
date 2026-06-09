@@ -21,8 +21,16 @@ describe("resolveVoiceCommand", () => {
     assert.equal(resolveVoiceCommand("open scenarios")?.href, "/admin/nexus/scenarios");
   });
 
-  it("maps platform status to mission health", () => {
-    assert.equal(resolveVoiceCommand("open platform status")?.href, "/admin/nexus/mission-health");
+  it("maps platform health to mission-health route", () => {
+    assert.equal(resolveVoiceCommand("open platform health")?.href, "/admin/nexus/mission-health");
+    assert.equal(resolveVoiceCommand("open mission health")?.href, "/admin/nexus/mission-health");
+    assert.equal(resolveVoiceCommand("open platform health")?.label, "Platform Health");
+  });
+
+  it("maps platform status to mission-control route", () => {
+    assert.equal(resolveVoiceCommand("open platform status")?.href, "/admin/nexus/mission-control");
+    assert.equal(resolveVoiceCommand("open mission control")?.href, "/admin/nexus/mission-control");
+    assert.equal(resolveVoiceCommand("open platform status")?.label, "Platform Status");
   });
 
   it("returns null for unknown commands", () => {

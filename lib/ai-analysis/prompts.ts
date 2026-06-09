@@ -24,7 +24,7 @@ export const ANALYSIS_SOURCE_ROUTES: Record<(typeof ANALYSIS_SOURCES)[number], s
   Forecasting: "/admin/nexus/forecasting",
   Copilot: "/admin/nexus/copilot",
   "Operational Intelligence": "/admin/nexus/operational-intelligence",
-  "Platform Control": "/admin/nexus/mission-control",
+  "Platform Status": "/admin/nexus/mission-control",
   "Decision Engine": "/admin/nexus/decision-engine",
   Scenarios: "/admin/nexus/scenarios",
   Alerts: "/admin/nexus/alerts",

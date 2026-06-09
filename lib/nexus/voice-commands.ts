@@ -48,13 +48,23 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
   },
   {
     phrases: [
-      "open platform status",
-      "platform status",
+      "open platform health",
+      "platform health",
       "open mission health",
       "mission health",
       "system status",
     ],
     href: "/admin/nexus/mission-health",
+    label: "Platform Health",
+  },
+  {
+    phrases: [
+      "open platform status",
+      "platform status",
+      "open mission control",
+      "mission control",
+    ],
+    href: "/admin/nexus/mission-control",
     label: "Platform Status",
   },
   {

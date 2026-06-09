@@ -75,7 +75,7 @@ export function MissionStatusHero({
 
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Founder Platform Control</p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Founder Platform Status</p>
           <p className="mt-1 text-sm leading-snug text-white">Crimson Society Strategic View</p>
         </div>
         <NexusRefreshButton

@@ -189,7 +189,7 @@ export function buildImpactSummary(reason: EscalationReason): string {
     case "integration_down_duration":
       return "Integration down beyond duration threshold.";
     case "mission_score_duration":
-      return "Mission health score critically low beyond duration threshold.";
+      return "Platform health score critically low beyond duration threshold.";
     case "critical_rollup":
       return "Multiple critical alerts with combined high impact within 30 minutes.";
     default:

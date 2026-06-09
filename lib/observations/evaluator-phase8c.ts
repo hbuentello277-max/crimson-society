@@ -404,8 +404,8 @@ export function evaluateMissionHealthRegression(
       scope_id: "mission.health.regression",
       observation_type: "regression",
       category: "mission",
-      title: "Platform Status regressed",
-      summary: `Platform Status score dropped ${Math.abs(deltaPct)}% since the last diagnosis (${context.mission.score} vs ${context.prior_mission_score}).`,
+      title: "Platform Health regressed",
+      summary: `Platform Score dropped ${Math.abs(deltaPct)}% since the last diagnosis (${context.mission.score} vs ${context.prior_mission_score}).`,
       evidence: {
         current_score: context.mission.score,
         prior_score: context.prior_mission_score,

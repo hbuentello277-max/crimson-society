@@ -172,7 +172,7 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
           category: "mission",
           eventType: "mission.workflow.status_changed",
           severity: eventSeverityForWorkflowDbStatus(nextDbStatus),
-          title: `${check.workflow_slug} mission workflow status changed to ${nextDbStatus}`,
+          title: `${check.workflow_slug} platform workflow status changed to ${nextDbStatus}`,
           description: workflowEventDescription(check),
           payload: {
             workflow_slug: check.workflow_slug,
@@ -195,7 +195,7 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
           category: "mission",
           eventType: `mission.check.${check.status}`,
           severity: check.status === "fail" ? "critical" : "warning",
-          title: `${check.workflow_slug} mission check ${check.status}`,
+          title: `${check.workflow_slug} platform check ${check.status}`,
           description: workflowEventDescription(check),
           payload: {
             workflow_slug: check.workflow_slug,
@@ -239,8 +239,8 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
         category: "mission",
         eventType: "mission.health.critical",
         severity: "critical",
-        title: "Mission health is critical",
-        description: `Mission score ${score} is below operational threshold`,
+        title: "Platform health is critical",
+        description: `Platform score ${score} is below operational threshold`,
         payload: {
           mission_score: score,
           mission_status: status,
@@ -266,7 +266,7 @@ export async function runNexusMissionHealthEngine(): Promise<NexusMissionHealthE
       checksRecorded,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "mission health engine failed";
+    const message = error instanceof Error ? error.message : "platform health engine failed";
     console.error("[nexus-mission-health] engine error", message);
 
     return {

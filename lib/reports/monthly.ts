@@ -52,7 +52,7 @@ export async function getMonthlyExecutiveReport(
   const operationalBullets = [
     `Infrastructure status: ${health.systemStatus}`,
     `User workflow status: ${mission.status}`,
-    `Mission health score: ${mission.score ?? "—"}`,
+    `Platform health score: ${mission.score ?? "—"}`,
     formatCount(alerts.counts.active, "active alerts"),
     formatCount(incidents.open.length, "open incidents"),
     formatCount(observations.counts.active, "active insights"),

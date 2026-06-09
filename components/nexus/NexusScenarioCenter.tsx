@@ -44,7 +44,7 @@ export function NexusScenarioCenter() {
     <div ref={scrollRef}>
       <NexusSectionFrame
         title="Scenarios"
-        description="Compare strategic paths using Forecasting, Planning, Decision Engine, Platform Control, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
+        description="Compare strategic paths using Forecasting, Planning, Decision Engine, Platform Status, Correlations, Intelligence, Memory, Reports, Briefings, and Metrics. Deterministic analysis only — no AI, no execution."
         loading={loading}
         error={error}
         onRefresh={refresh}

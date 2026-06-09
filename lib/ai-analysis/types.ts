@@ -9,7 +9,7 @@ export const ANALYSIS_SOURCES = [
   "Forecasting",
   "Copilot",
   "Operational Intelligence",
-  "Platform Control",
+  "Platform Status",
   "Decision Engine",
   "Scenarios",
   "Alerts",

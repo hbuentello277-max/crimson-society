@@ -80,7 +80,7 @@ function buildAttentionAnswer(context: ChatContext): ChatAnswer {
 
   let answer: string;
   if (threat) {
-    answer = `Platform Control identifies "${threat}" as the highest-priority item. Primary focus: ${primary}.`;
+    answer = `Platform Status identifies "${threat}" as the highest-priority item. Primary focus: ${primary}.`;
   } else if (openIncidents > 0) {
     answer = `${openIncidents} open incident${openIncidents === 1 ? "" : "s"} require review. Primary focus: ${primary}.`;
   } else if (criticalAlerts > 0) {
@@ -91,7 +91,7 @@ function buildAttentionAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Alerts", "Incidents"]),
+    sources: uniqueSources(["Platform Status", "Copilot", "Planning", "Alerts", "Incidents"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/copilot",
@@ -116,7 +116,7 @@ function buildBiggestRiskAnswer(context: ChatContext): ChatAnswer {
   if (!threat && !riskItem) {
     return {
       answer: "No major active risk pattern detected from current Nexus data.",
-      sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Operational Intelligence"]),
+      sources: uniqueSources(["Platform Status", "Copilot", "Planning", "Operational Intelligence"]),
       related_routes: uniqueRoutes([
         "/admin/nexus/mission-control",
         "/admin/nexus/copilot",
@@ -133,7 +133,7 @@ function buildBiggestRiskAnswer(context: ChatContext): ChatAnswer {
   return {
     answer,
     sources: uniqueSources([
-      "Platform Control",
+      "Platform Status",
       "Copilot",
       "Planning",
       "Operational Intelligence",
@@ -161,7 +161,7 @@ function buildBiggestOpportunityAnswer(context: ChatContext): ChatAnswer {
   if (!opportunity && !oppItem) {
     return {
       answer: "No supported opportunity detected from current Nexus data.",
-      sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Scenarios"]),
+      sources: uniqueSources(["Platform Status", "Copilot", "Planning", "Scenarios"]),
       related_routes: uniqueRoutes([
         "/admin/nexus/mission-control",
         "/admin/nexus/copilot",
@@ -179,7 +179,7 @@ function buildBiggestOpportunityAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Platform Control", "Copilot", "Planning", "Decision Engine", "Scenarios"]),
+    sources: uniqueSources(["Platform Status", "Copilot", "Planning", "Decision Engine", "Scenarios"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/copilot",
@@ -302,11 +302,11 @@ function buildMissionScoreAnswer(context: ChatContext): ChatAnswer {
     reason = " Open incidents are affecting platform status.";
   }
 
-  const answer = `Mission score is ${mission_score} (${mission_status.replace(/_/g, " ")}). ${mission_summary}${reason}${breakdown ? ` Breakdown highlights: ${breakdown}.` : ""}`;
+  const answer = `Platform score is ${mission_score} (${mission_status.replace(/_/g, " ")}). ${mission_summary}${reason}${breakdown ? ` Breakdown highlights: ${breakdown}.` : ""}`;
 
   return {
     answer,
-    sources: uniqueSources(["Platform Control", "Reports", "Operational Intelligence"]),
+    sources: uniqueSources(["Platform Status", "Reports", "Operational Intelligence"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/mission-control",
       "/admin/nexus/mission-health",
@@ -337,7 +337,7 @@ function buildNexusRecommendationAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Decision Engine", "Copilot", "Planning", "Platform Control"]),
+    sources: uniqueSources(["Decision Engine", "Copilot", "Planning", "Platform Status"]),
     related_routes: uniqueRoutes([
       "/admin/nexus/decision-engine",
       "/admin/nexus/copilot",
@@ -356,7 +356,7 @@ function buildMissionSummaryAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Platform Control", "Copilot", "Operational Intelligence"]),
+    sources: uniqueSources(["Platform Status", "Copilot", "Operational Intelligence"]),
     related_routes: uniqueRoutes(["/admin/nexus/mission-control", "/admin/nexus/copilot"]),
     confidence: 90,
   };
@@ -489,7 +489,7 @@ function buildOpenIncidentsAnswer(context: ChatContext): ChatAnswer {
 
   return {
     answer,
-    sources: uniqueSources(["Incidents", "Alerts", "Platform Control"]),
+    sources: uniqueSources(["Incidents", "Alerts", "Platform Status"]),
     related_routes: uniqueRoutes(["/admin/nexus/incidents", "/admin/nexus/alerts"]),
     confidence: 91,
   };
@@ -554,11 +554,11 @@ function buildPlatformStatusAnswer(context: ChatContext): ChatAnswer {
   const missionStatus = context.mission.mission_status;
   const score = context.mission.mission_score;
 
-  const answer = `${status} Mission status: ${missionStatus.replace(/_/g, " ")} (score ${score}). ${context.mission.mission_summary}`;
+  const answer = `${status} Platform status: ${missionStatus.replace(/_/g, " ")} (score ${score}). ${context.mission.mission_summary}`;
 
   return {
     answer,
-    sources: uniqueSources(["Founder Dashboard", "Copilot", "Platform Control", "Reports"]),
+    sources: uniqueSources(["Founder Dashboard", "Copilot", "Platform Status", "Reports"]),
     related_routes: uniqueRoutes(["/admin/nexus", "/admin/nexus/copilot", "/admin/nexus/mission-control"]),
     confidence: 88,
   };
@@ -568,8 +568,8 @@ function buildUnknownAnswer(context: ChatContext): ChatAnswer {
   const focus = context.copilot.guidance.primary_focus || context.mission.primary_focus;
 
   return {
-    answer: `I can answer status, risk, growth, strategy, and historical questions from Nexus data. Try asking about attention today, biggest risk, forecasts, or platform summary. Current primary focus: ${focus || "review Platform Control"}.`,
-    sources: uniqueSources(["Copilot", "Platform Control"]),
+    answer: `I can answer status, risk, growth, strategy, and historical questions from Nexus data. Try asking about attention today, biggest risk, forecasts, or platform summary. Current primary focus: ${focus || "review Platform Status"}.`,
+    sources: uniqueSources(["Copilot", "Platform Status"]),
     related_routes: uniqueRoutes(["/admin/nexus/chat", "/admin/nexus/copilot", "/admin/nexus/mission-control"]),
     confidence: 65,
   };
