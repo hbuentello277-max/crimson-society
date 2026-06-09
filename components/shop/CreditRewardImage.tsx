@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 
 type Props = {
   src?: string | null;
@@ -21,7 +21,7 @@ export function CreditRewardImage({
   if (!src?.trim()) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-[#120608] to-black">
-        <CrimsonCoinIcon size={48} className="opacity-90 drop-shadow-[0_0_16px_rgba(180,20,30,0.45)]" />
+        <CrimsonRewardsIcon size={48} className="opacity-90 drop-shadow-[0_0_16px_rgba(180,20,30,0.45)]" />
       </div>
     );
   }

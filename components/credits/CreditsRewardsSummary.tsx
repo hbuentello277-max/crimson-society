@@ -1,4 +1,4 @@
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import type { CreditsRewardsSummary } from "@/lib/credits/rewards-api-types";
 import {
   CRIMSON_CREDITS_MONTHLY_REDEMPTION_VALUE_USD,
@@ -29,7 +29,7 @@ export function CreditsRewardsSummary({ summary, loading = false }: Props) {
   return (
     <section className="overflow-hidden rounded-[22px] border border-[#b4141e]/25 bg-gradient-to-br from-[#120608] via-[#0a0a0b] to-[#090909] p-4 shadow-[0_16px_50px_-36px_rgba(180,20,30,0.55)]">
       <div className="mb-3 flex items-center gap-2">
-        <CrimsonCoinIcon size={20} />
+        <CrimsonRewardsIcon size={20} />
         <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">Rewards balance</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

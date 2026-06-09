@@ -1,4 +1,4 @@
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 
 type IconProps = { className?: string };
 
@@ -77,7 +77,7 @@ export function IconMenuSupport({ className = "h-5 w-5" }: IconProps) {
 }
 
 export function IconMenuCredits({ className = "h-5 w-5" }: IconProps) {
-  return <CrimsonCoinIcon size={20} className={className} title="" />;
+  return <CrimsonRewardsIcon size={20} className={className} title="" />;
 }
 
 export function IconMenuReferrals({ className = "h-5 w-5" }: IconProps) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { BLACKCARD_MEMBERSHIP_PERKS } from "@/lib/blackcard/perks";
 
 export const LOCKED_BLACKCARD_PERKS = [...BLACKCARD_MEMBERSHIP_PERKS] as const;
@@ -37,7 +37,7 @@ export function BlackcardPerksPreview({ unlocked }: Props) {
       </div>
 
       <div className="mt-3 flex max-w-2xl items-start gap-2.5">
-        <CrimsonCoinIcon size={24} className="mt-0.5 shrink-0 drop-shadow-[0_0_10px_rgba(180,20,30,0.35)]" />
+        <CrimsonRewardsIcon size={24} className="mt-0.5 shrink-0 drop-shadow-[0_0_10px_rgba(180,20,30,0.35)]" />
         <p className="text-sm leading-6 text-zinc-400">
           {unlocked
             ? "Your membership unlocks Crimson Credits redemption (coming soon), early merch access, and exclusive meets."

@@ -20,7 +20,7 @@ import {
 } from "@/components/blackcard/types";
 import { BillingPortalButton } from "@/components/blackcard/BillingPortalButton";
 import { BlackcardPerksPreview } from "@/components/blackcard/BlackcardPerksPreview";
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
 import { supabase } from "@/lib/supabase";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
@@ -281,7 +281,7 @@ export default function BlackcardPage() {
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">{BLACKCARD_HERO_DESCRIPTION}</p>
           <div className="mt-3 flex max-w-2xl items-start gap-2.5">
-            <CrimsonCoinIcon size={20} className="mt-0.5 shrink-0 opacity-90" />
+            <CrimsonRewardsIcon size={20} className="mt-0.5 shrink-0 opacity-90" />
             <p className="text-xs leading-6 text-zinc-500">{BLACKCARD_CREDITS_TAGLINE}</p>
           </div>
 

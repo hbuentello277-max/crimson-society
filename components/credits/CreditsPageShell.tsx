@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 
 type Props = {
@@ -25,7 +25,7 @@ export function CreditsPageShell({ title, subtitle, children }: Props) {
         </Suspense>
 
         <div className="mt-8 flex items-center gap-2.5">
-          <CrimsonCoinIcon size={24} className="drop-shadow-[0_0_10px_rgba(180,20,30,0.4)]" />
+          <CrimsonRewardsIcon size={24} className="drop-shadow-[0_0_10px_rgba(180,20,30,0.4)]" />
           <p className="text-[10px] uppercase tracking-[0.32em] text-[#e87a82]">Crimson Credits</p>
         </div>
         <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">{title}</h1>

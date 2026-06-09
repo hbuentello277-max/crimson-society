@@ -1,6 +1,6 @@
 "use client";
 
-import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { useCrimsonCreditsEconomy } from "@/hooks/useCrimsonCreditsEconomy";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
@@ -43,7 +43,7 @@ export function CreditsHowItWorksPageContent() {
             (tap
           </span>
           <span className="inline-flex items-center gap-1 text-zinc-200">
-            <CrimsonCoinIcon size={20} />
+            <CrimsonRewardsIcon size={20} />
             Rewards
           </span>
           <span>on your profile card).</span>

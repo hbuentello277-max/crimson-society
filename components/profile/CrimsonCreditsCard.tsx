@@ -8,6 +8,7 @@ import {
   CRIMSON_CREDITS_MONTHLY_REDEMPTION_CAP,
   formatCreditsRewardValueUsd,
 } from "@/lib/credits/config";
+import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import type { CrimsonCreditsSummary } from "@/lib/credits/types";
 
 type Props = {
@@ -15,23 +16,6 @@ type Props = {
   loading?: boolean;
   membershipTier: CrimsonMembershipTier;
 };
-
-/** Plain profile-card coin — outer ring, inner face, center dot. */
-function CreditsProfileCoinIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 36 36"
-      className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <circle cx="18" cy="18" r="16" stroke="#d4a84a" strokeWidth="2" />
-      <circle cx="18" cy="18" r="11.5" fill="#120608" stroke="#b4141e" strokeWidth="1" />
-      <circle cx="18" cy="18" r="2.5" fill="#d4a84a" />
-    </svg>
-  );
-}
 
 export function CrimsonCreditsCard({ summary, loading = false }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -49,7 +33,11 @@ export function CrimsonCreditsCard({ summary, loading = false }: Props) {
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.02]"
         aria-expanded={expanded}
       >
-        <CreditsProfileCoinIcon className="h-9 w-9 shrink-0 drop-shadow-[0_0_14px_rgba(180,20,30,0.45)]" />
+        <CrimsonRewardsIcon
+          size={36}
+          title=""
+          className="shrink-0 drop-shadow-[0_0_14px_rgba(180,20,30,0.45)]"
+        />
 
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-[#e87a82]">
