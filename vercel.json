@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/media-processing",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/meet-reminders",
+      "schedule": "0 * * * *"
     }
   ],
   "headers": [

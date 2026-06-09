@@ -6,10 +6,14 @@ export type NotificationType =
   | "profile_followed"
   | "meet_removed"
   | "meet_canceled"
+  | "meet_updated"
   | "meet_ended"
+  | "meet_reminder"
   | "direct_message"
+  | "connection_request_received"
   | "post_liked"
   | "post_commented"
+  | "admin_report_submitted"
   | "account_deletion_requested"
   | "account_deletion_canceled"
   | "account_deletion_approved"
@@ -71,10 +75,14 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "profile_followed",
   "meet_removed",
   "meet_canceled",
+  "meet_updated",
   "meet_ended",
+  "meet_reminder",
   "direct_message",
+  "connection_request_received",
   "post_liked",
   "post_commented",
+  "admin_report_submitted",
   "account_deletion_requested",
   "account_deletion_canceled",
   "account_deletion_approved",
@@ -157,6 +165,14 @@ export function notificationDestination(
     return actorProfileHref(actor) || "/inbox?tab=notifications";
   }
 
+  if (notification.type === "connection_request_received") {
+    return storedPath ?? "/connect";
+  }
+
+  if (notification.type === "admin_report_submitted") {
+    return storedPath ?? "/admin?section=moderation";
+  }
+
   if (notification.type === "direct_message" && notification.conversation_id) {
     return `/inbox?conversation=${notification.conversation_id}`;
   }
@@ -197,14 +213,22 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Removed";
     case "meet_canceled":
       return "Canceled";
+    case "meet_updated":
+      return "Meet updated";
     case "meet_ended":
       return "Ride ended";
+    case "meet_reminder":
+      return "Meet reminder";
     case "meet_chat_photo":
       return "Meet photo";
     case "profile_followed":
       return "New follower";
     case "direct_message":
       return "Message";
+    case "connection_request_received":
+      return "Connect request";
+    case "admin_report_submitted":
+      return "Moderation report";
     case "post_liked":
       return "Post liked";
     case "post_commented":
@@ -259,14 +283,22 @@ export function notificationSummary(
       return trimmedBody || "You were removed from a meet";
     case "meet_canceled":
       return trimmedBody || "Your meet was canceled";
+    case "meet_updated":
+      return trimmedBody || `${name} updated your meet`;
     case "meet_ended":
       return trimmedBody || "Ride tracking has ended";
+    case "meet_reminder":
+      return trimmedBody || notification.title;
     case "direct_message":
       return trimmedBody || `${name} sent you a message`;
     case "post_liked":
       return trimmedBody || `${name} liked your post`;
     case "post_commented":
       return trimmedBody || `${name} commented on your post`;
+    case "connection_request_received":
+      return trimmedBody || `${name} sent you a connect request`;
+    case "admin_report_submitted":
+      return trimmedBody || "A member submitted a moderation report";
     case "account_deletion_requested":
       return trimmedBody || "A member submitted an account deletion request";
     case "account_deletion_canceled":

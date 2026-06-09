@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  adminReportQueueGroupKey,
+  connectRequestGroupKey,
   directMessageGroupKey,
   groupedNotificationCount,
   meetJoinedGroupKey,
+  meetReminderGroupKey,
+  meetUpdatedGroupKey,
+  postCommentedGroupKey,
+  postLikedGroupKey,
   profileFollowedGroupKey,
   pushCollapseKey,
   shopOrderGroupKey,
@@ -31,6 +37,15 @@ describe("notification group keys", () => {
 
   it("builds shop order keys per order and user", () => {
     assert.equal(shopOrderGroupKey("order-3", "user-7"), "order:order-3:user-7");
+  });
+
+  it("builds connect, meet update, reminder, and moderation keys", () => {
+    assert.equal(connectRequestGroupKey("req-1", "recv-2"), "connect_request:req-1:recv-2");
+    assert.equal(meetUpdatedGroupKey("meet-1", "user-2"), "meet_updated:meet-1:user-2");
+    assert.equal(meetReminderGroupKey("meet-1", "user-2"), "meet_reminder:meet-1:user-2");
+    assert.equal(adminReportQueueGroupKey("admin-1"), "admin_report_queue:admin-1");
+    assert.equal(postLikedGroupKey("post-1", "owner-1"), "post_liked:post-1:owner-1");
+    assert.equal(postCommentedGroupKey("post-1", "owner-1"), "post_commented:post-1:owner-1");
   });
 });
 

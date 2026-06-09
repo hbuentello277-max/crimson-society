@@ -60,7 +60,8 @@ export function AutomationCard({
 
         {action.status === "approved" ? (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100/90">
-            Approved for future consideration. No execution occurs in Mark I.
+            Approved for Operator. Open Operator and explicitly execute safe allowlisted tasks when
+            ready.
           </div>
         ) : null}
 

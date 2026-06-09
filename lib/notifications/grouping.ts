@@ -3,9 +3,15 @@ import type { NotificationItem } from "@/lib/notifications";
 /** Mirrors DB producers in grouped_notifications.sql and order-notifications.ts */
 export const NOTIFICATION_GROUP_KEY_PATTERNS = {
   directMessage: "dm:{conversationId}:{recipientUserId}",
+  connectRequest: "connect_request:{requesterId}:{receiverId}",
   meetJoined: "meet_joined:{meetId}:{hostUserId}",
+  meetUpdated: "meet_updated:{meetId}:{recipientId}",
+  meetReminder: "meet_reminder:{meetId}:{recipientId}",
   profileFollowed: "profile_followed:{recipientUserId}",
   shopOrder: "order:{orderId}:{userId}",
+  postLiked: "post_liked:{postId}:{ownerId}",
+  postCommented: "post_commented:{postId}:{ownerId}",
+  adminReportQueue: "admin_report_queue:{adminId}",
 } as const;
 
 export function directMessageGroupKey(conversationId: string, recipientUserId: string) {
@@ -22,6 +28,30 @@ export function profileFollowedGroupKey(recipientUserId: string) {
 
 export function shopOrderGroupKey(orderId: string, userId: string) {
   return `order:${orderId}:${userId}`;
+}
+
+export function connectRequestGroupKey(requesterId: string, receiverId: string) {
+  return `connect_request:${requesterId}:${receiverId}`;
+}
+
+export function meetUpdatedGroupKey(meetId: string, recipientId: string) {
+  return `meet_updated:${meetId}:${recipientId}`;
+}
+
+export function meetReminderGroupKey(meetId: string, recipientId: string) {
+  return `meet_reminder:${meetId}:${recipientId}`;
+}
+
+export function postLikedGroupKey(postId: string, ownerId: string) {
+  return `post_liked:${postId}:${ownerId}`;
+}
+
+export function postCommentedGroupKey(postId: string, ownerId: string) {
+  return `post_commented:${postId}:${ownerId}`;
+}
+
+export function adminReportQueueGroupKey(adminId: string) {
+  return `admin_report_queue:${adminId}`;
 }
 
 type CollapseInput = Pick<

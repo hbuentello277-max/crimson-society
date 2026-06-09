@@ -6,27 +6,16 @@ import type {
   UpdateAutomationResult,
   UpdateAutomationStatusAction,
 } from "@/lib/automation/types";
+import {
+  automationStatusAfterAction,
+  canTransitionAutomationStatus,
+} from "@/lib/automation/transitions";
 import type { NexusAutomationStatus } from "@/lib/nexus/constants";
 
-const TRANSITIONS: Record<
-  UpdateAutomationStatusAction,
-  { from: NexusAutomationStatus[]; to: NexusAutomationStatus; eventType: string }
-> = {
-  approve: {
-    from: ["proposed"],
-    to: "approved",
-    eventType: "automation.approved",
-  },
-  reject: {
-    from: ["proposed", "approved"],
-    to: "rejected",
-    eventType: "automation.rejected",
-  },
-  archive: {
-    from: ["proposed", "approved", "rejected"],
-    to: "archived",
-    eventType: "automation.archived",
-  },
+const EVENT_TYPES: Record<UpdateAutomationStatusAction, string> = {
+  approve: "automation.approved",
+  reject: "automation.rejected",
+  archive: "automation.archived",
 };
 
 export function mapAutomationRow(row: Record<string, unknown>): AutomationActionDbRow {
@@ -54,8 +43,6 @@ export async function updateOwnerAutomationStatus(
     action: UpdateAutomationStatusAction;
   },
 ): Promise<UpdateAutomationResult> {
-  const rule = TRANSITIONS[input.action];
-
   const { data: existing, error: readError } = await supabase
     .from("nexus_automation_actions")
     .select("*")
@@ -71,7 +58,7 @@ export async function updateOwnerAutomationStatus(
   }
 
   const currentStatus = existing.status as NexusAutomationStatus;
-  if (!rule.from.includes(currentStatus)) {
+  if (!canTransitionAutomationStatus(currentStatus, input.action)) {
     return {
       ok: false,
       error: `Cannot ${input.action} automation action from status ${currentStatus}`,
@@ -80,7 +67,7 @@ export async function updateOwnerAutomationStatus(
 
   const now = new Date().toISOString();
   const updates: Record<string, unknown> = {
-    status: rule.to,
+    status: automationStatusAfterAction(input.action),
   };
 
   if (input.action === "approve") {
@@ -104,7 +91,7 @@ export async function updateOwnerAutomationStatus(
   const event = await emitNexusEvent({
     source: "manual",
     category: "infra",
-    eventType: rule.eventType,
+    eventType: EVENT_TYPES[input.action],
     severity: "info",
     title: automationAction.title,
     description: automationAction.summary,

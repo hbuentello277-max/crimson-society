@@ -46,7 +46,7 @@ function OperatorSection({
 export function NexusOperatorCenter() {
   const { ref: scrollRef } = useNexusScrollRestoration("nexus:operator");
   const { data, error, loading, refresh } = useNexusFetch<OperatorPayload>("/api/nexus/operator");
-  const { post, pendingKey } = useNexusPost();
+  const { post, pendingKey, error: postError } = useNexusPost();
 
   async function executeAction(automationActionId: string) {
     const result = await post<{ execution: unknown }>(
@@ -74,6 +74,12 @@ export function NexusOperatorCenter() {
               Operator runs safe internal refreshes only. No Stripe changes, no user mutations, no
               deploys, no messaging, and no autonomous background execution.
             </div>
+
+            {postError ? (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                {postError}
+              </div>
+            ) : null}
 
           <OperatorSection
             title="Approved Actions Ready to Execute"

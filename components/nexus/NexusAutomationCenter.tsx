@@ -44,7 +44,7 @@ export function NexusAutomationCenter() {
   const { data, error, loading, refresh } = useNexusFetch<AutomationPayload>(
     "/api/nexus/automation?limit=120",
   );
-  const { mutate, pendingKey } = useNexusMutation();
+  const { mutate, pendingKey, error: mutationError } = useNexusMutation();
 
   const actions = data?.actions ?? [];
   const filtered = useMemo(
@@ -63,7 +63,7 @@ export function NexusAutomationCenter() {
     <div ref={scrollRef}>
       <NexusSectionFrame
         title="Automation"
-        description="Controlled automation framework for Crimson Society. Proposed actions only — every step requires explicit owner approval. Mark I — no execution engine."
+        description="Controlled automation framework for Crimson Society. Proposed actions require explicit owner approval before they can be executed separately in Operator."
         loading={loading}
         error={error}
         onRefresh={refresh}
@@ -72,9 +72,15 @@ export function NexusAutomationCenter() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/90">
               Automation prepares recommendations from Planning, Correlations, Intelligence, Commands,
-              Reports, and Briefings. Approving an action means you agree it is worthwhile — nothing
-              executes automatically.
+              Reports, and Briefings. Approving an action only marks it eligible for Operator — it
+              does not execute automatically.
             </div>
+
+            {mutationError ? (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                {mutationError}
+              </div>
+            ) : null}
 
           {data?.generation ? (
             <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">

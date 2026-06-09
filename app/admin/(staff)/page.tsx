@@ -254,11 +254,13 @@ function AdminPageContent() {
     meetSubscriptions: 0,
   });
   useEffect(() => {
-    if (searchParams.get("section") !== "deletion") return;
+    const section = searchParams.get("section");
+    if (section !== "deletion" && section !== "moderation") return;
+
     window.requestAnimationFrame(() => {
-      document
-        .getElementById("admin-deletion-requests")
-        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      const targetId =
+        section === "deletion" ? "admin-deletion-requests" : "admin-moderation-reports";
+      document.getElementById(targetId)?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
   }, [searchParams]);
 
@@ -971,6 +973,8 @@ function AdminPageContent() {
                   title="Reports Queue"
                   summary={`${pendingReportCount} pending`}
                   description="User-submitted reports awaiting review or resolution."
+                  id="admin-moderation-reports"
+                  defaultOpen={searchParams.get("section") === "moderation"}
                 >
                   {reports.length === 0 ? (
                     <p className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm text-zinc-500">
