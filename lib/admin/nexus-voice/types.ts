@@ -46,6 +46,14 @@ export const NEXUS_VOICE_CROSS_SYSTEM_TOOLS = [
   "getPlatformIntelligenceOpportunities",
 ] as const;
 
+export const NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS = [
+  "getExecutiveCommandSummary",
+  "getExecutiveCommandPriorities",
+  "getExecutiveCommandApprovals",
+  "getExecutiveCommandTopRisk",
+  "getExecutiveCommandTopOpportunity",
+] as const;
+
 export const NEXUS_VOICE_MONITORING_TOOLS = [
   "getNexusSystemHealth",
   "getCheckoutHealth",
@@ -70,6 +78,7 @@ export const NEXUS_VOICE_TOOLS = [
   ...NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   ...NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
   ...NEXUS_VOICE_ACTION_CENTER_TOOLS,
+  ...NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS,
 ] as const;
 
 export type NexusVoicePhase2ToolName = (typeof NEXUS_VOICE_PHASE2_TOOLS)[number];
@@ -81,6 +90,8 @@ export type NexusVoiceActionCenterToolName = (typeof NEXUS_VOICE_ACTION_CENTER_T
 export type NexusVoiceCrossSystemToolName = (typeof NEXUS_VOICE_CROSS_SYSTEM_TOOLS)[number];
 export type NexusVoiceOperationsPlannerToolName =
   (typeof NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS)[number];
+export type NexusVoiceExecutiveCommandToolName =
+  (typeof NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS)[number];
 export type NexusVoiceToolName = (typeof NEXUS_VOICE_TOOLS)[number];
 
 export type NexusVoiceActionResult = {

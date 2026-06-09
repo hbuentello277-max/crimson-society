@@ -9,6 +9,34 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "getExecutiveCommandSummary",
+    patterns: [
+      /\bopen executive command center\b/i,
+      /\bgive me executive summary\b/i,
+      /\bexecutive summary\b/i,
+      /\bwhat should i focus on right now\b/i,
+    ],
+  },
+  {
+    tool: "getExecutiveCommandPriorities",
+    patterns: [
+      /\bshow today(?:'s|s)? priorities\b/i,
+      /\btoday(?:'s|s)? priorities\b/i,
+    ],
+  },
+  {
+    tool: "getExecutiveCommandApprovals",
+    patterns: [/\bwhat needs approval\b/i],
+  },
+  {
+    tool: "getExecutiveCommandTopRisk",
+    patterns: [/\bwhat is the biggest risk today\b/i],
+  },
+  {
+    tool: "getExecutiveCommandTopOpportunity",
+    patterns: [/\bwhat is the biggest opportunity today\b/i],
+  },
+  {
     tool: "getPlatformIntelligenceBriefing",
     patterns: [
       /\bwhy is revenue down\b/i,
@@ -96,6 +124,12 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bwhat is the biggest risk\b/i,
       /\bhow healthy is crimson society\b/i,
       /\bwhat should i do next\b/i,
+    ],
+    exclude: [
+      /\bright now\b/i,
+      /\bexecutive summary\b/i,
+      /\bbiggest risk today\b/i,
+      /\bbiggest opportunity today\b/i,
     ],
   },
   {
@@ -381,7 +415,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can give founder briefings and recommendations, answer what to focus on today, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can open the Executive Command Center, give founder briefings and executive summaries, answer what to focus on, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

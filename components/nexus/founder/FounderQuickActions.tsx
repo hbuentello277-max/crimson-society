@@ -3,14 +3,14 @@
 import Link from "next/link";
 
 const ACTIONS = [
+  { href: "/admin/nexus#executive-command-center", label: "Executive" },
+  { href: "/admin/nexus/actions", label: "Actions" },
   { href: "/admin/nexus/overview", label: "Overview" },
   { href: "/admin/nexus/reports", label: "Reports" },
-  { href: "/admin/nexus/briefings", label: "Briefings" },
   { href: "/admin/nexus/intelligence", label: "Intelligence" },
-  { href: "/admin/nexus/commands", label: "Commands" },
-  { href: "/admin/nexus/observations", label: "Insights" },
   { href: "/admin/nexus/alerts", label: "Alerts" },
-  { href: "/admin/nexus/war-rooms", label: "War Rooms" },
+  { href: "/admin/nexus/mission-health", label: "Platform Health" },
+  { href: "/admin/nexus/mission-control", label: "Platform Status" },
 ] as const;
 
 export function FounderQuickActions() {

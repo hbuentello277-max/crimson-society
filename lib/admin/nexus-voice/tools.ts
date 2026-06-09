@@ -6,11 +6,13 @@ import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nex
 import { runNexusVoiceActionCenterTool } from "@/lib/admin/nexus-voice/action-center-tools";
 import { runNexusCrossSystemVoiceTool } from "@/lib/admin/nexus-voice/cross-system-tools";
 import { runNexusOperationsPlannerVoiceTool } from "@/lib/admin/nexus-voice/operations-planner-tools";
+import { runNexusExecutiveCommandVoiceTool } from "@/lib/admin/nexus-voice/executive-command-tools";
 import { runNexusVoiceFounderTool } from "@/lib/admin/nexus-voice/founder-tools";
 import {
   NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_ACTION_READ_TOOLS,
   NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
+  NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS,
   NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
   NEXUS_VOICE_MONITORING_TOOLS,
@@ -211,6 +213,12 @@ function isOperationsPlannerTool(
   return (NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS as readonly string[]).includes(tool);
 }
 
+function isExecutiveCommandTool(
+  tool: NexusVoiceToolName,
+): tool is (typeof NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS)[number] {
+  return (NEXUS_VOICE_EXECUTIVE_COMMAND_TOOLS as readonly string[]).includes(tool);
+}
+
 export type NexusVoiceToolOptions = {
   transcript?: string;
   ownerId?: string;
@@ -259,6 +267,10 @@ export async function runNexusVoiceTool(
       transcript: options.transcript,
       ownerId: options.ownerId,
     });
+  }
+
+  if (isExecutiveCommandTool(tool)) {
+    return runNexusExecutiveCommandVoiceTool(tool, admin);
   }
 
   throw new Error(`Tool ${tool} requires confirmation and cannot run directly.`);

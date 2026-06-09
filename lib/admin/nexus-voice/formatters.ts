@@ -225,6 +225,32 @@ export function formatNexusVoiceResponse(
       const actions = (actionResult.data.actions as NexusActionCard[] | undefined) ?? [];
       return formatNexusActionQueueResponse(actions);
     }
+    case "getExecutiveCommandSummary": {
+      return String(actionResult.data.spoken ?? "Executive Command Center summary is unavailable.");
+    }
+    case "getExecutiveCommandPriorities": {
+      const priorities = actionResult.data.priorities as
+        | Array<{ title: string; urgency: string; reason: string; next: string }>
+        | undefined;
+      if (!priorities?.length) return "No priorities are flagged for today.";
+      return `Today's priorities: ${priorities.map((item) => `${item.title} (${item.urgency}) — ${item.next}`).join("; ")}.`;
+    }
+    case "getExecutiveCommandApprovals": {
+      const pending = Number(actionResult.data.pending_approval ?? 0);
+      const draft = Number(actionResult.data.draft ?? 0);
+      const approved = Number(actionResult.data.approved_awaiting_execution ?? 0);
+      return `${pending} action(s) need approval, ${draft} draft(s), and ${approved} approved action(s) await execution. Open Action Center to review.`;
+    }
+    case "getExecutiveCommandTopRisk": {
+      const title = actionResult.data.title as string | null;
+      if (!title) return "No major risk is flagged in the Executive Command Center today.";
+      return `Today's top risk: ${title}.`;
+    }
+    case "getExecutiveCommandTopOpportunity": {
+      const title = actionResult.data.title as string | null;
+      if (!title) return "No major opportunity is flagged in the Executive Command Center today.";
+      return `Today's top opportunity: ${title}.`;
+    }
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }
