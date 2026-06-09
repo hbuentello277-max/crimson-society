@@ -45,6 +45,10 @@ const NexusCommandsCenter = lazyNexusCenter(
   () => import("@/components/nexus/NexusCommandsCenter"),
   "NexusCommandsCenter",
 );
+const NexusActionCenter = lazyNexusCenter(
+  () => import("@/components/nexus/NexusActionCenter"),
+  "NexusActionCenter",
+);
 const NexusReportsCenter = lazyNexusCenter(
   () => import("@/components/nexus/NexusReportsCenter"),
   "NexusReportsCenter",
@@ -365,6 +369,10 @@ export function NexusRunbooksView() {
 
 export function NexusCommandsView() {
   return <NexusCommandsCenter />;
+}
+
+export function NexusActionsView() {
+  return <NexusActionCenter />;
 }
 
 export function NexusReportsView() {

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   NexusNavAlertsIcon,
   NexusNavCommandsIcon,
+  NexusNavActionsIcon,
   NexusNavFounderIcon,
   NexusNavChatIcon,
   NexusNavVoiceIcon,
@@ -114,6 +115,11 @@ const NAV_ITEMS = [
     href: "/admin/nexus/commands",
     label: "Commands",
     icon: NexusNavCommandsIcon,
+  },
+  {
+    href: "/admin/nexus/actions",
+    label: "Actions",
+    icon: NexusNavActionsIcon,
   },
   {
     href: "/admin/nexus/reports",

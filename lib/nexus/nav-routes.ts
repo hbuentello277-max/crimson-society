@@ -17,6 +17,7 @@ export const NEXUS_NAV_ROUTES = [
   "/admin/nexus/war-rooms",
   "/admin/nexus/runbooks",
   "/admin/nexus/commands",
+  "/admin/nexus/actions",
   "/admin/nexus/reports",
   "/admin/nexus/briefings",
   "/admin/nexus/intelligence",

@@ -150,6 +150,16 @@ export function NexusNavCommandsIcon({ className }: IconProps) {
   );
 }
 
+export function NexusNavActionsIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M5 4.5h10v11H5z" />
+      <path d="M7.5 8h5M7.5 10.5h3.5M7.5 13h5" strokeLinecap="round" />
+      <path d="M12 4.5v-1h1v1" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export function NexusNavReportsIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

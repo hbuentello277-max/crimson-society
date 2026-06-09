@@ -9,6 +9,18 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "getNexusActionQueue",
+    patterns: [
+      /\bshow pending actions\b/i,
+      /\bwhat actions (?:are )?waiting for approval\b/i,
+      /\bwhat should i approve today\b/i,
+      /\bwhat actions need approval\b/i,
+      /\bwhat marketing actions have been prepared\b/i,
+      /\bpending actions\b/i,
+    ],
+    exclude: [/\bcreate\b/i, /\bdraft\b/i, /\bprepare\b/i],
+  },
+  {
     tool: "answerFounderQuestion",
     patterns: [
       /\bwhat should i focus on(?: today)?\b/i,
@@ -124,6 +136,33 @@ const TOOL_PATTERNS: ToolPattern[] = [
     patterns: [
       /\b(create|draft|prepare)\b.*\bobservation\b/i,
       /\bobservation draft\b/i,
+    ],
+  },
+  {
+    tool: "prepareNexusActionDraft",
+    patterns: [
+      /\bdraft\b.*\blaunch announcement\b/i,
+      /\bcreate\b.*\blaunch announcement\b/i,
+      /\bcreate\b.*\bblackcard promotion\b/i,
+      /\bdraft\b.*\bblackcard promotion\b/i,
+      /\bprepare\b.*\bfounder update\b/i,
+      /\bdraft\b.*\bfounder update\b/i,
+      /\bcreate\b.*\bweekly report\b/i,
+      /\bgenerate\b.*\binstagram\b/i,
+      /\bgenerate\b.*\btiktok\b/i,
+      /\bgenerate\b.*\bcommunity announcement\b/i,
+      /\bcommunity update\b/i,
+      /\bprepare\b.*\b(action|announcement|promotion|report|campaign|caption)\b/i,
+      /\bdraft\b.*\b(action|announcement|promotion|report|campaign|caption)\b/i,
+      /\bcreate\b.*\b(action|announcement|promotion|report|campaign|caption)\b/i,
+    ],
+    exclude: [
+      /\bpending actions\b/i,
+      /\bwaiting for approval\b/i,
+      /\b(admin\s+)?briefing\b/i,
+      /\balert\b/i,
+      /\brunbook\b/i,
+      /\bobservation\b/i,
     ],
   },
   {

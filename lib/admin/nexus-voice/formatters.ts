@@ -7,6 +7,11 @@ import {
 } from "@/lib/admin/nexus-voice/founder-formatters";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
+import {
+  formatNexusActionDraftResponse,
+  formatNexusActionQueueResponse,
+} from "@/lib/action-center/voice";
+import type { NexusActionCard } from "@/lib/action-center/types";
 
 function formatSignupNames(actionResult: NexusVoiceActionResult): string {
   const signups = actionResult.data.signups;
@@ -166,6 +171,17 @@ export function formatNexusVoiceResponse(
       return formatFounderTimelineResponse(actionResult);
     case "answerFounderQuestion":
       return formatFounderQuestionResponse(actionResult);
+    case "prepareNexusActionDraft": {
+      if (actionResult.data.error) {
+        return "I could not prepare that action draft. Try a supported action like launch announcement, Blackcard promotion, or weekly report.";
+      }
+      const action = actionResult.data.action as NexusActionCard;
+      return `${formatNexusActionDraftResponse(action)} Open Action Center to review and approve.`;
+    }
+    case "getNexusActionQueue": {
+      const actions = (actionResult.data.actions as NexusActionCard[] | undefined) ?? [];
+      return formatNexusActionQueueResponse(actions);
+    }
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }

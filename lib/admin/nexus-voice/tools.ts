@@ -3,8 +3,10 @@ import { isNexusVoiceAiConfigured } from "@/lib/admin/nexus-voice/config";
 import { runNexusVoiceActionReadTool } from "@/lib/admin/nexus-voice/action-tools";
 import { runNexusVoiceMonitoringTool } from "@/lib/admin/nexus-voice/monitoring-tools";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
+import { runNexusVoiceActionCenterTool } from "@/lib/admin/nexus-voice/action-center-tools";
 import { runNexusVoiceFounderTool } from "@/lib/admin/nexus-voice/founder-tools";
 import {
+  NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_ACTION_READ_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
   NEXUS_VOICE_MONITORING_TOOLS,
@@ -187,8 +189,15 @@ function isFounderTool(tool: NexusVoiceToolName): tool is (typeof NEXUS_VOICE_FO
   return (NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool);
 }
 
+function isActionCenterTool(
+  tool: NexusVoiceToolName,
+): tool is (typeof NEXUS_VOICE_ACTION_CENTER_TOOLS)[number] {
+  return (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool);
+}
+
 export type NexusVoiceToolOptions = {
   transcript?: string;
+  ownerId?: string;
 };
 
 export async function runNexusVoiceTool(
@@ -210,6 +219,16 @@ export async function runNexusVoiceTool(
 
   if (isFounderTool(tool)) {
     return runNexusVoiceFounderTool(tool, admin, options);
+  }
+
+  if (isActionCenterTool(tool)) {
+    if (!options.ownerId) {
+      throw new Error("Platform owner context is required for action center tools.");
+    }
+    return runNexusVoiceActionCenterTool(tool, admin, {
+      transcript: options.transcript,
+      ownerId: options.ownerId,
+    });
   }
 
   throw new Error(`Tool ${tool} requires confirmation and cannot run directly.`);

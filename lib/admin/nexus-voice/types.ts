@@ -28,6 +28,11 @@ export const NEXUS_VOICE_FOUNDER_TOOLS = [
   "answerFounderQuestion",
 ] as const;
 
+export const NEXUS_VOICE_ACTION_CENTER_TOOLS = [
+  "prepareNexusActionDraft",
+  "getNexusActionQueue",
+] as const;
+
 export const NEXUS_VOICE_MONITORING_TOOLS = [
   "getNexusSystemHealth",
   "getCheckoutHealth",
@@ -49,6 +54,7 @@ export const NEXUS_VOICE_TOOLS = [
   ...NEXUS_VOICE_CONFIRM_TOOLS,
   ...NEXUS_VOICE_MONITORING_TOOLS,
   ...NEXUS_VOICE_FOUNDER_TOOLS,
+  ...NEXUS_VOICE_ACTION_CENTER_TOOLS,
 ] as const;
 
 export type NexusVoicePhase2ToolName = (typeof NEXUS_VOICE_PHASE2_TOOLS)[number];
@@ -56,6 +62,7 @@ export type NexusVoiceActionReadToolName = (typeof NEXUS_VOICE_ACTION_READ_TOOLS
 export type NexusVoiceConfirmToolName = (typeof NEXUS_VOICE_CONFIRM_TOOLS)[number];
 export type NexusVoiceMonitoringToolName = (typeof NEXUS_VOICE_MONITORING_TOOLS)[number];
 export type NexusVoiceFounderToolName = (typeof NEXUS_VOICE_FOUNDER_TOOLS)[number];
+export type NexusVoiceActionCenterToolName = (typeof NEXUS_VOICE_ACTION_CENTER_TOOLS)[number];
 export type NexusVoiceToolName = (typeof NEXUS_VOICE_TOOLS)[number];
 
 export type NexusVoiceActionResult = {

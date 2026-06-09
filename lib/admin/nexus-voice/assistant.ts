@@ -18,7 +18,11 @@ import type {
   NexusVoiceConfirmToolName,
   NexusVoiceToolName,
 } from "@/lib/admin/nexus-voice/types";
-import { NEXUS_VOICE_CONFIRM_TOOLS, NEXUS_VOICE_FOUNDER_TOOLS } from "@/lib/admin/nexus-voice/types";
+import {
+  NEXUS_VOICE_ACTION_CENTER_TOOLS,
+  NEXUS_VOICE_CONFIRM_TOOLS,
+  NEXUS_VOICE_FOUNDER_TOOLS,
+} from "@/lib/admin/nexus-voice/types";
 
 export { resolveNexusVoiceTool, NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
 export { formatNexusVoiceResponse } from "@/lib/admin/nexus-voice/formatters";
@@ -76,11 +80,14 @@ export async function runNexusVoiceAssistant(
     };
   }
 
-  if ((NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool)) {
+  if (
+    (NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool) ||
+    (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool)
+  ) {
     if (options.isPlatformOwner !== true) {
       return {
         transcript: trimmed,
-        response: "Founder copilot is available to platform owners only.",
+        response: "Founder copilot and Action Center are available to platform owners only.",
         tool: null,
       };
     }
@@ -110,7 +117,10 @@ export async function runNexusVoiceAssistant(
     };
   }
 
-  const actionResult = await runNexusVoiceTool(tool, admin, { transcript: trimmed });
+  const actionResult = await runNexusVoiceTool(tool, admin, {
+    transcript: trimmed,
+    ownerId: options.isPlatformOwner ? userId : undefined,
+  });
 
   return {
     transcript: trimmed,

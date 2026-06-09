@@ -59,6 +59,12 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     access: "owner",
   },
   {
+    phrases: ["open action center", "open actions", "action center", "show action center"],
+    href: "/admin/nexus/actions",
+    label: "Actions",
+    access: "owner",
+  },
+  {
     phrases: ["open alerts", "alerts", "show alerts"],
     href: "/admin/nexus/alerts",
     label: "Alerts",
