@@ -23,9 +23,9 @@ export function NexusVoiceFloatingButton({ voice, className = "" }: NexusVoiceFl
       type="button"
       onClick={voice.openPanel}
       aria-label="Open NEXUS Voice assistant"
-      className={`fixed right-3 z-[45] flex h-14 min-w-14 items-center justify-center rounded-full border border-[#b4141e]/70 bg-[#12080a]/95 px-4 shadow-[0_0_28px_rgba(180,20,30,0.45),0_8px_24px_rgba(0,0,0,0.55)] backdrop-blur-md transition hover:border-[#b4141e] hover:bg-[#b4141e]/20 hover:shadow-[0_0_36px_rgba(180,20,30,0.55)] sm:right-4 ${className}`}
+      className={`fixed right-3 z-[9990] flex h-14 min-h-14 min-w-14 touch-manipulation items-center justify-center rounded-full border border-[#b4141e]/80 bg-[#12080a]/95 px-4 shadow-[0_0_32px_rgba(180,20,30,0.55),0_10px_28px_rgba(0,0,0,0.65)] backdrop-blur-md transition hover:border-[#b4141e] hover:bg-[#b4141e]/25 hover:shadow-[0_0_40px_rgba(180,20,30,0.65)] sm:right-4 ${className}`}
       style={{
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)",
+        bottom: "max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))",
       }}
     >
       <NexusGlyph />

@@ -245,7 +245,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
   const showSectionNav = !founderHome;
 
   return (
-    <NexusVoiceAssistantShell enabled floatingClassName="lg:bottom-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+    <NexusVoiceAssistantShell enabled={true}>
     <main className="relative min-h-screen overflow-x-hidden bg-[#010101] text-white">
       <div
         aria-hidden

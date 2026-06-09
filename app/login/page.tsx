@@ -263,7 +263,7 @@ function LoginPageContent() {
         </div>
 
         <p className="mt-6 text-center text-[9px] uppercase tracking-[0.5em] text-zinc-600">
-          Ride · Brotherhood · Legacy
+          Ride · Community · Legacy
         </p>
       </div>
     </main>

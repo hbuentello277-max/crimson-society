@@ -428,6 +428,7 @@ function DashboardPageContent() {
   const [now, setNow] = useState(() => Date.now());
   const [joinBusy, setJoinBusy] = useState(false);
   const [activeReelId, setActiveReelId] = useState<string | null>(null);
+  const [activeNowExpanded, setActiveNowExpanded] = useState(false);
 
   const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const postRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -1317,10 +1318,161 @@ if (livePostIds.length > 0) {
               </article>
             )}
 
-            {[
-              { title: "Active Now", meets: activeMapMeets.slice(0, 3) },
-              { title: "Upcoming Soon", meets: upcomingMapMeets.slice(0, 3) },
-            ].map((section) => (
+            <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+              <button
+                type="button"
+                onClick={() => setActiveNowExpanded((current) => !current)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+                aria-expanded={activeNowExpanded}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+                    Active Now ({activeMapMeets.length})
+                  </p>
+                  {activeMapMeets.length > 0 ? (
+                    <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#f1c3c7]">
+                      {activeMapMeets.length} live
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Link
+                    href="/meets"
+                    onClick={(event) => event.stopPropagation()}
+                    className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                  >
+                    See All
+                  </Link>
+                  <span className="text-sm text-zinc-500" aria-hidden>
+                    {activeNowExpanded ? "−" : "+"}
+                  </span>
+                </div>
+              </button>
+
+              {activeNowExpanded ? (
+                <div className="mt-3 grid gap-3">
+                  {dashboardLoading &&
+                    Array.from({ length: 2 }).map((_, index) => (
+                      <div
+                        key={`active-now-${index}`}
+                        className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3"
+                      >
+                        <div className="flex animate-pulse items-center gap-3">
+                          <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
+                            <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
+                            <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {!dashboardLoading && activeMapMeets.length === 0 ? (
+                    <p className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-zinc-500">
+                      No active meets right now. Host a meet or join an upcoming meet to enable live
+                      rider tracking.
+                    </p>
+                  ) : null}
+
+                  {!dashboardLoading &&
+                    activeMapMeets.slice(0, 3).map((meet) => {
+                      const showNavigation =
+                        meet.lifecyclePhase === "active" && dashboardMeetHasRoute(meet);
+
+                      return (
+                        <div
+                          key={meet.id}
+                          className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3 transition hover:border-[#b4141e]/45 hover:bg-[#b4141e]/10"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMapMeetId(meet.id)}
+                            className="block w-full text-left"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#b4141e]/30 bg-gradient-to-br from-[#3a0709] via-[#140608] to-black">
+                                {meet.cover ? (
+                                  <Image
+                                    src={meet.cover}
+                                    alt={meet.name}
+                                    fill
+                                    sizes="64px"
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <>
+                                    <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(135deg,transparent_0%,transparent_42%,rgba(255,255,255,0.14)_43%,transparent_46%,transparent_100%)]" />
+                                    <div className="absolute bottom-2 left-2 right-2 truncate text-[8px] uppercase tracking-[0.16em] text-[#f1c3c7]">
+                                      {dashboardMeetLifecycleLabel(meet.lifecyclePhase)}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <h3 className="truncate font-serif text-lg leading-tight text-white">
+                                  {meet.name}
+                                </h3>
+                                <p className="mt-1 truncate text-[10px] uppercase tracking-[0.1em] text-[#e87a82]">
+                                  {formatMeetTime(meet.date, meet.time)}
+                                </p>
+                                <p className="mt-1 truncate text-xs leading-5 text-zinc-400">
+                                  {meet.meetPoint}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <Link
+                              href={`/meets?meet=${meet.id}`}
+                              className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                            >
+                              View Meet
+                            </Link>
+                            {showNavigation ? (
+                              <Link
+                                href={meetNavigationHref(meet.id)}
+                                onClick={() => {
+                                  writeActiveMeetSession({
+                                    id: meet.id,
+                                    hostId: meet.hostId,
+                                    route: meet.route,
+                                    waypoints: meet.waypoints,
+                                    name: meet.name,
+                                    meetPoint: meet.meetPoint,
+                                    destination: meet.destination,
+                                    date: meet.date,
+                                    time: meet.time,
+                                    meetDurationMinutes: meet.meetDurationMinutes,
+                                    status: parseMeetStatus(meet.status),
+                                    trackingStatus: meet.trackingStatus,
+                                    startedAt: meet.startedAt,
+                                    endedAt: null,
+                                  });
+                                }}
+                                className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                              >
+                                Start Navigation
+                              </Link>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMapMeetId(meet.id)}
+                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                              >
+                                Map Details
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : null}
+            </section>
+
+            {[{ title: "Upcoming Soon", meets: upcomingMapMeets.slice(0, 3) }].map((section) => (
               <section
                 key={section.title}
                 className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
@@ -1358,16 +1510,8 @@ if (livePostIds.length > 0) {
                   {!dashboardLoading && section.meets.length === 0 ? (
                     <EmptyState
                       className="rounded-xl p-6"
-                      title={
-                        section.title === "Active Now"
-                          ? "No active meets right now."
-                          : "No upcoming meets scheduled."
-                      }
-                      body={
-                        section.title === "Active Now"
-                          ? "Host a meet or join an upcoming meet to enable live rider tracking."
-                          : "Open Meets to host or join the next run."
-                      }
+                      title="No upcoming meets scheduled."
+                      body="Open Meets to host or join the next run."
                     />
                   ) : null}
 

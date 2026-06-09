@@ -759,7 +759,7 @@ export default function CreatePage() {
               </p>
               <p className="mt-1 text-sm text-white">
                 {taggedRiders.length === 0
-                  ? "Add the brotherhood"
+                  ? "Add riders"
                   : `${taggedRiders.length} tagged`}
               </p>
             </div>

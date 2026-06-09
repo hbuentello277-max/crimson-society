@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { NexusVoiceAssistantProvider } from "@/components/admin/NexusVoiceAssistantContext";
 import { NexusVoiceFloatingButton } from "@/components/admin/NexusVoiceFloatingButton";
 import { NexusVoicePanel } from "@/components/admin/NexusVoicePanel";
@@ -13,12 +14,17 @@ type NexusVoiceChromeProps = {
 
 function NexusVoiceChrome({ enabled, floatingClassName }: NexusVoiceChromeProps) {
   const voice = useNexusVoiceAssistantContext();
+  const [mounted, setMounted] = useState(false);
 
-  if (!enabled) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!enabled || !mounted || typeof document === "undefined") {
     return null;
   }
 
-  return (
+  return createPortal(
     <>
       <NexusVoiceFloatingButton voice={voice} className={floatingClassName} />
       <NexusVoicePanel
@@ -41,7 +47,8 @@ function NexusVoiceChrome({ enabled, floatingClassName }: NexusVoiceChromeProps)
         onNavigate={voice.navigateTo}
         onSubmitTranscript={(value) => void voice.submitTranscript(value)}
       />
-    </>
+    </>,
+    document.body,
   );
 }
 
