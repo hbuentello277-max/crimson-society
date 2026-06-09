@@ -34,11 +34,11 @@ Without Fluid Compute on Hobby, the cap may be **60s** — align limits with sta
 
 ### Cron frequency on Hobby
 
-`vercel.json` registers media processing every **2 minutes** (`*/2 * * * *`). **Hobby allows daily crons only**; sub-daily schedules require **Pro** or an external scheduler with `CRON_SECRET`. Immediate processing after upload (`POST /api/media/process` with `postId`) still works on Hobby.
+**Hobby allows daily crons only.** `vercel.json` runs `/api/cron/media-processing` once per day at **08:00 UTC** (see `docs/VERCEL_CRON_SCHEDULING.md`). Sub-daily schedules require **Vercel Pro** or an **external scheduler** with `CRON_SECRET`. Immediate processing after upload (`POST /api/media/process` with `postId`) still works on Hobby.
 
 ## Cron schedule
 
-`vercel.json` registers `/api/cron/media-processing` every **2 minutes** as a backup when immediate processing fails (Pro or external cron).
+Vercel Cron invokes `/api/cron/media-processing` daily on Hobby. For sub-daily backup processing, use an external scheduler with `CRON_SECRET` (documented in `docs/VERCEL_CRON_SCHEDULING.md`).
 
 ## Database migration
 
