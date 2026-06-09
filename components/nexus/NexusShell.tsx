@@ -33,6 +33,7 @@ import {
   NexusNavWarRoomsIcon,
   NexusNavWorkflowIcon,
 } from "@/components/nexus/NexusNavIcons";
+import { NexusVoiceAssistantShell } from "@/components/admin/NexusVoiceAssistantShell";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 import { NEXUS_NAV_ROUTES, assertNavOrder } from "@/lib/nexus/nav-routes";
@@ -244,6 +245,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
   const showSectionNav = !founderHome;
 
   return (
+    <NexusVoiceAssistantShell enabled floatingClassName="lg:bottom-[calc(env(safe-area-inset-bottom)+1.25rem)]">
     <main className="relative min-h-screen overflow-x-hidden bg-[#010101] text-white">
       <div
         aria-hidden
@@ -326,5 +328,6 @@ export function NexusShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     </main>
+    </NexusVoiceAssistantShell>
   );
 }

@@ -103,6 +103,19 @@ describe("runNexusVoiceAssistant", () => {
     assert.equal(calls.length, 0);
   });
 
+  it("routes open platform status as navigation for owners", async () => {
+    const result = await runNexusVoiceAssistant(
+      "Open Platform Status",
+      {} as never,
+      "owner-1",
+      { isPlatformOwner: true },
+    );
+
+    assert.equal(result.tool, null);
+    assert.equal(result.navigation?.label, "Platform Status");
+    assert.equal(result.navigation?.href, "/admin/nexus/mission-control");
+  });
+
   it("requires confirmation for write action tools", async () => {
     const result = await runNexusVoiceAssistant(
       "Create system alert titled checkout delay",

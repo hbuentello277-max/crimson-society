@@ -226,7 +226,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can report platform stats, monitor platform jobs, checkout, signups, media, push, and cron health, summarize operator priorities, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can open Platform Status, Platform Health, alerts, reports, and runbooks, report platform stats, monitor platform jobs, checkout, signups, media, push, and cron health, summarize operator priorities, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

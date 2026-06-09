@@ -1,3 +1,4 @@
+/** @deprecated Navigation-only history replaced by lib/admin/nexus-voice/history.ts */
 export type VoiceCommandHistoryEntry = {
   id: string;
   transcript: string;

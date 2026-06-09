@@ -1,4 +1,9 @@
-export type NexusVoiceHistoryKind = "command" | "action" | "operator" | "confirmation";
+export type NexusVoiceHistoryKind =
+  | "command"
+  | "action"
+  | "operator"
+  | "confirmation"
+  | "navigation";
 
 export type NexusVoiceHistoryEntry = {
   id: string;
@@ -22,6 +27,7 @@ function inferKind(tool: string | null): NexusVoiceHistoryKind {
   if (tool.startsWith("get") && tool.includes("Health")) return "operator";
   if (tool === "getDailyOperatorBriefing" || tool === "getRevenueRiskSummary") return "operator";
   if (tool === "confirm") return "confirmation";
+  if (tool === "navigate") return "navigation";
   return "command";
 }
 

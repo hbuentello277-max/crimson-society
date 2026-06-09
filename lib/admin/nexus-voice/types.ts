@@ -64,6 +64,11 @@ export type NexusVoicePendingConfirmation = {
   expiresAt: string;
 };
 
+export type NexusVoiceNavigationAction = {
+  href: string;
+  label: string;
+};
+
 export type NexusVoiceAssistantResult = {
   transcript: string;
   response: string;
@@ -71,6 +76,7 @@ export type NexusVoiceAssistantResult = {
   tool?: NexusVoiceToolName | null;
   pendingConfirmation?: NexusVoicePendingConfirmation;
   requiresConfirmation?: boolean;
+  navigation?: NexusVoiceNavigationAction;
 };
 
 export type NexusVoiceConfirmResult = {

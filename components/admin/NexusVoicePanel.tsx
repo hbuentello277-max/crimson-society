@@ -1,7 +1,11 @@
 "use client";
 
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
-import type { NexusVoicePendingConfirmation, NexusVoiceStatus } from "@/lib/admin/nexus-voice/types";
+import type {
+  NexusVoiceNavigationAction,
+  NexusVoicePendingConfirmation,
+  NexusVoiceStatus,
+} from "@/lib/admin/nexus-voice/types";
 
 type NexusVoicePanelProps = {
   open: boolean;
@@ -12,9 +16,17 @@ type NexusVoicePanelProps = {
   error: string | null;
   history: NexusVoiceHistoryEntry[];
   pendingConfirmation: NexusVoicePendingConfirmation | null;
+  pendingNavigation: NexusVoiceNavigationAction | null;
+  recordingSupported: boolean;
+  isListening: boolean;
+  isBusy: boolean;
   onClose: () => void;
   onConfirm: () => void;
   onCancel: () => void;
+  onToggleListening: () => void;
+  onNavigate: (navigation: NexusVoiceNavigationAction) => void;
+  onSubmitTranscript: (transcript: string) => void;
+  variant?: "sheet" | "page";
 };
 
 function MicIcon({ active }: { active: boolean }) {
@@ -38,6 +50,8 @@ function kindLabel(kind: NexusVoiceHistoryEntry["kind"]) {
       return "Operator";
     case "confirmation":
       return "Confirmed";
+    case "navigation":
+      return "Navigation";
     default:
       return "Command";
   }
@@ -52,20 +66,35 @@ export function NexusVoicePanel({
   error,
   history,
   pendingConfirmation,
+  pendingNavigation,
+  recordingSupported,
+  isListening,
+  isBusy,
   onClose,
   onConfirm,
   onCancel,
+  onToggleListening,
+  onNavigate,
+  onSubmitTranscript,
+  variant = "sheet",
 }: NexusVoicePanelProps) {
-  if (!open) {
+  if (!open && variant === "sheet") {
     return null;
   }
 
+  const shellClassName =
+    variant === "page"
+      ? "relative overflow-hidden rounded-3xl border border-[#b4141e]/40 bg-gradient-to-b from-[#140608] via-black to-black shadow-[0_12px_48px_rgba(0,0,0,0.65),0_0_32px_rgba(180,20,30,0.18)]"
+      : "relative mx-auto max-w-lg overflow-hidden rounded-t-3xl border border-[#b4141e]/40 bg-gradient-to-b from-[#140608] via-black to-black shadow-[0_-12px_48px_rgba(0,0,0,0.65),0_0_32px_rgba(180,20,30,0.18)]";
+
+  const wrapperClassName =
+    variant === "page"
+      ? ""
+      : "fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4";
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-      <section
-        className="relative mx-auto max-w-lg overflow-hidden rounded-t-3xl border border-[#b4141e]/40 bg-gradient-to-b from-[#140608] via-black to-black shadow-[0_-12px_48px_rgba(0,0,0,0.65),0_0_32px_rgba(180,20,30,0.18)]"
-        aria-label="NEXUS Voice panel"
-      >
+    <div className={wrapperClassName}>
+      <section className={shellClassName} aria-label="NEXUS Voice panel">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b4141e]/80 to-transparent"
@@ -79,13 +108,32 @@ export function NexusVoicePanel({
               <h2 className="text-sm font-medium text-white">Voice Assistant</h2>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/30 hover:text-white"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleListening}
+              disabled={isBusy && !isListening}
+              aria-pressed={isListening}
+              aria-label={isListening ? "Stop listening" : "Start listening"}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                isListening
+                  ? "border-[#b4141e]/80 bg-[#b4141e]/30 text-[#f1c3c7] shadow-[0_0_20px_rgba(180,20,30,0.35)]"
+                  : "border-[#b4141e]/40 bg-[#b4141e]/10 text-[#f1c3c7] hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20"
+              }`}
+            >
+              <MicIcon active={isListening} />
+              <span>{isListening ? "Stop" : "Listen"}</span>
+            </button>
+            {variant === "sheet" ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-300 transition hover:border-white/30 hover:text-white"
+              >
+                Close
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-4 px-4 py-4">
@@ -98,6 +146,22 @@ export function NexusVoicePanel({
           {error ? (
             <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
               <p className="text-sm text-red-300">{error}</p>
+            </div>
+          ) : null}
+
+          {pendingNavigation ? (
+            <div className="rounded-2xl border border-[#b4141e]/35 bg-[#b4141e]/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#f1c3c7]/80">
+                Navigation
+              </p>
+              <p className="mt-2 text-sm font-medium text-white">{pendingNavigation.label}</p>
+              <button
+                type="button"
+                onClick={() => onNavigate(pendingNavigation)}
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/25 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#f1c3c7] transition hover:bg-[#b4141e]/35"
+              >
+                Go to {pendingNavigation.label}
+              </button>
             </div>
           ) : null}
 
@@ -148,9 +212,38 @@ export function NexusVoicePanel({
             <p className="text-[10px] uppercase tracking-[0.22em] text-[#f1c3c7]/80">NEXUS</p>
             <p className="mt-2 min-h-[2.5rem] text-sm text-white">
               {response ||
-                "Ask about health, operator priorities, reports, revenue, or prepare a confirmed draft."}
+                "Ask about Platform Status, Platform Health, platform jobs, health, reports, revenue, or prepare a confirmed draft."}
             </p>
           </div>
+
+          {variant === "page" ? (
+            <form
+              className="space-y-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const field = form.elements.namedItem("transcript") as HTMLTextAreaElement | null;
+                onSubmitTranscript(field?.value ?? "");
+              }}
+            >
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                Type a command
+              </label>
+              <textarea
+                name="transcript"
+                rows={2}
+                defaultValue={transcript}
+                placeholder='Try "open platform status" or "how many members"'
+                className="w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#b4141e]/50"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/50 bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
+              >
+                Send command
+              </button>
+            </form>
+          ) : null}
 
           <div>
             <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500">

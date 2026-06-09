@@ -5,6 +5,12 @@ import {
   formatNexusVoiceConfirmSuccess,
   formatNexusVoiceResponse,
 } from "@/lib/admin/nexus-voice/formatters";
+import {
+  canAccessVoiceNavigation,
+  formatNexusVoiceNavigationDenied,
+  formatNexusVoiceNavigationResponse,
+  resolveNexusVoiceNavigation,
+} from "@/lib/admin/nexus-voice/navigation";
 import { NEXUS_VOICE_HELP_RESPONSE, resolveNexusVoiceTool } from "@/lib/admin/nexus-voice/routing";
 import { runNexusVoiceTool } from "@/lib/admin/nexus-voice/tools";
 import type {
@@ -21,10 +27,15 @@ function isConfirmTool(tool: NexusVoiceToolName): tool is NexusVoiceConfirmToolN
   return (NEXUS_VOICE_CONFIRM_TOOLS as readonly string[]).includes(tool);
 }
 
+export type NexusVoiceAssistantOptions = {
+  isPlatformOwner?: boolean;
+};
+
 export async function runNexusVoiceAssistant(
   transcript: string,
   admin: SupabaseClient,
   userId: string,
+  options: NexusVoiceAssistantOptions = {},
 ): Promise<NexusVoiceAssistantResult> {
   const trimmed = transcript.trim();
   if (!trimmed) {
@@ -32,6 +43,27 @@ export async function runNexusVoiceAssistant(
       transcript: "",
       response: "I did not catch a command. Tap NEXUS Voice and try again.",
       tool: null,
+    };
+  }
+
+  const navigation = resolveNexusVoiceNavigation(trimmed);
+  if (navigation) {
+    if (!canAccessVoiceNavigation(navigation, options.isPlatformOwner === true)) {
+      return {
+        transcript: trimmed,
+        response: formatNexusVoiceNavigationDenied(navigation.label),
+        tool: null,
+      };
+    }
+
+    return {
+      transcript: trimmed,
+      response: formatNexusVoiceNavigationResponse(navigation.label),
+      tool: null,
+      navigation: {
+        href: navigation.href,
+        label: navigation.label,
+      },
     };
   }
 

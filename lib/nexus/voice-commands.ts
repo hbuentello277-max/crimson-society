@@ -1,50 +1,86 @@
+export type VoiceCommandAccess = "owner" | "admin";
+
 export type VoiceCommandMatch = {
   href: string;
   label: string;
   phrase: string;
+  access: VoiceCommandAccess;
 };
 
 type VoiceCommandDefinition = {
   phrases: string[];
   href: string;
   label: string;
+  access: VoiceCommandAccess;
 };
 
 export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
   {
-    phrases: ["open founder dashboard", "founder dashboard", "founder", "go home", "open home"],
+    phrases: [
+      "open founder",
+      "open founder dashboard",
+      "founder dashboard",
+      "founder",
+      "go home",
+      "open home",
+    ],
     href: "/admin/nexus",
-    label: "Founder Dashboard",
+    label: "Founder",
+    access: "owner",
+  },
+  {
+    phrases: ["go to shop admin", "open shop admin", "shop admin", "open shop"],
+    href: "/admin/shop",
+    label: "Shop Admin",
+    access: "admin",
+  },
+  {
+    phrases: ["go to blackcard", "open blackcard", "blackcard admin"],
+    href: "/admin/blackcard",
+    label: "Blackcard",
+    access: "admin",
+  },
+  {
+    phrases: ["go to rewards", "open rewards", "rewards admin"],
+    href: "/admin/rewards",
+    label: "Rewards",
+    access: "admin",
   },
   {
     phrases: ["open overview", "overview", "open command overview"],
     href: "/admin/nexus/overview",
     label: "Overview",
+    access: "owner",
   },
   {
     phrases: ["open commands", "commands", "open command center"],
     href: "/admin/nexus/commands",
     label: "Commands",
+    access: "owner",
   },
   {
     phrases: ["open alerts", "alerts", "show alerts"],
     href: "/admin/nexus/alerts",
     label: "Alerts",
+    access: "owner",
   },
   {
     phrases: ["open incidents", "incidents", "show incidents"],
     href: "/admin/nexus/incidents",
     label: "Incidents",
+    access: "owner",
   },
   {
     phrases: ["open reports", "reports", "show reports"],
     href: "/admin/nexus/reports",
     label: "Reports",
+    access: "owner",
   },
   {
     phrases: ["open scenarios", "scenarios", "show scenarios"],
     href: "/admin/nexus/scenarios",
     label: "Scenarios",
+    access: "owner",
   },
   {
     phrases: [
@@ -56,6 +92,7 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     ],
     href: "/admin/nexus/mission-health",
     label: "Platform Health",
+    access: "owner",
   },
   {
     phrases: [
@@ -66,41 +103,49 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     ],
     href: "/admin/nexus/mission-control",
     label: "Platform Status",
+    access: "owner",
   },
   {
     phrases: ["open chat", "chat", "open nexus chat"],
     href: "/admin/nexus/chat",
     label: "Chat",
+    access: "owner",
   },
   {
     phrases: ["open voice", "voice", "open voice command"],
     href: "/admin/nexus/voice",
     label: "Voice",
+    access: "owner",
   },
   {
     phrases: ["open infrastructure", "infrastructure", "system health", "open system health"],
     href: "/admin/nexus/system-health",
     label: "Infrastructure",
+    access: "owner",
   },
   {
     phrases: ["open metrics", "metrics"],
     href: "/admin/nexus/metrics",
     label: "Metrics",
+    access: "owner",
   },
   {
     phrases: ["open runbooks", "runbooks"],
     href: "/admin/nexus/runbooks",
     label: "Runbooks",
+    access: "owner",
   },
   {
     phrases: ["open war rooms", "war rooms"],
     href: "/admin/nexus/war-rooms",
     label: "War Rooms",
+    access: "owner",
   },
   {
     phrases: ["open briefings", "briefings"],
     href: "/admin/nexus/briefings",
     label: "Briefings",
+    access: "owner",
   },
 ];
 
@@ -113,6 +158,32 @@ function normalizeVoiceTranscript(value: string) {
     .trim();
 }
 
+function hasNavigationIntent(normalized: string) {
+  return (
+    normalized.startsWith("open ") ||
+    normalized.startsWith("go to ") ||
+    normalized.startsWith("go ") ||
+    normalized.startsWith("show ")
+  );
+}
+
+function matchesNavigationPhrase(normalized: string, phrase: string) {
+  const normalizedPhrase = normalizeVoiceTranscript(phrase);
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  if (normalized === normalizedPhrase) {
+    return true;
+  }
+
+  if (!hasNavigationIntent(normalized)) {
+    return false;
+  }
+
+  return normalized.includes(normalizedPhrase);
+}
+
 export function resolveVoiceCommand(transcript: string): VoiceCommandMatch | null {
   const normalized = normalizeVoiceTranscript(transcript);
   if (!normalized) {
@@ -121,12 +192,12 @@ export function resolveVoiceCommand(transcript: string): VoiceCommandMatch | nul
 
   for (const command of NEXUS_VOICE_COMMANDS) {
     for (const phrase of command.phrases) {
-      const normalizedPhrase = normalizeVoiceTranscript(phrase);
-      if (normalized === normalizedPhrase || normalized.includes(normalizedPhrase)) {
+      if (matchesNavigationPhrase(normalized, phrase)) {
         return {
           href: command.href,
           label: command.label,
           phrase: phrase,
+          access: command.access,
         };
       }
     }

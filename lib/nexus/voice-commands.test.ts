@@ -6,7 +6,18 @@ describe("resolveVoiceCommand", () => {
   it("maps founder dashboard phrases", () => {
     const match = resolveVoiceCommand("Open founder dashboard");
     assert.equal(match?.href, "/admin/nexus");
-    assert.equal(match?.label, "Founder Dashboard");
+    assert.equal(match?.label, "Founder");
+    assert.equal(resolveVoiceCommand("Open founder")?.href, "/admin/nexus");
+  });
+
+  it("maps admin staff navigation targets", () => {
+    assert.equal(resolveVoiceCommand("go to shop admin")?.href, "/admin/shop");
+    assert.equal(resolveVoiceCommand("go to blackcard")?.href, "/admin/blackcard");
+    assert.equal(resolveVoiceCommand("go to rewards")?.href, "/admin/rewards");
+  });
+
+  it("ignores monitoring phrases without navigation intent", () => {
+    assert.equal(resolveVoiceCommand("check platform health"), null);
   });
 
   it("maps overview and commands", () => {
@@ -40,9 +51,10 @@ describe("resolveVoiceCommand", () => {
 });
 
 describe("listVoiceCommandExamples", () => {
-  it("returns navigation examples only", () => {
+  it("returns navigation examples", () => {
     const examples = listVoiceCommandExamples();
     assert.ok(examples.length >= 8);
-    assert.ok(examples.every((entry) => entry.href.startsWith("/admin/nexus")));
+    assert.ok(examples.some((entry) => entry.href === "/admin/shop"));
+    assert.ok(examples.some((entry) => entry.label === "Platform Status"));
   });
 });

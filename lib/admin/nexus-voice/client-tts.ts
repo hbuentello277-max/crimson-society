@@ -8,7 +8,7 @@ export type NexusVoiceTtsProvider = "speech-synthesis" | "openai" | "elevenlabs"
 export type NexusVoiceTtsAdapter = {
   readonly provider: NexusVoiceTtsProvider;
   isSupported(): boolean;
-  speak(text: string): void;
+  speak(text: string, onComplete?: () => void): void;
   stop(): void;
 };
 
@@ -32,13 +32,19 @@ export function createBrowserSpeechSynthesisAdapter(
   return {
     provider: "speech-synthesis",
     isSupported: () => true,
-    speak(text) {
+    speak(text, onComplete) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1;
       utterance.onstart = () => onStart?.();
-      utterance.onend = () => onEnd?.();
-      utterance.onerror = () => onEnd?.();
+      utterance.onend = () => {
+        onEnd?.();
+        onComplete?.();
+      };
+      utterance.onerror = () => {
+        onEnd?.();
+        onComplete?.();
+      };
       window.speechSynthesis.speak(utterance);
     },
     stop() {

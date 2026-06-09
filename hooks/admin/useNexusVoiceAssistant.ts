@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { appendNexusVoiceHistory, readNexusVoiceHistory } from "@/lib/admin/nexus-voice/history";
 import type { NexusVoiceHistoryEntry } from "@/lib/admin/nexus-voice/history";
 import { createNexusVoiceTtsAdapter } from "@/lib/admin/nexus-voice/client-tts";
 import type {
   NexusVoiceActionResult,
+  NexusVoiceNavigationAction,
   NexusVoicePendingConfirmation,
   NexusVoiceStatus,
 } from "@/lib/admin/nexus-voice/types";
@@ -26,6 +28,7 @@ type NexusVoiceApiResponse = {
   error?: string;
   pendingConfirmation?: NexusVoicePendingConfirmation;
   requiresConfirmation?: boolean;
+  navigation?: NexusVoiceNavigationAction;
 };
 
 function speakResponse(
@@ -33,20 +36,26 @@ function speakResponse(
   ttsRef: RefObject<ReturnType<typeof createNexusVoiceTtsAdapter> | null>,
   text: string,
   setStatus: (status: NexusVoiceStatus) => void,
+  onComplete?: () => void,
 ) {
   if (ttsSupported && text) {
-    ttsRef.current?.speak(text);
+    ttsRef.current?.speak(text, onComplete);
   } else {
     setStatus("idle");
+    onComplete?.();
   }
 }
 
 export function useNexusVoiceAssistant() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<NexusVoiceStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<NexusVoiceNavigationAction | null>(
+    null,
+  );
   const [pendingConfirmation, setPendingConfirmation] =
     useState<NexusVoicePendingConfirmation | null>(null);
   const [history, setHistory] = useState<NexusVoiceHistoryEntry[]>(() => readNexusVoiceHistory());
@@ -82,31 +91,51 @@ export function useNexusVoiceAssistant() {
     [],
   );
 
+  const navigateTo = useCallback(
+    (navigation: NexusVoiceNavigationAction) => {
+      setPendingNavigation(null);
+      router.push(navigation.href);
+    },
+    [router],
+  );
+
   const applyVoiceResponse = useCallback(
     (payload: NexusVoiceApiResponse, sourceTranscript: string) => {
       const nextTranscript = payload.transcript?.trim() || sourceTranscript;
       const nextResponse = payload.response?.trim() || "NEXUS did not return a response.";
+      const navigation = payload.navigation ?? null;
 
       setTranscript(nextTranscript);
       setResponse(nextResponse);
       setPendingConfirmation(payload.pendingConfirmation ?? null);
+      setPendingNavigation(navigation);
       setStatus(payload.requiresConfirmation ? "confirming" : "thinking");
 
       recordHistory({
         transcript: nextTranscript,
         response: nextResponse,
-        tool: payload.tool ?? null,
-        kind: payload.requiresConfirmation ? "action" : undefined,
+        tool: navigation ? "navigate" : (payload.tool ?? null),
+        kind: payload.requiresConfirmation
+          ? "action"
+          : navigation
+            ? "navigation"
+            : undefined,
       });
 
       if (!payload.requiresConfirmation) {
-        speakResponse(ttsSupported, ttsRef, nextResponse, setStatus);
+        const afterSpeech = navigation ? () => navigateTo(navigation) : undefined;
+        speakResponse(ttsSupported, ttsRef, nextResponse, setStatus, afterSpeech);
       } else {
         setStatus("confirming");
       }
     },
-    [recordHistory, ttsSupported],
+    [navigateTo, recordHistory, ttsSupported],
   );
+
+  const openPanel = useCallback(() => {
+    setOpen(true);
+    setError(null);
+  }, []);
 
   const closePanel = useCallback(() => {
     recorderRef.current?.cancel();
@@ -116,6 +145,7 @@ export function useNexusVoiceAssistant() {
     setStatus("idle");
     setError(null);
     setPendingConfirmation(null);
+    setPendingNavigation(null);
   }, []);
 
   const cancelConfirmation = useCallback(() => {
@@ -182,6 +212,7 @@ export function useNexusVoiceAssistant() {
       setStatus("thinking");
       setError(null);
       setPendingConfirmation(null);
+      setPendingNavigation(null);
 
       try {
         const apiResponse = await fetch("/api/admin/nexus/voice", {
@@ -212,6 +243,7 @@ export function useNexusVoiceAssistant() {
       setStatus("transcribing");
       setError(null);
       setPendingConfirmation(null);
+      setPendingNavigation(null);
 
       const formData = new FormData();
       formData.append("audio", file);
@@ -312,6 +344,7 @@ export function useNexusVoiceAssistant() {
 
   return {
     open,
+    openPanel,
     closePanel,
     status,
     statusLabel,
@@ -320,12 +353,14 @@ export function useNexusVoiceAssistant() {
     error,
     history,
     pendingConfirmation,
+    pendingNavigation,
     recordingSupported,
     ttsSupported,
     toggleListening,
     submitTranscript,
     confirmPendingAction,
     cancelConfirmation,
+    navigateTo,
     isListening: status === "listening",
     isBusy:
       status === "transcribing" ||
@@ -334,3 +369,5 @@ export function useNexusVoiceAssistant() {
       status === "confirming",
   };
 }
+
+export type NexusVoiceAssistantState = ReturnType<typeof useNexusVoiceAssistant>;

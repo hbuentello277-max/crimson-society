@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 export type AdminSession = {
   userId: string;
   supabase: SupabaseClient;
+  isPlatformOwner: boolean;
 };
 
 export async function requireAdminSession():
@@ -21,7 +22,7 @@ export async function requireAdminSession():
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, status, is_admin")
+    .select("role, status, is_admin, is_platform_owner")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -33,7 +34,13 @@ export async function requireAdminSession():
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  return { session: { userId: user.id, supabase } };
+  return {
+    session: {
+      userId: user.id,
+      supabase,
+      isPlatformOwner: profile?.is_platform_owner === true,
+    },
+  };
 }
 
 export function createAdminServiceClient() {
