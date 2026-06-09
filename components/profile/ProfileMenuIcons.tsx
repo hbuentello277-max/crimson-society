@@ -1,3 +1,5 @@
+import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
+
 type IconProps = { className?: string };
 
 const base = "shrink-0";
@@ -75,12 +77,7 @@ export function IconMenuSupport({ className = "h-5 w-5" }: IconProps) {
 }
 
 export function IconMenuCredits({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={`${base} ${className}`} aria-hidden>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 8v8M9 10.5h4a2 2 0 0 1 0 4H9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <CrimsonCoinIcon size={20} className={className} title="" />;
 }
 
 export function IconMenuReferrals({ className = "h-5 w-5" }: IconProps) {

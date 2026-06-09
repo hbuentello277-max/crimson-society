@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
 import { CreditRewardImage } from "@/components/shop/CreditRewardImage";
 import { CreditRewardRedeemModal } from "@/components/credits/CreditRewardRedeemModal";
 import type { CreditsRewardCatalogItem } from "@/lib/credits/rewards-api-types";
@@ -61,7 +62,10 @@ export function ShopCreditRewardsPanel() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[#b4141e]/25 bg-gradient-to-br from-[#120608] via-[#0a0a0b] to-[#090909] p-4">
-        <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Your balance</p>
+        <div className="flex items-center gap-2.5">
+          <CrimsonCoinIcon size={24} className="drop-shadow-[0_0_10px_rgba(180,20,30,0.4)]" />
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Your balance</p>
+        </div>
         <p className="mt-2 font-serif text-3xl text-white">
           {pageLoading ? "—" : `${summary.credits_balance.toLocaleString()} credits`}
         </p>

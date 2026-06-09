@@ -1,5 +1,6 @@
 "use client";
 
+import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { useCrimsonCreditsEconomy } from "@/hooks/useCrimsonCreditsEconomy";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
@@ -35,10 +36,17 @@ export function CreditsHowItWorksPageContent() {
           <span className="text-zinc-200">Free members</span> can earn Crimson Credits through meets and
           referrals.
         </p>
-        <p>
-          <span className="text-zinc-200">Blackcard</span> and{" "}
-          <span className="text-zinc-200">Founding Blackcard</span> members redeem in Shop → Credit Rewards
-          (tap 👑 Rewards on your profile card).
+        <p className="flex flex-wrap items-center gap-x-1 gap-y-1">
+          <span>
+            <span className="text-zinc-200">Blackcard</span> and{" "}
+            <span className="text-zinc-200">Founding Blackcard</span> members redeem in Shop → Credit Rewards
+            (tap
+          </span>
+          <span className="inline-flex items-center gap-1 text-zinc-200">
+            <CrimsonCoinIcon size={20} />
+            Rewards
+          </span>
+          <span>on your profile card).</span>
         </p>
         <p>
           <span className="text-white">100 Crimson Credits</span> ≈ {sampleValue} estimated reward value.

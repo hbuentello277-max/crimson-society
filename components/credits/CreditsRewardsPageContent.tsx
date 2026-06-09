@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CrimsonCoinIcon } from "@/components/credits/CrimsonCoinIcon";
 import { CreditRedemptionHistoryList } from "@/components/credits/CreditRedemptionHistoryList";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { CreditsRewardsSummary } from "@/components/credits/CreditsRewardsSummary";
@@ -40,9 +41,10 @@ export function CreditsRewardsPageContent() {
 
       <Link
         href="/shop?tab=credit-rewards"
-        className="flex min-h-12 items-center justify-center rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-5 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
+        className="flex min-h-12 items-center justify-center gap-2.5 rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-5 text-xs uppercase tracking-[0.2em] text-[#f1c3c7]"
       >
-        👑 Browse rewards in Shop
+        <CrimsonCoinIcon size={20} />
+        Browse rewards in Shop
       </Link>
 
       <CreditsRewardsSummary summary={summary} loading={authLoading || loading} />
