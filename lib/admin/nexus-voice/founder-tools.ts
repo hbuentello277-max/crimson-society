@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFounderBriefing } from "@/lib/founder-copilot/briefing";
+import { generateMorningBriefing } from "@/lib/proactive-intelligence/morning-briefing";
 import { answerFounderQuestion } from "@/lib/founder-copilot/questions";
 import { getFounderRecommendations } from "@/lib/founder-copilot/recommendations";
 import { getFounderTimeline } from "@/lib/founder-copilot/timeline";
@@ -18,6 +19,15 @@ export async function runNexusVoiceFounderTool(
         data: { briefing },
         partial: briefing.partial,
         warnings: briefing.warnings,
+      };
+    }
+    case "getMorningBriefing": {
+      const morningBriefing = await generateMorningBriefing(admin);
+      return {
+        tool,
+        data: { morningBriefing },
+        partial: morningBriefing.partial,
+        warnings: morningBriefing.warnings,
       };
     }
     case "getFounderRecommendations": {

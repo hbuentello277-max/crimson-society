@@ -22,6 +22,7 @@ export const NEXUS_VOICE_CONFIRM_TOOLS = [
 
 export const NEXUS_VOICE_FOUNDER_TOOLS = [
   "getFounderBriefing",
+  "getMorningBriefing",
   "getFounderRecommendations",
   "getFounderTimeline",
   "answerFounderQuestion",

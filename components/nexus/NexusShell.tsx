@@ -34,6 +34,7 @@ import {
   NexusNavWorkflowIcon,
 } from "@/components/nexus/NexusNavIcons";
 import { NexusVoiceAssistantShell } from "@/components/admin/NexusVoiceAssistantShell";
+import { NexusWelcomeBriefing } from "@/components/nexus/founder/NexusWelcomeBriefing";
 import { NexusLiveIndicator } from "@/components/nexus/NexusShared";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 import { NEXUS_NAV_ROUTES, assertNavOrder } from "@/lib/nexus/nav-routes";
@@ -323,6 +324,7 @@ export function NexusShell({ children }: { children: ReactNode }) {
               founderHome ? "pt-1 lg:pt-2" : "py-3 lg:py-4"
             }`}
           >
+            <NexusWelcomeBriefing />
             {children}
           </div>
         </div>

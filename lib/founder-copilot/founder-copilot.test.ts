@@ -13,6 +13,9 @@ describe("resolveFounderQuestionType", () => {
     assert.equal(resolveFounderQuestionType("What is the biggest risk?"), "biggest_risk");
     assert.equal(resolveFounderQuestionType("How healthy is Crimson Society?"), "platform_health");
     assert.equal(resolveFounderQuestionType("What should I do next?"), "next_steps");
+    assert.equal(resolveFounderQuestionType("What should I focus on?"), "focus_today");
+    assert.equal(resolveFounderQuestionType("Are we launch ready?"), "launch_readiness");
+    assert.equal(resolveFounderQuestionType("What is my biggest risk?"), "biggest_risk");
   });
 });
 
@@ -21,6 +24,8 @@ describe("resolveNexusVoiceTool founder patterns", () => {
     assert.equal(resolveNexusVoiceTool("What should I focus on today?"), "answerFounderQuestion");
     assert.equal(resolveNexusVoiceTool("How healthy is Crimson Society?"), "answerFounderQuestion");
     assert.equal(resolveNexusVoiceTool("Founder briefing"), "getFounderBriefing");
+    assert.equal(resolveNexusVoiceTool("Give me a founder briefing."), "getFounderBriefing");
+    assert.equal(resolveNexusVoiceTool("Are we launch ready?"), "answerFounderQuestion");
     assert.equal(resolveNexusVoiceTool("Founder recommendations"), "getFounderRecommendations");
     assert.equal(resolveNexusVoiceTool("Founder timeline"), "getFounderTimeline");
   });
@@ -37,6 +42,33 @@ describe("formatFounderQuestionResponse", () => {
     });
     assert.match(text, /Launch blockers/i);
     assert.match(text, /critical alert/i);
+  });
+
+  it("formats launch readiness", () => {
+    const text = formatFounderQuestionResponse({
+      tool: "answerFounderQuestion",
+      data: {
+        questionType: "launch_readiness",
+        data: {
+          launchReadiness: {
+            score: 72,
+            status: "ready",
+            summary: "Launch readiness is solid with minor operational follow-ups.",
+            blockers: [],
+            factors: {
+              platformHealth: 80,
+              openIncidents: 90,
+              failedJobs: 85,
+              appStoreReadiness: 70,
+              betaFeedback: 75,
+              operationalStability: 68,
+            },
+          },
+        },
+      },
+    });
+    assert.match(text, /Launch readiness score: 72/i);
+    assert.match(text, /ready/i);
   });
 
   it("formats focus today", () => {
