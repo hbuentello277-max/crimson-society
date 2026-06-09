@@ -5,6 +5,7 @@ import {
   getNexusActionQueue,
 } from "@/lib/action-center/summary";
 import { resolveNexusActionDraftType } from "@/lib/action-center/voice";
+import { prepareIntelligenceActionDraft } from "@/lib/cross-system-intelligence/action-integration";
 import type { NexusVoiceActionResult, NexusVoiceActionCenterToolName } from "@/lib/admin/nexus-voice/types";
 
 export async function runNexusVoiceActionCenterTool(
@@ -29,6 +30,23 @@ export async function runNexusVoiceActionCenterTool(
         ownerId: options.ownerId,
         actionType,
         transcript,
+      });
+
+      if (!result.ok) {
+        return {
+          tool,
+          data: { error: result.error },
+        };
+      }
+
+      return {
+        tool,
+        data: { action: result.action },
+      };
+    }
+    case "prepareIntelligenceActionDraft": {
+      const result = await prepareIntelligenceActionDraft(admin, {
+        ownerId: options.ownerId,
       });
 
       if (!result.ok) {

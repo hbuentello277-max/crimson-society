@@ -9,6 +9,49 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "getPlatformIntelligenceBriefing",
+    patterns: [
+      /\bwhy is revenue down\b/i,
+      /\bhow healthy is monetization\b/i,
+      /\bhow healthy is membership growth\b/i,
+      /\bwhat is affecting blackcard conversions\b/i,
+      /\bsummarize platform intelligence\b/i,
+      /\bfounder intelligence briefing\b/i,
+      /\bgive me a founder intelligence briefing\b/i,
+    ],
+  },
+  {
+    tool: "getPlatformIntelligenceTimeline",
+    patterns: [
+      /\bwhat changed this week\b/i,
+      /\bwhat happened after the last deployment\b/i,
+      /\bwhat happened this week\b/i,
+      /\bshow recent major events\b/i,
+    ],
+    exclude: [/\btoday\b/i],
+  },
+  {
+    tool: "getPlatformIntelligenceRisks",
+    patterns: [/\bshow major risks\b/i, /\bwhat are the major risks\b/i, /\bplatform risks\b/i],
+  },
+  {
+    tool: "getPlatformIntelligenceOpportunities",
+    patterns: [
+      /\bshow opportunities\b/i,
+      /\bwhat are the opportunities\b/i,
+      /\bplatform opportunities\b/i,
+    ],
+    exclude: [/\bfounder recommendations\b/i],
+  },
+  {
+    tool: "prepareIntelligenceActionDraft",
+    patterns: [
+      /\bprepare recommended action from intelligence\b/i,
+      /\bcreate action from intelligence\b/i,
+      /\bdraft action from platform intelligence\b/i,
+    ],
+  },
+  {
     tool: "getNexusActionQueue",
     patterns: [
       /\bshow pending actions\b/i,

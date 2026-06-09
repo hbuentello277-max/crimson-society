@@ -8,6 +8,7 @@ import { FounderSnapshotStrip } from "@/components/nexus/founder/FounderSnapshot
 import { FounderPriorityList } from "@/components/nexus/founder/FounderPriorityList";
 import { FounderOpportunityGrid } from "@/components/nexus/founder/FounderOpportunityGrid";
 import { FounderQuickActions } from "@/components/nexus/founder/FounderQuickActions";
+import { PlatformIntelligenceSection } from "@/components/nexus/founder/PlatformIntelligenceSection";
 import { NexusLoadingPanel } from "@/components/nexus/NexusShared";
 import { useNexusFounderDashboard } from "@/hooks/nexus/useNexusFounderDashboard";
 import { useNexusScrollRestoration } from "@/hooks/nexus/useNexusPageState";
@@ -121,6 +122,7 @@ export function NexusFounderDashboard() {
       />
 
       <MorningBriefingCard />
+      <PlatformIntelligenceSection />
       <FounderBriefCard brief={brief} />
 
       <FounderSnapshotStrip snapshot={snapshot} />

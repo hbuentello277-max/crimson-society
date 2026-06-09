@@ -48,7 +48,7 @@ export function NexusIntelligenceCenter() {
     <div ref={scrollRef}>
       <NexusSectionFrame
         title="Intelligence"
-        description="Deterministic patterns, correlations, and opportunities from Nexus data. Mark I — read-only, no AI or execution."
+        description="Platform Intelligence patterns, correlations, and opportunities from cross-system Nexus data. Mark I — read-only, no AI or execution."
         loading={loading}
         error={error}
         onRefresh={refresh}

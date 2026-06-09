@@ -171,12 +171,33 @@ export function formatNexusVoiceResponse(
       return formatFounderTimelineResponse(actionResult);
     case "answerFounderQuestion":
       return formatFounderQuestionResponse(actionResult);
-    case "prepareNexusActionDraft": {
+    case "prepareNexusActionDraft":
+    case "prepareIntelligenceActionDraft": {
       if (actionResult.data.error) {
         return "I could not prepare that action draft. Try a supported action like launch announcement, Blackcard promotion, or weekly report.";
       }
       const action = actionResult.data.action as NexusActionCard;
       return `${formatNexusActionDraftResponse(action)} Open Action Center to review and approve.`;
+    }
+    case "getPlatformIntelligenceBriefing": {
+      const headline = String(actionResult.data.headline ?? "Platform Intelligence briefing");
+      const narrative = String(actionResult.data.narrative ?? "");
+      return `${headline}. ${narrative}`.trim();
+    }
+    case "getPlatformIntelligenceTimeline": {
+      const events = actionResult.data.events as Array<{ title: string; summary: string }> | undefined;
+      if (!events?.length) return "No major cross-system events were recorded this week.";
+      return `Recent events: ${events.map((event) => `${event.title} — ${event.summary}`).join("; ")}.`;
+    }
+    case "getPlatformIntelligenceRisks": {
+      const risks = actionResult.data.risks as Array<{ title: string; summary: string }> | undefined;
+      if (!risks?.length) return "No major Platform Intelligence risks are active right now.";
+      return `Major risks: ${risks.map((risk) => `${risk.title} (${risk.summary})`).join("; ")}.`;
+    }
+    case "getPlatformIntelligenceOpportunities": {
+      const opportunities = actionResult.data.opportunities as Array<{ title: string; summary: string }> | undefined;
+      if (!opportunities?.length) return "No major Platform Intelligence opportunities are active right now.";
+      return `Opportunities: ${opportunities.map((item) => `${item.title} (${item.summary})`).join("; ")}.`;
     }
     case "getNexusActionQueue": {
       const actions = (actionResult.data.actions as NexusActionCard[] | undefined) ?? [];

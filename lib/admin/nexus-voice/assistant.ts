@@ -21,6 +21,7 @@ import type {
 import {
   NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_CONFIRM_TOOLS,
+  NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
 } from "@/lib/admin/nexus-voice/types";
 
@@ -82,6 +83,7 @@ export async function runNexusVoiceAssistant(
 
   if (
     (NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool) ||
+    (NEXUS_VOICE_CROSS_SYSTEM_TOOLS as readonly string[]).includes(tool) ||
     (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool)
   ) {
     if (options.isPlatformOwner !== true) {

@@ -4,10 +4,12 @@ import { runNexusVoiceActionReadTool } from "@/lib/admin/nexus-voice/action-tool
 import { runNexusVoiceMonitoringTool } from "@/lib/admin/nexus-voice/monitoring-tools";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { runNexusVoiceActionCenterTool } from "@/lib/admin/nexus-voice/action-center-tools";
+import { runNexusCrossSystemVoiceTool } from "@/lib/admin/nexus-voice/cross-system-tools";
 import { runNexusVoiceFounderTool } from "@/lib/admin/nexus-voice/founder-tools";
 import {
   NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_ACTION_READ_TOOLS,
+  NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
   NEXUS_VOICE_MONITORING_TOOLS,
   NEXUS_VOICE_PHASE2_TOOLS,
@@ -195,6 +197,12 @@ function isActionCenterTool(
   return (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool);
 }
 
+function isCrossSystemTool(
+  tool: NexusVoiceToolName,
+): tool is (typeof NEXUS_VOICE_CROSS_SYSTEM_TOOLS)[number] {
+  return (NEXUS_VOICE_CROSS_SYSTEM_TOOLS as readonly string[]).includes(tool);
+}
+
 export type NexusVoiceToolOptions = {
   transcript?: string;
   ownerId?: string;
@@ -219,6 +227,10 @@ export async function runNexusVoiceTool(
 
   if (isFounderTool(tool)) {
     return runNexusVoiceFounderTool(tool, admin, options);
+  }
+
+  if (isCrossSystemTool(tool)) {
+    return runNexusCrossSystemVoiceTool(tool, admin);
   }
 
   if (isActionCenterTool(tool)) {
