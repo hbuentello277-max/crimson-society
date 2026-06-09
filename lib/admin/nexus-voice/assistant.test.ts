@@ -32,6 +32,12 @@ describe("resolveNexusVoiceTool", () => {
     assert.equal(resolveNexusVoiceTool("NEXUS, summarize today."), "getDailyOperatorBriefing");
   });
 
+  it("maps founder copilot phrases", () => {
+    assert.equal(resolveNexusVoiceTool("What should I do next?"), "answerFounderQuestion");
+    assert.equal(resolveNexusVoiceTool("Founder briefing"), "getFounderBriefing");
+    assert.equal(resolveNexusVoiceTool("Founder recommendations"), "getFounderRecommendations");
+  });
+
   it("maps platform job monitoring phrases", () => {
     assert.equal(resolveNexusVoiceTool("Are all platform jobs healthy?"), "getPlatformJobsHealth");
     assert.equal(resolveNexusVoiceTool("Check platform jobs."), "getPlatformJobsHealth");
@@ -99,7 +105,7 @@ describe("runNexusVoiceAssistant", () => {
 
     const result = await runNexusVoiceAssistant("ban everyone now", admin as never, "admin-1");
     assert.equal(result.tool, null);
-    assert.match(result.response, /platform stats/i);
+    assert.match(result.response, /founder briefings/i);
     assert.equal(calls.length, 0);
   });
 

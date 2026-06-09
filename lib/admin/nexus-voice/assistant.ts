@@ -18,7 +18,7 @@ import type {
   NexusVoiceConfirmToolName,
   NexusVoiceToolName,
 } from "@/lib/admin/nexus-voice/types";
-import { NEXUS_VOICE_CONFIRM_TOOLS } from "@/lib/admin/nexus-voice/types";
+import { NEXUS_VOICE_CONFIRM_TOOLS, NEXUS_VOICE_FOUNDER_TOOLS } from "@/lib/admin/nexus-voice/types";
 
 export { resolveNexusVoiceTool, NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
 export { formatNexusVoiceResponse } from "@/lib/admin/nexus-voice/formatters";
@@ -76,6 +76,16 @@ export async function runNexusVoiceAssistant(
     };
   }
 
+  if ((NEXUS_VOICE_FOUNDER_TOOLS as readonly string[]).includes(tool)) {
+    if (options.isPlatformOwner !== true) {
+      return {
+        transcript: trimmed,
+        response: "Founder copilot is available to platform owners only.",
+        tool: null,
+      };
+    }
+  }
+
   if (isConfirmTool(tool)) {
     const draft = buildActionDraft(tool, trimmed);
     const { token, expiresAt } = createNexusVoiceConfirmationToken({
@@ -100,7 +110,7 @@ export async function runNexusVoiceAssistant(
     };
   }
 
-  const actionResult = await runNexusVoiceTool(tool, admin);
+  const actionResult = await runNexusVoiceTool(tool, admin, { transcript: trimmed });
 
   return {
     transcript: trimmed,

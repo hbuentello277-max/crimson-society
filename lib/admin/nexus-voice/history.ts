@@ -26,6 +26,14 @@ function inferKind(tool: string | null): NexusVoiceHistoryKind {
   if (tool.startsWith("create")) return "action";
   if (tool.startsWith("get") && tool.includes("Health")) return "operator";
   if (tool === "getDailyOperatorBriefing" || tool === "getRevenueRiskSummary") return "operator";
+  if (
+    tool === "getFounderBriefing" ||
+    tool === "getFounderRecommendations" ||
+    tool === "getFounderTimeline" ||
+    tool === "answerFounderQuestion"
+  ) {
+    return "operator";
+  }
   if (tool === "confirm") return "confirmation";
   if (tool === "navigate") return "navigation";
   return "command";

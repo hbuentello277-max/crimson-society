@@ -20,6 +20,13 @@ export const NEXUS_VOICE_CONFIRM_TOOLS = [
   "createNexusObservationDraft",
 ] as const;
 
+export const NEXUS_VOICE_FOUNDER_TOOLS = [
+  "getFounderBriefing",
+  "getFounderRecommendations",
+  "getFounderTimeline",
+  "answerFounderQuestion",
+] as const;
+
 export const NEXUS_VOICE_MONITORING_TOOLS = [
   "getNexusSystemHealth",
   "getCheckoutHealth",
@@ -40,12 +47,14 @@ export const NEXUS_VOICE_TOOLS = [
   ...NEXUS_VOICE_ACTION_READ_TOOLS,
   ...NEXUS_VOICE_CONFIRM_TOOLS,
   ...NEXUS_VOICE_MONITORING_TOOLS,
+  ...NEXUS_VOICE_FOUNDER_TOOLS,
 ] as const;
 
 export type NexusVoicePhase2ToolName = (typeof NEXUS_VOICE_PHASE2_TOOLS)[number];
 export type NexusVoiceActionReadToolName = (typeof NEXUS_VOICE_ACTION_READ_TOOLS)[number];
 export type NexusVoiceConfirmToolName = (typeof NEXUS_VOICE_CONFIRM_TOOLS)[number];
 export type NexusVoiceMonitoringToolName = (typeof NEXUS_VOICE_MONITORING_TOOLS)[number];
+export type NexusVoiceFounderToolName = (typeof NEXUS_VOICE_FOUNDER_TOOLS)[number];
 export type NexusVoiceToolName = (typeof NEXUS_VOICE_TOOLS)[number];
 
 export type NexusVoiceActionResult = {

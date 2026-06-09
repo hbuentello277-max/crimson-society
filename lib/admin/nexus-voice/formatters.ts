@@ -1,3 +1,9 @@
+import {
+  formatFounderBriefingResponse,
+  formatFounderQuestionResponse,
+  formatFounderRecommendationsResponse,
+  formatFounderTimelineResponse,
+} from "@/lib/admin/nexus-voice/founder-formatters";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
 
@@ -149,6 +155,14 @@ export function formatNexusVoiceResponse(
       }
       return `Operator briefing: ${attention.join("; ")}.${partialSuffix(actionResult)}`;
     }
+    case "getFounderBriefing":
+      return formatFounderBriefingResponse(actionResult);
+    case "getFounderRecommendations":
+      return formatFounderRecommendationsResponse(actionResult);
+    case "getFounderTimeline":
+      return formatFounderTimelineResponse(actionResult);
+    case "answerFounderQuestion":
+      return formatFounderQuestionResponse(actionResult);
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }

@@ -9,6 +9,45 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "answerFounderQuestion",
+    patterns: [
+      /\bwhat should i focus on today\b/i,
+      /\bwhat is blocking launch\b/i,
+      /\bwhat changed today\b/i,
+      /\bwhat is the biggest risk\b/i,
+      /\bhow healthy is crimson society\b/i,
+      /\bwhat should i do next\b/i,
+    ],
+  },
+  {
+    tool: "getFounderBriefing",
+    patterns: [
+      /\bfounder briefing\b/i,
+      /\bdaily founder briefing\b/i,
+      /\bgive me the founder briefing\b/i,
+      /\bsummarize the platform for me\b/i,
+    ],
+  },
+  {
+    tool: "getFounderRecommendations",
+    patterns: [
+      /\bfounder recommendations\b/i,
+      /\bwhat are my recommendations\b/i,
+      /\bprioritized recommendations\b/i,
+      /\brecommended actions\b/i,
+    ],
+    exclude: [/\bwhat should i do next\b/i, /\bwhat should i focus on today\b/i],
+  },
+  {
+    tool: "getFounderTimeline",
+    patterns: [
+      /\bfounder timeline\b/i,
+      /\bwhat happened recently\b/i,
+      /\brecent accomplishments\b/i,
+    ],
+    exclude: [/\bwhat changed today\b/i],
+  },
+  {
     tool: "getFailedPlatformJobs",
     patterns: [
       /\bfailed\b.*\bplatform jobs?\b/i,
@@ -226,7 +265,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can open Platform Status, Platform Health, alerts, reports, and runbooks, report platform stats, monitor platform jobs, checkout, signups, media, push, and cron health, summarize operator priorities, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can give founder briefings and recommendations, answer what to focus on today, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();
