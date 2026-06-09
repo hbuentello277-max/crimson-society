@@ -32,6 +32,13 @@ describe("resolveNexusVoiceTool", () => {
     assert.equal(resolveNexusVoiceTool("NEXUS, summarize today."), "getDailyOperatorBriefing");
   });
 
+  it("maps platform job monitoring phrases", () => {
+    assert.equal(resolveNexusVoiceTool("Are all platform jobs healthy?"), "getPlatformJobsHealth");
+    assert.equal(resolveNexusVoiceTool("Check platform jobs."), "getPlatformJobsHealth");
+    assert.equal(resolveNexusVoiceTool("When did NEXUS last run?"), "getNexusLastRun");
+    assert.equal(resolveNexusVoiceTool("Show failed platform jobs."), "getFailedPlatformJobs");
+  });
+
   it("returns null for unsupported commands", () => {
     assert.equal(resolveNexusVoiceTool("delete all users"), null);
     assert.equal(resolveNexusVoiceTool("run arbitrary sql"), null);

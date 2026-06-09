@@ -9,6 +9,33 @@ type ToolPattern = {
 
 const TOOL_PATTERNS: ToolPattern[] = [
   {
+    tool: "getFailedPlatformJobs",
+    patterns: [
+      /\bfailed\b.*\bplatform jobs?\b/i,
+      /\bshow\b.*\bfailed\b.*\bplatform jobs?\b/i,
+      /\bplatform jobs?\b.*\bfailed\b/i,
+    ],
+  },
+  {
+    tool: "getNexusLastRun",
+    patterns: [
+      /\bwhen did nexus last run\b/i,
+      /\bwhen\b.*\bnexus\b.*\blast run\b/i,
+      /\blast nexus run\b/i,
+      /\bwhen\b.*\bplatform jobs?\b.*\blast run\b/i,
+    ],
+  },
+  {
+    tool: "getPlatformJobsHealth",
+    patterns: [
+      /\bplatform jobs?\b.*\bhealthy\b/i,
+      /\bare\b.*\bplatform jobs?\b.*\bhealthy\b/i,
+      /\bcheck\b.*\bplatform jobs?\b/i,
+      /\bplatform jobs?\b.*\b(status|health)\b/i,
+      /\bscheduled\b.*\bplatform jobs?\b/i,
+    ],
+  },
+  {
     tool: "getDailyOperatorBriefing",
     patterns: [
       /\bwhat needs my attention\b/i,
@@ -56,6 +83,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bplatform health\b/i,
       /\bintegration health\b/i,
     ],
+    exclude: [/\bplatform jobs?\b/i],
   },
   {
     tool: "getCheckoutHealth",
@@ -97,6 +125,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
       /\bscheduled jobs?\b/i,
       /\bbackground jobs?\b/i,
     ],
+    exclude: [/\bplatform jobs?\b/i],
   },
   {
     tool: "getRevenueRiskSummary",
@@ -197,7 +226,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can report platform stats, monitor checkout/signups/media/push/cron health, summarize operator priorities, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can report platform stats, monitor platform jobs, checkout, signups, media, push, and cron health, summarize operator priorities, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

@@ -8,6 +8,7 @@ import { getNexusMemorySummary } from "@/lib/memory/summary";
 import { getNexusOperationalIntelligence } from "@/lib/operational-intelligence/engine";
 import { getNexusPlanning } from "@/lib/planning/engine";
 import { loadReportContext } from "@/lib/reports/context";
+import { getNexusPlatformJobsSummary } from "@/lib/nexus/cron-monitor";
 import { runCached } from "@/lib/nexus/request-cache";
 import { computeMissionHealthComponents } from "@/lib/mission-control/health";
 import {
@@ -59,14 +60,16 @@ export function getNexusMissionControl(
 async function getNexusMissionControlImpl(
   supabase: SupabaseClient,
 ): Promise<MissionControlSummary> {
-  const [reportContext, planning, copilot, operational, memory, trends] = await Promise.all([
-    loadReportContext(supabase),
-    getNexusPlanning(supabase),
-    getNexusCopilot(supabase),
-    getNexusOperationalIntelligence(supabase),
-    getNexusMemorySummary(supabase, { limit: 40 }),
-    loadMetricSnapshotTrends(supabase, MISSION_CONTROL_TREND_KEYS),
-  ]);
+  const [reportContext, planning, copilot, operational, memory, trends, platformJobs] =
+    await Promise.all([
+      loadReportContext(supabase),
+      getNexusPlanning(supabase),
+      getNexusCopilot(supabase),
+      getNexusOperationalIntelligence(supabase),
+      getNexusMemorySummary(supabase, { limit: 40 }),
+      loadMetricSnapshotTrends(supabase, MISSION_CONTROL_TREND_KEYS),
+      getNexusPlatformJobsSummary(supabase),
+    ]);
 
   const healthComponents = computeMissionHealthComponents({
     report: reportContext,
@@ -138,5 +141,6 @@ async function getNexusMissionControlImpl(
     accelerators,
     recent_history: recentHistory,
     score_breakdown: buildScoreBreakdown(healthComponents),
+    platform_jobs: platformJobs,
   };
 }

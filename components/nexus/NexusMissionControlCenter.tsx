@@ -16,6 +16,7 @@ import { MissionScoreCard } from "@/components/nexus/mission-control/MissionScor
 import { MissionStatusHero } from "@/components/nexus/mission-control/MissionStatusHero";
 import { MissionThreats } from "@/components/nexus/mission-control/MissionThreats";
 import { MissionTimeline } from "@/components/nexus/mission-control/MissionTimeline";
+import { PlatformJobsPanel } from "@/components/nexus/mission-control/PlatformJobsPanel";
 import { NexusSectionFrame } from "@/components/nexus/NexusShared";
 
 type MissionControlPayload = Partial<MissionControlSummary> & {
@@ -115,6 +116,8 @@ export function NexusMissionControlCenter() {
             topThreat={data.top_threat ?? ""}
             topOpportunity={data.top_opportunity ?? ""}
           />
+
+          {data.platform_jobs ? <PlatformJobsPanel summary={data.platform_jobs} /> : null}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <MissionScoreCard

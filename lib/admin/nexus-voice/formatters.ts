@@ -23,6 +23,67 @@ function partialSuffix(result: NexusVoiceActionResult): string {
   return ` ${warning}`;
 }
 
+type PlatformJobVoiceRow = {
+  label?: string;
+  status?: string;
+  error_message?: string | null;
+  last_run_at?: string | null;
+};
+
+function platformJobsFromResult(actionResult: NexusVoiceActionResult): PlatformJobVoiceRow[] {
+  const jobs = actionResult.data.jobs;
+  return Array.isArray(jobs) ? (jobs as PlatformJobVoiceRow[]) : [];
+}
+
+function formatPlatformJobsHealth(actionResult: NexusVoiceActionResult): string {
+  const status = String(actionResult.data.status ?? "unknown");
+  const healthyCount = Number(actionResult.data.healthyCount ?? 0);
+  const failedCount = Number(actionResult.data.failedCount ?? 0);
+  const overdueCount = Number(actionResult.data.overdueCount ?? 0);
+  const neverRunCount = Number(actionResult.data.neverRunCount ?? 0);
+  const total = platformJobsFromResult(actionResult).length;
+
+  if (status === "healthy") {
+    return `All ${total} scheduled platform jobs are healthy.${partialSuffix(actionResult)}`;
+  }
+
+  return `Platform jobs are ${status}: ${healthyCount} healthy, ${failedCount} failed, ${overdueCount} overdue, ${neverRunCount} never run.${partialSuffix(actionResult)}`;
+}
+
+function formatNexusLastRun(actionResult: NexusVoiceActionResult): string {
+  const lastRun = actionResult.data.lastNexusRunAt;
+  if (!lastRun) {
+    return `NEXUS has no recent platform job activity logged yet.${partialSuffix(actionResult)}`;
+  }
+
+  const jobs = platformJobsFromResult(actionResult)
+    .filter((job) => job.last_run_at)
+    .slice(0, 3)
+    .map((job) => `${job.label ?? "job"} (${job.last_run_at})`);
+
+  const recentText = jobs.length > 0 ? ` Recent checks: ${jobs.join(", ")}.` : "";
+  return `NEXUS last recorded platform activity at ${lastRun}.${recentText}${partialSuffix(actionResult)}`;
+}
+
+function formatFailedPlatformJobs(actionResult: NexusVoiceActionResult): string {
+  const failed = platformJobsFromResult(actionResult).filter(
+    (job) => job.status === "failed" || job.status === "overdue" || job.status === "never_run",
+  );
+
+  if (failed.length === 0) {
+    return `No failed or overdue platform jobs right now.${partialSuffix(actionResult)}`;
+  }
+
+  const labels = failed
+    .map((job) => {
+      const reason = job.error_message ? `: ${job.error_message}` : "";
+      return `${job.label ?? "job"} (${job.status ?? "unknown"})${reason}`;
+    })
+    .join("; ");
+
+  return `Failed or overdue platform jobs: ${labels}.${partialSuffix(actionResult)}`;
+}
+
 export function formatNexusVoiceResponse(
   tool: NexusVoiceToolName,
   actionResult: NexusVoiceActionResult,
@@ -71,7 +132,12 @@ export function formatNexusVoiceResponse(
     case "getPushNotificationHealth":
       return `Push notification health is ${actionResult.data.status}. Failed (24h): ${actionResult.data.failed24h}, pending: ${actionResult.data.pending24h}.${partialSuffix(actionResult)}`;
     case "getCronHealth":
-      return `Cron health is ${actionResult.data.status}. Recent cron-related events: ${actionResult.data.recentCronEvents}.${partialSuffix(actionResult)}`;
+    case "getPlatformJobsHealth":
+      return formatPlatformJobsHealth(actionResult);
+    case "getNexusLastRun":
+      return formatNexusLastRun(actionResult);
+    case "getFailedPlatformJobs":
+      return formatFailedPlatformJobs(actionResult);
     case "getRevenueRiskSummary":
       return `Revenue risk is ${actionResult.data.status}. Revenue today: ${actionResult.data.revenueToday}, pending orders: ${actionResult.data.pendingOrdersToday}.${partialSuffix(actionResult)}`;
     case "getBlackcardConversionSummary":

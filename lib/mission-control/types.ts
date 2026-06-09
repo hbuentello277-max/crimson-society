@@ -48,6 +48,31 @@ export type MissionHistoryItem = {
   source: string;
 };
 
+export type PlatformJobHealthView = {
+  slug: string;
+  label: string;
+  path: string;
+  schedule: string;
+  status: "healthy" | "failed" | "overdue" | "never_run" | "unknown";
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  duration_ms: number | null;
+  error_message: string | null;
+  next_expected_at: string;
+};
+
+export type PlatformJobsSummaryView = {
+  generated_at: string;
+  overall_status: "healthy" | "degraded" | "critical" | "unknown";
+  healthy_count: number;
+  failed_count: number;
+  overdue_count: number;
+  never_run_count: number;
+  last_nexus_run_at: string | null;
+  jobs: PlatformJobHealthView[];
+};
+
 export type MissionControlSummary = {
   generated_at: string;
   mission_status: MissionStatus;
@@ -62,6 +87,7 @@ export type MissionControlSummary = {
   accelerators: MissionAccelerator[];
   recent_history: MissionHistoryItem[];
   score_breakdown: Record<string, number>;
+  platform_jobs: PlatformJobsSummaryView;
 };
 
 export type MissionHealthComponents = {

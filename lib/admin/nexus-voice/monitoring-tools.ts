@@ -3,6 +3,7 @@ import { isNexusVoiceAiConfigured } from "@/lib/admin/nexus-voice/config";
 import { getFailedMediaJobs, getOrdersNeedingPickup, summarizePendingReports } from "@/lib/admin/nexus-voice/action-tools";
 import { safeCount, safeSelect, collectWarnings } from "@/lib/admin/nexus-voice/safe-query";
 import type { NexusVoiceActionResult, NexusVoiceMonitoringToolName } from "@/lib/admin/nexus-voice/types";
+import { getNexusPlatformJobsSummary } from "@/lib/nexus/cron-monitor";
 
 function startOfUtcDayIso(): string {
   const now = new Date();
@@ -173,37 +174,59 @@ export async function getPushNotificationHealth(admin: SupabaseClient): Promise<
   };
 }
 
+async function loadPlatformJobsActionResult(
+  admin: SupabaseClient,
+  tool: NexusVoiceMonitoringToolName,
+): Promise<NexusVoiceActionResult> {
+  try {
+    const summary = await getNexusPlatformJobsSummary(admin);
+    return {
+      tool,
+      data: {
+        status: summary.overall_status,
+        healthyCount: summary.healthy_count,
+        failedCount: summary.failed_count,
+        overdueCount: summary.overdue_count,
+        neverRunCount: summary.never_run_count,
+        lastNexusRunAt: summary.last_nexus_run_at,
+        jobs: summary.jobs,
+        generatedAt: summary.generated_at,
+      },
+    };
+  } catch (error) {
+    return {
+      tool,
+      data: {
+        status: "unknown",
+        healthyCount: 0,
+        failedCount: 0,
+        overdueCount: 0,
+        neverRunCount: 0,
+        lastNexusRunAt: null,
+        jobs: [],
+      },
+      partial: true,
+      warnings: [
+        error instanceof Error ? error.message : "Platform job activity log may be unavailable.",
+      ],
+    };
+  }
+}
+
 export async function getCronHealth(admin: SupabaseClient): Promise<NexusVoiceActionResult> {
-  const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  const activity = await safeSelect<{
-    action: string | null;
-    created_at: string | null;
-  }>(admin, "nexus_activity_log", "action, created_at", (query) =>
-    query.gte("created_at", since).order("created_at", { ascending: false }).limit(12),
-  );
+  return loadPlatformJobsActionResult(admin, "getCronHealth");
+}
 
-  const cronActions = activity.data.filter((row) =>
-    String(row.action ?? "").includes("cron") || String(row.action ?? "").includes("completed"),
-  );
+export async function getPlatformJobsHealth(admin: SupabaseClient): Promise<NexusVoiceActionResult> {
+  return loadPlatformJobsActionResult(admin, "getPlatformJobsHealth");
+}
 
-  const status =
-    activity.partial || activity.error
-      ? "unknown"
-      : cronActions.length === 0
-        ? "warning"
-        : "healthy";
+export async function getNexusLastRun(admin: SupabaseClient): Promise<NexusVoiceActionResult> {
+  return loadPlatformJobsActionResult(admin, "getNexusLastRun");
+}
 
-  return {
-    tool: "getCronHealth",
-    data: {
-      status,
-      recentCronEvents: cronActions.length,
-      recentActivity: activity.data,
-      windowHours: 6,
-    },
-    partial: activity.partial,
-    warnings: activity.partial ? ["Cron activity log may be unavailable."] : undefined,
-  };
+export async function getFailedPlatformJobs(admin: SupabaseClient): Promise<NexusVoiceActionResult> {
+  return loadPlatformJobsActionResult(admin, "getFailedPlatformJobs");
 }
 
 export async function getRevenueRiskSummary(admin: SupabaseClient): Promise<NexusVoiceActionResult> {
@@ -305,6 +328,12 @@ export async function getDailyOperatorBriefing(admin: SupabaseClient): Promise<N
   if (system.data.status === "warning" || system.data.status === "critical") {
     attention.push("Platform health is degraded");
   }
+  const platformJobs = await loadPlatformJobsActionResult(admin, "getPlatformJobsHealth");
+  if (platformJobs.data.status === "critical") {
+    attention.push("Scheduled platform jobs have failures");
+  } else if (platformJobs.data.status === "degraded") {
+    attention.push("Some platform jobs are overdue or have not run");
+  }
 
   const partial =
     pendingReports.partial ||
@@ -346,6 +375,9 @@ const MONITORING_RUNNERS: Record<
   getMediaProcessingHealth,
   getPushNotificationHealth,
   getCronHealth,
+  getPlatformJobsHealth,
+  getNexusLastRun,
+  getFailedPlatformJobs,
   getRevenueRiskSummary,
   getBlackcardConversionSummary,
   getDailyOperatorBriefing,

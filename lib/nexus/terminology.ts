@@ -11,6 +11,8 @@ export const NEXUS_LABELS = {
   platformWorkflow: "Platform Workflow",
   platformCheck: "Platform Check",
   platformTimeline: "Platform Timeline",
+  platformJobs: "Platform Jobs",
+  platformChecks: "Platform Checks",
   insights: "Insights",
   insightsCenter: "Insights Center",
   alertsCenter: "Alerts Center",

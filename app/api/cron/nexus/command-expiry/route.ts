@@ -1,31 +1,33 @@
-import { NextResponse } from "next/server";
-import { isCronAuthorized } from "@/lib/cron/auth";
 import { expireNexusCommands } from "@/lib/commands/expiry";
+import {
+  assertNexusCronAuthorized,
+  NexusCronJobError,
+  nexusCronUnauthorizedResponse,
+  runNexusCronRoute,
+} from "@/lib/nexus/cron-handler";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isCronAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!assertNexusCronAuthorized(request)) {
+    return nexusCronUnauthorizedResponse();
   }
 
-  const result = await expireNexusCommands();
+  return runNexusCronRoute("command_expiry", async () => {
+    const result = await expireNexusCommands();
+    if (!result.ok) {
+      throw new NexusCronJobError(result.error ?? "Command expiry failed");
+    }
 
-  if (!result.ok) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: result.error ?? "Command expiry failed",
+    return {
+      body: {
         evaluated_at: result.evaluated_at,
+        expired_count: result.expired_count,
       },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({
-    ok: true,
-    evaluated_at: result.evaluated_at,
-    expired_count: result.expired_count,
+      details: {
+        expired_count: result.expired_count,
+      },
+    };
   });
 }
