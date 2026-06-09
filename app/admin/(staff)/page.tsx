@@ -15,6 +15,7 @@ import { AdminDeletionQueueSection } from "@/components/admin/AdminDeletionQueue
 import { AdminNexusEntryCard } from "@/components/admin/AdminNexusEntryCard";
 import { AdminRecentMeetsSection } from "@/components/admin/AdminRecentMeetsSection";
 import { AdminMembershipControls } from "@/components/admin/AdminMembershipControls";
+import { NexusVoiceButton } from "@/components/admin/NexusVoiceButton";
 import type { MembershipRow } from "@/lib/membership";
 
 type UserRole = "user" | "moderator" | "admin";
@@ -271,6 +272,7 @@ function AdminPageContent() {
   const [subscriptionsByUserId, setSubscriptionsByUserId] = useState<Record<string, MembershipRow | null>>({});
 
   const myUserId = session?.user?.id ?? null;
+  const canUseNexusVoice = isAdmin || profile?.is_platform_owner === true;
 
   const profileCountLabel = useMemo(() => String(profiles.length) + " total", [profiles.length]);
   const pendingReportCount = useMemo(
@@ -789,18 +791,21 @@ function AdminPageContent() {
     return (
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin</p>
               <h1 className="mt-3 text-4xl font-semibold">Control Room</h1>
             </div>
 
-            <Link
-              href="/profile"
-              className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
-            >
-              Profile
-            </Link>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <NexusVoiceButton enabled={canUseNexusVoice} />
+              <Link
+                href="/profile"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
+              >
+                Profile
+              </Link>
+            </div>
           </div>
 
           <AdminSkeleton />
@@ -812,7 +817,7 @@ function AdminPageContent() {
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin</p>
             <h1 className="mt-3 text-4xl font-semibold">Control Room</h1>
@@ -823,12 +828,15 @@ function AdminPageContent() {
             )}
           </div>
 
-          <Link
-            href="/profile"
-            className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
-          >
-            Profile
-          </Link>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <NexusVoiceButton enabled={canUseNexusVoice} />
+            <Link
+              href="/profile"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
+            >
+              Profile
+            </Link>
+          </div>
         </div>
 
         {errorMsg && (
