@@ -1,6 +1,6 @@
 "use client";
 
-import type { HTMLAttributes } from "react";
+import type { SVGProps } from "react";
 
 export const CRIMSON_REWARDS_SIZES = [20, 24, 32, 48] as const;
 
@@ -10,26 +10,32 @@ type CrimsonRewardsIconProps = {
   size?: CrimsonRewardsSize | number;
   className?: string;
   title?: string;
-} & Omit<HTMLAttributes<HTMLSpanElement>, "children">;
+} & Omit<SVGProps<SVGSVGElement>, "width" | "height" | "viewBox">;
 
-/** Shared crimson crown — same 👑 glyph as Blackcard badge and Rewards button. */
+/** Flat crimson crown for credits surfaces — not the emoji badge crown. */
 export function CrimsonRewardsIcon({
   size = 24,
   className = "",
   title = "Crimson Rewards",
-  style,
   ...props
 }: CrimsonRewardsIconProps) {
   return (
-    <span
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
       role={title ? "img" : "presentation"}
       aria-label={title || undefined}
       aria-hidden={title ? undefined : true}
-      className={`inline-flex shrink-0 items-center justify-center leading-none ${className}`}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.92), ...style }}
+      className={`shrink-0 ${className}`}
       {...props}
     >
-      👑
-    </span>
+      {title ? <title>{title}</title> : null}
+      <path
+        fill="#e87a82"
+        d="M4 17h16l-1.6-8.2-3.4 3.6-3-5.4-3 5.4-3.4-3.6L4 17z"
+      />
+      <path fill="#b4141e" d="M3 17.5h18v2.5H3z" />
+    </svg>
   );
 }
