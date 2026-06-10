@@ -7,6 +7,7 @@ import {
   type NotificationType,
 } from "@/lib/notifications";
 import { pushCollapseKey } from "@/lib/notifications/grouping";
+import { buildNotificationPushMetadata } from "@/lib/notifications/push-metadata";
 import { isFcmServerConfigured, isInvalidFcmTokenError, sendFcmToToken } from "@/lib/push/fcm-server";
 
 function getSupabaseAdmin() {
@@ -185,17 +186,10 @@ export async function dispatchPushForNotification(notificationId: string) {
   }
 
   const actor = await loadActor(supabase, row.actor_id);
-  const metadata = (row.metadata ?? {}) as Record<string, unknown>;
   const title = row.title || "Crimson Society";
   const body =
     notificationSummary(row, actor) || row.body || "You have new activity in Crimson Society.";
-  const url = buildPushUrl(row, actor, appOrigin);
-  const requestId =
-    (typeof metadata.request_id === "string" && metadata.request_id) ||
-    (typeof metadata.connection_id === "string" && metadata.connection_id) ||
-    null;
-  const actorUsername =
-    (typeof metadata.actor_username === "string" && metadata.actor_username) || actor?.username || null;
+  const pushMetadata = buildNotificationPushMetadata(row, actor, appOrigin);
 
   let sent = 0;
   const invalidTokenIds: string[] = [];
@@ -205,16 +199,19 @@ export async function dispatchPushForNotification(notificationId: string) {
       await sendFcmToToken(device.token, {
         title,
         body,
-        url,
+        url: pushMetadata.url,
         notificationId: row.id,
         type: row.type as NotificationType,
         rideId: row.ride_id,
         conversationId: row.conversation_id,
         collapseKey: pushCollapseKey(row),
-        requestId,
-        actorUserId: row.actor_id,
-        actorUsername,
-        targetUrl: url,
+        requestId: pushMetadata.requestId || null,
+        actorUserId: pushMetadata.actorUserId || row.actor_id,
+        actorUsername: pushMetadata.actorUsername || null,
+        targetUrl: pushMetadata.targetUrl,
+        entityId: pushMetadata.entityId || null,
+        postId: pushMetadata.postId || row.post_id,
+        orderId: pushMetadata.orderId || null,
       });
       sent += 1;
     } catch (error) {

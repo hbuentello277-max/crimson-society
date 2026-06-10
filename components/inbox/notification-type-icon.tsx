@@ -5,6 +5,7 @@ const TYPE_STYLES: Record<
   { bg: string; label: string; glyph: string }
 > = {
   profile_followed: { bg: "bg-sky-500/90", label: "Followers", glyph: "👤" },
+  follow: { bg: "bg-sky-500/90", label: "Followers", glyph: "👤" },
   meet_joined: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   meet_left: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
   meet_chat_message: { bg: "bg-fuchsia-500/85", label: "Activity", glyph: "♥" },
@@ -19,7 +20,9 @@ const TYPE_STYLES: Record<
   connection_request_received: { bg: "bg-emerald-500/85", label: "Connect", glyph: "🤝" },
   connection_accepted: { bg: "bg-emerald-500/85", label: "Connect", glyph: "✓" },
   post_liked: { bg: "bg-rose-500/85", label: "Posts", glyph: "♥" },
+  post_like: { bg: "bg-rose-500/85", label: "Posts", glyph: "♥" },
   post_commented: { bg: "bg-violet-500/85", label: "Posts", glyph: "💬" },
+  post_comment: { bg: "bg-violet-500/85", label: "Posts", glyph: "💬" },
   admin_report_submitted: { bg: "bg-amber-500/90", label: "Moderation", glyph: "⚠" },
   account_deletion_requested: { bg: "bg-amber-500/90", label: "Admin", glyph: "⚠" },
   account_deletion_canceled: { bg: "bg-amber-500/90", label: "Admin", glyph: "↩" },
@@ -29,6 +32,8 @@ const TYPE_STYLES: Record<
   shop_order_confirmed: { bg: "bg-[#b4141e]/50 border border-[#b4141e]", label: "Shop", glyph: "✓" },
   shop_order_ready_for_pickup: { bg: "bg-sky-500/80", label: "Pickup", glyph: "📦" },
   shop_order_shipped: { bg: "bg-violet-500/80", label: "Shipped", glyph: "🚚" },
+  order_preparing: { bg: "bg-amber-500/80", label: "Orders", glyph: "📦" },
+  order_shipped: { bg: "bg-violet-500/80", label: "Shipped", glyph: "🚚" },
   favorite_rider_meet: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_post: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_ride_started: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },

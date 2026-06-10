@@ -119,6 +119,44 @@ describe("direct message destination", () => {
   });
 });
 
+describe("legacy notification destinations", () => {
+  it("supports profile_followed legacy type", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "profile_followed",
+          ride_id: null,
+          target_url: "/profile/javi",
+        },
+        {
+          id: "actor-1",
+          username: "javi",
+          display_name: "Javi",
+          full_name: null,
+          profile_image_url: null,
+          avatar_url: null,
+        },
+      ),
+      "/profile/javi",
+    );
+  });
+
+  it("supports post_liked legacy type", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "post_liked",
+          ride_id: null,
+          post_id: "post-legacy",
+          target_url: "/dashboard?post=post-legacy",
+        },
+        null,
+      ),
+      "/dashboard?post=post-legacy",
+    );
+  });
+});
+
 describe("connection notification destinations", () => {
   it("opens the request review page for connection_request", () => {
     assert.equal(

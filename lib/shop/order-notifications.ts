@@ -49,6 +49,7 @@ async function insertNotifications(
     body: string;
     target_url: string;
     notification_group_key: string;
+    metadata?: Record<string, string>;
   }>,
 ) {
   if (rows.length === 0) return { inserted: 0, error: null as string | null };
@@ -68,7 +69,13 @@ async function insertNotifications(
       p_deletion_request_id: null,
       p_target_url: row.target_url,
       p_destination_url: row.target_url,
-      p_metadata: {},
+      p_metadata: {
+        entity_type: row.type,
+        entity_id: row.metadata?.order_id ?? "",
+        order_id: row.metadata?.order_id ?? "",
+        route: row.target_url,
+        ...(row.metadata ?? {}),
+      },
       p_preview_text: row.body,
       p_grouped_body_template: null,
     });
@@ -186,19 +193,42 @@ export async function notifyShopOrderReadyForPickup(admin: SupabaseClient, order
   ]);
 }
 
+export async function notifyShopOrderPreparing(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_preparing",
+      title: "Order preparing",
+      body: "Your Crimson Society order is being prepared.",
+      target_url: targetUrl,
+      notification_group_key: `order_preparing:${orderId}:${order.user_id}`,
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
 export async function notifyShopOrderShipped(admin: SupabaseClient, orderId: string) {
   const order = await loadOrder(admin, orderId);
   if (!order?.user_id) return;
 
   const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
   await insertNotifications(admin, [
     {
       user_id: order.user_id,
-      type: "shop_order_shipped",
+      type: "order_shipped",
       title: "Your order has shipped",
-      body: `Your order #${shortId} is on the move.`,
-      target_url: customerOrderUrl(orderId),
+      body: `Your Crimson Society order #${shortId} has shipped.`,
+      target_url: targetUrl,
       notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
     },
   ]);
 }

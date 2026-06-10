@@ -17,6 +17,7 @@ import {
   type OrderEmailSendResult,
 } from "@/lib/shop/order-emails";
 import {
+  notifyShopOrderPreparing,
   notifyShopOrderReadyForPickup,
   notifyShopOrderShipped,
 } from "@/lib/shop/order-notifications";
@@ -196,6 +197,14 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const prevFulfillment = existing.fulfillment_status as string;
+  if (
+    patch.fulfillment_status === "fulfilled" &&
+    prevFulfillment !== "fulfilled" &&
+    (updated.delivery_method as string) === "shipping"
+  ) {
+    await notifyShopOrderPreparing(admin, orderId);
+  }
+
   if (
     patch.fulfillment_status === "shipped" &&
     prevFulfillment !== "shipped" &&

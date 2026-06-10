@@ -9,9 +9,13 @@ function resolveNotificationUrl(data) {
     data?.targetUrl ||
     data?.url ||
     (data?.requestId ? `/connect/requests/${data.requestId}` : null) ||
+    (data?.orderId ? `/profile/orders/${data.orderId}` : null) ||
+    (data?.postId ? `/dashboard?post=${data.postId}` : null) ||
     (data?.actorUsername ? `/profile/${data.actorUsername}` : null);
 
   if (!raw) {
+    if (data?.type === "direct_message") return "/messages";
+    if (String(data?.type || "").startsWith("meet_")) return "/meets";
     return "/inbox?tab=notifications";
   }
 

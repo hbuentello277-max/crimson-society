@@ -4,6 +4,7 @@ export type NotificationType =
   | "meet_chat_message"
   | "meet_chat_photo"
   | "profile_followed"
+  | "follow"
   | "meet_removed"
   | "meet_canceled"
   | "meet_updated"
@@ -14,7 +15,9 @@ export type NotificationType =
   | "connection_request_received"
   | "connection_accepted"
   | "post_liked"
+  | "post_like"
   | "post_commented"
+  | "post_comment"
   | "admin_report_submitted"
   | "account_deletion_requested"
   | "account_deletion_canceled"
@@ -26,7 +29,9 @@ export type NotificationType =
   | "shop_order_paid"
   | "shop_order_confirmed"
   | "shop_order_ready_for_pickup"
-  | "shop_order_shipped";
+  | "shop_order_shipped"
+  | "order_preparing"
+  | "order_shipped";
 
 export type NotificationActor = {
   id: string;
@@ -68,6 +73,9 @@ export type NotificationMetadata = {
   actor_user_id?: string;
   actor_username?: string;
   route?: string;
+  post_id?: string;
+  comment_id?: string;
+  order_id?: string;
 };
 
 export type NotificationDestinationInput = Pick<
@@ -88,12 +96,24 @@ const CONNECT_REQUEST_TYPES = new Set<NotificationType>([
   "connection_request_received",
 ]);
 
+const FOLLOW_TYPES = new Set<NotificationType>(["follow", "profile_followed"]);
+const POST_LIKE_TYPES = new Set<NotificationType>(["post_like", "post_liked"]);
+const POST_COMMENT_TYPES = new Set<NotificationType>(["post_comment", "post_commented"]);
+const ORDER_DETAIL_TYPES = new Set<NotificationType>([
+  "order_preparing",
+  "order_shipped",
+  "shop_order_confirmed",
+  "shop_order_ready_for_pickup",
+  "shop_order_shipped",
+]);
+
 const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "meet_joined",
   "meet_left",
   "meet_chat_message",
   "meet_chat_photo",
   "profile_followed",
+  "follow",
   "meet_removed",
   "meet_canceled",
   "meet_updated",
@@ -104,7 +124,9 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "connection_request_received",
   "connection_accepted",
   "post_liked",
+  "post_like",
   "post_commented",
+  "post_comment",
   "admin_report_submitted",
   "account_deletion_requested",
   "account_deletion_canceled",
@@ -117,6 +139,8 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "shop_order_confirmed",
   "shop_order_ready_for_pickup",
   "shop_order_shipped",
+  "order_preparing",
+  "order_shipped",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -151,6 +175,22 @@ export function connectionRequestReviewPath(requestId: string) {
   return `/connect/requests/${requestId}`;
 }
 
+export function postNotificationPath(postId: string, commentId?: string | null) {
+  const params = new URLSearchParams({ post: postId });
+  if (commentId) {
+    params.set("comment", commentId);
+  }
+  return `/dashboard?${params.toString()}`;
+}
+
+export function orderNotificationPath(orderId: string) {
+  return `/profile/orders/${orderId}`;
+}
+
+export function shouldNotifyPostOwner(ownerId: string | null | undefined, actorId: string) {
+  return Boolean(ownerId && ownerId !== actorId);
+}
+
 function metadataRoute(
   metadata: NotificationMetadata | null | undefined,
 ): string | null {
@@ -169,8 +209,16 @@ function metadataRoute(
   }
 
   const actorUsername = metadata.actor_username?.trim().replace(/^@+/, "");
-  if (actorUsername && metadata.entity_type === "connection_accepted") {
+  if (actorUsername && (metadata.entity_type === "connection_accepted" || metadata.entity_type === "follow")) {
     return `/profile/${actorUsername}`;
+  }
+
+  if (metadata.post_id) {
+    return postNotificationPath(metadata.post_id, metadata.comment_id);
+  }
+
+  if (metadata.order_id) {
+    return orderNotificationPath(metadata.order_id);
   }
 
   return null;
@@ -204,15 +252,14 @@ export function notificationDestination(
     return `/admin?${params.toString()}`;
   }
 
-  if (
-    (notification.type === "post_liked" || notification.type === "post_commented") &&
-    notification.post_id
-  ) {
-    const params = new URLSearchParams({ post: notification.post_id });
-    if (notification.comment_id) {
-      params.set("comment", notification.comment_id);
-    }
-    return `/dashboard?${params.toString()}`;
+  if (POST_LIKE_TYPES.has(notification.type)) {
+    return notification.post_id ? postNotificationPath(notification.post_id) : "/dashboard";
+  }
+
+  if (POST_COMMENT_TYPES.has(notification.type)) {
+    return notification.post_id
+      ? postNotificationPath(notification.post_id, notification.comment_id)
+      : "/dashboard";
   }
 
 
@@ -220,8 +267,8 @@ export function notificationDestination(
     return `/meets?meet=${notification.ride_id}`;
   }
 
-  if (notification.type === "profile_followed") {
-    return actorProfileHref(actor) || "/inbox?tab=notifications";
+  if (FOLLOW_TYPES.has(notification.type)) {
+    return actorProfileHref(actor) || "/connect";
   }
 
   if (CONNECT_REQUEST_TYPES.has(notification.type)) {
@@ -244,12 +291,13 @@ export function notificationDestination(
     return `/inbox?conversation=${notification.conversation_id}`;
   }
 
-  if (
-    notification.type === "shop_order_confirmed" ||
-    notification.type === "shop_order_ready_for_pickup" ||
-    notification.type === "shop_order_shipped"
-  ) {
-    return storedPath ?? "/profile/orders";
+  if (notification.type === "direct_message") {
+    return "/messages";
+  }
+
+  if (ORDER_DETAIL_TYPES.has(notification.type)) {
+    const orderId = notification.metadata?.order_id || notification.metadata?.entity_id;
+    return orderId ? orderNotificationPath(String(orderId)) : "/profile/orders";
   }
 
   if (notification.type === "shop_order_paid") {
@@ -265,6 +313,18 @@ export function notificationDestination(
       params.set("section", "chat");
     }
     return `/meets?${params.toString()}`;
+  }
+
+  if (
+    notification.type === "meet_joined" ||
+    notification.type === "meet_left" ||
+    notification.type === "meet_removed" ||
+    notification.type === "meet_canceled" ||
+    notification.type === "meet_updated" ||
+    notification.type === "meet_ended" ||
+    notification.type === "meet_reminder"
+  ) {
+    return "/meets";
   }
 
   return "/inbox?tab=notifications";
@@ -289,6 +349,7 @@ export function notificationTypeLabel(type: NotificationType) {
     case "meet_chat_photo":
       return "Meet photo";
     case "profile_followed":
+    case "follow":
       return "New follower";
     case "direct_message":
       return "Message";
@@ -300,8 +361,10 @@ export function notificationTypeLabel(type: NotificationType) {
     case "admin_report_submitted":
       return "Moderation report";
     case "post_liked":
+    case "post_like":
       return "Post liked";
     case "post_commented":
+    case "post_comment":
       return "Post comment";
     case "account_deletion_requested":
       return "Deletion request";
@@ -324,7 +387,10 @@ export function notificationTypeLabel(type: NotificationType) {
     case "shop_order_ready_for_pickup":
       return "Ready for pickup";
     case "shop_order_shipped":
+    case "order_shipped":
       return "Shipped";
+    case "order_preparing":
+      return "Order preparing";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -340,7 +406,8 @@ export function notificationSummary(
 
   switch (notification.type) {
     case "profile_followed":
-      return `${name} started following you`;
+    case "follow":
+      return trimmedBody || `${name} followed you`;
     case "meet_joined":
       return `${name} joined your meet`;
     case "meet_left":
@@ -362,8 +429,10 @@ export function notificationSummary(
     case "direct_message":
       return trimmedBody || `${name} sent you a message`;
     case "post_liked":
+    case "post_like":
       return trimmedBody || `${name} liked your post`;
     case "post_commented":
+    case "post_comment":
       return trimmedBody || `${name} commented on your post`;
     case "connection_request":
     case "connection_request_received":
@@ -390,6 +459,8 @@ export function notificationSummary(
     case "shop_order_confirmed":
     case "shop_order_ready_for_pickup":
     case "shop_order_shipped":
+    case "order_preparing":
+    case "order_shipped":
       return trimmedBody || notification.title;
     default:
       return trimmedBody || notification.title;
