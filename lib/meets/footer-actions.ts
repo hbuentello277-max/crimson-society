@@ -54,7 +54,7 @@ export function resolveMeetFooterActions(input: MeetFooterActionInput): MeetFoot
     }
   }
 
-  return actions;
+  return [...new Set(actions)];
 }
 
 export function meetFooterActionLabel(action: MeetFooterAction): string {

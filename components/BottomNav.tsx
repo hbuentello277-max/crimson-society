@@ -11,6 +11,7 @@ import {
   type MessageBadgeRow,
 } from "@/lib/messages/unread-message-count";
 import { supabase } from "@/lib/supabase";
+import { NavTabBadge } from "@/components/NavTabBadge";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
 
@@ -111,9 +112,7 @@ export default function BottomNav() {
     () => Object.values(meetUnreadCounts).reduce((total, count) => total + count, 0),
     [meetUnreadCounts],
   );
-  const meetBadgeLabel = meetUnreadTotal > 9 ? "9+" : String(meetUnreadTotal);
   const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
-  const inboxBadgeLabel = inboxUnreadTotal > 9 ? "9+" : String(inboxUnreadTotal);
 
   const isOpenMeetForBadge = useCallback((ride: RideBadgeRow) => {
     const phase = deriveMeetLifecycle({
@@ -411,37 +410,29 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#050505] pb-[length:var(--bottom-nav-home-offset)] backdrop-blur-xl">
-      <ul className="mx-auto flex h-8 w-full max-w-full items-end justify-between gap-0 overflow-x-hidden pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] sm:max-w-3xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 box-border w-full max-w-full border-t border-white/10 bg-[#050505] pb-[length:var(--bottom-nav-home-offset)] backdrop-blur-xl">
+      <ul className="mx-auto flex w-full max-w-full items-end justify-between gap-0 overflow-visible pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-1.5 sm:max-w-3xl">
         {NAV.map((n) => {
           const active = isActive(n.href);
           return (
-            <li key={n.href} className="flex min-w-0 flex-1 basis-0">
+            <li key={n.href} className="flex min-w-0 flex-1 basis-0 overflow-visible">
               <Link
                 href={n.href}
                 prefetch
                 onFocus={() => router.prefetch(n.href)}
                 onMouseEnter={() => router.prefetch(n.href)}
-                className={`flex min-w-0 w-full flex-col items-center gap-0 px-0.5 pb-0 pt-0 transition ${
+                className={`flex min-w-0 w-full flex-col items-center gap-0 overflow-visible px-0.5 pb-0 pt-0 transition ${
                   active ? "text-[#e87a82]" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
                 <span
-                  className={`relative shrink-0 ${
+                  className={`relative inline-flex shrink-0 overflow-visible px-1 pt-1 ${
                     active ? "drop-shadow-[0_0_8px_rgba(232,122,130,0.7)]" : ""
                   }`}
                 >
                   {n.icon}
-                  {n.href === "/meets" && meetUnreadTotal > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
-                      {meetBadgeLabel}
-                    </span>
-                  )}
-                  {n.href === "/inbox" && inboxUnreadTotal > 0 && (
-                    <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
-                      {inboxBadgeLabel}
-                    </span>
-                  )}
+                  {n.href === "/meets" ? <NavTabBadge count={meetUnreadTotal} /> : null}
+                  {n.href === "/inbox" ? <NavTabBadge count={inboxUnreadTotal} /> : null}
                 </span>
                 <span className="max-w-full truncate text-center text-[9px] uppercase leading-none tracking-[0.2em]">
                   {n.label}

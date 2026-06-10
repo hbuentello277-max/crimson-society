@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type MeetDetailsOverflowMenuProps = {
   canManage: boolean;
@@ -75,25 +76,138 @@ export function MeetDetailsOverflowMenu({
   onEndMeet,
 }: MeetDetailsOverflowMenuProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<{
+    top: number;
+    left: number;
+    minWidth: number;
+  } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = rootRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportPadding = 12;
+    const safeTop = viewportPadding;
+    const safeBottom = window.innerHeight - viewportPadding;
+    const safeLeft = viewportPadding + (typeof window !== "undefined" ? 0 : 0);
+    const safeRight = window.innerWidth - viewportPadding;
+
+    let top = triggerRect.bottom + 8;
+    if (top + menuRect.height > safeBottom) {
+      top = Math.max(safeTop, triggerRect.top - menuRect.height - 8);
+    }
+
+    let left = triggerRect.right - menuRect.width;
+    left = Math.max(safeLeft, Math.min(left, safeRight - menuRect.width));
+
+    setMenuStyle({
+      top,
+      left,
+      minWidth: Math.max(192, triggerRect.width),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuStyle(null);
+      return;
+    }
+
+    updateMenuPosition();
+  }, [open, updateMenuPosition]);
 
   useEffect(() => {
     if (!open) return;
 
     function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function handleViewportChange() {
+      updateMenuPosition();
     }
 
     document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [open]);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [open, updateMenuPosition]);
 
   function runAction(action: () => void) {
     setOpen(false);
     action();
   }
+
+  const menu = open ? (
+    <div
+      ref={menuRef}
+      style={
+        menuStyle
+          ? {
+              position: "fixed",
+              top: menuStyle.top,
+              left: menuStyle.left,
+              minWidth: menuStyle.minWidth,
+              zIndex: 80,
+            }
+          : {
+              position: "fixed",
+              top: -9999,
+              left: -9999,
+              visibility: "hidden",
+              minWidth: 192,
+              zIndex: 80,
+            }
+      }
+      className="overflow-hidden rounded-xl border border-white/10 bg-[#0d080a] py-1 shadow-[0_18px_50px_rgba(0,0,0,0.75)]"
+    >
+      <MenuButton onClick={() => void runAction(onShare)}>Share Meet</MenuButton>
+      <MenuButton onClick={() => void runAction(onCopyRoute)}>Copy Route</MenuButton>
+      {hostProfileHref ? (
+        <MenuLink href={hostProfileHref} onNavigate={() => setOpen(false)}>
+          View Host Profile
+        </MenuLink>
+      ) : null}
+      <MenuButton onClick={() => runAction(onReport)}>Report Meet</MenuButton>
+
+      {canManage && !isCanceled ? (
+        <>
+          <div className="my-1 border-t border-white/8" />
+          {onEditMeet ? (
+            <MenuButton onClick={() => runAction(onEditMeet)}>Edit Meet</MenuButton>
+          ) : null}
+          {isPrimaryHost && onAddCoHost && canAssignCoHost ? (
+            <MenuButton onClick={() => runAction(onAddCoHost)}>Add Co-Host</MenuButton>
+          ) : null}
+          {onViewRiders ? (
+            <MenuButton onClick={() => runAction(onViewRiders)}>View Riders</MenuButton>
+          ) : null}
+          {isPrimaryHost && onCancelMeet ? (
+            <MenuButton onClick={() => runAction(onCancelMeet)} danger>
+              Cancel Meet
+            </MenuButton>
+          ) : null}
+          {isRideLive && onEndMeet && !endMeetInFooter ? (
+            <MenuButton onClick={() => runAction(onEndMeet)} danger>
+              End Meet
+            </MenuButton>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
     <div ref={rootRef} className="relative">
@@ -111,43 +225,7 @@ export function MeetDetailsOverflowMenu({
         </svg>
       </button>
 
-      {open ? (
-        <div className="absolute right-0 top-10 z-20 min-w-[12rem] overflow-hidden rounded-xl border border-white/10 bg-[#0d080a] py-1 shadow-[0_18px_50px_rgba(0,0,0,0.75)]">
-          <MenuButton onClick={() => void runAction(onShare)}>Share Meet</MenuButton>
-          <MenuButton onClick={() => void runAction(onCopyRoute)}>Copy Route</MenuButton>
-          {hostProfileHref ? (
-            <MenuLink href={hostProfileHref} onNavigate={() => setOpen(false)}>
-              View Host Profile
-            </MenuLink>
-          ) : null}
-          <MenuButton onClick={() => runAction(onReport)}>Report Meet</MenuButton>
-
-          {canManage && !isCanceled ? (
-            <>
-              <div className="my-1 border-t border-white/8" />
-              {onEditMeet ? (
-                <MenuButton onClick={() => runAction(onEditMeet)}>Edit Meet</MenuButton>
-              ) : null}
-              {isPrimaryHost && onAddCoHost && canAssignCoHost ? (
-                <MenuButton onClick={() => runAction(onAddCoHost)}>Add Co-Host</MenuButton>
-              ) : null}
-              {onViewRiders ? (
-                <MenuButton onClick={() => runAction(onViewRiders)}>View Riders</MenuButton>
-              ) : null}
-              {isPrimaryHost && onCancelMeet ? (
-                <MenuButton onClick={() => runAction(onCancelMeet)} danger>
-                  Cancel Meet
-                </MenuButton>
-              ) : null}
-              {isRideLive && onEndMeet && !endMeetInFooter ? (
-                <MenuButton onClick={() => runAction(onEndMeet)} danger>
-                  End Meet
-                </MenuButton>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      {typeof document !== "undefined" && menu ? createPortal(menu, document.body) : null}
     </div>
   );
 }

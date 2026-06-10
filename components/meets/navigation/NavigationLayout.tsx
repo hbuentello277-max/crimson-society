@@ -41,7 +41,13 @@ function NavigationLayoutComponent({
   return (
     <main className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#050405] text-zinc-100">
       <NavigationTopBar session={session} />
-      <NavigationDirectionBanner session={session} />
+      <NavigationDirectionBanner
+        session={session}
+        speedHud={speedHud}
+        onShowRiders={() => {
+          if (!showRiders) onToggleShowRiders();
+        }}
+      />
 
       <div className="relative min-h-0 flex-1">
         <NavigationMapPanel

@@ -35,35 +35,40 @@ function NavigationTopBarComponent({ session }: NavigationTopBarProps) {
             {meet?.name ?? "Meet"}
           </h1>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[8px] uppercase tracking-[0.1em] text-zinc-300 sm:text-[9px]">
-            {meet ? (
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
-                {meetLifecycleLabel(meet.lifecyclePhase)}
+          <div className="mt-2 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1 text-[8px] uppercase tracking-[0.1em] text-zinc-300 sm:text-[9px]">
+              {meet ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
+                  {meetLifecycleLabel(meet.lifecyclePhase)}
+                </span>
+              ) : null}
+              {meet ? (
+                <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-2 py-0.5 text-[#f1c3c7]">
+                  {trackingStatusLabel(meet.trackingStatus)}
+                </span>
+              ) : null}
+              {meet?.hostName ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
+                  Host {meet.hostName}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 text-[8px] uppercase tracking-[0.1em] sm:text-[9px]">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+                  gpsConnected
+                    ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
+                    : "border-white/10 bg-white/[0.04] text-zinc-300"
+                }`}
+              >
+                {gpsConnected ? <span className="text-[8px] text-emerald-400">●</span> : null}
+                {gpsConnectionLabel(session.gpsStatus)}
               </span>
-            ) : null}
-            {meet ? (
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
-                {trackingStatusLabel(meet.trackingStatus)}
+              <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-2 py-0.5 text-[#f1c3c7]">
+                {navigationStateLabel(session.navigationState)}
               </span>
-            ) : null}
-            {meet?.hostName ? (
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
-                Host {meet.hostName}
-              </span>
-            ) : null}
-            <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
-                gpsConnected
-                  ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
-                  : "border-white/10 bg-white/[0.04] text-zinc-300"
-              }`}
-            >
-              {gpsConnected ? <span className="text-[8px] text-emerald-400">●</span> : null}
-              {gpsConnectionLabel(session.gpsStatus)}
-            </span>
-            <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/12 px-2 py-0.5 text-[#f1c3c7]">
-              {navigationStateLabel(session.navigationState)}
-            </span>
+            </div>
           </div>
         </div>
 

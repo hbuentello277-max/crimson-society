@@ -17,6 +17,12 @@ import {
   createInitialNavigationSession,
   positionFromGeolocation,
 } from "@/lib/meets/navigation/session";
+import { detectNavigationArrival } from "@/lib/meets/navigation/arrival";
+import {
+  findNearestGroupRider,
+  meetChatHref,
+  resolveNextArrivalPhase,
+} from "@/lib/meets/navigation/arrival-flow";
 import {
   createInitialOffRouteState,
   createOffRouteTracker,
@@ -31,6 +37,8 @@ import {
   type NavigationSpeedHud,
 } from "@/lib/meets/navigation/speed";
 import type {
+  ArrivalUiPhase,
+  NavigationArrivalUiState,
   NavigationPosition,
   NavigationSession,
   OffRouteSessionState,
@@ -74,6 +82,8 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const [speedHud, setSpeedHud] = useState<NavigationSpeedHud>(EMPTY_NAVIGATION_SPEED_HUD);
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [showRiders, setShowRiders] = useState(true);
+  const [arrivalUiPhase, setArrivalUiPhase] = useState<ArrivalUiPhase>("none");
+  const arrivalPhaseStartedRef = useRef<number | null>(null);
 
   const baseSessionRef = useRef<NavigationSession | null>(null);
   const lastSentAtRef = useRef(0);
@@ -177,6 +187,8 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       maxSpeedMphRef.current = 0;
       setSpeedHud(EMPTY_NAVIGATION_SPEED_HUD);
       setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
+      setArrivalUiPhase("none");
+      arrivalPhaseStartedRef.current = null;
 
       const sessionPayload = readActiveMeetSession();
       const sessionMeet = sessionPayload ? activeMeetFromSessionPayload(sessionPayload) : null;
@@ -252,7 +264,13 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   }, [clearWatch, meet?.id, userId]);
 
   useEffect(() => {
-    if (!meet?.id || meet.trackingStatus !== "active") {
+    if (!meet?.id) {
+      setLiveRiders([]);
+      return;
+    }
+
+    const shouldLoadRiders = meet.trackingStatus === "active" || arrivalUiPhase === "find_group";
+    if (!shouldLoadRiders) {
       setLiveRiders([]);
       return;
     }
@@ -275,7 +293,28 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       active = false;
       window.clearInterval(interval);
     };
-  }, [meet?.id, meet?.trackingStatus, userId]);
+  }, [arrivalUiPhase, meet?.id, meet?.trackingStatus, userId]);
+
+  useEffect(() => {
+    if (!meetId || !userId || arrivalUiPhase !== "find_group") return;
+
+    let active = true;
+    const interval = window.setInterval(() => {
+      void loadNavigationMeet(meetId, userId, { isAdmin }).then(({ meet: refreshed }) => {
+        if (!active || !refreshed) return;
+        if (refreshed.trackingStatus === "active") {
+          setMeet(refreshed);
+          setArrivalUiPhase("none");
+          arrivalPhaseStartedRef.current = null;
+        }
+      });
+    }, 12_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [arrivalUiPhase, isAdmin, meetId, userId]);
 
   const navigationSession = useMemo(() => {
     const base =
@@ -317,6 +356,69 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     userId,
   ]);
 
+  useEffect(() => {
+    const route = navigationSession.route;
+    if (!route || route.points.length === 0) return;
+
+    const meetStart = route.points[0] ?? null;
+    const destination = route.points[route.points.length - 1] ?? null;
+    const detection = detectNavigationArrival(
+      latestPosition,
+      meetStart,
+      destination,
+    );
+    const now = Date.now();
+
+    const nextPhase = resolveNextArrivalPhase(arrivalUiPhase, {
+      detection,
+      trackingStatus: meet?.trackingStatus ?? "not_started",
+      position: latestPosition,
+      meetStart,
+      now,
+      phaseStartedAt: arrivalPhaseStartedRef.current,
+    });
+
+    if (nextPhase !== arrivalUiPhase) {
+      if (nextPhase === "none") {
+        arrivalPhaseStartedRef.current = null;
+      } else if (arrivalPhaseStartedRef.current === null) {
+        arrivalPhaseStartedRef.current = now;
+      }
+      setArrivalUiPhase(nextPhase);
+    }
+  }, [arrivalUiPhase, latestPosition, meet?.trackingStatus, navigationSession.route]);
+
+  const sessionWithArrivalUi = useMemo((): NavigationSession => {
+    const nearestRider =
+      arrivalUiPhase === "find_group"
+        ? findNearestGroupRider(
+            latestPosition,
+            liveRiders,
+            meet?.hostId ?? navigationSession.meet?.hostId ?? null,
+            hostName ?? navigationSession.meet?.hostName ?? null,
+          )
+        : null;
+
+    const arrivalUi: NavigationArrivalUiState = {
+      phase: arrivalUiPhase,
+      nearestRider,
+      meetChatHref: meet?.id ? meetChatHref(meet.id) : null,
+    };
+
+    return {
+      ...navigationSession,
+      arrivalUi,
+    };
+  }, [
+    arrivalUiPhase,
+    hostName,
+    latestPosition,
+    liveRiders,
+    meet?.hostId,
+    meet?.id,
+    navigationSession,
+  ]);
+
   const retryGps = useCallback(() => {
     gpsBootstrappedRef.current = false;
     requestGps();
@@ -332,7 +434,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
 
   return {
     authLoading,
-    session: navigationSession,
+    session: sessionWithArrivalUi,
     userLocation,
     recenterSignal,
     speedHud,

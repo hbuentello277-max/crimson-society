@@ -77,6 +77,23 @@ describe("co-host display", () => {
   });
 });
 
+describe("footer action deduplication", () => {
+  it("never returns duplicate footer actions", () => {
+    const actions = resolveMeetFooterActions({
+      isPrimaryHost: true,
+      isCoHost: false,
+      isGoing: true,
+      isCanceled: false,
+      trackingStatus: "not_started",
+      hasRoute: true,
+      inviteJoinBlocked: false,
+      hasMapsTarget: true,
+    });
+
+    assert.equal(new Set(actions).size, actions.length);
+  });
+});
+
 describe("joined rider footer actions", () => {
   it("shows Navigate to Meet, Start Ride, and Leave Meet for joined riders", () => {
     const actions = resolveMeetFooterActions({
