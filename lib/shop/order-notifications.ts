@@ -306,6 +306,25 @@ export async function notifyShopOrderShipped(admin: SupabaseClient, orderId: str
   ]);
 }
 
+export async function notifyShopOrderDelivered(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_delivered",
+      title: "Order delivered",
+      body: "Your Crimson Society order was delivered.",
+      target_url: targetUrl,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
 export async function notifyShopOrderCompleted(admin: SupabaseClient, orderId: string) {
   const order = await loadOrder(admin, orderId);
   if (!order?.user_id) return;

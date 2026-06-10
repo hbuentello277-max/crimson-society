@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { ShopProductImage } from "@/components/shop/ShopProductImage";
 import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
+import { OrderStatusTimeline } from "@/components/shop/OrderStatusTimeline";
 import {
   formatCentsUsd,
   fulfillmentStatusBadgeClass,
@@ -15,6 +16,10 @@ import {
   pickupStatusBadgeClass,
   shortOrderId,
 } from "@/lib/shop/orders";
+import {
+  buildPickupOrderTimeline,
+  buildShippingOrderTimeline,
+} from "@/lib/shop/order-timeline";
 
 type OrderItem = {
   id: string;
@@ -40,6 +45,10 @@ type OrderDetail = {
   customer_note: string | null;
   pickup_note: string | null;
   pickup_ready_at: string | null;
+  picked_up_at: string | null;
+  fulfilled_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
   created_at: string;
   items: OrderItem[];
 };
@@ -120,6 +129,28 @@ export function CustomerOrderDetailContent({ orderId }: { orderId: string }) {
                   {formatFulfillmentStatusLabel(order.fulfillment_status)}
                 </span>
               )}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Order status</p>
+              <OrderStatusTimeline
+                steps={
+                  order.delivery_method === "local_pickup"
+                    ? buildPickupOrderTimeline({
+                        pickup_status: order.pickup_status,
+                        created_at: order.created_at,
+                        pickup_ready_at: order.pickup_ready_at,
+                        picked_up_at: order.picked_up_at,
+                      })
+                    : buildShippingOrderTimeline({
+                        fulfillment_status: order.fulfillment_status,
+                        created_at: order.created_at,
+                        fulfilled_at: order.fulfilled_at,
+                        shipped_at: order.shipped_at,
+                        delivered_at: order.delivered_at,
+                      })
+                }
+              />
             </div>
 
             {order.delivery_method === "local_pickup" ? (

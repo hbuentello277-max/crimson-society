@@ -146,6 +146,7 @@ export function AdminOrderDetailPanel({
   function fulfillmentSaveMessage(patch: Record<string, unknown>) {
     if (patch.fulfillment_status === "fulfilled") return "Order marked fulfilled.";
     if (patch.fulfillment_status === "shipped") return "Order marked shipped.";
+    if (patch.fulfillment_status === "delivered") return "Order marked delivered.";
     return "Order updated.";
   }
 
@@ -496,6 +497,14 @@ export function AdminOrderDetailPanel({
                   >
                     Mark shipped
                   </button>
+                  <button
+                    type="button"
+                    disabled={saving || order.fulfillment_status !== "shipped"}
+                    onClick={() => void savePatch({ fulfillment_status: "delivered" })}
+                    className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-emerald-300 disabled:opacity-50"
+                  >
+                    Mark delivered
+                  </button>
                 </div>
 
                 <label className="block">
@@ -518,6 +527,9 @@ export function AdminOrderDetailPanel({
                     </option>
                     <option value="shipped" className="bg-black">
                       Shipped
+                    </option>
+                    <option value="delivered" className="bg-black">
+                      Delivered
                     </option>
                     <option value="cancelled" className="bg-black">
                       Cancelled

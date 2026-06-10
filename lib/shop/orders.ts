@@ -7,6 +7,7 @@ export const SHOP_FULFILLMENT_STATUSES = [
   "unfulfilled",
   "fulfilled",
   "shipped",
+  "delivered",
   "cancelled",
 ] as const;
 
@@ -62,6 +63,7 @@ export type ShopOrder = {
   shipping_address: ShopOrderShippingAddress | null;
   fulfilled_at: string | null;
   shipped_at: string | null;
+  delivered_at: string | null;
   tracking_number: string | null;
   tracking_carrier: string | null;
   tracking_url: string | null;
@@ -153,6 +155,8 @@ export function formatFulfillmentStatusLabel(status: ShopFulfillmentStatus | str
       return "Fulfilled";
     case "shipped":
       return "Shipped";
+    case "delivered":
+      return "Delivered";
     case "cancelled":
       return "Cancelled";
     default:
@@ -184,6 +188,8 @@ export function fulfillmentStatusBadgeClass(status: ShopFulfillmentStatus | stri
       return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "shipped":
       return "border-sky-500/40 bg-sky-500/15 text-sky-200";
+    case "delivered":
+      return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "cancelled":
       return "border-red-500/40 bg-red-500/15 text-red-300";
     default:

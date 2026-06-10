@@ -230,6 +230,21 @@ describe("admin shop notifications", () => {
 });
 
 describe("buyer order lifecycle notifications", () => {
+  it("opens order detail for order_delivered", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "order_delivered",
+          ride_id: null,
+          target_url: orderNotificationPath("order-delivered-1"),
+          metadata: { order_id: "order-delivered-1", entity_type: "order_delivered" },
+        },
+        null,
+      ),
+      "/profile/orders/order-delivered-1",
+    );
+  });
+
   it("opens order detail for order_created and order_confirmed", () => {
     for (const type of ["order_created", "order_confirmed", "order_ready_to_ship", "order_completed"] as const) {
       assert.equal(
@@ -333,6 +348,23 @@ describe("push payload metadata", () => {
     );
     assert.equal(orderPayload.orderId, "order-9");
     assert.equal(orderPayload.targetUrl, "https://crimson-society.com/profile/orders/order-9");
+  });
+
+  it("includes orderId and targetUrl for order_delivered pushes", () => {
+    const payload = buildNotificationPushMetadata(
+      {
+        type: "order_delivered",
+        ride_id: null,
+        target_url: orderNotificationPath("order-77"),
+        metadata: { order_id: "order-77", entity_type: "order_delivered" },
+      },
+      null,
+      "https://crimson-society.com",
+    );
+
+    assert.equal(payload.orderId, "order-77");
+    assert.equal(payload.targetUrl, "https://crimson-society.com/profile/orders/order-77");
+    assert.equal(payload.type, "order_delivered");
   });
 
   it("includes groupKey for grouped notifications", () => {

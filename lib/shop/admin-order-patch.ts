@@ -85,11 +85,33 @@ export function sanitizeAdminShopOrderPatch(body: unknown): AdminShopOrderPatch 
   return patch;
 }
 
+export function validateFulfillmentTransition(
+  existing: {
+    fulfillment_status: string;
+    delivery_method: string;
+  },
+  next: ShopFulfillmentStatus,
+): string | null {
+  if (existing.delivery_method === "local_pickup") {
+    if (next === "delivered") {
+      return "Delivered status applies to shipping orders only.";
+    }
+    return null;
+  }
+
+  if (next === "delivered" && existing.fulfillment_status !== "shipped" && existing.fulfillment_status !== "delivered") {
+    return "Only shipped orders can be marked delivered.";
+  }
+
+  return null;
+}
+
 export function buildAdminOrderUpdateRow(
   patch: AdminShopOrderPatch,
   existing?: {
     fulfilled_at?: string | null;
     shipped_at?: string | null;
+    delivered_at?: string | null;
     pickup_ready_at?: string | null;
     picked_up_at?: string | null;
   },
@@ -102,6 +124,16 @@ export function buildAdminOrderUpdateRow(
 
   if (patch.fulfillment_status === "shipped") {
     row.shipped_at = existing?.shipped_at ?? new Date().toISOString();
+    if (!existing?.fulfilled_at) {
+      row.fulfilled_at = new Date().toISOString();
+    }
+  }
+
+  if (patch.fulfillment_status === "delivered") {
+    row.delivered_at = existing?.delivered_at ?? new Date().toISOString();
+    if (!existing?.shipped_at) {
+      row.shipped_at = new Date().toISOString();
+    }
     if (!existing?.fulfilled_at) {
       row.fulfilled_at = new Date().toISOString();
     }

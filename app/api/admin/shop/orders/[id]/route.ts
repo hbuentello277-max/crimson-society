@@ -9,6 +9,7 @@ import {
 import {
   buildAdminOrderUpdateRow,
   sanitizeAdminShopOrderPatch,
+  validateFulfillmentTransition,
 } from "@/lib/shop/admin-order-patch";
 import {
   listOrderEmailEvents,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/shop/order-emails";
 import {
   notifyShopOrderCompleted,
+  notifyShopOrderDelivered,
   notifyShopOrderPreparing,
   notifyShopOrderReadyForPickup,
   notifyShopOrderReadyToShip,
@@ -26,7 +28,7 @@ import {
 import { serializeOrder } from "@/lib/shop/serialize-order";
 
 const ORDER_SELECT =
-  "id, user_id, status, fulfillment_status, delivery_method, pickup_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, shipping_name, fulfilled_at, shipped_at, tracking_number, tracking_carrier, tracking_url, admin_fulfillment_note, customer_note, pickup_note, pickup_ready_at, picked_up_at, archived_at, archived_by, created_at, updated_at, shop_order_items(id, order_id, product_id, product_name, product_image_url, size, quantity, unit_price_cents, line_total_cents, created_at)";
+  "id, user_id, status, fulfillment_status, delivery_method, pickup_status, subtotal_cents, shipping_cents, total_cents, currency, shipping_email, shipping_name, fulfilled_at, shipped_at, delivered_at, tracking_number, tracking_carrier, tracking_url, admin_fulfillment_note, customer_note, pickup_note, pickup_ready_at, picked_up_at, archived_at, archived_by, created_at, updated_at, shop_order_items(id, order_id, product_id, product_name, product_image_url, size, quantity, unit_price_cents, line_total_cents, created_at)";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -155,7 +157,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const { data: existing, error: loadError } = await admin
     .from("shop_orders")
     .select(
-      "id, delivery_method, fulfilled_at, shipped_at, pickup_ready_at, picked_up_at, fulfillment_status, pickup_status, admin_fulfillment_note, customer_note, tracking_carrier, tracking_number, tracking_url",
+      "id, delivery_method, fulfilled_at, shipped_at, delivered_at, pickup_ready_at, picked_up_at, fulfillment_status, pickup_status, admin_fulfillment_note, customer_note, tracking_carrier, tracking_number, tracking_url",
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -168,9 +170,23 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
+  if (patch.fulfillment_status) {
+    const transitionError = validateFulfillmentTransition(
+      {
+        fulfillment_status: existing.fulfillment_status as string,
+        delivery_method: existing.delivery_method as string,
+      },
+      patch.fulfillment_status,
+    );
+    if (transitionError) {
+      return NextResponse.json({ error: transitionError }, { status: 400 });
+    }
+  }
+
   const updateRow = buildAdminOrderUpdateRow(patch, {
     fulfilled_at: existing.fulfilled_at as string | null,
     shipped_at: existing.shipped_at as string | null,
+    delivered_at: existing.delivered_at as string | null,
     pickup_ready_at: existing.pickup_ready_at as string | null,
     picked_up_at: existing.picked_up_at as string | null,
   });
@@ -227,6 +243,14 @@ export async function PATCH(request: Request, context: RouteContext) {
   ) {
     emailResults.push(await sendShippedEmail(admin, orderId));
     await notifyShopOrderShipped(admin, orderId);
+  }
+
+  if (
+    patch.fulfillment_status === "delivered" &&
+    prevFulfillment !== "delivered" &&
+    (updated.delivery_method as string) === "shipping"
+  ) {
+    await notifyShopOrderDelivered(admin, orderId);
   }
 
   const prevPickupStatus = existing.pickup_status as string;
