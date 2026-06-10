@@ -21,6 +21,10 @@ import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
+import {
+  dashboardMeetToStartRideInput,
+  StartRideLink,
+} from "@/components/meets/StartRideLink";
 import { DashboardMeetMapSheet } from "@/components/meets/dashboard/DashboardMeetMapSheet";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
@@ -1136,22 +1140,7 @@ if (livePostIds.length > 0) {
     (meetId: string) => {
       const meet = mapMeets.find((item) => item.id === meetId);
       if (meet && meet.lifecyclePhase === "active" && dashboardMeetHasRoute(meet)) {
-        writeActiveMeetSession({
-          id: meet.id,
-          hostId: meet.hostId,
-          route: meet.route,
-          waypoints: meet.waypoints,
-          name: meet.name,
-          meetPoint: meet.meetPoint,
-          destination: meet.destination,
-          date: meet.date,
-          time: meet.time,
-          meetDurationMinutes: meet.meetDurationMinutes,
-          status: parseMeetStatus(meet.status),
-          trackingStatus: meet.trackingStatus,
-          startedAt: meet.startedAt,
-          endedAt: null,
-        });
+        writeActiveMeetSession(dashboardMeetToStartRideInput(meet));
         router.push(meetNavigationHref(meet.id));
         return;
       }
@@ -1472,7 +1461,13 @@ if (livePostIds.length > 0) {
                               >
                                 View Meet
                               </Link>
-                              {hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
+                              {showNavigation ? (
+                                <StartRideLink
+                                  meet={dashboardMeetToStartRideInput(meet)}
+                                  label="Navigate to Meet"
+                                  className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                                />
+                              ) : hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
                                 <NavigateToMeetButton
                                   target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
                                   className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
@@ -1487,32 +1482,6 @@ if (livePostIds.length > 0) {
                                 </button>
                               )}
                             </div>
-                            {showNavigation ? (
-                              <Link
-                                href={meetNavigationHref(meet.id)}
-                                onClick={() => {
-                                  writeActiveMeetSession({
-                                    id: meet.id,
-                                    hostId: meet.hostId,
-                                    route: meet.route,
-                                    waypoints: meet.waypoints,
-                                    name: meet.name,
-                                    meetPoint: meet.meetPoint,
-                                    destination: meet.destination,
-                                    date: meet.date,
-                                    time: meet.time,
-                                    meetDurationMinutes: meet.meetDurationMinutes,
-                                    status: parseMeetStatus(meet.status),
-                                    trackingStatus: meet.trackingStatus,
-                                    startedAt: meet.startedAt,
-                                    endedAt: null,
-                                  });
-                                }}
-                                className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-                              >
-                                Start Ride
-                              </Link>
-                            ) : null}
                           </div>
                         </div>
                       );
@@ -1633,7 +1602,13 @@ if (livePostIds.length > 0) {
                               >
                                 View Meet
                               </Link>
-                              {hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
+                              {showNavigation ? (
+                                <StartRideLink
+                                  meet={dashboardMeetToStartRideInput(meet)}
+                                  label="Navigate to Meet"
+                                  className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                                />
+                              ) : hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
                                 <NavigateToMeetButton
                                   target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
                                   className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
@@ -1648,32 +1623,6 @@ if (livePostIds.length > 0) {
                                 </button>
                               )}
                             </div>
-                            {showNavigation ? (
-                              <Link
-                                href={meetNavigationHref(meet.id)}
-                                onClick={() => {
-                                  writeActiveMeetSession({
-                                    id: meet.id,
-                                    hostId: meet.hostId,
-                                    route: meet.route,
-                                    waypoints: meet.waypoints,
-                                    name: meet.name,
-                                    meetPoint: meet.meetPoint,
-                                    destination: meet.destination,
-                                    date: meet.date,
-                                    time: meet.time,
-                                    meetDurationMinutes: meet.meetDurationMinutes,
-                                    status: parseMeetStatus(meet.status),
-                                    trackingStatus: meet.trackingStatus,
-                                    startedAt: meet.startedAt,
-                                    endedAt: null,
-                                  });
-                                }}
-                                className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-                              >
-                                Start Ride
-                              </Link>
-                            ) : null}
                           </div>
                         </div>
                       );

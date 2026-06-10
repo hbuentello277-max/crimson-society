@@ -178,6 +178,7 @@ function HudMetricsGrid({ metrics }: { metrics: NavigationMetrics }) {
       <CompactMetric label="Remaining" value={metrics.distanceRemainingLabel} />
       <CompactMetric label="ETA" value={metrics.etaLabel} />
       <CompactMetric label="Time left" value={metrics.timeRemainingLabel} />
+      <CompactMetric label="Speed" value={metrics.currentSpeedLabel} />
       <CompactMetric label="Progress" value={metrics.routeProgressLabel} />
     </div>
   );

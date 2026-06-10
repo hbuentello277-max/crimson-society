@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import {
+  dashboardMeetToStartRideInput,
+  StartRideLink,
+} from "@/components/meets/StartRideLink";
+import {
   dashboardMeetHasRoute,
   dashboardMeetLifecycleLabel,
   type DashboardMapMeet,
 } from "@/lib/meets/dashboard-map";
-import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
-import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
-import { parseMeetStatus } from "@/lib/meets/lifecycle";
-
 type DashboardMeetMapSheetProps = {
   meet: DashboardMapMeet | null;
   open: boolean;
@@ -133,9 +133,18 @@ export function DashboardMeetMapSheet({
               </button>
             ) : null}
 
-            <NavigateToMeetButton
-              target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
-            />
+            {showNavigation ? (
+              <StartRideLink
+                meet={dashboardMeetToStartRideInput(meet)}
+                label="Navigate to Meet"
+                className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                onNavigate={onClose}
+              />
+            ) : (
+              <NavigateToMeetButton
+                target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
+              />
+            )}
 
             {hasRoute ? (
               <Link
@@ -144,34 +153,6 @@ export function DashboardMeetMapSheet({
                 className="flex w-full items-center justify-center rounded-2xl border border-white/10 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
               >
                 View Route
-              </Link>
-            ) : null}
-
-            {showNavigation ? (
-              <Link
-                href={meetNavigationHref(meet.id)}
-                onClick={() => {
-                  writeActiveMeetSession({
-                    id: meet.id,
-                    hostId: meet.hostId,
-                    route: meet.route,
-                    waypoints: meet.waypoints,
-                    name: meet.name,
-                    meetPoint: meet.meetPoint,
-                    destination: meet.destination,
-                    date: meet.date,
-                    time: meet.time,
-                    meetDurationMinutes: meet.meetDurationMinutes,
-                    status: parseMeetStatus(meet.status),
-                    trackingStatus: meet.trackingStatus,
-                    startedAt: meet.startedAt,
-                    endedAt: null,
-                  });
-                  onClose();
-                }}
-                className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-              >
-                Start Ride
               </Link>
             ) : null}
 

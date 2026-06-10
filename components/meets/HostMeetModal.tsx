@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { MeetType, MeetPrivacy } from "@/lib/meets/types";
 import {
@@ -13,6 +14,8 @@ import {
 } from "@/lib/meets/location-search";
 import { buildSnappedRoute } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
+
+const MeetMap = dynamic(() => import("@/components/MeetMap"), { ssr: false });
 
 export interface HostMeetForm {
   name: string;
@@ -77,6 +80,7 @@ export function HostMeetModal({
   const [routePreview, setRoutePreview] = useState<{
     distance: string;
     duration: string;
+    route: { lat: number; lng: number }[];
   } | null>(null);
   const [routePreviewLoading, setRoutePreviewLoading] = useState(false);
 
@@ -145,7 +149,7 @@ export function HostMeetModal({
 
         const distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} miles`;
         const duration = formatRouteDurationLabel(snapped.durationSeconds);
-        setRoutePreview({ distance, duration });
+        setRoutePreview({ distance, duration, route: snapped.geometry });
         setForm((prev) => ({ ...prev, distance, duration }));
       } catch {
         if (!controller.signal.aborted) {
@@ -299,18 +303,49 @@ export function HostMeetModal({
                   {routePreviewLoading && !routePreview ? (
                     <p className="mt-2 text-sm text-zinc-400">Calculating route…</p>
                   ) : routePreview ? (
-                    <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-zinc-200">
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">Distance</p>
-                        <p className="mt-1 font-medium">{routePreview.distance}</p>
+                    <>
+                      <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-zinc-200">
+                        <div>
+                          <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">Distance</p>
+                          <p className="mt-1 font-medium">{routePreview.distance}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">
+                            Estimated ride time
+                          </p>
+                          <p className="mt-1 font-medium">{routePreview.duration}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">
-                          Estimated ride time
-                        </p>
-                        <p className="mt-1 font-medium">{routePreview.duration}</p>
-                      </div>
-                    </div>
+                      {routePreview.route.length > 1 &&
+                      form.meetPointLat !== null &&
+                      form.meetPointLng !== null ? (
+                        <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
+                          <MeetMap
+                            lat={form.meetPointLat}
+                            lng={form.meetPointLng}
+                            meetPoint={form.meetPoint}
+                            route={routePreview.route}
+                            height={140}
+                            compact={false}
+                            interactive={false}
+                            hideHint
+                            showMeetMarker
+                            meetStartPosition={{
+                              lat: form.meetPointLat,
+                              lng: form.meetPointLng,
+                            }}
+                            destinationPosition={
+                              form.destinationLat !== null && form.destinationLng !== null
+                                ? { lat: form.destinationLat, lng: form.destinationLng }
+                                : null
+                            }
+                            showDestination
+                            fitPoints={routePreview.route}
+                            initialZoom={10}
+                          />
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
                 </div>
               )}
