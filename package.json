@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test 'lib/**/*.test.ts'",
-    "verify:meet-migrations": "node scripts/verify-meet-migrations.mjs"
+    "verify:meet-migrations": "node scripts/verify-meet-migrations.mjs",
+    "verify:existing-meets": "node scripts/verify-existing-meets.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.6.0",
