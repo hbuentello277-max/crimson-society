@@ -56,10 +56,16 @@ import {
   clearMeetLiveLocation,
   publishMeetLiveLocation,
 } from "@/lib/meets/publish-live-location";
+import { filterStaleLiveRiders } from "@/lib/meets/live-rider-sync";
 import { loadMeetLiveRiders } from "@/lib/meets/live-riders";
+import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { hasRoadGeometry } from "@/lib/meets/route-geometry";
 import { useNavigationGps } from "@/lib/meets/use-navigation-gps";
+import { supabase } from "@/lib/supabase";
 import type { LiveRideRider } from "@/components/MeetMap";
+
+const LIVE_RIDER_REFRESH_DEBOUNCE_MS = 300;
+const LIVE_RIDER_STALE_SWEEP_MS = 60_000;
 
 type UseMeetNavigationResult = {
   authLoading: boolean;
@@ -280,6 +286,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     }
 
     let active = true;
+    let debounceTimer: number | null = null;
 
     async function refreshLiveRiders() {
       const riders = await loadMeetLiveRiders(meet!.id, { excludeUserId: userId });
@@ -288,14 +295,44 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       }
     }
 
+    const scheduleRefresh = () => {
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+      }
+      debounceTimer = window.setTimeout(() => {
+        void refreshLiveRiders();
+      }, LIVE_RIDER_REFRESH_DEBOUNCE_MS);
+    };
+
     void refreshLiveRiders();
-    const interval = window.setInterval(() => {
-      void refreshLiveRiders();
-    }, 12_000);
+
+    const channel = supabase
+      .channel(`navigation-live-riders-${meet.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: MEET_TABLES.liveLocations,
+          filter: `ride_id=eq.${meet.id}`,
+        },
+        () => {
+          scheduleRefresh();
+        },
+      )
+      .subscribe();
+
+    const staleSweep = window.setInterval(() => {
+      setLiveRiders((current) => filterStaleLiveRiders(current, Date.now()));
+    }, LIVE_RIDER_STALE_SWEEP_MS);
 
     return () => {
       active = false;
-      window.clearInterval(interval);
+      if (debounceTimer !== null) {
+        window.clearTimeout(debounceTimer);
+      }
+      window.clearInterval(staleSweep);
+      void supabase.removeChannel(channel);
     };
   }, [arrivalUiPhase, meet?.id, meet?.trackingStatus, userId]);
 

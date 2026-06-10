@@ -26,6 +26,7 @@ export type LiveRideRider = {
   lng: number;
   distance_label?: string | null;
   last_updated_label?: string | null;
+  last_updated_at?: string | null;
   profile_href?: string | null;
 };
 

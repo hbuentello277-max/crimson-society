@@ -205,6 +205,7 @@ describe("navigation layout structure", () => {
     const source = readFileSync("components/meets/navigation/NavigationLayout.tsx", "utf8");
 
     assert.match(source, /NavigationDirectionBanner/);
+    assert.match(source, /NavigationGpsStatus/);
     assert.match(source, /NavigationSpeedHud/);
     assert.match(source, /NavigationRidersToggle/);
     assert.match(source, /NavigationHud/);

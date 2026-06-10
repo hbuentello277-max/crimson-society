@@ -16,6 +16,8 @@ export function mapGpsStateToConnection(gpsState: NavigationGpsState): GpsConnec
       return "requesting";
     case "active":
       return "connected";
+    case "recovering":
+      return "recovering";
     case "denied":
       return "denied";
     case "unavailable":
@@ -44,7 +46,11 @@ export function deriveNavigationState(input: NavigationStateInput): NavigationSt
     return "gps_permission_required";
   }
 
-  if (input.gpsState === "unavailable" || input.gpsState === "error") {
+  if (input.gpsState === "unavailable") {
+    return "error";
+  }
+
+  if (input.gpsState === "error") {
     return "error";
   }
 
@@ -52,7 +58,10 @@ export function deriveNavigationState(input: NavigationStateInput): NavigationSt
     return "gps_initializing";
   }
 
-  if (input.gpsState === "active" && input.hasPosition) {
+  if (
+    (input.gpsState === "active" || input.gpsState === "recovering") &&
+    input.hasPosition
+  ) {
     return "navigating";
   }
 
@@ -92,6 +101,8 @@ export function gpsConnectionLabel(status: GpsConnectionStatus): string {
       return "Requesting GPS";
     case "connected":
       return "GPS Connected";
+    case "recovering":
+      return "Reconnecting";
     case "denied":
       return "Permission Denied";
     case "unavailable":

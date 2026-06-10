@@ -18,6 +18,7 @@ export type GpsConnectionStatus =
   | "idle"
   | "requesting"
   | "connected"
+  | "recovering"
   | "denied"
   | "unavailable"
   | "error";

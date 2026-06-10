@@ -3,6 +3,7 @@
 import { memo } from "react";
 import type { NavigationSession } from "@/lib/meets/navigation/types";
 import { NavigationDirectionBanner } from "@/components/meets/navigation/NavigationDirectionBanner";
+import { NavigationGpsStatus } from "@/components/meets/navigation/NavigationGpsStatus";
 import { NavigationHud } from "@/components/meets/navigation/NavigationHud";
 import { NavigationMapPanel } from "@/components/meets/navigation/NavigationMapPanel";
 import { NavigationRidersToggle } from "@/components/meets/navigation/NavigationRidersToggle";
@@ -41,6 +42,7 @@ function NavigationLayoutComponent({
   return (
     <main className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#050405] text-zinc-100">
       <NavigationTopBar session={session} />
+      <NavigationGpsStatus session={session} />
       <NavigationDirectionBanner
         session={session}
         onShowRiders={() => {

@@ -88,6 +88,7 @@ export async function loadMeetLiveRiders(
       rider_photo: riderPhoto(profile),
       lat: row.lat,
       lng: row.lng,
+      last_updated_at: row.updated_at,
       last_updated_label: "Live on route",
       profile_href: profileHref(profile?.username),
     };

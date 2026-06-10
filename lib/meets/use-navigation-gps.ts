@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoutePoint } from "@/lib/meets/route-geometry";
+import {
+  GPS_SIGNAL_LOST_MESSAGE,
+  GPS_STALE_CHECK_INTERVAL_MS,
+  logGpsRecoveryAttempt,
+  shouldTriggerStaleGpsRecovery,
+} from "@/lib/meets/navigation/gps-stale-recovery";
 
 const WATCH_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
@@ -13,6 +19,7 @@ export type NavigationGpsState =
   | "idle"
   | "requesting"
   | "active"
+  | "recovering"
   | "denied"
   | "unavailable"
   | "error";
@@ -26,6 +33,8 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
   const { enabled = true, onPosition } = options;
   const onPositionRef = useRef(onPosition);
   const watchIdRef = useRef<number | null>(null);
+  const lastUpdateAtMsRef = useRef<number | null>(null);
+  const lastRecoveryAtMsRef = useRef<number | null>(null);
 
   const [gpsState, setGpsState] = useState<NavigationGpsState>("idle");
   const [userLocation, setUserLocation] = useState<RoutePoint | null>(null);
@@ -48,6 +57,7 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
       lat: position.coords.latitude,
       lng: position.coords.longitude,
     };
+    lastUpdateAtMsRef.current = Date.now();
     setUserLocation(nextLocation);
     setGpsState("active");
     setGpsError(null);
@@ -78,39 +88,89 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
     setGpsError(error.message || "Unable to read your location.");
   }, [clearWatch]);
 
+  const beginWatchFromCurrentPosition = useCallback(
+    (options: { recovering?: boolean } = {}) => {
+      if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+        setGpsState("unavailable");
+        setGpsError("GPS is not available on this device.");
+        return;
+      }
+
+      if (options.recovering) {
+        setGpsState("recovering");
+        setGpsError(GPS_SIGNAL_LOST_MESSAGE);
+      } else {
+        setGpsState("requesting");
+        setGpsError(null);
+      }
+
+      clearWatch();
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          handlePosition(position);
+          setRecenterSignal((value) => value + 1);
+          watchIdRef.current = navigator.geolocation.watchPosition(
+            handlePosition,
+            handleError,
+            WATCH_OPTIONS,
+          );
+        },
+        handleError,
+        WATCH_OPTIONS,
+      );
+    },
+    [clearWatch, handleError, handlePosition],
+  );
+
   const requestGps = useCallback(() => {
     if (!enabled) return;
+    beginWatchFromCurrentPosition({ recovering: false });
+  }, [beginWatchFromCurrentPosition, enabled]);
 
-    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      setGpsState("unavailable");
-      setGpsError("GPS is not available on this device.");
-      return;
-    }
+  const recoverStaleGps = useCallback(() => {
+    if (!enabled) return;
 
-    setGpsState("requesting");
-    setGpsError(null);
-    clearWatch();
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        handlePosition(position);
-        setRecenterSignal((value) => value + 1);
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          handlePosition,
-          handleError,
-          WATCH_OPTIONS,
-        );
-      },
-      handleError,
-      WATCH_OPTIONS,
-    );
-  }, [clearWatch, enabled, handleError, handlePosition]);
+    const nowMs = Date.now();
+    lastRecoveryAtMsRef.current = nowMs;
+    logGpsRecoveryAttempt({
+      lastUpdateAtMs: lastUpdateAtMsRef.current,
+      lastRecoveryAtMs: nowMs,
+    });
+    beginWatchFromCurrentPosition({ recovering: true });
+  }, [beginWatchFromCurrentPosition, enabled]);
 
   useEffect(() => {
     return () => {
       clearWatch();
     };
   }, [clearWatch]);
+
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return;
+
+    const checkStaleGps = () => {
+      const nowMs = Date.now();
+      if (
+        !shouldTriggerStaleGpsRecovery({
+          enabled,
+          gpsState,
+          lastUpdateAtMs: lastUpdateAtMsRef.current,
+          lastRecoveryAtMs: lastRecoveryAtMsRef.current,
+          nowMs,
+        })
+      ) {
+        return;
+      }
+
+      recoverStaleGps();
+    };
+
+    const intervalId = window.setInterval(checkStaleGps, GPS_STALE_CHECK_INTERVAL_MS);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, gpsState, recoverStaleGps]);
 
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
