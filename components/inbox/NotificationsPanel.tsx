@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { buildLoginRedirectPath, resolveReturnPathFromWindow } from "@/lib/auth/login-redirect";
+import { logAuthSessionEvent } from "@/lib/auth/session-log";
 import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import {
@@ -119,7 +121,9 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
 
     const userId = session?.user?.id;
     if (!userId) {
-      router.replace("/login");
+      const returnPath = resolveReturnPathFromWindow();
+      logAuthSessionEvent("notifications-panel-redirect-login", { returnPath });
+      router.replace(buildLoginRedirectPath(returnPath));
       return;
     }
 

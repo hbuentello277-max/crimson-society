@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { logAuthSessionEvent } from "@/lib/auth/session-log";
 import { supabase } from "@/lib/supabase";
 import { ensureUserProfile, type AppProfile } from "@/lib/profile";
 
@@ -73,29 +74,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     let requestId = 0;
 
-    async function safeApplySession(nextSession: Session | null) {
+    async function safeApplySession(
+      nextSession: Session | null,
+      source: string,
+    ) {
       const currentRequest = ++requestId;
+      logAuthSessionEvent("apply-session-start", {
+        source,
+        hasSession: !!nextSession?.user?.id,
+      });
+
       const nextProfile = await applySession(nextSession);
 
       if (!mounted || currentRequest !== requestId) return;
       if (nextProfile) setProfile(nextProfile);
+
+      logAuthSessionEvent("apply-session-complete", {
+        source,
+        hasSession: !!nextSession?.user?.id,
+        profileStatus: nextProfile?.status ?? null,
+      });
     }
 
-    const fallbackTimer = window.setTimeout(async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) void safeApplySession(data.session ?? null);
-    }, 500);
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      void safeApplySession(data.session ?? null, "getSession-initial");
+    });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      window.clearTimeout(fallbackTimer);
-      void safeApplySession(nextSession ?? null);
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      logAuthSessionEvent("auth-state-change", {
+        event,
+        hasSession: !!nextSession?.user?.id,
+      });
+      void safeApplySession(nextSession ?? null, `onAuthStateChange:${event}`);
     });
 
     return () => {
       mounted = false;
-      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, [applySession]);

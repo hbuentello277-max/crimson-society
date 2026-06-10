@@ -2,11 +2,16 @@
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { isProfileSetupComplete } from "@/lib/profile";
-import { POST_AUTH_HOME_PATH, POST_AUTH_SETUP_PATH } from "@/lib/auth/post-auth-redirect";
+import { logAuthSessionEvent } from "@/lib/auth/session-log";
+import { POST_AUTH_SETUP_PATH, resolvePostAuthPath } from "@/lib/auth/post-auth-redirect";
 import { supabase } from "@/lib/supabase";
 
 /** Client-side post-login / post-session redirect (password login, existing session). */
-export async function redirectAfterAuth(router: AppRouterInstance, userId: string) {
+export async function redirectAfterAuth(
+  router: AppRouterInstance,
+  userId: string,
+  requestedNext?: string | null,
+) {
   try {
     const { data: profile, error } = await supabase
       .from("profiles")
@@ -17,13 +22,16 @@ export async function redirectAfterAuth(router: AppRouterInstance, userId: strin
     if (error) throw error;
 
     if (profile?.status === "deletion_pending") {
+      logAuthSessionEvent("redirect-deletion-pending", { userId });
       router.replace("/deletion-pending");
       return;
     }
 
-    const complete = isProfileSetupComplete(profile);
-    router.replace(complete ? POST_AUTH_HOME_PATH : POST_AUTH_SETUP_PATH);
+    const destination = resolvePostAuthPath(profile, requestedNext);
+    logAuthSessionEvent("redirect-after-auth", { userId, requestedNext, destination });
+    router.replace(destination);
   } catch {
-    router.replace(POST_AUTH_SETUP_PATH);
+    logAuthSessionEvent("redirect-after-auth-fallback-setup", { userId, requestedNext });
+    router.replace(requestedNext ? resolvePostAuthPath(null, requestedNext) : POST_AUTH_SETUP_PATH);
   }
 }
