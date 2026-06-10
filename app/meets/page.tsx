@@ -17,6 +17,10 @@ import { supabase } from "@/lib/supabase";
 import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
 import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
+import {
+  createMeetIdempotencyKey,
+  isMeetCreateDuplicateError,
+} from "@/lib/meets/create-meet-idempotency";
 import { dedupeMeetsById } from "@/lib/meets/dedupe-meets";
 import { formatRouteDurationLabel } from "@/lib/meets/format-route-duration";
 import { buildSnappedRoute } from "@/lib/routing";
@@ -402,6 +406,7 @@ function MeetsPageContent() {
   const selectedMeetRef = useRef<Meet | null>(null);
   const openedMeetParamRef = useRef<string | null>(null);
   const saveMeetInFlightRef = useRef(false);
+  const createMeetIdempotencyKeyRef = useRef<string | null>(null);
   const [savingMeet, setSavingMeet] = useState(false);
   const meetParam = searchParams.get("meet");
   const meetSectionParam = searchParams.get("section");
@@ -1103,8 +1108,18 @@ const ridesWithRoutes = await Promise.all(
       return;
     }
 
+    const createIdempotencyKey =
+      !editingMeet
+        ? createMeetIdempotencyKeyRef.current ?? createMeetIdempotencyKey()
+        : null;
+
+    if (!editingMeet && !createMeetIdempotencyKeyRef.current) {
+      createMeetIdempotencyKeyRef.current = createIdempotencyKey;
+    }
+
     const payload = {
       host_id: session.user.id,
+      ...(createIdempotencyKey ? { create_idempotency_key: createIdempotencyKey } : {}),
       name: newMeet.name,
       date: newMeet.date,
       time: newMeet.time,
@@ -1142,6 +1157,33 @@ const ridesWithRoutes = await Promise.all(
       : await supabase.from(MEET_TABLES.meets).insert(payload).select("*").single();
 
     if (error) {
+      if (!editingMeet && isMeetCreateDuplicateError(error) && createIdempotencyKey) {
+        const { data: existingRow, error: existingError } = await supabase
+          .from(MEET_TABLES.meets)
+          .select("*")
+          .eq("host_id", session.user.id)
+          .eq("create_idempotency_key", createIdempotencyKey)
+          .maybeSingle();
+
+        if (!existingError && existingRow) {
+          const existingMeet = meetRowToMeet(existingRow as MeetRow);
+          setRealMeets((current) =>
+            dedupeMeetsById(
+              current.some((ride) => ride.id === existingMeet.id)
+                ? current
+                : [existingMeet, ...current],
+            ),
+          );
+          setGoing((current) => ({ ...current, [existingMeet.id]: true }));
+          setShowHostModal(false);
+          setEditingMeet(null);
+          createMeetIdempotencyKeyRef.current = null;
+          setToast("Meet already created.");
+          window.setTimeout(() => setToast(null), 2500);
+          return;
+        }
+      }
+
       console.error("Failed to save meet:", error);
       setToast(editingMeet ? "Could not update meet." : "Could not create meet.");
       window.setTimeout(() => setToast(null), 2500);
@@ -1210,6 +1252,7 @@ const ridesWithRoutes = await Promise.all(
 
     setShowHostModal(false);
     setEditingMeet(null);
+    createMeetIdempotencyKeyRef.current = null;
     setToast(editingMeet ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
     } finally {
@@ -1525,6 +1568,7 @@ const ridesWithRoutes = await Promise.all(
             type="button"
             onClick={() => {
               setEditingMeet(null);
+              createMeetIdempotencyKeyRef.current = createMeetIdempotencyKey();
               setShowHostModal(true);
             }}
             className={CS_HOST_MEET_BTN}
@@ -1616,6 +1660,7 @@ const ridesWithRoutes = await Promise.all(
           onClose={() => {
             setShowHostModal(false);
             setEditingMeet(null);
+            createMeetIdempotencyKeyRef.current = null;
           }}
           isSubmitting={savingMeet}
           onCreate={(newMeet) => void saveMeet(newMeet)}

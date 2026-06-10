@@ -15,6 +15,11 @@ import {
   resolveMeetFooterActions,
 } from "@/lib/meets/footer-actions";
 import { formatMeetHostDisplayLines } from "@/lib/meets/host-display";
+import {
+  dashboardMapSheetPrimaryActionLabel,
+  resolveDashboardMapSheetPrimaryAction,
+} from "@/lib/meets/dashboard-map-sheet-actions";
+import { END_MEET_CONFIRM_TITLE } from "@/lib/meets/end-meet";
 import { LEAVE_MEET_CONFIRM_TITLE } from "@/lib/meets/leave-meet";
 import {
   canAssignCoHost,
@@ -159,6 +164,55 @@ describe("host footer actions", () => {
 describe("leave meet confirmation", () => {
   it("uses the required confirmation title", () => {
     assert.equal(LEAVE_MEET_CONFIRM_TITLE, "Leave this meet?");
+  });
+});
+
+describe("end meet confirmation", () => {
+  it("uses the required confirmation title", () => {
+    assert.equal(END_MEET_CONFIRM_TITLE, "End this meet now?");
+  });
+});
+
+describe("dashboard map sheet primary actions", () => {
+  it("shows Start Ride for live joined riders without duplicate navigation", () => {
+    const action = resolveDashboardMapSheetPrimaryAction({
+      hasRoute: true,
+      lifecyclePhase: "active",
+      trackingStatus: "active",
+      isHostTeam: false,
+      isGoing: true,
+      hasMapsTarget: true,
+    });
+
+    assert.equal(action, "start_ride");
+    assert.equal(dashboardMapSheetPrimaryActionLabel(action!), "Start Ride");
+  });
+
+  it("shows Navigate to Meet for active but not live joined riders", () => {
+    const action = resolveDashboardMapSheetPrimaryAction({
+      hasRoute: true,
+      lifecyclePhase: "active",
+      trackingStatus: "not_started",
+      isHostTeam: false,
+      isGoing: true,
+      hasMapsTarget: true,
+    });
+
+    assert.equal(action, "navigate_in_app");
+    assert.equal(dashboardMapSheetPrimaryActionLabel(action!), "Navigate to Meet");
+  });
+
+  it("shows external navigation for upcoming not-joined riders", () => {
+    const action = resolveDashboardMapSheetPrimaryAction({
+      hasRoute: true,
+      lifecyclePhase: "upcoming",
+      trackingStatus: "not_started",
+      isHostTeam: false,
+      isGoing: false,
+      hasMapsTarget: true,
+    });
+
+    assert.equal(action, "navigate_external");
   });
 });
 

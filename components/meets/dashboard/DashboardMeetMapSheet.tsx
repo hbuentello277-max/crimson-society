@@ -11,6 +11,11 @@ import {
   dashboardMeetLifecycleLabel,
   type DashboardMapMeet,
 } from "@/lib/meets/dashboard-map";
+import {
+  dashboardMapSheetPrimaryActionLabel,
+  resolveDashboardMapSheetPrimaryAction,
+} from "@/lib/meets/dashboard-map-sheet-actions";
+import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
 
 type DashboardMeetMapSheetProps = {
   meet: DashboardMapMeet | null;
@@ -53,10 +58,14 @@ export function DashboardMeetMapSheet({
   if (!open || !meet) return null;
 
   const hasRoute = dashboardMeetHasRoute(meet);
-  const isRideLive = meet.trackingStatus === "active";
-  const showNavigation = meet.lifecyclePhase === "active" && hasRoute;
-  const showStartRide =
-    hasRoute && ((isHostTeam && isRideLive) || (!isHostTeam && isGoing));
+  const primaryAction = resolveDashboardMapSheetPrimaryAction({
+    hasRoute,
+    lifecyclePhase: meet.lifecyclePhase,
+    trackingStatus: meet.trackingStatus,
+    isHostTeam,
+    isGoing,
+    hasMapsTarget: hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }),
+  });
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end justify-center">
@@ -151,25 +160,18 @@ export function DashboardMeetMapSheet({
               </button>
             ) : null}
 
-            {showNavigation ? (
+            {primaryAction === "start_ride" || primaryAction === "navigate_in_app" ? (
               <StartRideLink
                 meet={dashboardMeetToStartRideInput(meet)}
-                label="Navigate to Meet"
+                label={dashboardMapSheetPrimaryActionLabel(primaryAction)}
                 className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                 onNavigate={onClose}
               />
-            ) : (
+            ) : null}
+
+            {primaryAction === "navigate_external" ? (
               <NavigateToMeetButton
                 target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
-              />
-            )}
-
-            {showStartRide ? (
-              <StartRideLink
-                meet={dashboardMeetToStartRideInput(meet)}
-                label="Start Ride"
-                className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-                onNavigate={onClose}
               />
             ) : null}
 

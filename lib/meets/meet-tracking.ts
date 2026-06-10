@@ -94,7 +94,7 @@ export async function endMeetTracking(
   if (!data) {
     return {
       ok: false as const,
-      error: "Only the meet host or co-host can end the ride.",
+      error: "Only the meet host or co-host can end the meet.",
     };
   }
 

@@ -78,6 +78,7 @@ export type MeetRow = {
   started_at?: string | null;
   ended_at?: string | null;
   status?: string | null;
+  create_idempotency_key?: string | null;
   created_at?: string | null;
   attendeeRiders?: MeetAttendee[];
   host?: {

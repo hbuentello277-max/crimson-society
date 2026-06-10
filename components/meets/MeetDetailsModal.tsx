@@ -22,6 +22,7 @@ import {
   type MeetFooterAction,
 } from "@/lib/meets/footer-actions";
 import { formatMeetHostDisplayLines } from "@/lib/meets/host-display";
+import { END_MEET_CONFIRM_TITLE } from "@/lib/meets/end-meet";
 import { LEAVE_MEET_CONFIRM_TITLE } from "@/lib/meets/leave-meet";
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
@@ -519,7 +520,7 @@ export function MeetDetailsModal({
   async function endActiveRide() {
     if (!canModerate || !isRideLive || moderationBusy || !currentUserId) return;
 
-    const confirmed = window.confirm("End this ride now?");
+    const confirmed = window.confirm(END_MEET_CONFIRM_TITLE);
     if (!confirmed) return;
 
     setModerationBusy("end");
@@ -527,7 +528,7 @@ export function MeetDetailsModal({
     const result = await endMeetTracking(meet.id, currentUserId, isAdmin);
 
     if (!result.ok) {
-      console.error("Failed to end ride:", result.error);
+      console.error("Failed to end meet:", result.error);
       setSafetyMessage(result.error || "Could not end meet.");
       setModerationBusy(null);
       return;
@@ -537,7 +538,7 @@ export function MeetDetailsModal({
       trackingStatus: "ended" as MeetTrackingStatus,
       endedAt: result.endedAt,
     });
-    setSafetyMessage("Ride ended.");
+    setSafetyMessage("Meet ended.");
     window.setTimeout(() => setSafetyMessage(null), 2400);
     setModerationBusy(null);
   }
@@ -1146,7 +1147,7 @@ export function MeetDetailsModal({
                     disabled={!!moderationBusy}
                     className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
                   >
-                    End Ride
+                    End Meet
                   </button>
                 )}
               </div>
