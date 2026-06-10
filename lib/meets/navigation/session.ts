@@ -24,6 +24,7 @@ import {
   EMPTY_NAVIGATION_ARRIVAL_UI,
   EMPTY_NAVIGATION_METRICS,
 } from "@/lib/meets/navigation/types";
+import { speedMphFromGeolocationMetersPerSecond } from "@/lib/meets/navigation/speed";
 import type {
   NavigationArrivalSessionState,
   NavigationProgress,
@@ -105,10 +106,7 @@ function buildArrivalState(
 }
 
 export function positionFromGeolocation(position: GeolocationPosition): NavigationPosition {
-  const speedMph =
-    typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
-      ? position.coords.speed * 2.2369362921
-      : null;
+  const speedMph = speedMphFromGeolocationMetersPerSecond(position.coords.speed);
 
   return {
     lat: position.coords.latitude,

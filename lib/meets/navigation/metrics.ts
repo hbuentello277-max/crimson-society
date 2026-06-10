@@ -1,4 +1,5 @@
 import { getDistanceMiles } from "@/lib/gps/distance";
+import { isPlausibleMotorcycleSpeedMph } from "@/lib/meets/navigation/speed";
 import { formatDistanceMiles, formatPercentComplete } from "@/lib/meets/navigation/route-builder";
 import {
   formatManeuverDistance,
@@ -14,7 +15,7 @@ import type {
 } from "@/lib/meets/navigation/types";
 
 function formatSpeedMph(speedMph: number | null | undefined): string {
-  if (speedMph === null || speedMph === undefined || !Number.isFinite(speedMph) || speedMph < 0) {
+  if (!isPlausibleMotorcycleSpeedMph(speedMph)) {
     return "—";
   }
   return `${Math.round(speedMph)} mph`;
