@@ -129,7 +129,7 @@ describe("host footer actions", () => {
     assert.equal(meetFooterActionLabel("start_meet"), "Start Meet");
   });
 
-  it("shows Start Ride for live host", () => {
+  it("shows Start Ride and End Meet for live host without duplicate navigation", () => {
     const actions = resolveMeetFooterActions({
       isPrimaryHost: true,
       isCoHost: false,
@@ -141,7 +141,9 @@ describe("host footer actions", () => {
       hasMapsTarget: true,
     });
 
-    assert.deepEqual(actions, ["navigate", "start_ride"]);
+    assert.deepEqual(actions, ["start_ride", "end_meet"]);
+    assert.equal(meetFooterActionLabel("end_meet"), "End Meet");
+    assert.equal(actions.includes("navigate"), false);
   });
 
   it("does not show Join Meet to host team", () => {
@@ -169,7 +171,7 @@ describe("leave meet confirmation", () => {
 
 describe("end meet confirmation", () => {
   it("uses the required confirmation title", () => {
-    assert.equal(END_MEET_CONFIRM_TITLE, "End this meet now?");
+    assert.equal(END_MEET_CONFIRM_TITLE, "End this meet?");
   });
 });
 

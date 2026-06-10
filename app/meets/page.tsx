@@ -1649,6 +1649,17 @@ const ridesWithRoutes = await Promise.all(
             );
           }}
           onCancelMeet={() => void cancelMeet(selectedMeet.id)}
+          onEditMeet={
+            isPrimaryMeetHost(
+              { hostId: selectedMeet.hostId, coHostId: selectedMeet.coHostId },
+              session?.user?.id,
+            ) || isAdmin
+              ? () => {
+                  setEditingMeet(selectedMeet);
+                  setSelectedMeet(null);
+                }
+              : undefined
+          }
         />
       )}
 

@@ -22,7 +22,11 @@ import {
   type MeetFooterAction,
 } from "@/lib/meets/footer-actions";
 import { formatMeetHostDisplayLines } from "@/lib/meets/host-display";
-import { END_MEET_CONFIRM_TITLE } from "@/lib/meets/end-meet";
+import { MeetDetailsOverflowMenu } from "@/components/meets/MeetDetailsOverflowMenu";
+import {
+  END_MEET_CONFIRM_BODY,
+  END_MEET_CONFIRM_TITLE,
+} from "@/lib/meets/end-meet";
 import { LEAVE_MEET_CONFIRM_TITLE } from "@/lib/meets/leave-meet";
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
@@ -48,6 +52,7 @@ import {
 } from "@/lib/meets/route-geometry";
 import { useAuth } from "@/components/AuthProvider";
 import { canSelfJoinMeet } from "@/lib/meet-privacy";
+import { buildMeetRouteCopyText, shareMeetLink } from "@/lib/meets/share-meet";
 import { supabase } from "@/lib/supabase";
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), { ssr: false });
@@ -72,6 +77,7 @@ interface Props {
   onAttendeesChanged: (going: Meet["going"]) => void;
   onRefreshAttendees: () => void;
   onCancelMeet: () => void;
+  onEditMeet?: () => void;
 }
 
 type RideMessage = {
@@ -189,6 +195,7 @@ export function MeetDetailsModal({
   onAttendeesChanged,
   onRefreshAttendees,
   onCancelMeet,
+  onEditMeet,
 }: Props) {
   const { session } = useAuth();
   const [messages, setMessages] = useState<RideMessage[]>([]);
@@ -209,6 +216,8 @@ export function MeetDetailsModal({
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [actionToast, setActionToast] = useState<string | null>(null);
   const [coHostPickerOpen, setCoHostPickerOpen] = useState(false);
   const [coHostSearchQuery, setCoHostSearchQuery] = useState("");
   const [coHostSearchResults, setCoHostSearchResults] = useState<MemberProfileOption[]>([]);
@@ -517,11 +526,39 @@ export function MeetDetailsModal({
     setModerationBusy(null);
   }
 
-  async function endActiveRide() {
-    if (!canModerate || !isRideLive || moderationBusy || !currentUserId) return;
+  async function handleShareMeet() {
+    const result = await shareMeetLink(meet.id, meet.name);
+    if (!result.ok) {
+      setActionToast(result.error ?? "Could not share meet.");
+    } else if (result.copied) {
+      setActionToast("Meet link copied.");
+    } else {
+      setActionToast("Meet shared.");
+    }
+    window.setTimeout(() => setActionToast(null), 2200);
+  }
 
-    const confirmed = window.confirm(END_MEET_CONFIRM_TITLE);
-    if (!confirmed) return;
+  async function handleCopyRoute() {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setActionToast("Could not copy route.");
+      window.setTimeout(() => setActionToast(null), 2200);
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      buildMeetRouteCopyText({
+        meetPoint: meet.meetPoint,
+        destination: meet.destination,
+        distance: meet.distance,
+        duration: meet.duration,
+      }),
+    );
+    setActionToast("Route copied.");
+    window.setTimeout(() => setActionToast(null), 2200);
+  }
+
+  async function endActiveMeet() {
+    if (!canModerate || !isRideLive || moderationBusy || !currentUserId) return;
 
     setModerationBusy("end");
 
@@ -541,6 +578,11 @@ export function MeetDetailsModal({
     setSafetyMessage("Meet ended.");
     window.setTimeout(() => setSafetyMessage(null), 2400);
     setModerationBusy(null);
+  }
+
+  function handleConfirmEndMeet() {
+    setEndConfirmOpen(false);
+    void endActiveMeet();
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -866,7 +908,21 @@ export function MeetDetailsModal({
           key={action}
           type="button"
           onClick={onJoin}
-          className="flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/[0.02] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-100 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/18"
+          className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+        >
+          {label}
+        </button>
+      );
+    }
+
+    if (action === "end_meet") {
+      return (
+        <button
+          key={action}
+          type="button"
+          onClick={() => setEndConfirmOpen(true)}
+          disabled={!!moderationBusy}
+          className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/50 bg-transparent py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10 disabled:opacity-60"
         >
           {label}
         </button>
@@ -878,12 +934,15 @@ export function MeetDetailsModal({
         key={action}
         type="button"
         onClick={() => setLeaveConfirmOpen(true)}
-        className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/50 bg-transparent py-3 text-[10px] uppercase tracking-[0.2em] text-[#e87a82] transition hover:bg-[#b4141e]/10"
+        className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/50 bg-transparent py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/10"
       >
         {label}
       </button>
     );
   }
+
+  const hostProfileHref = profileHref(meet.host.username);
+  const endMeetInFooter = footerActions.includes("end_meet");
 
   return (
     <div
@@ -910,20 +969,52 @@ export function MeetDetailsModal({
 
           <div className="absolute inset-0 bg-gradient-to-t from-[#0d0608] via-[#0d0608]/40 to-transparent" />
 
-          <button
-            onClick={onClose}
-            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/60 text-zinc-300 backdrop-blur-sm transition hover:text-white"
-            aria-label="Close"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M1 1l12 12M13 1L1 13"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
+          <div className="absolute right-3 top-3 flex items-center gap-2">
+            <MeetDetailsOverflowMenu
+              canManage={canModerate}
+              isPrimaryHost={isPrimaryHost}
+              isRideLive={isRideLive}
+              isCanceled={isCanceled}
+              hostProfileHref={hostProfileHref}
+              endMeetInFooter={endMeetInFooter}
+              canAssignCoHost={!coHostAssignmentBlockedReason(hostContext, !meet.coHostId)}
+              onReport={() => setReportOpen(true)}
+              onShare={() => void handleShareMeet()}
+              onCopyRoute={() => void handleCopyRoute()}
+              onEditMeet={onEditMeet}
+              onAddCoHost={
+                canManageSettings
+                  ? () => {
+                      setCoHostPickerOpen(true);
+                    }
+                  : undefined
+              }
+              onViewRiders={
+                canModerate
+                  ? () => {
+                      setShowRidersPanel(true);
+                      void loadAttendees();
+                    }
+                  : undefined
+              }
+              onCancelMeet={canManageSettings ? onCancelMeet : undefined}
+              onEndMeet={canModerate ? () => setEndConfirmOpen(true) : undefined}
+            />
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/60 text-zinc-300 backdrop-blur-sm transition hover:text-white"
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M1 1l12 12M13 1L1 13"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
 
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <span className="rounded-full border border-white/20 bg-black/50 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-200 backdrop-blur-sm">
@@ -1092,65 +1183,29 @@ export function MeetDetailsModal({
             </div>
           )}
 
-          {canModerate && (
+          {canModerate && showRidersPanel && (
             <div className="mt-5 rounded-lg border border-[#b4141e]/35 bg-[#b4141e]/10 p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[#f0c9ce]">
-                Host Controls
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#f0c9ce]">Riders</p>
                 <button
                   type="button"
-                  onClick={() => setShowRidersPanel((open) => !open)}
-                  className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30"
+                  onClick={() => setShowRidersPanel(false)}
+                  className="text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:text-zinc-200"
                 >
-                  {showRidersPanel ? "Hide Riders" : "View Riders"}
+                  Hide
                 </button>
-
-                {canManageSettings && !isCanceled && (
-                  <button
-                    type="button"
-                    onClick={onCancelMeet}
-                    disabled={!!moderationBusy}
-                    className="rounded-lg border border-[#b4141e]/60 bg-[#b4141e]/20 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#f0c9ce] transition hover:bg-[#b4141e]/32 disabled:opacity-50"
-                  >
-                    Cancel Meet
-                  </button>
-                )}
-
-                {canManageSettings && !isCanceled && (
-                  <button
-                    type="button"
-                    onClick={() => setCoHostPickerOpen(true)}
-                    disabled={coHostBusy || !!coHostAssignmentBlockedReason(hostContext, !meet.coHostId)}
-                    className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
-                  >
-                    {meet.coHost ? "Change Co-Host" : "Add Co-Host"}
-                  </button>
-                )}
-
-                {canManageSettings && meet.coHost && !isCanceled && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveCoHost()}
-                    disabled={coHostBusy}
-                    className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/30 disabled:opacity-50"
-                  >
-                    Remove Co-Host
-                  </button>
-                )}
-
-                {isRideLive && !isCanceled && (
-                  <button
-                    type="button"
-                    onClick={() => void endActiveRide()}
-                    disabled={!!moderationBusy}
-                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
-                  >
-                    End Meet
-                  </button>
-                )}
               </div>
+
+              {canManageSettings && meet.coHost && !isCanceled ? (
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveCoHost()}
+                  disabled={coHostBusy}
+                  className="mt-3 rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/30 disabled:opacity-50"
+                >
+                  Remove Co-Host
+                </button>
+              ) : null}
 
               {showRidersPanel && (
                 <div className="mt-4">
@@ -1483,28 +1538,45 @@ export function MeetDetailsModal({
             {footerActions.map((action) => renderFooterAction(action))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setReportOpen(true)}
-            disabled={!currentUserId}
-            className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#f4dadd] disabled:opacity-50"
-          >
-            Report Meet
-          </button>
-
-          {inviteJoinBlocked && (
+          {inviteJoinBlocked ? (
             <p className="mt-3 text-center text-xs leading-5 text-zinc-500">
               Invite-only meet. Ask the host for access.
             </p>
-          )}
-
-          <button
-            onClick={onClose}
-            className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
-          >
-            Close
-          </button>
+          ) : null}
         </div>
+
+        {actionToast ? (
+          <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+7.5rem)] z-30 rounded-lg border border-[#b4141e]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-lg backdrop-blur-md">
+            {actionToast}
+          </div>
+        ) : null}
+
+        {endConfirmOpen ? (
+          <div className="absolute inset-0 z-30 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+            <div className="w-full rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[#f4dadd]">End Meet</p>
+              <h3 className="mt-2 font-serif text-2xl text-white">{END_MEET_CONFIRM_TITLE}</h3>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">{END_MEET_CONFIRM_BODY}</p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEndConfirmOpen(false)}
+                  className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmEndMeet}
+                  disabled={!!moderationBusy}
+                  className="flex-1 rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] disabled:opacity-60"
+                >
+                  End Meet
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {leaveConfirmOpen && (
           <div className="absolute inset-0 z-30 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">
