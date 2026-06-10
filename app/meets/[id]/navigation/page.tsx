@@ -15,6 +15,7 @@ export default function MeetNavigationPage() {
     session,
     userLocation,
     recenterSignal,
+    speedHud,
     recenter,
     retryGps,
     togglePause,
@@ -37,6 +38,7 @@ export default function MeetNavigationPage() {
       session={session}
       userLocation={userLocation}
       recenterSignal={recenterSignal}
+      speedHud={speedHud}
       onRecenter={recenter}
       onRetryGps={retryGps}
       onTogglePause={togglePause}

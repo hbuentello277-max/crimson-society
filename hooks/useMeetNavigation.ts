@@ -24,6 +24,12 @@ import {
   stepOffRouteTracker,
 } from "@/lib/meets/navigation/off-route";
 import { shouldRecalculateProgress } from "@/lib/meets/navigation/progress";
+import {
+  EMPTY_NAVIGATION_SPEED_HUD,
+  resolveCurrentSpeedMph,
+  updateSessionMaxSpeedMph,
+  type NavigationSpeedHud,
+} from "@/lib/meets/navigation/speed";
 import type {
   NavigationPosition,
   NavigationSession,
@@ -41,6 +47,7 @@ type UseMeetNavigationResult = {
   session: NavigationSession;
   userLocation: { lat: number; lng: number } | null;
   recenterSignal: number;
+  speedHud: NavigationSpeedHud;
   requestGps: () => void;
   recenter: () => void;
   retryGps: () => void;
@@ -59,6 +66,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const [isPaused, setIsPaused] = useState(false);
   const [latestPosition, setLatestPosition] = useState<NavigationPosition | null>(null);
   const [offRoute, setOffRoute] = useState<OffRouteSessionState>(createInitialOffRouteState);
+  const [speedHud, setSpeedHud] = useState<NavigationSpeedHud>(EMPTY_NAVIGATION_SPEED_HUD);
 
   const baseSessionRef = useRef<NavigationSession | null>(null);
   const lastSentAtRef = useRef(0);
@@ -66,6 +74,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const latestPositionRef = useRef<NavigationPosition | null>(null);
   const offRouteTrackerRef = useRef(createOffRouteTracker());
   const previousProgressRef = useRef<NavigationSession["progress"]>(null);
+  const maxSpeedMphRef = useRef(0);
 
   if (!baseSessionRef.current && meetId && userId) {
     baseSessionRef.current = createInitialNavigationSession(meetId, userId);
@@ -78,6 +87,14 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     (position: GeolocationPosition) => {
       const nextPosition = positionFromGeolocation(position);
       const previous = latestPositionRef.current;
+      const currentMph = resolveCurrentSpeedMph(nextPosition, previous);
+      const maxMph = updateSessionMaxSpeedMph(maxSpeedMphRef.current, currentMph);
+      maxSpeedMphRef.current = maxMph;
+      setSpeedHud((current) =>
+        current.currentMph === currentMph && current.maxMph === maxMph
+          ? current
+          : { currentMph, maxMph },
+      );
 
       if (!isPaused && meet?.route && hasRoadGeometry(meet.route)) {
         const offRouteResult = stepOffRouteTracker(
@@ -150,6 +167,8 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       latestPositionRef.current = null;
       setLatestPosition(null);
       previousProgressRef.current = null;
+      maxSpeedMphRef.current = 0;
+      setSpeedHud(EMPTY_NAVIGATION_SPEED_HUD);
       setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
 
       const sessionPayload = readActiveMeetSession();
@@ -279,6 +298,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     session: navigationSession,
     userLocation,
     recenterSignal,
+    speedHud,
     requestGps,
     recenter,
     retryGps,

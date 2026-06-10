@@ -4,12 +4,15 @@ import { memo } from "react";
 import type { NavigationSession } from "@/lib/meets/navigation/types";
 import { NavigationHud } from "@/components/meets/navigation/NavigationHud";
 import { NavigationMapPanel } from "@/components/meets/navigation/NavigationMapPanel";
+import { NavigationSpeedHud } from "@/components/meets/navigation/NavigationSpeedHud";
 import { NavigationTopBar } from "@/components/meets/navigation/NavigationTopBar";
+import type { NavigationSpeedHud as NavigationSpeedHudState } from "@/lib/meets/navigation/speed";
 
 type NavigationLayoutProps = {
   session: NavigationSession;
   userLocation: { lat: number; lng: number } | null;
   recenterSignal: number;
+  speedHud: NavigationSpeedHudState;
   onRecenter: () => void;
   onRetryGps: () => void;
   onTogglePause: () => void;
@@ -19,6 +22,7 @@ function NavigationLayoutComponent({
   session,
   userLocation,
   recenterSignal,
+  speedHud,
   onRecenter,
   onRetryGps,
   onTogglePause,
@@ -31,6 +35,7 @@ function NavigationLayoutComponent({
         recenterSignal={recenterSignal}
       />
       <NavigationTopBar session={session} />
+      <NavigationSpeedHud speed={speedHud} />
       <NavigationHud
         session={session}
         onRecenter={onRecenter}
