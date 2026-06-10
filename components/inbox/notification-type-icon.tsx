@@ -47,6 +47,7 @@ const TYPE_STYLES: Record<
   favorite_rider_meet: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_post: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_ride_started: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
+  crimson_credits_reward: { bg: "bg-[#b4141e]/70 border border-[#b4141e]", label: "Credits", glyph: "✦" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

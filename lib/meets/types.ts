@@ -18,6 +18,8 @@ export type MeetAttendee = {
 export type Meet = {
   id: string;
   hostId?: string;
+  coHostId?: string | null;
+  coHost?: MeetAttendee | null;
   name: string;
   date: string;
   time: string;
@@ -49,6 +51,7 @@ export type Meet = {
 export type MeetRow = {
   id: string;
   host_id: string;
+  co_host_id?: string | null;
   name: string;
   date: string;
   time: string;
@@ -78,6 +81,14 @@ export type MeetRow = {
   created_at?: string | null;
   attendeeRiders?: MeetAttendee[];
   host?: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+    full_name: string | null;
+    profile_image_url: string | null;
+    avatar_url: string | null;
+  } | null;
+  coHost?: {
     id: string;
     username: string | null;
     display_name: string | null;

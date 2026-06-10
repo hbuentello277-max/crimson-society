@@ -26,6 +26,7 @@ export type NotificationType =
   | "favorite_rider_post"
   | "favorite_rider_ride_started"
   | "host_meet_created"
+  | "crimson_credits_reward"
   | "shop_order_paid"
   | "shop_order_confirmed"
   | "shop_order_ready_for_pickup"
@@ -389,6 +390,10 @@ export function notificationDestination(
     return orderId ? orderNotificationPath(String(orderId)) : "/profile/orders";
   }
 
+  if (notification.type === "crimson_credits_reward") {
+    return storedPath ?? "/profile/credits/history";
+  }
+
   if (MEET_DETAIL_TYPES.has(notification.type)) {
     return "/meets";
   }
@@ -474,6 +479,8 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Order completed";
     case "meet_cancelled":
       return "Meet canceled";
+    case "crimson_credits_reward":
+      return "Credits earned";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -538,6 +545,8 @@ export function notificationSummary(
       return trimmedBody || `${name} started ride tracking`;
     case "host_meet_created":
       return trimmedBody || `${name} created a new meet`;
+    case "crimson_credits_reward":
+      return trimmedBody || notification.title;
     case "shop_order_paid":
     case "admin_order_created":
     case "admin_order_paid":
