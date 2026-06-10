@@ -1248,6 +1248,7 @@ export default function MessagesPanel({
           sending={sendingMessage}
           uploadingMedia={uploadingMedia}
           mediaUploadKind={mediaUploadKind}
+          uploadError={errorMsg || null}
         />
       )}
 

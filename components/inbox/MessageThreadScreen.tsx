@@ -66,6 +66,7 @@ type MessageThreadScreenProps = {
   sending?: boolean;
   uploadingMedia?: boolean;
   mediaUploadKind?: "image" | "audio" | null;
+  uploadError?: string | null;
 };
 
 const LONG_PRESS_MS = 420;
@@ -105,6 +106,7 @@ export function MessageThreadScreen({
   sending = false,
   uploadingMedia = false,
   mediaUploadKind = null,
+  uploadError = null,
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
@@ -495,6 +497,7 @@ export function MessageThreadScreen({
         sending={sending}
         uploadingMedia={uploadingMedia}
         mediaUploadKind={mediaUploadKind}
+        uploadError={uploadError}
       />
 
       {previewImageUrl &&

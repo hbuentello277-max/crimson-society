@@ -11,15 +11,15 @@ import {
 type VoiceRecordingBarProps = {
   elapsedSeconds: number;
   onCancel: () => void;
-  onSend: () => void;
-  sending?: boolean;
+  onDone: () => void;
+  finishing?: boolean;
 };
 
 export function VoiceRecordingBar({
   elapsedSeconds,
   onCancel,
-  onSend,
-  sending = false,
+  onDone,
+  finishing = false,
 }: VoiceRecordingBarProps) {
   const atMax = elapsedSeconds >= DM_VOICE_MAX_SECONDS;
 
@@ -50,19 +50,19 @@ export function VoiceRecordingBar({
       <button
         type="button"
         onClick={onCancel}
-        disabled={sending}
+        disabled={finishing}
         className={`${CS_BTN_SECONDARY} min-h-9 px-3`}
       >
         Cancel
       </button>
       <button
         type="button"
-        onClick={onSend}
-        disabled={sending}
+        onClick={onDone}
+        disabled={finishing}
         className={`${CS_CTA_PRIMARY_SM} min-h-9`}
-        aria-label="Stop and send voice message"
+        aria-label="Stop recording and preview voice message"
       >
-        Send
+        {finishing ? "…" : "Done"}
       </button>
     </div>
   );
@@ -72,17 +72,11 @@ export function VoiceRecordingBar({
 export function VoiceMicButton({
   active,
   disabled,
-  onPointerDown,
-  onPointerUp,
-  onPointerLeave,
   onClick,
   title,
 }: {
   active: boolean;
   disabled?: boolean;
-  onPointerDown?: () => void;
-  onPointerUp?: () => void;
-  onPointerLeave?: () => void;
   onClick?: () => void;
   title?: string;
 }) {
@@ -93,12 +87,6 @@ export function VoiceMicButton({
       title={title}
       aria-label={title || "Record voice message"}
       onClick={onClick}
-      onPointerDown={(event) => {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        onPointerDown?.();
-      }}
-      onPointerUp={() => onPointerUp?.()}
-      onPointerLeave={() => onPointerLeave?.()}
       className={
         active
           ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] transition hover:bg-[#b4141e]/30"

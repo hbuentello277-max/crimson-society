@@ -8,6 +8,11 @@ type AudioMessageBubbleProps = {
   isMe: boolean;
 };
 
+import {
+  nextDmPlaybackSpeed,
+  type DmPlaybackSpeed,
+} from "@/lib/messages/audio-playback";
+
 function formatDuration(seconds: number) {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
@@ -21,6 +26,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<DmPlaybackSpeed>(1);
 
   useEffect(() => {
     setLoading(true);
@@ -28,11 +34,14 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
     setPlaying(false);
     setProgress(0);
     setDuration(durationSeconds ?? 0);
+    setPlaybackSpeed(1);
   }, [mediaUrl, durationSeconds]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    audio.playbackRate = playbackSpeed;
 
     const onTimeUpdate = () => {
       if (!audio.duration) return;
@@ -69,7 +78,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [mediaUrl]);
+  }, [mediaUrl, playbackSpeed]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;
@@ -83,6 +92,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
 
     setLoading(true);
     try {
+      audio.playbackRate = playbackSpeed;
       await audio.play();
       setPlaying(true);
       setError(false);
@@ -92,6 +102,10 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
     } finally {
       setLoading(false);
     }
+  };
+
+  const cycleSpeed = () => {
+    setPlaybackSpeed((current) => nextDmPlaybackSpeed(current));
   };
 
   const durationLabel =
@@ -105,7 +119,7 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
 
   return (
     <div
-      className={`flex w-full min-w-0 max-w-[min(100%,240px)] items-center gap-3 rounded-[22px] px-4 py-3 ${
+      className={`flex w-full min-w-0 max-w-[min(100%,260px)] items-center gap-2.5 rounded-[22px] px-3.5 py-3 ${
         isMe
           ? "rounded-br-md border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
           : "rounded-bl-md bg-[#262626] text-white/95"
@@ -146,6 +160,20 @@ export function AudioMessageBubble({ mediaUrl, durationSeconds, isMe }: AudioMes
         </div>
         <p className="mt-1 text-[11px] opacity-80">{durationLabel}</p>
       </div>
+
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        disabled={error}
+        className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${
+          isMe
+            ? "border-white/20 bg-white/10 text-white/90"
+            : "border-white/10 bg-black/20 text-zinc-300"
+        } disabled:opacity-40`}
+        aria-label={`Playback speed ${playbackSpeed}x`}
+      >
+        {playbackSpeed}x
+      </button>
 
       <audio ref={audioRef} src={mediaUrl} preload="metadata" className="hidden" />
     </div>

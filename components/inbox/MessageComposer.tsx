@@ -9,6 +9,7 @@ import {
   VoiceRecordingBar,
   VoiceUnsupportedNotice,
 } from "@/components/inbox/VoiceRecordingBar";
+import { VoicePreviewBar } from "@/components/inbox/VoicePreviewBar";
 import {
   CS_SEND_BTN,
   CS_SEND_BTN_DISABLED,
@@ -28,7 +29,13 @@ import {
 /** Dock at the home indicator — tucked inside full safe-area on notched iPhones. */
 export const MESSAGE_COMPOSER_BOTTOM_OFFSET = MOBILE_BOTTOM_SAFE_INSET;
 
-const HOLD_RELEASE_MS = 300;
+export type VoiceComposerPhase = "idle" | "recording" | "preview" | "uploading" | "failed";
+
+type VoicePreviewState = {
+  file: File;
+  durationSeconds: number;
+  objectUrl: string;
+};
 
 type MessageComposerProps = {
   draft: string;
@@ -40,6 +47,7 @@ type MessageComposerProps = {
   sending?: boolean;
   uploadingMedia?: boolean;
   mediaUploadKind?: "image" | "audio" | null;
+  uploadError?: string | null;
 };
 
 export function MessageComposer({
@@ -52,25 +60,30 @@ export function MessageComposer({
   sending = false,
   uploadingMedia = false,
   mediaUploadKind = null,
+  uploadError = null,
 }: MessageComposerProps) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [showVoiceUnsupported, setShowVoiceUnsupported] = useState(false);
-  const [recording, setRecording] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<VoiceComposerPhase>("idle");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [preview, setPreview] = useState<VoicePreviewState | null>(null);
   const [finishingVoice, setFinishingVoice] = useState(false);
 
   const sessionRef = useRef<Awaited<ReturnType<typeof startVoiceRecorderSession>> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pressedAtRef = useRef(0);
   const recordingStartedAtRef = useRef(0);
   const finishRecordingRef = useRef<(autoFromMax?: boolean) => Promise<void>>(async () => {});
   const [errorMsgLocal, setErrorMsgLocal] = useState<string | null>(null);
 
+  const uploadingVoice = uploadingMedia && mediaUploadKind === "audio";
   const busy = sending || uploadingMedia || finishingVoice;
-  const canSend = Boolean(draft.trim()) && !busy && !recording;
+  const canSend = Boolean(draft.trim()) && !busy && voicePhase === "idle";
+  const showPreview =
+    preview && (voicePhase === "preview" || voicePhase === "failed");
+  const displayPhase: VoiceComposerPhase = uploadingVoice ? "uploading" : voicePhase;
 
   useEffect(() => {
     setVoiceSupported(isVoiceRecordingSupported());
@@ -83,10 +96,19 @@ export function MessageComposer({
     }
   }, []);
 
+  const clearPreview = useCallback(() => {
+    setPreview((current) => {
+      if (current?.objectUrl) {
+        URL.revokeObjectURL(current.objectUrl);
+      }
+      return null;
+    });
+  }, []);
+
   const resetRecordingState = useCallback(() => {
     clearTimer();
     sessionRef.current = null;
-    setRecording(false);
+    setVoicePhase("idle");
     setElapsedSeconds(0);
     recordingStartedAtRef.current = 0;
   }, [clearTimer]);
@@ -95,8 +117,20 @@ export function MessageComposer({
     return () => {
       clearTimer();
       sessionRef.current?.cancel();
+      clearPreview();
     };
-  }, [clearTimer]);
+  }, [clearPreview, clearTimer]);
+
+  useEffect(() => {
+    if (!uploadingMedia && voicePhase === "uploading") {
+      if (uploadError) {
+        setVoicePhase("failed");
+      } else {
+        clearPreview();
+        setVoicePhase("idle");
+      }
+    }
+  }, [clearPreview, uploadError, uploadingMedia, voicePhase]);
 
   const startTimer = useCallback(() => {
     clearTimer();
@@ -110,7 +144,7 @@ export function MessageComposer({
   }, [clearTimer]);
 
   const startRecording = useCallback(async () => {
-    if (busy || recording) return;
+    if (busy || voicePhase === "recording" || voicePhase === "preview") return;
 
     if (!voiceSupported) {
       setShowVoiceUnsupported(true);
@@ -119,12 +153,13 @@ export function MessageComposer({
 
     setShowVoiceUnsupported(false);
     setErrorMsgLocal(null);
+    clearPreview();
 
     try {
       const session = await startVoiceRecorderSession(DM_VOICE_MAX_SECONDS);
       sessionRef.current = session;
       recordingStartedAtRef.current = Date.now();
-      setRecording(true);
+      setVoicePhase("recording");
       setElapsedSeconds(0);
       startTimer();
     } catch (error) {
@@ -134,8 +169,9 @@ export function MessageComposer({
         setShowVoiceUnsupported(true);
       }
       setErrorMsgLocal(message);
+      setVoicePhase("failed");
     }
-  }, [busy, recording, voiceSupported, startTimer]);
+  }, [busy, clearPreview, startTimer, voicePhase, voiceSupported]);
 
   const finishRecording = useCallback(
     async (autoFromMax = false) => {
@@ -147,7 +183,10 @@ export function MessageComposer({
 
       try {
         const result = await session.stop();
-        resetRecordingState();
+        sessionRef.current = null;
+        setVoicePhase("idle");
+        setElapsedSeconds(0);
+        recordingStartedAtRef.current = 0;
 
         if (!result) return;
 
@@ -157,26 +196,35 @@ export function MessageComposer({
         );
 
         if (duration < DM_VOICE_MIN_SECONDS && !autoFromMax) {
-          setErrorMsgLocal(`Hold for at least ${DM_VOICE_MIN_SECONDS} second to send.`);
+          setErrorMsgLocal(`Record for at least ${DM_VOICE_MIN_SECONDS} second before previewing.`);
+          setVoicePhase("failed");
           return;
         }
 
         if (duration < DM_VOICE_MIN_SECONDS) {
           setErrorMsgLocal("Recording too short.");
+          setVoicePhase("failed");
           return;
         }
 
         const file = voiceBlobToFile(result.blob, result.mimeType);
-        onAudioRecorded(file, Math.round(duration));
+        const objectUrl = URL.createObjectURL(file);
+        setPreview({
+          file,
+          durationSeconds: Math.round(duration),
+          objectUrl,
+        });
+        setVoicePhase("preview");
       } catch (error) {
         setErrorMsgLocal(
           error instanceof Error ? error.message : "Could not finish recording.",
         );
+        setVoicePhase("failed");
       } finally {
         setFinishingVoice(false);
       }
     },
-    [clearTimer, finishingVoice, onAudioRecorded, resetRecordingState],
+    [clearTimer, finishingVoice],
   );
 
   useEffect(() => {
@@ -185,22 +233,38 @@ export function MessageComposer({
 
   const cancelRecording = useCallback(() => {
     sessionRef.current?.cancel();
-    resetRecordingState();
+    sessionRef.current = null;
+    clearTimer();
+    setVoicePhase("idle");
+    setElapsedSeconds(0);
+    recordingStartedAtRef.current = 0;
     setFinishingVoice(false);
-  }, [resetRecordingState]);
+  }, [clearTimer]);
 
-  const handleMicPointerDown = () => {
-    if (busy || recording) return;
-    pressedAtRef.current = Date.now();
-    void startRecording();
-  };
+  const cancelPreview = useCallback(() => {
+    clearPreview();
+    setVoicePhase("idle");
+    setErrorMsgLocal(null);
+  }, [clearPreview]);
 
-  const handleMicPointerUp = () => {
-    if (!recording || !pressedAtRef.current) return;
-    const heldMs = Date.now() - pressedAtRef.current;
-    pressedAtRef.current = 0;
-    if (heldMs >= HOLD_RELEASE_MS) {
+  const sendPreview = useCallback(() => {
+    if (!preview) return;
+
+    setVoicePhase("uploading");
+    onAudioRecorded(preview.file, preview.durationSeconds);
+  }, [onAudioRecorded, preview]);
+
+  const handleMicClick = () => {
+    if (busy) return;
+
+    if (voicePhase === "recording") {
       void finishRecording();
+      return;
+    }
+
+    if (voicePhase === "idle" || voicePhase === "failed") {
+      setErrorMsgLocal(null);
+      void startRecording();
     }
   };
 
@@ -237,6 +301,7 @@ export function MessageComposer({
         : "Message...";
 
   const imageToolbarActive = uploadingMedia && mediaUploadKind === "image";
+  const statusMessage = uploadError || errorMsgLocal;
 
   return (
     <div
@@ -266,16 +331,29 @@ export function MessageComposer({
           <VoiceUnsupportedNotice onDismiss={() => setShowVoiceUnsupported(false)} />
         ) : null}
 
-        {errorMsgLocal ? (
-          <p className="mb-2 text-center text-[12px] text-[#e87a82]">{errorMsgLocal}</p>
+        {statusMessage ? (
+          <p className="mb-2 text-center text-[12px] text-[#e87a82]">{statusMessage}</p>
         ) : null}
 
-        {recording ? (
+        {displayPhase === "uploading" ? (
+          <div className="flex items-center justify-center gap-2 rounded-full border border-white/10 bg-[#141414] px-4 py-3">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#b4141e] border-t-transparent" />
+            <span className="text-sm text-zinc-300">Sending voice message…</span>
+          </div>
+        ) : showPreview && preview ? (
+          <VoicePreviewBar
+            objectUrl={preview.objectUrl}
+            durationSeconds={preview.durationSeconds}
+            onCancel={cancelPreview}
+            onSend={sendPreview}
+            sending={uploadingVoice}
+          />
+        ) : displayPhase === "recording" ? (
           <VoiceRecordingBar
             elapsedSeconds={elapsedSeconds}
             onCancel={cancelRecording}
-            onSend={() => void finishRecording()}
-            sending={finishingVoice}
+            onDone={() => void finishRecording()}
+            finishing={finishingVoice}
           />
         ) : (
           <div className="flex w-full min-w-0 max-w-full items-end gap-1">
@@ -299,16 +377,16 @@ export function MessageComposer({
                 <IconGallery />
               </button>
               <VoiceMicButton
-                active={recording}
-                disabled={busy}
+                active={voicePhase === "recording"}
+                disabled={busy || voicePhase === "preview"}
                 title={
                   voiceSupported
-                    ? "Tap or hold to record a voice message"
+                    ? voicePhase === "recording"
+                      ? "Tap to finish recording"
+                      : "Tap to record a voice message"
                     : VOICE_UNSUPPORTED_MESSAGE
                 }
-                onPointerDown={handleMicPointerDown}
-                onPointerUp={handleMicPointerUp}
-                onPointerLeave={handleMicPointerUp}
+                onClick={handleMicClick}
               />
               <button
                 type="button"
