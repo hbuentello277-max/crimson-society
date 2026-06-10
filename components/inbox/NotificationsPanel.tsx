@@ -1,16 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { NotificationLeadingVisual } from "@/components/inbox/NotificationLeadingVisual";
+import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import {
   actorDisplayName,
-  actorPhotoUrl,
-  actorProfileHref,
   formatRelativeNotificationTime,
   isKnownNotificationType,
   notificationDestination,
@@ -27,7 +25,10 @@ import {
   groupedDirectMessagePreview,
   groupedDirectMessageSummary,
 } from "@/lib/notifications/feed-grouping";
-import { NotificationTypeIcon } from "@/components/inbox/notification-type-icon";
+import {
+  collectNotificationActorIds,
+  resolveNotificationLeadingVisual,
+} from "@/lib/notifications/notification-avatar";
 import {
   NotificationDeleteButton,
   SwipeableNotificationRow,
@@ -37,44 +38,6 @@ import { supabase } from "@/lib/supabase";
 type NotificationRow = NotificationItem & {
   user_id: string;
 };
-
-function actorInitials(actor: NotificationActor | null | undefined, fallback: string) {
-  const name = actorDisplayName(actor) || fallback || "Crimson";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("");
-
-  return initials || "C";
-}
-
-function NotificationAvatar({
-  actor,
-  fallback,
-}: {
-  actor: NotificationActor | null | undefined;
-  fallback: string;
-}) {
-  const photo = actorPhotoUrl(actor);
-  const name = actorDisplayName(actor);
-
-  return (
-    <div className={`relative h-11 w-11 shrink-0 ${CS_AVATAR_RING}`}>
-      {photo ? (
-        <Image
-          src={photo}
-          alt={name}
-          fill
-          sizes="44px"
-          className="object-cover"
-          unoptimized={photo.includes("supabase")}
-        />
-      ) : (
-        <div className={`${CS_AVATAR_FALLBACK} text-xs font-semibold not-italic`}>
-          {actorInitials(actor, fallback)}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function NotificationsPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
@@ -146,16 +109,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
           type: row.type as NotificationType,
         }));
 
-      const actorIds = Array.from(
-        new Set(
-          rows
-            .flatMap((notification) => [
-              notification.actor_id,
-              notification.last_actor_id,
-            ])
-            .filter(Boolean),
-        ),
-      ) as string[];
+      const actorIds = collectNotificationActorIds(rows);
 
       if (actorIds.length > 0) {
         const { data: actors, error: actorsError } = await supabase
@@ -341,6 +295,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
 
               <div className={embedded ? "" : "grid gap-3"}>
                 {group.items.map((notification) => {
+                  const leadingVisual = resolveNotificationLeadingVisual(notification, actorsById);
                   const actorId = feedActorIdForItem(notification);
                   const actor = actorId ? actorsById[actorId] : null;
                   const actorName = actorDisplayName(actor);
@@ -381,11 +336,11 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                             }`
                       }
                     >
-                      {embedded ? (
-                        <NotificationTypeIcon type={notification.type} />
-                      ) : (
-                        <NotificationAvatar actor={actor} fallback={notification.title} />
-                      )}
+                      <NotificationLeadingVisual
+                        kind={leadingVisual.kind}
+                        actor={leadingVisual.actor}
+                        fallbackLabel={notification.title}
+                      />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">

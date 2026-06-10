@@ -24,12 +24,19 @@ import {
   validateDmAudioFile,
   validateDmImageFile,
 } from "@/lib/messages/dm-message";
+import {
+  applyReactionToggle,
+  groupReactionsByMessageId,
+  planReactionToggle,
+  type MessageReactionRow,
+} from "@/lib/messages/reactions";
+import { incomingUndeliveredMessageIds } from "@/lib/messages/read-receipts";
 import { DM_VOICE_MAX_SECONDS, DM_VOICE_MIN_SECONDS } from "@/lib/messages/voice-recorder";
 import { CS_BADGE_SM, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
 const DM_MESSAGE_SELECT =
-  "id, conversation_id, sender_id, body, message_type, media_url, media_path, media_mime_type, media_size_bytes, media_duration_seconds, created_at";
+  "id, conversation_id, sender_id, body, message_type, media_url, media_path, media_mime_type, media_size_bytes, media_duration_seconds, created_at, delivered_at";
 
 type Conversation = {
   id: string;
@@ -54,6 +61,7 @@ type Message = {
   senderPhoto?: string | null;
   timeLabel: string;
   createdAt: string;
+  deliveredAt?: string | null;
   mediaUrl?: string | null;
   mediaPath?: string | null;
   mediaMimeType?: string | null;
@@ -103,6 +111,7 @@ type MessageRow = {
   media_size_bytes?: number | null;
   media_duration_seconds?: number | null;
   created_at: string;
+  delivered_at?: string | null;
 };
 
 type Suggestion = {
@@ -203,6 +212,7 @@ function mapMessage(row: MessageRow, profilesById: Map<string, ProfileRow>): Mes
     senderPhoto: profilePhoto(sender),
     timeLabel: messageTime(row.created_at),
     createdAt: row.created_at,
+    deliveredAt: row.delivered_at ?? null,
     mediaUrl: row.media_url,
     mediaPath: row.media_path,
     mediaMimeType: row.media_mime_type,
@@ -245,6 +255,37 @@ async function signMessageMediaRows(rows: MessageRow[]) {
 
 function conversationHasMessages(conversationId: string, messages: MessageRow[]) {
   return messages.some((message) => message.conversation_id === conversationId);
+}
+
+function buildPeerLastReadMap(
+  members: MemberRow[],
+  userId: string,
+): Record<string, string | null> {
+  const byConversation = new Map<string, MemberRow[]>();
+
+  for (const member of members) {
+    const bucket = byConversation.get(member.conversation_id) ?? [];
+    bucket.push(member);
+    byConversation.set(member.conversation_id, bucket);
+  }
+
+  const peerRead: Record<string, string | null> = {};
+
+  for (const [conversationId, conversationMembers] of byConversation.entries()) {
+    const peer = conversationMembers.find((member) => member.user_id !== userId);
+    peerRead[conversationId] = peer?.last_read_at ?? null;
+  }
+
+  return peerRead;
+}
+
+async function markMessagesDelivered(messageIds: string[]) {
+  if (messageIds.length === 0) {
+    return;
+  }
+
+  const deliveredAt = new Date().toISOString();
+  await supabase.from("messages").update({ delivered_at: deliveredAt }).in("id", messageIds);
 }
 
 function buildConversations(
@@ -343,12 +384,32 @@ export default function MessagesPanel({
   const [sendingMessage, setSendingMessage] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [mediaUploadKind, setMediaUploadKind] = useState<"image" | "audio" | null>(null);
+  const [messageReactions, setMessageReactions] = useState<MessageReactionRow[]>([]);
+  const [peerLastReadByConversation, setPeerLastReadByConversation] = useState<
+    Record<string, string | null>
+  >({});
+  const [blockedPeerIds, setBlockedPeerIds] = useState<Set<string>>(new Set());
+  const blockedPeerIdsRef = useRef<Set<string>>(new Set());
 
   const active =
     (activeId && conversations.find((c) => c.id === activeId)) ||
     (activeId && threadFocusConversation?.id === activeId ? threadFocusConversation : null) ||
     null;
   const activeThread = activeId ? threads[activeId] || [] : [];
+  const activeReactionsByMessageId = useMemo(
+    () => (userId ? groupReactionsByMessageId(messageReactions, userId) : {}),
+    [messageReactions, userId],
+  );
+  const activePeerLastReadAt = activeId ? peerLastReadByConversation[activeId] ?? null : null;
+  const activePeerIsBlocked = useMemo(() => {
+    if (!activeId || !userId) return false;
+
+    const threadMessages = threads[activeId] || [];
+    const peerId = threadMessages.find((message) => message.senderId !== userId)?.senderId;
+    if (!peerId) return false;
+
+    return blockedPeerIds.has(peerId);
+  }, [activeId, blockedPeerIds, threads, userId]);
 
   const filtered = useMemo(
     () =>
@@ -386,9 +447,10 @@ export default function MessagesPanel({
     async (conversationId: string) => {
       if (!userId) return;
 
+      const readAt = new Date().toISOString();
       await supabase
         .from("conversation_members")
-        .update({ last_read_at: new Date().toISOString() })
+        .update({ last_read_at: readAt })
         .eq("conversation_id", conversationId)
         .eq("user_id", userId);
 
@@ -473,6 +535,8 @@ export default function MessagesPanel({
     const blockedIds = new Set(
       blocks.map((block) => (block.blocker_id === userId ? block.blocked_id : block.blocker_id)),
     );
+    blockedPeerIdsRef.current = blockedIds;
+    setBlockedPeerIds(blockedIds);
     const visibleConversationIds = new Set(
       conversationRows
         .filter((conversation) => {
@@ -493,6 +557,34 @@ export default function MessagesPanel({
     const visibleMessages = signedMessageRows.filter((message) =>
       visibleConversationIds.has(message.conversation_id),
     );
+
+    const undeliveredIds = incomingUndeliveredMessageIds(visibleMessages, userId);
+    if (undeliveredIds.length > 0) {
+      const deliveredAt = new Date().toISOString();
+      await markMessagesDelivered(undeliveredIds);
+      for (const message of visibleMessages) {
+        if (undeliveredIds.includes(message.id)) {
+          message.delivered_at = deliveredAt;
+        }
+      }
+    }
+
+    const messageIds = visibleMessages.map((message) => message.id);
+    const reactionsResponse =
+      messageIds.length > 0
+        ? await supabase
+            .from("message_reactions")
+            .select("id, message_id, user_id, emoji")
+            .in("message_id", messageIds)
+        : { data: [], error: null };
+
+    if (reactionsResponse.error) {
+      console.error("Failed to load message reactions:", reactionsResponse.error);
+    } else {
+      setMessageReactions((reactionsResponse.data || []) as MessageReactionRow[]);
+    }
+
+    setPeerLastReadByConversation(buildPeerLastReadMap(visibleMembers, userId));
     const profileIds = Array.from(
       new Set([
         ...visibleMembers.map((member) => member.user_id),
@@ -546,6 +638,67 @@ export default function MessagesPanel({
     setThreads(nextThreads);
     setLoadingMessages(false);
   }, [userId]);
+
+  const toggleMessageReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!userId) return;
+
+      const plan = planReactionToggle(messageReactions, messageId, userId, emoji);
+      setMessageReactions((current) => applyReactionToggle(current, messageId, userId, emoji));
+
+      if (plan.action === "remove" && plan.reactionId) {
+        const { error } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("id", plan.reactionId)
+          .eq("user_id", userId);
+
+        if (error) {
+          console.error("Failed to remove reaction:", error);
+          void loadConversations();
+        }
+
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .insert({ message_id: messageId, user_id: userId, emoji })
+        .select("id, message_id, user_id, emoji")
+        .single();
+
+      if (error || !data) {
+        console.error("Failed to add reaction:", error);
+        void loadConversations();
+        return;
+      }
+
+      setMessageReactions((current) => {
+        const withoutOptimistic = current.filter(
+          (reaction) =>
+            !(
+              reaction.message_id === messageId &&
+              reaction.user_id === userId &&
+              reaction.emoji === emoji &&
+              reaction.id.startsWith("optimistic-")
+            ),
+        );
+        const alreadyPresent = withoutOptimistic.some(
+          (reaction) =>
+            reaction.message_id === messageId &&
+            reaction.user_id === userId &&
+            reaction.emoji === emoji,
+        );
+
+        if (alreadyPresent) {
+          return withoutOptimistic;
+        }
+
+        return [...withoutOptimistic, data as MessageReactionRow];
+      });
+    },
+    [loadConversations, messageReactions, userId],
+  );
 
   const loadSuggestions = useCallback(async () => {
     if (!userId) return;
@@ -758,6 +911,9 @@ export default function MessagesPanel({
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
         void loadConversations();
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
+        void loadConversations();
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "conversation_members" },
@@ -765,6 +921,9 @@ export default function MessagesPanel({
           void loadConversations();
         },
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, () => {
+        void loadConversations();
+      })
       .subscribe();
 
     return () => {
@@ -1081,6 +1240,10 @@ export default function MessagesPanel({
                     : message.text,
             })
           }
+          reactionsByMessageId={activeReactionsByMessageId}
+          onToggleReaction={(messageId, emoji) => void toggleMessageReaction(messageId, emoji)}
+          peerLastReadAt={activePeerLastReadAt}
+          peerIsBlocked={activePeerIsBlocked}
           focusComposer={focusComposerOnOpen}
           sending={sendingMessage}
           uploadingMedia={uploadingMedia}

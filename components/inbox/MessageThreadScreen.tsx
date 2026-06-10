@@ -5,11 +5,19 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AudioMessageBubble } from "@/components/inbox/AudioMessageBubble";
-import { IconCheck } from "@/components/inbox/inbox-icons";
 import { MessageComposer } from "@/components/inbox/MessageComposer";
+import { MessageReactionChips } from "@/components/inbox/MessageReactionChips";
+import { MessageReactionPicker } from "@/components/inbox/MessageReactionPicker";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
+import { ReadReceiptIndicator } from "@/components/inbox/ReadReceiptIndicator";
 import { ThreadOverflowMenu } from "@/components/inbox/ThreadOverflowMenu";
 import type { DmMessageType } from "@/lib/messages/dm-message";
+import type { ReactionChip } from "@/lib/messages/reactions";
+import {
+  latestOutgoingMessageId,
+  resolveReadReceiptState,
+  shouldShowReadReceipt,
+} from "@/lib/messages/read-receipts";
 import { CS_BUBBLE_OUTGOING } from "@/lib/crimson-accent";
 
 export type ThreadConversation = {
@@ -32,6 +40,7 @@ export type ThreadMessage = {
   senderPhoto?: string | null;
   timeLabel: string;
   createdAt: string;
+  deliveredAt?: string | null;
   mediaUrl?: string | null;
   mediaMimeType?: string | null;
   mediaDurationSeconds?: number | null;
@@ -49,11 +58,17 @@ type MessageThreadScreenProps = {
   onAudioRecorded: (file: File, durationSeconds: number) => void;
   onBack: () => void;
   onReportMessage: (message: ThreadMessage) => void;
+  reactionsByMessageId?: Record<string, ReactionChip[]>;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
+  peerLastReadAt?: string | null;
+  peerIsBlocked?: boolean;
   focusComposer?: boolean;
   sending?: boolean;
   uploadingMedia?: boolean;
   mediaUploadKind?: "image" | "audio" | null;
 };
+
+const LONG_PRESS_MS = 420;
 
 function daySeparatorLabel(createdAt: string) {
   const date = new Date(createdAt);
@@ -82,6 +97,10 @@ export function MessageThreadScreen({
   onAudioRecorded,
   onBack,
   onReportMessage,
+  reactionsByMessageId = {},
+  onToggleReaction,
+  peerLastReadAt = null,
+  peerIsBlocked = false,
   focusComposer = false,
   sending = false,
   uploadingMedia = false,
@@ -89,7 +108,9 @@ export function MessageThreadScreen({
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<number | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
   const messagesWithSeparators = useMemo(() => {
     const items: Array<{ type: "separator"; label: string } | { type: "message"; message: ThreadMessage }> =
@@ -107,6 +128,26 @@ export function MessageThreadScreen({
 
     return items;
   }, [messages]);
+
+  const latestOutgoingId = useMemo(() => {
+    if (!userId) return null;
+
+    return latestOutgoingMessageId(
+      messages.map((message) => ({
+        id: message.id,
+        createdAt: message.createdAt,
+        deliveredAt: message.deliveredAt,
+        senderId: message.senderId,
+      })),
+      userId,
+    );
+  }, [messages, userId]);
+
+  useEffect(() => {
+    if (!open) {
+      setActiveReactionMessageId(null);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,6 +219,27 @@ export function MessageThreadScreen({
   }, [messages, open, conversation.id]);
 
   if (!open || typeof document === "undefined") return null;
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const openReactionPicker = (messageId: string) => {
+    if (!onToggleReaction) return;
+    setActiveReactionMessageId(messageId);
+  };
+
+  const handleMessagePointerDown = (messageId: string) => {
+    if (!onToggleReaction) return;
+
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      openReactionPicker(messageId);
+    }, LONG_PRESS_MS);
+  };
 
   const handle = conversation.handle.startsWith("@")
     ? conversation.handle
@@ -264,6 +326,20 @@ export function MessageThreadScreen({
             const isMe = message.senderId === userId;
             const prev = messages[messages.indexOf(message) - 1];
             const showAvatar = !isMe && (!prev || prev.senderId !== message.senderId);
+            const reactionChips = reactionsByMessageId[message.id] ?? [];
+            const showReceipt = shouldShowReadReceipt({
+              messageId: message.id,
+              latestOutgoingMessageId: latestOutgoingId,
+              isFromCurrentUser: isMe,
+              peerIsBlocked,
+            });
+            const receiptState = resolveReadReceiptState(
+              {
+                createdAt: message.createdAt,
+                deliveredAt: message.deliveredAt,
+              },
+              peerLastReadAt,
+            );
 
             return (
               <div
@@ -282,17 +358,48 @@ export function MessageThreadScreen({
                   </div>
                 )}
 
-                <div className={`flex min-w-0 max-w-[min(100%,70%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
+                <div
+                  className={`group relative flex min-w-0 max-w-[min(100%,70%)] flex-col ${isMe ? "items-end" : "items-start"}`}
+                >
                   {conversation.isGroup && !isMe && showAvatar && message.senderName && (
                     <span className="mb-1 ml-1 text-[11px] font-medium text-[#e87a82]">
                       {message.senderName}
                     </span>
                   )}
 
+                  {activeReactionMessageId === message.id && onToggleReaction && (
+                    <MessageReactionPicker
+                      onSelect={(emoji) => onToggleReaction(message.id, emoji)}
+                      onClose={() => setActiveReactionMessageId(null)}
+                    />
+                  )}
+
+                  {onToggleReaction && (
+                    <button
+                      type="button"
+                      onClick={() => openReactionPicker(message.id)}
+                      className={`absolute -top-2 ${isMe ? "left-0" : "right-0"} hidden h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#1a1a1a] text-sm text-zinc-300 opacity-0 transition group-hover:opacity-100 sm:flex`}
+                      aria-label="Add reaction"
+                    >
+                      +
+                    </button>
+                  )}
+
                   {message.messageType === "image" && message.mediaUrl ? (
                     <button
                       type="button"
                       onClick={() => setPreviewImageUrl(message.mediaUrl ?? null)}
+                      onTouchStart={() => handleMessagePointerDown(message.id)}
+                      onTouchEnd={clearLongPressTimer}
+                      onTouchCancel={clearLongPressTimer}
+                      onMouseDown={() => handleMessagePointerDown(message.id)}
+                      onMouseUp={clearLongPressTimer}
+                      onMouseLeave={clearLongPressTimer}
+                      onContextMenu={(event) => {
+                        if (!onToggleReaction) return;
+                        event.preventDefault();
+                        openReactionPicker(message.id);
+                      }}
                       className="block overflow-hidden rounded-[22px] border border-white/10"
                     >
                       <Image
@@ -305,13 +412,38 @@ export function MessageThreadScreen({
                       />
                     </button>
                   ) : message.messageType === "audio" && message.mediaUrl ? (
-                    <AudioMessageBubble
-                      mediaUrl={message.mediaUrl}
-                      durationSeconds={message.mediaDurationSeconds}
-                      isMe={isMe}
-                    />
+                    <div
+                      onTouchStart={() => handleMessagePointerDown(message.id)}
+                      onTouchEnd={clearLongPressTimer}
+                      onTouchCancel={clearLongPressTimer}
+                      onMouseDown={() => handleMessagePointerDown(message.id)}
+                      onMouseUp={clearLongPressTimer}
+                      onMouseLeave={clearLongPressTimer}
+                      onContextMenu={(event) => {
+                        if (!onToggleReaction) return;
+                        event.preventDefault();
+                        openReactionPicker(message.id);
+                      }}
+                    >
+                      <AudioMessageBubble
+                        mediaUrl={message.mediaUrl}
+                        durationSeconds={message.mediaDurationSeconds}
+                        isMe={isMe}
+                      />
+                    </div>
                   ) : (
                     <div
+                      onTouchStart={() => handleMessagePointerDown(message.id)}
+                      onTouchEnd={clearLongPressTimer}
+                      onTouchCancel={clearLongPressTimer}
+                      onMouseDown={() => handleMessagePointerDown(message.id)}
+                      onMouseUp={clearLongPressTimer}
+                      onMouseLeave={clearLongPressTimer}
+                      onContextMenu={(event) => {
+                        if (!onToggleReaction) return;
+                        event.preventDefault();
+                        openReactionPicker(message.id);
+                      }}
                       className={`px-4 py-3 text-[15px] leading-relaxed ${
                         isMe
                           ? CS_BUBBLE_OUTGOING
@@ -322,11 +454,19 @@ export function MessageThreadScreen({
                     </div>
                   )}
 
+                  {onToggleReaction && (
+                    <MessageReactionChips
+                      chips={reactionChips}
+                      alignEnd={isMe}
+                      onToggle={(emoji) => onToggleReaction(message.id, emoji)}
+                    />
+                  )}
+
                   <div
                     className={`mt-1 flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : ""}`}
                   >
                     <span className="text-[11px] text-zinc-500">{message.timeLabel}</span>
-                    {isMe && <IconCheck className="text-zinc-500" />}
+                    {showReceipt && <ReadReceiptIndicator state={receiptState} />}
                   </div>
 
                   {!isMe && (

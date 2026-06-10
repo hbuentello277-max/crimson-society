@@ -53,3 +53,12 @@ export function IconCheck({ className = "h-3 w-3" }: InboxIconProps) {
     </svg>
   );
 }
+
+export function IconDoubleCheck({ className = "h-3 w-3" }: InboxIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={className} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12.5l3.5 3.5L14 9.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.5l3.5 3.5L19 9.5" />
+    </svg>
+  );
+}
