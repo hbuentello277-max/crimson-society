@@ -24,6 +24,8 @@ type NotificationRow = NotificationItem & {
   user_id: string;
   conversation_id: string | null;
   notification_group_key?: string | null;
+  destination_url?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type PushJobRow = {
@@ -60,6 +62,8 @@ function buildPushUrl(
       comment_id: notification.comment_id,
       deletion_request_id: notification.deletion_request_id,
       target_url: notification.target_url,
+      destination_url: notification.destination_url,
+      metadata: notification.metadata,
     },
     actor,
   );
@@ -117,7 +121,7 @@ export async function dispatchPushForNotification(notificationId: string) {
   const { data: notification, error: notificationError } = await supabase
     .from("notifications")
     .select(
-      "id, user_id, type, title, body, ride_id, conversation_id, post_id, comment_id, deletion_request_id, target_url, actor_id, read_at, created_at, notification_group_key, notification_count",
+      "id, user_id, type, title, body, ride_id, conversation_id, post_id, comment_id, deletion_request_id, target_url, destination_url, metadata, actor_id, read_at, created_at, notification_group_key, notification_count",
     )
     .eq("id", notificationId)
     .maybeSingle();
@@ -181,10 +185,17 @@ export async function dispatchPushForNotification(notificationId: string) {
   }
 
   const actor = await loadActor(supabase, row.actor_id);
+  const metadata = (row.metadata ?? {}) as Record<string, unknown>;
   const title = row.title || "Crimson Society";
   const body =
     notificationSummary(row, actor) || row.body || "You have new activity in Crimson Society.";
   const url = buildPushUrl(row, actor, appOrigin);
+  const requestId =
+    (typeof metadata.request_id === "string" && metadata.request_id) ||
+    (typeof metadata.connection_id === "string" && metadata.connection_id) ||
+    null;
+  const actorUsername =
+    (typeof metadata.actor_username === "string" && metadata.actor_username) || actor?.username || null;
 
   let sent = 0;
   const invalidTokenIds: string[] = [];
@@ -200,6 +211,10 @@ export async function dispatchPushForNotification(notificationId: string) {
         rideId: row.ride_id,
         conversationId: row.conversation_id,
         collapseKey: pushCollapseKey(row),
+        requestId,
+        actorUserId: row.actor_id,
+        actorUsername,
+        targetUrl: url,
       });
       sent += 1;
     } catch (error) {

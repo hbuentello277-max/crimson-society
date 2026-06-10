@@ -4,10 +4,28 @@ importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-messaging-comp
 
 let messagingReady = false;
 
+function resolveNotificationUrl(data) {
+  const raw =
+    data?.targetUrl ||
+    data?.url ||
+    (data?.requestId ? `/connect/requests/${data.requestId}` : null) ||
+    (data?.actorUsername ? `/profile/${data.actorUsername}` : null);
+
+  if (!raw) {
+    return "/inbox?tab=notifications";
+  }
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
+  }
+
+  return new URL(raw, self.location.origin).toString();
+}
+
 function showNotification(payload) {
   const title = payload.notification?.title || payload.data?.title || "Crimson Society";
   const body = payload.notification?.body || payload.data?.body || "";
-  const url = payload.data?.url || payload.fcmOptions?.link || "/inbox?tab=notifications";
+  const url = resolveNotificationUrl(payload.data || {});
   const tag =
     payload.data?.collapseKey ||
     payload.data?.notificationId ||
@@ -26,13 +44,16 @@ function showNotification(payload) {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification?.data?.url || "/inbox?tab=notifications";
+  const targetUrl = resolveNotificationUrl(event.notification?.data || {});
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ("focus" in client) {
-          client.navigate(targetUrl);
+          const nextUrl = targetUrl.startsWith(self.location.origin)
+            ? targetUrl.slice(self.location.origin.length) || "/"
+            : targetUrl;
+          client.navigate(nextUrl);
           return client.focus();
         }
       }

@@ -118,3 +118,66 @@ describe("direct message destination", () => {
     );
   });
 });
+
+describe("connection notification destinations", () => {
+  it("opens the request review page for connection_request", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "connection_request",
+          ride_id: null,
+          target_url: "/connect/requests/req-123",
+          metadata: {
+            connection_id: "req-123",
+            request_id: "req-123",
+            entity_type: "connection_request",
+          },
+        },
+        null,
+      ),
+      "/connect/requests/req-123",
+    );
+  });
+
+  it("falls back to metadata request id for legacy connection_request_received rows", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "connection_request_received",
+          ride_id: null,
+          metadata: {
+            connection_id: "legacy-9",
+            entity_type: "connection_request",
+          },
+        },
+        null,
+      ),
+      "/connect/requests/legacy-9",
+    );
+  });
+
+  it("opens the approver profile for connection_accepted", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "connection_accepted",
+          ride_id: null,
+          target_url: "/profile/crimson",
+          metadata: {
+            actor_username: "crimson",
+            entity_type: "connection_accepted",
+          },
+        },
+        {
+          id: "user-1",
+          username: "crimson",
+          display_name: "Crimson",
+          full_name: null,
+          profile_image_url: null,
+          avatar_url: null,
+        },
+      ),
+      "/profile/crimson",
+    );
+  });
+});

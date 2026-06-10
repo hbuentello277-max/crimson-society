@@ -16,6 +16,10 @@ type PushPayload = {
   rideId?: string | null;
   conversationId?: string | null;
   collapseKey?: string | null;
+  requestId?: string | null;
+  actorUserId?: string | null;
+  actorUsername?: string | null;
+  targetUrl?: string | null;
 };
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
@@ -142,6 +146,10 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
             rideId: payload.rideId || "",
             conversationId: payload.conversationId || "",
             collapseKey,
+            requestId: payload.requestId || "",
+            actorUserId: payload.actorUserId || "",
+            actorUsername: payload.actorUsername || "",
+            targetUrl: payload.targetUrl || payload.url,
           },
           android: {
             collapse_key: collapseKey,

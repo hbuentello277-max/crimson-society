@@ -153,7 +153,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
       const { data, error } = await supabase
         .from("notifications")
         .select(
-          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at, target_url, post_id, comment_id, deletion_request_id, notification_group_key, notification_count, last_actor_id, last_preview_text, last_event_at",
+          "id, user_id, type, title, body, ride_id, conversation_id, actor_id, read_at, created_at, target_url, destination_url, metadata, post_id, comment_id, deletion_request_id, notification_group_key, notification_count, last_actor_id, last_preview_text, last_event_at",
         )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })

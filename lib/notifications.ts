@@ -10,7 +10,9 @@ export type NotificationType =
   | "meet_ended"
   | "meet_reminder"
   | "direct_message"
+  | "connection_request"
   | "connection_request_received"
+  | "connection_accepted"
   | "post_liked"
   | "post_commented"
   | "admin_report_submitted"
@@ -46,6 +48,8 @@ export type NotificationItem = {
   comment_id?: string | null;
   deletion_request_id?: string | null;
   target_url?: string | null;
+  destination_url?: string | null;
+  metadata?: NotificationMetadata | null;
   actor_id: string | null;
   read_at: string | null;
   created_at: string;
@@ -54,6 +58,16 @@ export type NotificationItem = {
   last_actor_id?: string | null;
   last_preview_text?: string | null;
   last_event_at?: string | null;
+};
+
+export type NotificationMetadata = {
+  connection_id?: string;
+  request_id?: string;
+  entity_type?: string;
+  entity_id?: string;
+  actor_user_id?: string;
+  actor_username?: string;
+  route?: string;
 };
 
 export type NotificationDestinationInput = Pick<
@@ -65,7 +79,14 @@ export type NotificationDestinationInput = Pick<
   | "comment_id"
   | "deletion_request_id"
   | "target_url"
+  | "destination_url"
+  | "metadata"
 >;
+
+const CONNECT_REQUEST_TYPES = new Set<NotificationType>([
+  "connection_request",
+  "connection_request_received",
+]);
 
 const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "meet_joined",
@@ -79,7 +100,9 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "meet_ended",
   "meet_reminder",
   "direct_message",
+  "connection_request",
   "connection_request_received",
+  "connection_accepted",
   "post_liked",
   "post_commented",
   "admin_report_submitted",
@@ -124,13 +147,49 @@ export function actorProfileHref(actor: NotificationActor | null | undefined) {
   return username ? `/profile/${username}` : null;
 }
 
+export function connectionRequestReviewPath(requestId: string) {
+  return `/connect/requests/${requestId}`;
+}
+
+function metadataRoute(
+  metadata: NotificationMetadata | null | undefined,
+): string | null {
+  if (!metadata) return null;
+
+  const explicitRoute = metadata.route ? normalizeInAppPath(metadata.route) : null;
+  if (explicitRoute) return explicitRoute;
+
+  const requestId = metadata.request_id || metadata.connection_id || metadata.entity_id;
+  if (requestId && metadata.entity_type === "connection_request") {
+    return connectionRequestReviewPath(String(requestId));
+  }
+
+  if (requestId && CONNECT_REQUEST_TYPES.has(metadata.entity_type as NotificationType)) {
+    return connectionRequestReviewPath(String(requestId));
+  }
+
+  const actorUsername = metadata.actor_username?.trim().replace(/^@+/, "");
+  if (actorUsername && metadata.entity_type === "connection_accepted") {
+    return `/profile/${actorUsername}`;
+  }
+
+  return null;
+}
+
 export function notificationDestination(
   notification: NotificationDestinationInput,
   actor: NotificationActor | null | undefined,
 ) {
-  const storedPath = notification.target_url ? normalizeInAppPath(notification.target_url) : null;
+  const storedPath =
+    (notification.target_url ? normalizeInAppPath(notification.target_url) : null) ||
+    (notification.destination_url ? normalizeInAppPath(notification.destination_url) : null);
   if (storedPath) {
     return storedPath;
+  }
+
+  const metadataPath = metadataRoute(notification.metadata);
+  if (metadataPath) {
+    return metadataPath;
   }
 
   if (
@@ -165,8 +224,16 @@ export function notificationDestination(
     return actorProfileHref(actor) || "/inbox?tab=notifications";
   }
 
-  if (notification.type === "connection_request_received") {
-    return storedPath ?? "/connect";
+  if (CONNECT_REQUEST_TYPES.has(notification.type)) {
+    const requestId =
+      notification.metadata?.request_id ||
+      notification.metadata?.connection_id ||
+      notification.metadata?.entity_id;
+    return requestId ? connectionRequestReviewPath(String(requestId)) : "/connect";
+  }
+
+  if (notification.type === "connection_accepted") {
+    return actorProfileHref(actor) || "/connect";
   }
 
   if (notification.type === "admin_report_submitted") {
@@ -225,8 +292,11 @@ export function notificationTypeLabel(type: NotificationType) {
       return "New follower";
     case "direct_message":
       return "Message";
+    case "connection_request":
     case "connection_request_received":
-      return "Connect request";
+      return "Connection request";
+    case "connection_accepted":
+      return "Connection accepted";
     case "admin_report_submitted":
       return "Moderation report";
     case "post_liked":
@@ -295,8 +365,11 @@ export function notificationSummary(
       return trimmedBody || `${name} liked your post`;
     case "post_commented":
       return trimmedBody || `${name} commented on your post`;
+    case "connection_request":
     case "connection_request_received":
-      return trimmedBody || `${name} sent you a connect request`;
+      return trimmedBody || `${name} sent you a connection request`;
+    case "connection_accepted":
+      return trimmedBody || `${name} approved your connection request`;
     case "admin_report_submitted":
       return trimmedBody || "A member submitted a moderation report";
     case "account_deletion_requested":
