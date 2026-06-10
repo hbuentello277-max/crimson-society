@@ -112,6 +112,9 @@ export type NavigationArrivalNearestRider = {
 export type NavigationArrivalUiState = {
   phase: ArrivalUiPhase;
   nearestRider: NavigationArrivalNearestRider | null;
+  nearbyRiders: NavigationArrivalNearestRider[];
+  hostName: string | null;
+  liveRiderCount: number;
   meetChatHref: string | null;
 };
 
@@ -124,6 +127,9 @@ export type NavigationArrivalSessionState = {
 export const EMPTY_NAVIGATION_ARRIVAL_UI: NavigationArrivalUiState = {
   phase: "none",
   nearestRider: null,
+  nearbyRiders: [],
+  hostName: null,
+  liveRiderCount: 0,
   meetChatHref: null,
 };
 

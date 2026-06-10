@@ -4,7 +4,7 @@ import Link from "next/link";
 import { memo } from "react";
 import { openMapsNavigation } from "@/lib/meets/maps-links";
 import {
-  formatDistanceFeet,
+  formatRiderDistanceLine,
   meetArrivalBannerMessage,
 } from "@/lib/meets/navigation/arrival-flow";
 import { resolveManeuverArrow } from "@/lib/meets/navigation/maneuver-arrow";
@@ -138,31 +138,39 @@ function NavigationDirectionBannerComponent({
       ) ?? "You've arrived at the meet start.";
 
     if (arrivalPhase === "find_group") {
-      const nearest = arrivalUi.nearestRider;
+      const nearbyRiders = arrivalUi.nearbyRiders;
+      const hasRiderLocations = nearbyRiders.length > 0;
 
       return (
         <div className="shrink-0 border-b border-emerald-500/30 bg-[#071a12] px-4 py-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/10 text-xl text-emerald-300">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/10 text-lg text-emerald-300">
               ◉
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[9px] uppercase tracking-[0.22em] text-emerald-300/90">Find The Group</p>
-              {nearest ? (
-                <>
-                  <p className="mt-1 text-lg font-semibold leading-tight text-white sm:text-xl">
-                    {nearest.role === "host" ? "Head toward Host" : "Nearest Rider"}
-                  </p>
-                  <p className="mt-1 text-base font-medium text-emerald-300">
-                    {nearest.name}
-                  </p>
-                  <p className="mt-0.5 text-sm text-emerald-200/90">
-                    {formatDistanceFeet(nearest.distanceFeet)}
-                  </p>
-                </>
+              {arrivalUi.hostName ? (
+                <p className="mt-1 text-sm text-zinc-300">
+                  Host: <span className="font-medium text-white">{arrivalUi.hostName}</span>
+                </p>
+              ) : null}
+              {arrivalUi.liveRiderCount > 0 ? (
+                <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-emerald-200/80">
+                  {arrivalUi.liveRiderCount} rider{arrivalUi.liveRiderCount === 1 ? "" : "s"} sharing location
+                </p>
+              ) : null}
+              {hasRiderLocations ? (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">Riders Nearby</p>
+                  {nearbyRiders.map((rider) => (
+                    <p key={`${rider.role}-${rider.name}`} className="text-sm font-medium text-emerald-100">
+                      {formatRiderDistanceLine(rider)}
+                    </p>
+                  ))}
+                </div>
               ) : (
-                <p className="mt-1 text-lg font-semibold leading-tight text-emerald-50">
-                  Look for riders near the meet point.
+                <p className="mt-2 text-sm leading-6 text-emerald-100/90">
+                  Waiting for riders to begin sharing location.
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -191,14 +199,14 @@ function NavigationDirectionBannerComponent({
     }
 
     return (
-      <div className="shrink-0 border-b border-emerald-500/30 bg-[#071a12] px-4 py-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/10 text-2xl text-emerald-300">
+      <div className="shrink-0 border-b border-emerald-500/30 bg-[#071a12] px-4 py-2.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/10 text-xl text-emerald-300">
             ✓
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[9px] uppercase tracking-[0.22em] text-emerald-300/90">Arrival</p>
-            <p className="mt-1 text-xl font-semibold leading-tight text-emerald-50 sm:text-2xl">
+            <p className="mt-1 text-base font-semibold leading-snug text-emerald-50 sm:text-lg">
               {bannerMessage}
             </p>
           </div>

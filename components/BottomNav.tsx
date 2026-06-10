@@ -1,39 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import {
-  blockedUserIdSet,
-  countUnreadMessages,
-  type ConversationMemberBadgeRow,
-  type MessageBadgeRow,
-} from "@/lib/messages/unread-message-count";
 import { supabase } from "@/lib/supabase";
 import { NavTabBadge } from "@/components/NavTabBadge";
-import { MEET_TABLES } from "@/lib/meets/db-tables";
-import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
-
-type RideReadRow = {
-  ride_id: string;
-  last_read_at: string;
-};
-
-type RideMessageBadgeRow = {
-  ride_id: string;
-  user_id: string;
-  created_at: string;
-};
-
-type RideBadgeRow = {
-  id: string;
-  date: string | null;
-  time: string | null;
-  meet_duration_minutes?: number | null;
-  tracking_status?: string | null;
-  status?: string | null;
-};
+import {
+  loadConnectNavBadgeCount,
+  loadInboxMessageBadgeCount,
+  loadInboxNotificationBadgeCount,
+  loadMeetNavBadgeCount,
+  loadProfileNavBadgeCount,
+} from "@/lib/nav-badge-counts";
 
 const NAV = [
   {
@@ -104,271 +83,72 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { session, loading, status: profileStatus } = useAuth();
-  const [meetUnreadCounts, setMeetUnreadCounts] = useState<Record<string, number>>({});
+  const [meetBadgeCount, setMeetBadgeCount] = useState(0);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [connectBadgeCount, setConnectBadgeCount] = useState(0);
+  const [profileBadgeCount, setProfileBadgeCount] = useState(0);
 
-  const meetUnreadTotal = useMemo(
-    () => Object.values(meetUnreadCounts).reduce((total, count) => total + count, 0),
-    [meetUnreadCounts],
-  );
   const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
 
-  const isOpenMeetForBadge = useCallback((ride: RideBadgeRow) => {
-    const phase = deriveMeetLifecycle({
-      status: "active",
-      date: ride.date,
-      time: ride.time,
-    });
-    return phase === "upcoming" || phase === "active";
-  }, []);
-
-  const loadMeetUnreadCounts = useCallback(async () => {
+  const refreshAllBadges = useCallback(async () => {
     const userId = session?.user?.id;
-
     if (!userId) {
-      setMeetUnreadCounts({});
-      return;
-    }
-
-    const { data: rides, error: ridesError } = await supabase
-      .from(MEET_TABLES.meets)
-      .select("id, date, time, meet_duration_minutes, tracking_status, status")
-      .eq("status", "active");
-
-    if (ridesError) {
-      console.error("Failed to load meet nav rides:", ridesError);
-      return;
-    }
-
-    const rideIds = ((rides || []) as RideBadgeRow[]).filter(isOpenMeetForBadge).map((ride) => ride.id);
-
-    if (rideIds.length === 0) {
-      setMeetUnreadCounts({});
-      return;
-    }
-
-    const [
-      { data: readRows, error: readsError },
-      { data: messageRows, error: messagesError },
-    ] = await Promise.all([
-      supabase
-        .from(MEET_TABLES.messageReads)
-        .select("ride_id, last_read_at")
-        .eq("user_id", userId)
-        .in("ride_id", rideIds),
-      supabase
-        .from(MEET_TABLES.messages)
-        .select("ride_id, user_id, created_at")
-        .in("ride_id", rideIds),
-    ]);
-
-    if (readsError) {
-      console.error("Failed to load meet nav read markers:", readsError);
-    }
-
-    if (messagesError) {
-      console.error("Failed to load meet nav unread messages:", messagesError);
-      return;
-    }
-
-    const readMap = new Map(
-      ((readRows || []) as RideReadRow[]).map((row) => [row.ride_id, row.last_read_at]),
-    );
-    const nextCounts = Object.fromEntries(rideIds.map((rideId) => [rideId, 0]));
-
-    for (const message of (messageRows || []) as RideMessageBadgeRow[]) {
-      if (message.user_id === userId) continue;
-
-      const lastReadAt = readMap.get(message.ride_id);
-      if (!lastReadAt || message.created_at > lastReadAt) {
-        nextCounts[message.ride_id] = (nextCounts[message.ride_id] || 0) + 1;
-      }
-    }
-
-    setMeetUnreadCounts(nextCounts);
-  }, [isOpenMeetForBadge, session?.user?.id]);
-
-  const loadNotificationUnreadCount = useCallback(async () => {
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      setNotificationUnreadCount(0);
-      return;
-    }
-
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .is("read_at", null);
-
-    if (error) {
-      console.error("Failed to load notification unread count:", error);
-      return;
-    }
-
-    setNotificationUnreadCount(count || 0);
-  }, [session?.user?.id]);
-
-  const loadMessageUnreadCount = useCallback(async () => {
-    const userId = session?.user?.id;
-
-    if (!userId) {
+      setMeetBadgeCount(0);
       setMessageUnreadCount(0);
+      setNotificationUnreadCount(0);
+      setConnectBadgeCount(0);
+      setProfileBadgeCount(0);
       return;
     }
 
-    const [{ data: memberships, error: membershipsError }, { data: blocks, error: blocksError }] =
+    const [meetCount, messageCount, notificationCount, connectCount, profileCount] =
       await Promise.all([
-        supabase
-          .from("conversation_members")
-          .select("conversation_id, last_read_at")
-          .eq("user_id", userId),
-        supabase
-          .from("user_blocks")
-          .select("blocker_id, blocked_id")
-          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+        loadMeetNavBadgeCount(supabase, userId),
+        loadInboxMessageBadgeCount(supabase, userId),
+        loadInboxNotificationBadgeCount(supabase, userId),
+        loadConnectNavBadgeCount(supabase, userId),
+        loadProfileNavBadgeCount(supabase, userId),
       ]);
 
-    if (membershipsError) {
-      console.error("Failed to load inbox nav memberships:", membershipsError);
-      return;
-    }
-
-    if (blocksError) {
-      console.error("Failed to load inbox nav blocks:", blocksError);
-      return;
-    }
-
-    const memberRows = (memberships || []) as ConversationMemberBadgeRow[];
-    const conversationIds = memberRows.map((membership) => membership.conversation_id);
-
-    if (conversationIds.length === 0) {
-      setMessageUnreadCount(0);
-      return;
-    }
-
-    const { data: messages, error: messagesError } = await supabase
-      .from("messages")
-      .select("conversation_id, sender_id, created_at")
-      .in("conversation_id", conversationIds);
-
-    if (messagesError) {
-      console.error("Failed to load inbox nav unread messages:", messagesError);
-      return;
-    }
-
-    const blockedIds = blockedUserIdSet(userId, blocks || []);
-    const nextCount = countUnreadMessages(
-      userId,
-      memberRows,
-      (messages || []) as MessageBadgeRow[],
-      blockedIds,
-    );
-
-    setMessageUnreadCount(nextCount);
+    setMeetBadgeCount(meetCount);
+    setMessageUnreadCount(messageCount);
+    setNotificationUnreadCount(notificationCount);
+    setConnectBadgeCount(connectCount);
+    setProfileBadgeCount(profileCount);
   }, [session?.user?.id]);
 
   useEffect(() => {
     if (loading) return;
-    void loadMeetUnreadCounts();
-    void loadMessageUnreadCount();
-    void loadNotificationUnreadCount();
-  }, [loadMeetUnreadCounts, loadMessageUnreadCount, loadNotificationUnreadCount, loading]);
+    void refreshAllBadges();
+  }, [loading, refreshAllBadges]);
+
+  useEffect(() => {
+    if (loading) return;
+    void refreshAllBadges();
+  }, [loading, pathname, refreshAllBadges]);
 
   useEffect(() => {
     const userId = session?.user?.id;
     if (loading || !userId) return;
 
     const channel = supabase
-      .channel(`bottom-nav-meet-unread-${userId}`)
+      .channel(`bottom-nav-badges-${userId}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "ride_messages",
-        },
-        (payload) => {
-          const message = payload.new as Partial<RideMessageBadgeRow>;
-          if (!message.ride_id || !message.user_id || message.user_id === userId) return;
-
-          void loadMeetUnreadCounts();
-        },
+        { event: "*", schema: "public", table: "ride_messages" },
+        () => void refreshAllBadges(),
       )
       .on(
         "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "ride_messages",
-        },
-        () => {
-          void loadMeetUnreadCounts();
-        },
-      )
-      .subscribe();
-
-    const handleMeetRead = (event: Event) => {
-      const rideId = (event as CustomEvent<{ rideId?: string }>).detail?.rideId;
-      if (!rideId) return;
-
-      setMeetUnreadCounts((current) => ({
-        ...current,
-        [rideId]: 0,
-      }));
-    };
-
-    window.addEventListener("crimson-meet-chat-read", handleMeetRead);
-
-    return () => {
-      window.removeEventListener("crimson-meet-chat-read", handleMeetRead);
-      void supabase.removeChannel(channel);
-    };
-  }, [loadMeetUnreadCounts, loading, session?.user?.id]);
-
-  useEffect(() => {
-    const userId = session?.user?.id;
-    if (loading || !userId) return;
-
-    const channel = supabase
-      .channel(`bottom-nav-inbox-messages-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-        },
-        () => {
-          void loadMessageUnreadCount();
-        },
+        { event: "*", schema: "public", table: "messages" },
+        () => void refreshAllBadges(),
       )
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "conversation_members",
-        },
-        () => {
-          void loadMessageUnreadCount();
-        },
+        { event: "*", schema: "public", table: "conversation_members" },
+        () => void refreshAllBadges(),
       )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [loadMessageUnreadCount, loading, session?.user?.id]);
-
-  useEffect(() => {
-    const userId = session?.user?.id;
-    if (loading || !userId) return;
-
-    const channel = supabase
-      .channel(`bottom-nav-notifications-${userId}`)
       .on(
         "postgres_changes",
         {
@@ -377,23 +157,27 @@ export default function BottomNav() {
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => {
-          void loadNotificationUnreadCount();
-        },
+        () => void refreshAllBadges(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_connections" },
+        () => void refreshAllBadges(),
       )
       .subscribe();
 
-    const handleNotificationsRead = () => {
-      setNotificationUnreadCount(0);
-    };
+    const handleMeetRead = () => void refreshAllBadges();
+    const handleNotificationsRead = () => void refreshAllBadges();
 
+    window.addEventListener("crimson-meet-chat-read", handleMeetRead);
     window.addEventListener("crimson-notifications-read", handleNotificationsRead);
 
     return () => {
+      window.removeEventListener("crimson-meet-chat-read", handleMeetRead);
       window.removeEventListener("crimson-notifications-read", handleNotificationsRead);
       void supabase.removeChannel(channel);
     };
-  }, [loadNotificationUnreadCount, loading, session?.user?.id]);
+  }, [loading, refreshAllBadges, session?.user?.id]);
 
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;
@@ -431,8 +215,18 @@ export default function BottomNav() {
                   }`}
                 >
                   {n.icon}
-                  {n.href === "/meets" ? <NavTabBadge count={meetUnreadTotal} /> : null}
-                  {n.href === "/inbox" ? <NavTabBadge count={inboxUnreadTotal} /> : null}
+                  {n.href === "/meets" ? (
+                    <NavTabBadge count={meetBadgeCount} label="Meets" />
+                  ) : null}
+                  {n.href === "/inbox" ? (
+                    <NavTabBadge count={inboxUnreadTotal} label="Inbox" />
+                  ) : null}
+                  {n.href === "/connect" ? (
+                    <NavTabBadge count={connectBadgeCount} label="Riders" />
+                  ) : null}
+                  {n.href === "/profile" ? (
+                    <NavTabBadge count={profileBadgeCount} label="Profile" />
+                  ) : null}
                 </span>
                 <span className="max-w-full truncate text-center text-[9px] uppercase leading-none tracking-[0.2em]">
                   {n.label}

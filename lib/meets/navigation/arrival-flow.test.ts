@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   findNearestGroupRider,
   formatDistanceFeet,
+  formatRiderDistanceLine,
   hasLeftMeetStartZone,
+  listNearbyGroupRiders,
   resolveNextArrivalPhase,
   shouldEnterMeetStartArrival,
 } from "@/lib/meets/navigation/arrival-flow";
@@ -37,7 +39,7 @@ describe("arrival flow", () => {
   });
 
   it("transitions from meet start notice to find group after the notice window", () => {
-    const now = 10_000;
+    const now = 5_000;
     const next = resolveNextArrivalPhase("meet_start_notice", {
       detection: {
         atMeetStart: true,
@@ -49,10 +51,39 @@ describe("arrival flow", () => {
       position: { lat: 29.4241, lng: -98.4936, accuracy: 5, heading: null, speedMph: 0, timestamp: now },
       meetStart: { lat: 29.4241, lng: -98.4936 },
       now,
-      phaseStartedAt: 2_000,
+      phaseStartedAt: 500,
     });
 
     assert.equal(next, "find_group");
+  });
+
+  it("lists nearby riders sorted by distance", () => {
+    const nearby = listNearbyGroupRiders(
+      { lat: 29.4241, lng: -98.4936, accuracy: 5, heading: null, speedMph: 0, timestamp: Date.now() },
+      [
+        {
+          user_id: "host-1",
+          rider_name: "Javi",
+          rider_display_name: "Javi Buentello",
+          rider_photo: null,
+          lat: 29.42425,
+          lng: -98.4937,
+        },
+        {
+          user_id: "rider-2",
+          rider_name: "Crimson",
+          rider_display_name: "Crimson",
+          rider_photo: null,
+          lat: 29.42415,
+          lng: -98.49355,
+        },
+      ],
+      "host-1",
+      "Javi Buentello",
+    );
+
+    assert.equal(nearby.length, 2);
+    assert.equal(formatRiderDistanceLine(nearby[0]).includes("•"), true);
   });
 
   it("clears meet arrival when ride tracking becomes active", () => {
@@ -111,6 +142,6 @@ describe("arrival flow", () => {
     assert.equal(nearest?.name, "Crimson");
     assert.equal(nearest?.role, "rider");
     assert.ok(nearest && nearest.distanceFeet < 500);
-    assert.equal(formatDistanceFeet(350), "350 ft away");
+    assert.equal(formatDistanceFeet(350), "350 ft");
   });
 });

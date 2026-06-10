@@ -20,6 +20,7 @@ import {
 import { detectNavigationArrival } from "@/lib/meets/navigation/arrival";
 import {
   findNearestGroupRider,
+  listNearbyGroupRiders,
   meetChatHref,
   resolveNextArrivalPhase,
 } from "@/lib/meets/navigation/arrival-flow";
@@ -389,19 +390,29 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   }, [arrivalUiPhase, latestPosition, meet?.trackingStatus, navigationSession.route]);
 
   const sessionWithArrivalUi = useMemo((): NavigationSession => {
+    const resolvedHostId = meet?.hostId ?? navigationSession.meet?.hostId ?? null;
+    const resolvedHostName = hostName ?? navigationSession.meet?.hostName ?? null;
+    const nearbyRiders =
+      arrivalUiPhase === "find_group"
+        ? listNearbyGroupRiders(latestPosition, liveRiders, resolvedHostId, resolvedHostName)
+        : [];
     const nearestRider =
       arrivalUiPhase === "find_group"
-        ? findNearestGroupRider(
+        ? nearbyRiders[0] ??
+          findNearestGroupRider(
             latestPosition,
             liveRiders,
-            meet?.hostId ?? navigationSession.meet?.hostId ?? null,
-            hostName ?? navigationSession.meet?.hostName ?? null,
+            resolvedHostId,
+            resolvedHostName,
           )
         : null;
 
     const arrivalUi: NavigationArrivalUiState = {
       phase: arrivalUiPhase,
       nearestRider,
+      nearbyRiders,
+      hostName: resolvedHostName,
+      liveRiderCount: liveRiders.length,
       meetChatHref: meet?.id ? meetChatHref(meet.id) : null,
     };
 

@@ -15,20 +15,17 @@ import {
   type ConversationMemberBadgeRow,
   type MessageBadgeRow,
 } from "@/lib/messages/unread-message-count";
+import { formatNavBadgeCount } from "@/lib/nav-badge-format";
 import { supabase } from "@/lib/supabase";
 
 type InboxTab = "messages" | "notifications";
-
-function badgeLabel(count: number) {
-  return count > 9 ? "9+" : String(count);
-}
 
 function TabBadge({ count }: { count: number }) {
   if (count <= 0) return null;
 
   return (
     <span className="ml-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-1 text-[9px] font-semibold leading-none text-[#e87a82]">
-      {badgeLabel(count)}
+      {formatNavBadgeCount(count)}
     </span>
   );
 }
