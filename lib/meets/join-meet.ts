@@ -7,6 +7,7 @@ export type JoinMeetInput = {
   meetId: string;
   userId: string | null | undefined;
   hostId?: string | null;
+  coHostId?: string | null;
   privacy?: MeetPrivacy | string | null;
   visibility?: string | null;
   status?: string | null;
@@ -24,6 +25,10 @@ export function canJoinDashboardMeet(input: JoinMeetInput) {
 
   if (input.hostId && input.hostId === input.userId) {
     return { allowed: false, message: "You are hosting this meet." };
+  }
+
+  if (input.coHostId && input.coHostId === input.userId) {
+    return { allowed: false, message: "You are co-hosting this meet." };
   }
 
   if (input.isAlreadyGoing) {

@@ -18,6 +18,7 @@ import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
 import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
 import { dedupeMeetsById } from "@/lib/meets/dedupe-meets";
+import { leaveMeetAttendance } from "@/lib/meets/leave-meet";
 import { formatRouteDurationLabel } from "@/lib/meets/format-route-duration";
 import { buildSnappedRoute } from "@/lib/routing";
 import {
@@ -125,9 +126,27 @@ function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
     hostProfile?.avatar_url ||
     DEFAULT_HOST_PHOTO;
 
+  const coHostProfile = row.coHost;
+  const coHostName =
+    coHostProfile?.display_name?.trim() ||
+    coHostProfile?.full_name?.trim() ||
+    coHostProfile?.username?.trim() ||
+    null;
+
   return {
     id: row.id,
     hostId: row.host_id,
+    coHostId: row.co_host_id ?? null,
+    coHost: coHostName
+      ? {
+          name: coHostName,
+          photo:
+            coHostProfile?.profile_image_url ||
+            coHostProfile?.avatar_url ||
+            DEFAULT_HOST_PHOTO,
+          username: coHostProfile?.username ?? null,
+        }
+      : null,
     name: row.name,
     date: row.date,
     time: row.time,
@@ -699,11 +718,12 @@ if (active) {
 }
 
       const profileIds = Array.from(
-  new Set([
-    ...rows.map((row) => row.host_id),
-    ...typedAttendanceRows.map((row) => row.user_id),
-  ].filter(Boolean))
-);
+        new Set([
+          ...rows.map((row) => row.host_id),
+          ...rows.map((row) => row.co_host_id),
+          ...typedAttendanceRows.map((row) => row.user_id),
+        ].filter(Boolean)),
+      );
 
       const { data: profiles, error: profilesError } = await supabase
       .from("public_profiles")
@@ -746,6 +766,7 @@ for (const attendee of typedAttendanceRows) {
 const rowsWithHosts = rows.map((row) => ({
   ...row,
   host: profileMap.get(row.host_id) || null,
+  coHost: row.co_host_id ? profileMap.get(row.co_host_id) || null : null,
   attendeeRiders: attendeesByRide.get(row.id) || [],
 }));
 
@@ -830,7 +851,7 @@ const ridesWithRoutes = await Promise.all(
     };
   }, [authLoading, loadUnreadCounts, markMeetRead, session?.user?.id]);
 
-  async function toggleJoin(rideId: string) {
+  async function joinMeet(rideId: string) {
   if (!session?.user?.id) {
     setToast("You must be signed in to join a meet.");
     window.setTimeout(() => setToast(null), 2500);
@@ -838,7 +859,11 @@ const ridesWithRoutes = await Promise.all(
   }
 
   const ride = realMeets.find((meet) => meet.id === rideId);
-  if (ride?.hostId === session.user.id) {
+  if (going[rideId]) {
+    return;
+  }
+
+  if (ride?.hostId === session.user.id || ride?.coHostId === session.user.id) {
     setToast("You are hosting this meet.");
     window.setTimeout(() => setToast(null), 2000);
     return;
@@ -850,13 +875,7 @@ const ridesWithRoutes = await Promise.all(
     return;
   }
 
-  const isCurrentlyGoing = !!going[rideId];
-
-  if (
-    !isCurrentlyGoing &&
-    ride &&
-    meetJoinBlocked(ride, false)
-  ) {
+  if (ride && meetJoinBlocked(ride, false)) {
     setToast(
       getMeetJoinBlockMessage({
         privacy: ride.privacy,
@@ -867,39 +886,6 @@ const ridesWithRoutes = await Promise.all(
       }),
     );
     window.setTimeout(() => setToast(null), 2800);
-    return;
-  }
-
-  if (isCurrentlyGoing) {
-    const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
-      target_ride_id: rideId,
-      activity: "left",
-    });
-
-    if (activityError) {
-      console.error("Failed to log meet leave activity:", activityError);
-    }
-
-    const { error } = await supabase
-      .from(MEET_TABLES.attendees)
-      .delete()
-      .eq("ride_id", rideId)
-      .eq("user_id", session.user.id);
-
-    if (error) {
-      console.error("Failed to leave meet:", error);
-      setToast("Could not leave meet.");
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
-
-    setGoing((current) => ({
-      ...current,
-      [rideId]: false,
-    }));
-
-    setToast("Meet left.");
-    window.setTimeout(() => setToast(null), 2000);
     return;
   }
 
@@ -944,6 +930,56 @@ const ridesWithRoutes = await Promise.all(
   setToast("Meet joined.");
   window.setTimeout(() => setToast(null), 2000);
 }
+
+  async function leaveMeet(rideId: string) {
+    if (!session?.user?.id) return;
+
+    const result = await leaveMeetAttendance(rideId, session.user.id);
+    if (!result.ok) {
+      setToast(result.error ?? "Could not leave meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setGoing((current) => ({
+      ...current,
+      [rideId]: false,
+    }));
+
+    const { data: attendeeRows } = await supabase
+      .from(MEET_TABLES.attendees)
+      .select(
+        `
+        user_id,
+        profile:profiles!ride_attendees_user_id_fkey (
+          username,
+          display_name,
+          full_name,
+          profile_image_url,
+          avatar_url
+        )
+      `,
+      )
+      .eq("ride_id", rideId);
+
+    const nextGoing =
+      (attendeeRows || []).map((row) => {
+        const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+        return {
+          name:
+            profile?.display_name?.trim() ||
+            profile?.full_name?.trim() ||
+            profile?.username?.trim() ||
+            "Crimson Member",
+          photo: profile?.profile_image_url || profile?.avatar_url || DEFAULT_HOST_PHOTO,
+          username: profile?.username ?? null,
+        };
+      }) ?? [];
+
+    applyMeetPatch(rideId, { going: nextGoing });
+    setToast("Meet left.");
+    window.setTimeout(() => setToast(null), 2000);
+  }
 
   function applyMeetPatch(rideId: string, patch: Partial<Meet>) {
     setRealMeets((current) =>
@@ -1373,7 +1409,7 @@ const ridesWithRoutes = await Promise.all(
 
                 <button
                   type="button"
-                  onClick={() => toggleJoin(panelFeatured.id)}
+                  onClick={() => void joinMeet(panelFeatured.id)}
                   disabled={
                     panelFeatured.hostId === session?.user?.id ||
                     panelFeatured.status === "canceled" ||
@@ -1450,7 +1486,7 @@ const ridesWithRoutes = await Promise.all(
                   onEdit={() => setEditingMeet(ride)}
                   isGoing={isGoingRide}
                   onCancel={() => void cancelMeet(ride.id)}
-                  onJoin={() => toggleJoin(ride.id)}
+                  onJoin={() => void joinMeet(ride.id)}
                   onViewDetails={() => openMeetDetails(ride)}
                 />
               );
@@ -1545,9 +1581,18 @@ const ridesWithRoutes = await Promise.all(
           isGoing={!!going[selectedMeet.id]}
           isAdmin={isAdmin}
           scrollToChat={meetSectionParam === "chat"}
-          onJoin={() => toggleJoin(selectedMeet.id)}
+          onJoin={() => void joinMeet(selectedMeet.id)}
+          onLeave={() => void leaveMeet(selectedMeet.id)}
+          onEditMeet={() => {
+            setEditingMeet(selectedMeet);
+            setSelectedMeet(null);
+          }}
           onRead={markMeetRead}
           onClose={() => setSelectedMeet(null)}
+          onToast={(message) => {
+            setToast(message);
+            window.setTimeout(() => setToast(null), 2400);
+          }}
           onMeetUpdated={(patch) => applyMeetPatch(selectedMeet.id, patch)}
           onAttendeesChanged={(nextGoing) => {
             setSelectedMeet((current) =>
