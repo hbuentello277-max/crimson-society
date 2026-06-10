@@ -29,6 +29,7 @@ const TYPE_STYLES: Record<
   account_deletion_canceled: { bg: "bg-amber-500/90", label: "Admin", glyph: "↩" },
   account_deletion_approved: { bg: "bg-emerald-500/85", label: "Admin", glyph: "✓" },
   host_meet_created: { bg: "bg-[#b4141e]/70 border border-[#b4141e]", label: "Meets", glyph: "🔔" },
+  crimson_credits_reward: { bg: "bg-[#b4141e]/70 border border-[#b4141e]", label: "Credits", glyph: "✦" },
   shop_order_paid: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "Shop", glyph: "🛍" },
   admin_order_created: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "Shop", glyph: "🛍" },
   admin_order_paid: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "Shop", glyph: "💳" },

@@ -9,6 +9,7 @@ import type { MeetPrivacy, MeetTrackingStatus } from "@/lib/meets/types";
 export type DashboardMapMeet = {
   id: string;
   hostId: string;
+  coHostId?: string | null;
   name: string;
   date: string;
   time: string;
@@ -31,6 +32,7 @@ export type DashboardMapMeet = {
   riderCount: number;
   liveRiderCount: number;
   hostName: string | null;
+  coHostName?: string | null;
   lifecyclePhase: MeetLifecyclePhase;
 };
 

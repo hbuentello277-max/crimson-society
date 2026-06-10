@@ -41,7 +41,8 @@ export type NotificationType =
   | "admin_order_created"
   | "admin_order_paid"
   | "admin_low_inventory"
-  | "meet_cancelled";
+  | "meet_cancelled"
+  | "crimson_credits_reward";
 
 export type NotificationActor = {
   id: string;
@@ -86,6 +87,11 @@ export type NotificationMetadata = {
   post_id?: string;
   comment_id?: string;
   order_id?: string;
+  meet_id?: string;
+  amount?: number;
+  reason?: string;
+  credit_role?: string;
+  idempotency_key?: string;
 };
 
 export type NotificationDestinationInput = Pick<
@@ -187,6 +193,7 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "admin_order_paid",
   "admin_low_inventory",
   "meet_cancelled",
+  "crimson_credits_reward",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -295,6 +302,13 @@ function metadataRoute(
     return orderNotificationPath(metadata.order_id);
   }
 
+  if (
+    metadata.entity_type === "crimson_credits_reward" ||
+    notificationType === "crimson_credits_reward"
+  ) {
+    return "/profile/credits/history";
+  }
+
   return null;
 }
 
@@ -389,6 +403,10 @@ export function notificationDestination(
     return orderId ? orderNotificationPath(String(orderId)) : "/profile/orders";
   }
 
+  if (notification.type === "crimson_credits_reward") {
+    return "/profile/credits/history";
+  }
+
   if (MEET_DETAIL_TYPES.has(notification.type)) {
     return "/meets";
   }
@@ -446,6 +464,8 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Ride started";
     case "host_meet_created":
       return "Host meet";
+    case "crimson_credits_reward":
+      return "Crimson Credits";
     case "shop_order_paid":
     case "admin_order_paid":
       return "Shop order";

@@ -1,6 +1,7 @@
 const TYPE_LABELS: Record<string, string> = {
   meet_attended: "Meet Attended",
   meet_hosted: "Meet Hosted",
+  meet_cohost: "Meet Co-Hosted",
   referral_signup: "Referral Signup",
   referral_blackcard: "Referral Blackcard",
   admin_adjustment: "Admin Adjustment",
