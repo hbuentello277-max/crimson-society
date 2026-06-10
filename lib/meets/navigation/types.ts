@@ -96,10 +96,41 @@ export type OffRouteSessionState = {
   bannerMessage: string | null;
 };
 
+export type ArrivalUiPhase =
+  | "none"
+  | "meet_start_notice"
+  | "find_group"
+  | "destination_notice"
+  | "ride_summary";
+
+export type NavigationArrivalNearestRider = {
+  name: string;
+  distanceFeet: number;
+  role: "host" | "rider";
+};
+
+export type NavigationArrivalUiState = {
+  phase: ArrivalUiPhase;
+  nearestRider: NavigationArrivalNearestRider | null;
+  nearbyRiders: NavigationArrivalNearestRider[];
+  hostName: string | null;
+  liveRiderCount: number;
+  meetChatHref: string | null;
+};
+
 export type NavigationArrivalSessionState = {
   atMeetStart: boolean;
   atDestination: boolean;
   bannerMessage: string | null;
+};
+
+export const EMPTY_NAVIGATION_ARRIVAL_UI: NavigationArrivalUiState = {
+  phase: "none",
+  nearestRider: null,
+  nearbyRiders: [],
+  hostName: null,
+  liveRiderCount: 0,
+  meetChatHref: null,
 };
 
 export type NavigationMeetContext = {
@@ -133,6 +164,7 @@ export type NavigationSession = {
   isPaused: boolean;
   offRoute: OffRouteSessionState;
   arrival: NavigationArrivalSessionState;
+  arrivalUi: NavigationArrivalUiState;
 };
 
 export const EMPTY_NAVIGATION_ARRIVAL: NavigationArrivalSessionState = {

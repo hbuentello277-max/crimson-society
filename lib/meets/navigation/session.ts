@@ -20,6 +20,7 @@ import {
 } from "@/lib/meets/navigation/progress";
 import {
   EMPTY_NAVIGATION_ARRIVAL,
+  EMPTY_NAVIGATION_ARRIVAL_UI,
   EMPTY_NAVIGATION_METRICS,
 } from "@/lib/meets/navigation/types";
 import type {
@@ -71,6 +72,7 @@ export function createInitialNavigationSession(meetId: string, userId: string): 
     isPaused: false,
     offRoute: createInitialOffRouteState(),
     arrival: { ...EMPTY_NAVIGATION_ARRIVAL },
+    arrivalUi: { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };
 }
 
@@ -88,7 +90,7 @@ function buildArrivalState(
 
   let bannerMessage: string | null = null;
   if (detection.atDestination) {
-    bannerMessage = "Destination reached.";
+    bannerMessage = "You've arrived at the destination.";
   } else if (detection.atMeetStart) {
     bannerMessage = "You've arrived at the meet start.";
   }
@@ -187,5 +189,6 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
     isPaused: input.isPaused,
     offRoute: input.offRoute,
     arrival,
+    arrivalUi: input.base.arrivalUi ?? { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };
 }

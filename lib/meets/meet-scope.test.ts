@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   buildMeetCreditNotification,
@@ -74,6 +75,44 @@ describe("co-host display", () => {
     const lines = formatMeetHostDisplayLines("Javi", null);
     assert.equal(lines.hostedBy, "Hosted by Javi");
     assert.equal(lines.coHostLine, null);
+  });
+});
+
+describe("meet details overflow menu", () => {
+  it("keeps Report Meet in overflow menu only and preserves rider menu order", () => {
+    const overflow = readFileSync("components/meets/MeetDetailsOverflowMenu.tsx", "utf8");
+    const modal = readFileSync("components/meets/MeetDetailsModal.tsx", "utf8");
+
+    const shareIndex = overflow.indexOf("Share Meet");
+    const copyIndex = overflow.indexOf("Copy Route");
+    const profileIndex = overflow.indexOf("View Host Profile");
+    const reportIndex = overflow.indexOf("Report Meet");
+
+    assert.ok(shareIndex > -1 && copyIndex > shareIndex);
+    assert.ok(profileIndex > copyIndex);
+    assert.ok(reportIndex > profileIndex);
+    assert.ok(overflow.includes("Edit Meet"));
+    assert.ok(overflow.includes("Cancel Meet"));
+    assert.equal(modal.includes('case "report"'), false);
+    assert.equal(modal.includes('renderFooterAction("report")'), false);
+    assert.equal(overflow.includes("createPortal"), true);
+  });
+});
+
+describe("footer action deduplication", () => {
+  it("never returns duplicate footer actions", () => {
+    const actions = resolveMeetFooterActions({
+      isPrimaryHost: true,
+      isCoHost: false,
+      isGoing: true,
+      isCanceled: false,
+      trackingStatus: "not_started",
+      hasRoute: true,
+      inviteJoinBlocked: false,
+      hasMapsTarget: true,
+    });
+
+    assert.equal(new Set(actions).size, actions.length);
   });
 });
 
