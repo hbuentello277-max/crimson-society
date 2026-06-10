@@ -1,16 +1,14 @@
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import type { ActiveMeetSessionPayload } from "@/lib/meets/active-meet-session";
-import { parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
 import { parseRouteSteps } from "@/lib/meets/navigation/steps";
 import type { NavigationStep } from "@/lib/meets/navigation/types";
+import { rowToNavigationMeetShape } from "@/lib/meets/navigation-meet-shape";
 import {
   ensureRouteWithSteps,
   hasRoadGeometry,
   type RoutePoint,
 } from "@/lib/meets/route-geometry";
-import type { MeetStatus } from "@/lib/meets/types";
-
 type NavigationMeetRow = {
   id: string;
   host_id: string | null;
@@ -41,45 +39,30 @@ export type NavigationMeet = ActiveMeetSessionPayload & {
   routeSteps: NavigationStep[];
 };
 
-function parseWaypoints(value: unknown) {
-  if (!Array.isArray(value)) return [] as ActiveMeetSessionPayload["waypoints"];
-
-  return value.filter((item) => {
-    return (
-      typeof item === "object" &&
-      item !== null &&
-      "lat" in item &&
-      "lng" in item &&
-      "id" in item &&
-      "label" in item
-    );
-  });
-}
-
 function rowToNavigationMeet(
   row: NavigationMeetRow,
   route: RoutePoint[],
   routeSteps: NavigationStep[],
 ): NavigationMeet {
-  return {
+  return rowToNavigationMeetShape({
     id: row.id,
     hostId: row.host_id,
-    route,
-    waypoints: parseWaypoints(row.waypoints),
-    name: row.name?.trim() || "Meet",
-    meetPoint: row.meet_point?.trim() || "Meet point",
-    destination: row.destination?.trim() || "Destination",
-    date: row.date,
-    time: row.time,
+    name: row.name ?? "",
+    meetPoint: row.meet_point ?? "",
+    destination: row.destination ?? "",
+    date: row.date ?? "",
+    time: row.time ?? "",
     meetDurationMinutes: row.meet_duration_minutes,
-    status: parseMeetStatus(row.status) as MeetStatus,
-    trackingStatus: parseMeetTrackingStatus(row.tracking_status),
+    status: row.status ?? "active",
+    trackingStatus: row.tracking_status ?? "not_started",
     startedAt: row.started_at,
     endedAt: row.ended_at,
     distance: row.distance,
     duration: row.duration,
+    route,
+    waypoints: row.waypoints,
     routeSteps,
-  };
+  });
 }
 
 const NAVIGATION_MEET_FIELDS =

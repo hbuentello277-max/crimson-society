@@ -10,7 +10,6 @@ import { canSelfJoinMeet, canViewMeetForUser, getMeetJoinBlockMessage } from "@/
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
 import {
   meetVisibilityLabel,
-  normalizeMeetVisibility,
   type MeetVisibility,
 } from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
@@ -36,7 +35,6 @@ import {
   groupMeetsByLifecycle,
   meetLifecycleLabel,
   parseMeetStatus,
-  parseMeetTrackingStatus,
   type MeetLifecyclePhase,
 } from "@/lib/meets/lifecycle";
 import type {
@@ -47,12 +45,12 @@ import type {
   MeetStatus,
   MeetTrackingStatus,
   MeetType,
-  MeetWaypoint,
   RoutePoint,
 } from "@/lib/meets/types";
 import { leaveMeetAttendance } from "@/lib/meets/leave-meet";
 import { profileToMeetAttendee } from "@/lib/meets/map-profile-attendee";
 import { isMeetHostOrCoHost, isPrimaryMeetHost } from "@/lib/meets/permissions";
+import { mapMeetRowToMeet } from "@/lib/meets/meet-row-mapper";
 import {
   hasRoadGeometry,
   parseRoute,
@@ -63,22 +61,6 @@ import {
 type MeetReadRow = { ride_id: string; last_read_at: string };
 type MeetUnreadMessageRow = { ride_id: string; user_id: string; created_at: string };
 type AttendeeRow = { ride_id: string; user_id: string };
-
-function parseWaypoints(value: unknown): MeetWaypoint[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is MeetWaypoint => {
-    return (
-      typeof item === "object" &&
-      item !== null &&
-      "lat" in item &&
-      "lng" in item &&
-      "id" in item &&
-      "label" in item &&
-      typeof (item as MeetWaypoint).id === "string" &&
-      typeof (item as MeetWaypoint).label === "string"
-    );
-  });
-}
 
 const DEFAULT_COVER = "/icon-512.png";
 const DEFAULT_HOST_PHOTO = "/icon-192.png";
@@ -116,45 +98,8 @@ function profileHref(username?: string | null) {
 }
 
 function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
-  const savedRoute = parseRoute(row.route);
-  const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
-  const waypoints = parseWaypoints(row.waypoints);
-  const host = profileToMeetAttendee(row.host);
-  const coHost = row.co_host_id ? profileToMeetAttendee(row.coHost) : null;
-
-  return {
-    id: row.id,
-    hostId: row.host_id,
-    coHostId: row.co_host_id ?? null,
-    name: row.name,
-    date: row.date,
-    time: row.time,
-    meetPoint: row.meet_point,
-    destination: row.destination,
-    city: row.city || row.meet_point,
-    type: row.type,
-    distance: row.distance || "TBD",
-    duration: row.duration || "TBD",
-    meetDurationMinutes: row.meet_duration_minutes ?? null,
-    cover: row.cover || DEFAULT_COVER,
-    host,
-    coHost,
-    going: row.attendeeRiders || [],
-    description: row.description?.trim() || "",
-    privacy: row.privacy,
-    visibility: normalizeMeetVisibility(row.visibility, row.privacy) as MeetVisibility,
-    lat: row.meet_point_lat || 29.4241,
-    lng: row.meet_point_lng || -98.4936,
-    destinationLat: row.destination_lat,
-    destinationLng: row.destination_lng,
-    route,
-    waypoints,
-    trackingStatus: parseMeetTrackingStatus(row.tracking_status),
-    startedAt: row.started_at ?? null,
-    endedAt: row.ended_at ?? null,
-    status: row.status === "canceled" ? "canceled" : "active",
-  };
-}     
+  return mapMeetRowToMeet(row, resolvedRoute);
+}
 
 function meetToForm(ride: Meet): HostMeetForm {
   return {
@@ -1649,6 +1594,17 @@ const ridesWithRoutes = await Promise.all(
             );
           }}
           onCancelMeet={() => void cancelMeet(selectedMeet.id)}
+          onEditMeet={
+            isPrimaryMeetHost(
+              { hostId: selectedMeet.hostId, coHostId: selectedMeet.coHostId },
+              session?.user?.id,
+            ) || isAdmin
+              ? () => {
+                  setEditingMeet(selectedMeet);
+                  setSelectedMeet(null);
+                }
+              : undefined
+          }
         />
       )}
 

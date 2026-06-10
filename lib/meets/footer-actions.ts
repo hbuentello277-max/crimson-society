@@ -5,7 +5,8 @@ export type MeetFooterAction =
   | "start_meet"
   | "start_ride"
   | "join"
-  | "leave";
+  | "leave"
+  | "end_meet";
 
 export type MeetFooterActionInput = {
   isPrimaryHost: boolean;
@@ -25,11 +26,11 @@ export function resolveMeetFooterActions(input: MeetFooterActionInput): MeetFoot
   const isRideLive = trackingStatus === "active";
   const isRideEnded = trackingStatus === "ended";
 
-  if (input.hasMapsTarget && !isRideEnded) {
+  if (input.hasMapsTarget && !isRideEnded && !(isHostTeam && isRideLive)) {
     actions.push("navigate");
   }
 
-  if (isHostTeam && !input.isCanceled && trackingStatus === "not_started") {
+  if (isHostTeam && !input.isCanceled && !isRideLive) {
     actions.push("start_meet");
   }
 
@@ -39,6 +40,10 @@ export function resolveMeetFooterActions(input: MeetFooterActionInput): MeetFoot
     } else if (!isHostTeam && input.isGoing) {
       actions.push("start_ride");
     }
+  }
+
+  if (isHostTeam && isRideLive && !input.isCanceled) {
+    actions.push("end_meet");
   }
 
   if (!isHostTeam && !input.isCanceled) {
@@ -64,5 +69,7 @@ export function meetFooterActionLabel(action: MeetFooterAction): string {
       return "Join Meet";
     case "leave":
       return "Leave Meet";
+    case "end_meet":
+      return "End Meet";
   }
 }
