@@ -529,7 +529,7 @@ function buildReportDecisions(report: ReportContext, generatedAt: string): Decis
       category: "risk",
       title: "Address open incidents",
       summary: `${report.incidents.open.length} open incident(s) affect operational confidence.`,
-      reasoning: "Open incidents increase mission risk and founder attention load.",
+      reasoning: "Open incidents increase platform risk and founder attention load.",
       expected_impact: 88,
       confidence_score: 85,
       urgency_score: 85,

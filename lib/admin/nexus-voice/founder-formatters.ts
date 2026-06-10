@@ -51,7 +51,7 @@ export function formatFounderBriefingResponse(
       ? ` Recommended: ${briefing.recommendedActions.slice(0, 2).join("; ")}.`
       : "";
 
-  return `Founder briefing: Platform is ${briefing.platformHealth.status}. Platform Health score ${briefing.platformHealth.missionScore ?? "n/a"}. Membership growth this week: ${members ?? "n/a"}. Blackcard members: ${blackcard ?? "n/a"}. Revenue today: ${briefing.revenueSummary.revenueToday ?? "n/a"}. Open critical alerts: ${alerts}. Failed platform jobs: ${jobs}. Pending reports: ${reports}.${actions}${partialSuffix(actionResult)}`;
+  return `Founder briefing: Platform is ${briefing.platformHealth.status}. Platform Score ${briefing.platformHealth.missionScore ?? "n/a"}. Membership growth this week: ${members ?? "n/a"}. Blackcard members: ${blackcard ?? "n/a"}. Revenue today: ${briefing.revenueSummary.revenueToday ?? "n/a"}. Open critical alerts: ${alerts}. Failed platform jobs: ${jobs}. Pending reports: ${reports}.${actions}${partialSuffix(actionResult)}`;
 }
 
 export function formatFounderRecommendationsResponse(

@@ -11,6 +11,7 @@ import { NexusLoadingPanel } from "@/components/nexus/NexusShared";
 import { useExecutiveCommand } from "@/hooks/nexus/useExecutiveCommand";
 import type { ExecutiveCommandSummary } from "@/lib/executive-command/types";
 import { formatNumber, formatRelativeTime } from "@/lib/nexus/format";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 async function postNexusJson<T>(path: string, body?: Record<string, unknown>): Promise<T> {
   const response = await fetch(path, {
@@ -52,8 +53,8 @@ function MemoryList({
     <ul className="space-y-2">
       {items.slice(0, 4).map((item) => (
         <li key={item.id} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
-          <p className="text-sm font-medium text-white">{item.title}</p>
-          <p className="mt-1 text-xs text-zinc-400">{item.summary}</p>
+          <p className="text-sm font-medium text-white">{formatNexusDisplayText(item.title)}</p>
+          <p className="mt-1 text-xs text-zinc-400">{formatNexusDisplayText(item.summary)}</p>
         </li>
       ))}
     </ul>
@@ -151,19 +152,22 @@ export function ExecutiveCommandCenter({ onRefresh }: { onRefresh?: () => Promis
         </div>
         <div className="mt-3 space-y-2 text-sm">
           <p className="text-zinc-300">
-            <span className="text-[#e87a82]">Recommended focus today:</span> {exec.recommended_focus_today}
+            <span className="text-[#e87a82]">Recommended focus today:</span>{" "}
+            {formatNexusDisplayText(exec.recommended_focus_today)}
           </p>
           {exec.top_risk ? (
             <p className="text-zinc-300">
-              <span className="text-amber-300">Top risk:</span> {exec.top_risk.title} — {exec.top_risk.summary}
+              <span className="text-amber-300">Top risk:</span> {formatNexusDisplayText(exec.top_risk.title)} —{" "}
+              {formatNexusDisplayText(exec.top_risk.summary)}
             </p>
           ) : (
             <EmptyLine>No major cross-system risks detected right now.</EmptyLine>
           )}
           {exec.top_opportunity ? (
             <p className="text-zinc-300">
-              <span className="text-emerald-300">Top opportunity:</span> {exec.top_opportunity.title} —{" "}
-              {exec.top_opportunity.summary}
+              <span className="text-emerald-300">Top opportunity:</span>{" "}
+              {formatNexusDisplayText(exec.top_opportunity.title)} —{" "}
+              {formatNexusDisplayText(exec.top_opportunity.summary)}
             </p>
           ) : (
             <EmptyLine>No standout opportunities surfaced in today's briefing.</EmptyLine>
@@ -183,7 +187,7 @@ export function ExecutiveCommandCenter({ onRefresh }: { onRefresh?: () => Promis
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-white">
-                    {index + 1}. {priority.title}
+                    {index + 1}. {formatNexusDisplayText(priority.title)}
                   </p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] ${
@@ -197,8 +201,10 @@ export function ExecutiveCommandCenter({ onRefresh }: { onRefresh?: () => Promis
                     {priority.urgency}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-zinc-400">{priority.reason}</p>
-                <p className="mt-2 text-xs text-[#f1c3c7]">Next: {priority.suggested_next_action}</p>
+                <p className="mt-1 text-xs text-zinc-400">{formatNexusDisplayText(priority.reason)}</p>
+                <p className="mt-2 text-xs text-[#f1c3c7]">
+                  Next: {formatNexusDisplayText(priority.suggested_next_action)}
+                </p>
                 <Link
                   href={priority.related_route}
                   className="mt-2 inline-flex text-[10px] uppercase tracking-[0.12em] text-zinc-500 hover:text-[#f1c3c7]"

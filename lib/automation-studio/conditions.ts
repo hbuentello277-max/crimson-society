@@ -141,8 +141,8 @@ export async function evaluateAutomationCondition(
       return {
         met,
         reason: met
-          ? `Platform Health score is ${score} with status ${mission.status}.`
-          : `Platform Health score is ${score} and within the safe range.`,
+          ? `Platform Score is ${score} with status ${mission.status}.`
+          : `Platform Score is ${score} and within the safe range.`,
         snapshot: {
           platform_health_score: score,
           platform_health_status: mission.status,

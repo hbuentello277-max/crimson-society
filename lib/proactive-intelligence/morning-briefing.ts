@@ -72,7 +72,7 @@ export async function generateMorningBriefing(admin: SupabaseClient): Promise<Mo
     },
     {
       label: "Platform Health",
-      value: `${founderBriefing.platformHealth.status} · score ${founderBriefing.platformHealth.missionScore ?? "n/a"}`,
+      value: `${founderBriefing.platformHealth.status} · Platform Score ${founderBriefing.platformHealth.missionScore ?? "n/a"}`,
       status:
         founderBriefing.platformHealth.status === "critical"
           ? sectionStatus("critical")

@@ -18,6 +18,7 @@ import { MissionThreats } from "@/components/nexus/mission-control/MissionThreat
 import { MissionTimeline } from "@/components/nexus/mission-control/MissionTimeline";
 import { PlatformJobsPanel } from "@/components/nexus/mission-control/PlatformJobsPanel";
 import { NexusSectionFrame } from "@/components/nexus/NexusShared";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type MissionControlPayload = Partial<MissionControlSummary> & {
   ok?: boolean;
@@ -80,7 +81,7 @@ function FocusField({
   return (
     <div className={`rounded-xl border px-3 py-3 ${border}`}>
       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-2 break-words text-sm leading-6 text-zinc-200">{value}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-zinc-200">{formatNexusDisplayText(value)}</p>
     </div>
   );
 }

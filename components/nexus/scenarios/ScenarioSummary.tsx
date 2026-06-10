@@ -1,6 +1,7 @@
 "use client";
 
 import type { ScenarioBrief } from "@/lib/scenarios/types";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function ScenarioSummary({ brief, available }: { brief: ScenarioBrief; available: boolean }) {
   return (
@@ -9,10 +10,12 @@ export function ScenarioSummary({ brief, available }: { brief: ScenarioBrief; av
       <p className="mt-1 text-xs text-zinc-500">Deterministic path comparison — no AI, no ML</p>
 
       {!available ? (
-        <p className="mt-4 text-sm leading-7 text-amber-300">{brief.headline}</p>
+        <p className="mt-4 text-sm leading-7 text-amber-300">{formatNexusDisplayText(brief.headline)}</p>
       ) : (
         <>
-          <p className="mt-4 break-words text-sm leading-7 text-zinc-200">{brief.headline}</p>
+          <p className="mt-4 break-words text-sm leading-7 text-zinc-200">
+            {formatNexusDisplayText(brief.headline)}
+          </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <SummaryField label="Strongest Path" value={brief.strongest_path} highlight />
             <SummaryField label="Nexus Favored Path" value={brief.favored_path} highlight />
@@ -48,7 +51,7 @@ function SummaryField({
   return (
     <div className={`rounded-xl border px-3 py-3 ${border} ${className}`}>
       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-2 break-words text-sm leading-6 text-zinc-200">{value}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-zinc-200">{formatNexusDisplayText(value)}</p>
     </div>
   );
 }

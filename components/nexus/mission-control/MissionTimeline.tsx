@@ -3,6 +3,7 @@
 import type { MissionHistoryItem } from "@/lib/mission-control/types";
 import { formatDateTime } from "@/lib/nexus/format";
 import { NexusListEmpty } from "@/components/nexus/NexusShared";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const TYPE_LABELS: Record<string, string> = {
   milestone: "Milestone",
@@ -39,8 +40,8 @@ export function MissionTimeline({ history }: { history: MissionHistoryItem[] }) 
                 {formatDateTime(item.occurred_at)}
               </span>
             </div>
-            <p className="mt-2 break-words text-sm font-medium text-white">{item.title}</p>
-            <p className="mt-1 break-words text-sm leading-6 text-zinc-400">{item.summary}</p>
+            <p className="mt-2 break-words text-sm font-medium text-white">{formatNexusDisplayText(item.title)}</p>
+            <p className="mt-1 break-words text-sm leading-6 text-zinc-400">{formatNexusDisplayText(item.summary)}</p>
             <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-zinc-600">
               Source {item.source}
               {index === 0 ? " · Latest" : ""}

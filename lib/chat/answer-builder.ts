@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadChatContext } from "@/lib/chat/context";
 import { routeChatMessage } from "@/lib/chat/router";
 import type { ChatAnswer, ChatIntent, ChatMode, ChatSource } from "@/lib/chat/types";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const DATA_UNAVAILABLE = "Data unavailable.";
 
@@ -302,7 +303,7 @@ function buildMissionScoreAnswer(context: ChatContext): ChatAnswer {
     reason = " Open incidents are affecting platform status.";
   }
 
-  const answer = `Platform score is ${mission_score} (${mission_status.replace(/_/g, " ")}). ${mission_summary}${reason}${breakdown ? ` Breakdown highlights: ${breakdown}.` : ""}`;
+  const answer = `Platform Score is ${mission_score} (${mission_status.replace(/_/g, " ")}). ${mission_summary}${reason}${breakdown ? ` Breakdown highlights: ${breakdown}.` : ""}`;
 
   return {
     answer,
@@ -575,43 +576,69 @@ function buildUnknownAnswer(context: ChatContext): ChatAnswer {
   };
 }
 
+function sanitizeChatAnswer(answer: ChatAnswer): ChatAnswer {
+  return {
+    ...answer,
+    answer: formatNexusDisplayText(answer.answer),
+  };
+}
+
 export function buildChatAnswer(intent: ChatIntent, context: ChatContext): ChatAnswer {
+  let answer: ChatAnswer;
   switch (intent) {
     case "attention_today":
-      return buildAttentionAnswer(context);
+      answer = buildAttentionAnswer(context);
+      break;
     case "biggest_risk":
-      return buildBiggestRiskAnswer(context);
+      answer = buildBiggestRiskAnswer(context);
+      break;
     case "biggest_opportunity":
-      return buildBiggestOpportunityAnswer(context);
+      answer = buildBiggestOpportunityAnswer(context);
+      break;
     case "weekly_summary":
-      return buildWeeklySummaryAnswer(context);
+      answer = buildWeeklySummaryAnswer(context);
+      break;
     case "changes_since_last_week":
-      return buildChangesAnswer(context);
+      answer = buildChangesAnswer(context);
+      break;
     case "blackcard_performance":
-      return buildBlackcardAnswer(context);
+      answer = buildBlackcardAnswer(context);
+      break;
     case "mission_score":
-      return buildMissionScoreAnswer(context);
+      answer = buildMissionScoreAnswer(context);
+      break;
     case "nexus_recommendation":
-      return buildNexusRecommendationAnswer(context);
+      answer = buildNexusRecommendationAnswer(context);
+      break;
     case "mission_summary":
-      return buildMissionSummaryAnswer(context);
+      answer = buildMissionSummaryAnswer(context);
+      break;
     case "growth_forecast":
-      return buildGrowthForecastAnswer(context);
+      answer = buildGrowthForecastAnswer(context);
+      break;
     case "revenue_forecast":
-      return buildRevenueForecastAnswer(context);
+      answer = buildRevenueForecastAnswer(context);
+      break;
     case "recommended_focus":
-      return buildRecommendedFocusAnswer(context);
+      answer = buildRecommendedFocusAnswer(context);
+      break;
     case "open_incidents":
-      return buildOpenIncidentsAnswer(context);
+      answer = buildOpenIncidentsAnswer(context);
+      break;
     case "best_scenario":
-      return buildBestScenarioAnswer(context);
+      answer = buildBestScenarioAnswer(context);
+      break;
     case "memory_timeline":
-      return buildMemoryTimelineAnswer(context);
+      answer = buildMemoryTimelineAnswer(context);
+      break;
     case "platform_status":
-      return buildPlatformStatusAnswer(context);
+      answer = buildPlatformStatusAnswer(context);
+      break;
     default:
-      return buildUnknownAnswer(context);
+      answer = buildUnknownAnswer(context);
   }
+
+  return sanitizeChatAnswer(answer);
 }
 
 export async function answerNexusChat(
