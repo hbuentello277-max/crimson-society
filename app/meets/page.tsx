@@ -17,6 +17,10 @@ import { supabase } from "@/lib/supabase";
 import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
 import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
+import {
+  createMeetIdempotencyKey,
+  isMeetCreateDuplicateError,
+} from "@/lib/meets/create-meet-idempotency";
 import { dedupeMeetsById } from "@/lib/meets/dedupe-meets";
 import { formatRouteDurationLabel } from "@/lib/meets/format-route-duration";
 import { buildSnappedRoute } from "@/lib/routing";
@@ -46,6 +50,9 @@ import type {
   MeetWaypoint,
   RoutePoint,
 } from "@/lib/meets/types";
+import { leaveMeetAttendance } from "@/lib/meets/leave-meet";
+import { profileToMeetAttendee } from "@/lib/meets/map-profile-attendee";
+import { isMeetHostOrCoHost, isPrimaryMeetHost } from "@/lib/meets/permissions";
 import {
   hasRoadGeometry,
   parseRoute,
@@ -112,22 +119,13 @@ function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
   const savedRoute = parseRoute(row.route);
   const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
   const waypoints = parseWaypoints(row.waypoints);
-  const hostProfile = row.host;
-
-  const hostName =
-    hostProfile?.display_name?.trim() ||
-    hostProfile?.full_name?.trim() ||
-    hostProfile?.username?.trim() ||
-    "Crimson Member";
-
-  const hostPhoto =
-    hostProfile?.profile_image_url ||
-    hostProfile?.avatar_url ||
-    DEFAULT_HOST_PHOTO;
+  const host = profileToMeetAttendee(row.host);
+  const coHost = row.co_host_id ? profileToMeetAttendee(row.coHost) : null;
 
   return {
     id: row.id,
     hostId: row.host_id,
+    coHostId: row.co_host_id ?? null,
     name: row.name,
     date: row.date,
     time: row.time,
@@ -139,11 +137,8 @@ function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
     duration: row.duration || "TBD",
     meetDurationMinutes: row.meet_duration_minutes ?? null,
     cover: row.cover || DEFAULT_COVER,
-    host: {
-      name: hostName,
-      photo: hostPhoto,
-      username: hostProfile?.username ?? null,
-    },
+    host,
+    coHost,
     going: row.attendeeRiders || [],
     description: row.description?.trim() || "",
     privacy: row.privacy,
@@ -192,19 +187,23 @@ function MeetCard({
   lockMessage,
   joinBlocked,
   onJoin,
+  onLeave,
   onViewDetails,
   onEdit,
   onCancel,
+  isHostTeam,
 }: {
   ride: Meet;
   isGoing: boolean;
   canManage: boolean;
   canModerate: boolean;
+  isHostTeam: boolean;
   unreadCount: number;
   isLocked?: boolean;
   lockMessage?: string | null;
   joinBlocked?: boolean;
   onJoin: () => void;
+  onLeave: () => void;
   onViewDetails: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -344,7 +343,7 @@ function MeetCard({
                 </button>
               )}
 
-              {canModerate && !isCanceled && (
+              {canManage && !isCanceled && (
                 <button
                   type="button"
                   onClick={onCancel}
@@ -354,26 +353,33 @@ function MeetCard({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={onJoin}
-                disabled={canManage || isCanceled || inviteJoinBlocked}
-                className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                  isGoing
-                    ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                    : inviteJoinBlocked
+              {isHostTeam ? (
+                <span className="rounded-lg border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce]">
+                  {canManage ? "Hosting" : "Co-hosting"}
+                </span>
+              ) : isGoing ? (
+                <button
+                  type="button"
+                  onClick={onLeave}
+                  disabled={isCanceled}
+                  className="rounded-lg border border-[#b4141e]/50 bg-transparent px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/10 disabled:opacity-55"
+                >
+                  Leave Meet
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onJoin}
+                  disabled={isCanceled || inviteJoinBlocked}
+                  className={`rounded-lg border px-3 py-2 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                    inviteJoinBlocked
                       ? "border-white/10 bg-white/[0.02] text-zinc-600"
                       : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
-                }`}
-              >
-                {canManage
-                  ? "Hosting"
-                  : isGoing
-                    ? "Going"
-                    : inviteJoinBlocked
-                      ? "Invite Only"
-                      : "JOIN MEET"}
-              </button>
+                  }`}
+                >
+                  {inviteJoinBlocked ? "Invite Only" : "Join Meet"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -400,6 +406,7 @@ function MeetsPageContent() {
   const selectedMeetRef = useRef<Meet | null>(null);
   const openedMeetParamRef = useRef<string | null>(null);
   const saveMeetInFlightRef = useRef(false);
+  const createMeetIdempotencyKeyRef = useRef<string | null>(null);
   const [savingMeet, setSavingMeet] = useState(false);
   const meetParam = searchParams.get("meet");
   const meetSectionParam = searchParams.get("section");
@@ -701,6 +708,7 @@ if (active) {
       const profileIds = Array.from(
   new Set([
     ...rows.map((row) => row.host_id),
+    ...rows.map((row) => row.co_host_id),
     ...typedAttendanceRows.map((row) => row.user_id),
   ].filter(Boolean))
 );
@@ -746,6 +754,7 @@ for (const attendee of typedAttendanceRows) {
 const rowsWithHosts = rows.map((row) => ({
   ...row,
   host: profileMap.get(row.host_id) || null,
+  coHost: row.co_host_id ? profileMap.get(row.co_host_id) || null : null,
   attendeeRiders: attendeesByRide.get(row.id) || [],
 }));
 
@@ -830,65 +839,130 @@ const ridesWithRoutes = await Promise.all(
     };
   }, [authLoading, loadUnreadCounts, markMeetRead, session?.user?.id]);
 
-  async function toggleJoin(rideId: string) {
-  if (!session?.user?.id) {
-    setToast("You must be signed in to join a meet.");
-    window.setTimeout(() => setToast(null), 2500);
-    return;
-  }
+  async function joinMeet(rideId: string) {
+    if (!session?.user?.id) {
+      setToast("You must be signed in to join a meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
 
-  const ride = realMeets.find((meet) => meet.id === rideId);
-  if (ride?.hostId === session.user.id) {
-    setToast("You are hosting this meet.");
-    window.setTimeout(() => setToast(null), 2000);
-    return;
-  }
+    const ride = realMeets.find((meet) => meet.id === rideId);
+    if (ride && isMeetHostOrCoHost({ hostId: ride.hostId, coHostId: ride.coHostId }, session.user.id)) {
+      setToast("You are hosting this meet.");
+      window.setTimeout(() => setToast(null), 2000);
+      return;
+    }
 
-  if (ride?.status === "canceled") {
-    setToast("This meet was canceled.");
-    window.setTimeout(() => setToast(null), 2500);
-    return;
-  }
+    if (ride?.status === "canceled") {
+      setToast("This meet was canceled.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
 
-  const isCurrentlyGoing = !!going[rideId];
-
-  if (
-    !isCurrentlyGoing &&
-    ride &&
-    meetJoinBlocked(ride, false)
-  ) {
-    setToast(
-      getMeetJoinBlockMessage({
-        privacy: ride.privacy,
-        visibility: ride.visibility,
-        hasBlackcardAccess: viewerHasBlackcard,
-        viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
-        viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
-      }),
-    );
-    window.setTimeout(() => setToast(null), 2800);
-    return;
-  }
-
-  if (isCurrentlyGoing) {
-    const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
-      target_ride_id: rideId,
-      activity: "left",
-    });
-
-    if (activityError) {
-      console.error("Failed to log meet leave activity:", activityError);
+    if (ride && meetJoinBlocked(ride, false)) {
+      setToast(
+        getMeetJoinBlockMessage({
+          privacy: ride.privacy,
+          visibility: ride.visibility,
+          hasBlackcardAccess: viewerHasBlackcard,
+          viewerFollowsHost: ride.hostId ? followingHostIds.has(ride.hostId) : false,
+          viewerFavoritedHost: ride.hostId ? favoritedHostIds.has(ride.hostId) : false,
+        }),
+      );
+      window.setTimeout(() => setToast(null), 2800);
+      return;
     }
 
     const { error } = await supabase
       .from(MEET_TABLES.attendees)
-      .delete()
-      .eq("ride_id", rideId)
-      .eq("user_id", session.user.id);
+      .upsert(
+        {
+          ride_id: rideId,
+          user_id: session.user.id,
+          status: "going",
+        },
+        {
+          onConflict: "ride_id,user_id",
+        },
+      );
 
     if (error) {
-      console.error("Failed to leave meet:", error);
-      setToast("Could not leave meet.");
+      console.error("Failed to join meet:", error);
+      setToast(
+        ride?.privacy === "Invite"
+          ? "Invite-only meet. Ask the host for access."
+          : "Could not join meet.",
+      );
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
+      target_ride_id: rideId,
+      activity: "joined",
+    });
+
+    if (activityError) {
+      console.error("Failed to log meet join activity:", activityError);
+    }
+
+    setGoing((current) => ({
+      ...current,
+      [rideId]: true,
+    }));
+
+    setToast("Meet joined.");
+    window.setTimeout(() => setToast(null), 2000);
+  }
+
+  async function refreshMeetAttendees(rideId: string) {
+    const { data, error } = await supabase
+      .from(MEET_TABLES.attendees)
+      .select(
+        `
+        user_id,
+        profile:profiles!ride_attendees_user_id_fkey (
+          username,
+          display_name,
+          full_name,
+          profile_image_url,
+          avatar_url
+        )
+      `,
+      )
+      .eq("ride_id", rideId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Failed to refresh meet attendees:", error);
+      return null;
+    }
+
+    const nextGoing = (data || []).map((row) => {
+      const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+      return profileToMeetAttendee(profile);
+    });
+
+    setRealMeets((current) =>
+      current.map((meet) => (meet.id === rideId ? { ...meet, going: nextGoing } : meet)),
+    );
+    setSelectedMeet((current) =>
+      current?.id === rideId ? { ...current, going: nextGoing } : current,
+    );
+
+    return nextGoing;
+  }
+
+  async function leaveMeet(rideId: string) {
+    if (!session?.user?.id) {
+      setToast("You must be signed in to leave a meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    const result = await leaveMeetAttendance(rideId, session.user.id);
+    if (!result.ok) {
+      setToast(result.error);
       window.setTimeout(() => setToast(null), 2500);
       return;
     }
@@ -898,52 +972,10 @@ const ridesWithRoutes = await Promise.all(
       [rideId]: false,
     }));
 
+    await refreshMeetAttendees(rideId);
     setToast("Meet left.");
     window.setTimeout(() => setToast(null), 2000);
-    return;
   }
-
-  const { error } = await supabase
-    .from(MEET_TABLES.attendees)
-    .upsert(
-      {
-        ride_id: rideId,
-        user_id: session.user.id,
-        status: "going",
-      },
-      {
-        onConflict: "ride_id,user_id",
-      }
-    );
-
-  if (error) {
-    console.error("Failed to join meet:", error);
-    setToast(
-      ride?.privacy === "Invite"
-        ? "Invite-only meet. Ask the host for access."
-        : "Could not join meet.",
-    );
-    window.setTimeout(() => setToast(null), 2500);
-    return;
-  }
-
-  const { error: activityError } = await supabase.rpc("log_ride_attendance_activity", {
-    target_ride_id: rideId,
-    activity: "joined",
-  });
-
-  if (activityError) {
-    console.error("Failed to log meet join activity:", activityError);
-  }
-
-  setGoing((current) => ({
-    ...current,
-    [rideId]: true,
-  }));
-
-  setToast("Meet joined.");
-  window.setTimeout(() => setToast(null), 2000);
-}
 
   function applyMeetPatch(rideId: string, patch: Partial<Meet>) {
     setRealMeets((current) =>
@@ -1076,8 +1108,18 @@ const ridesWithRoutes = await Promise.all(
       return;
     }
 
+    const createIdempotencyKey =
+      !editingMeet
+        ? createMeetIdempotencyKeyRef.current ?? createMeetIdempotencyKey()
+        : null;
+
+    if (!editingMeet && !createMeetIdempotencyKeyRef.current) {
+      createMeetIdempotencyKeyRef.current = createIdempotencyKey;
+    }
+
     const payload = {
       host_id: session.user.id,
+      ...(createIdempotencyKey ? { create_idempotency_key: createIdempotencyKey } : {}),
       name: newMeet.name,
       date: newMeet.date,
       time: newMeet.time,
@@ -1115,6 +1157,33 @@ const ridesWithRoutes = await Promise.all(
       : await supabase.from(MEET_TABLES.meets).insert(payload).select("*").single();
 
     if (error) {
+      if (!editingMeet && isMeetCreateDuplicateError(error) && createIdempotencyKey) {
+        const { data: existingRow, error: existingError } = await supabase
+          .from(MEET_TABLES.meets)
+          .select("*")
+          .eq("host_id", session.user.id)
+          .eq("create_idempotency_key", createIdempotencyKey)
+          .maybeSingle();
+
+        if (!existingError && existingRow) {
+          const existingMeet = meetRowToMeet(existingRow as MeetRow);
+          setRealMeets((current) =>
+            dedupeMeetsById(
+              current.some((ride) => ride.id === existingMeet.id)
+                ? current
+                : [existingMeet, ...current],
+            ),
+          );
+          setGoing((current) => ({ ...current, [existingMeet.id]: true }));
+          setShowHostModal(false);
+          setEditingMeet(null);
+          createMeetIdempotencyKeyRef.current = null;
+          setToast("Meet already created.");
+          window.setTimeout(() => setToast(null), 2500);
+          return;
+        }
+      }
+
       console.error("Failed to save meet:", error);
       setToast(editingMeet ? "Could not update meet." : "Could not create meet.");
       window.setTimeout(() => setToast(null), 2500);
@@ -1183,6 +1252,7 @@ const ridesWithRoutes = await Promise.all(
 
     setShowHostModal(false);
     setEditingMeet(null);
+    createMeetIdempotencyKeyRef.current = null;
     setToast(editingMeet ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
     } finally {
@@ -1371,30 +1441,40 @@ const ridesWithRoutes = await Promise.all(
                     </button>
                   )}
 
-                <button
-                  type="button"
-                  onClick={() => toggleJoin(panelFeatured.id)}
-                  disabled={
-                    panelFeatured.hostId === session?.user?.id ||
-                    panelFeatured.status === "canceled" ||
-                    meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
-                  }
-                  className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                    going[panelFeatured.id]
-                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
+                {isMeetHostOrCoHost(panelFeatured, session?.user?.id) ? (
+                  <span className="rounded-lg border border-[#b4141e]/50 bg-[#b4141e]/15 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#f0c9ce]">
+                    {isPrimaryMeetHost(panelFeatured, session?.user?.id) ? "Hosting" : "Co-hosting"}
+                  </span>
+                ) : going[panelFeatured.id] ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Leave this meet?")) {
+                        void leaveMeet(panelFeatured.id);
+                      }
+                    }}
+                    disabled={panelFeatured.status === "canceled"}
+                    className="rounded-lg border border-[#b4141e]/50 bg-transparent px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/10 disabled:opacity-55"
+                  >
+                    Leave Meet
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void joinMeet(panelFeatured.id)}
+                    disabled={
+                      panelFeatured.status === "canceled" ||
+                      meetJoinBlocked(panelFeatured, false)
+                    }
+                    className={`rounded-lg border px-4 py-3 text-[10px] uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                      meetJoinBlocked(panelFeatured, false)
                         ? "border-white/10 bg-white/[0.02] text-zinc-600"
                         : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/16"
-                  }`}
-                >
-                  {panelFeatured.hostId === session?.user?.id
-                    ? "Hosting"
-                    : going[panelFeatured.id]
-                      ? "Going"
-                      : meetJoinBlocked(panelFeatured, !!going[panelFeatured.id])
-                        ? "Locked"
-                        : "JOIN MEET"}
-                </button>
+                    }`}
+                  >
+                    {meetJoinBlocked(panelFeatured, false) ? "Locked" : "Join Meet"}
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -1423,11 +1503,11 @@ const ridesWithRoutes = await Promise.all(
 
             {!loadingMeets && panelCompact.map((ride) => {
               const isGoingRide = !!going[ride.id];
-              const canManageRide = ride.hostId === session?.user?.id;
-              const canModerateRide = canManageRide || isAdmin;
+              const canManageRide = isPrimaryMeetHost(ride, session?.user?.id);
+              const hostTeam = isMeetHostOrCoHost(ride, session?.user?.id);
+              const canModerateRide = hostTeam || isAdmin;
               const locked =
-                !canManageRide &&
-                !canModerateRide &&
+                !hostTeam &&
                 !canViewMeetForUser(meetAccessContext(ride));
 
               return (
@@ -1436,6 +1516,7 @@ const ridesWithRoutes = await Promise.all(
                   ride={ride}
                   canManage={canManageRide}
                   canModerate={canModerateRide}
+                  isHostTeam={hostTeam}
                   unreadCount={unreadCounts[ride.id] || 0}
                   isLocked={locked}
                   lockMessage={
@@ -1450,7 +1531,12 @@ const ridesWithRoutes = await Promise.all(
                   onEdit={() => setEditingMeet(ride)}
                   isGoing={isGoingRide}
                   onCancel={() => void cancelMeet(ride.id)}
-                  onJoin={() => toggleJoin(ride.id)}
+                  onJoin={() => void joinMeet(ride.id)}
+                  onLeave={() => {
+                    if (window.confirm("Leave this meet?")) {
+                      void leaveMeet(ride.id);
+                    }
+                  }}
                   onViewDetails={() => openMeetDetails(ride)}
                 />
               );
@@ -1482,6 +1568,7 @@ const ridesWithRoutes = await Promise.all(
             type="button"
             onClick={() => {
               setEditingMeet(null);
+              createMeetIdempotencyKeyRef.current = createMeetIdempotencyKey();
               setShowHostModal(true);
             }}
             className={CS_HOST_MEET_BTN}
@@ -1545,7 +1632,9 @@ const ridesWithRoutes = await Promise.all(
           isGoing={!!going[selectedMeet.id]}
           isAdmin={isAdmin}
           scrollToChat={meetSectionParam === "chat"}
-          onJoin={() => toggleJoin(selectedMeet.id)}
+          onJoin={() => void joinMeet(selectedMeet.id)}
+          onLeave={() => void leaveMeet(selectedMeet.id)}
+          onRefreshAttendees={() => void refreshMeetAttendees(selectedMeet.id)}
           onRead={markMeetRead}
           onClose={() => setSelectedMeet(null)}
           onMeetUpdated={(patch) => applyMeetPatch(selectedMeet.id, patch)}
@@ -1571,6 +1660,7 @@ const ridesWithRoutes = await Promise.all(
           onClose={() => {
             setShowHostModal(false);
             setEditingMeet(null);
+            createMeetIdempotencyKeyRef.current = null;
           }}
           isSubmitting={savingMeet}
           onCreate={(newMeet) => void saveMeet(newMeet)}

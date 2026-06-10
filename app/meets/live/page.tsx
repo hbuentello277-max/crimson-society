@@ -877,7 +877,7 @@ function MeetLiveMapPageContent() {
     }
 
     if (!data) {
-      setLifecycleError("Only the meet host can end this ride.");
+      setLifecycleError("Only the meet host can end this meet.");
       return;
     }
 
@@ -1368,7 +1368,7 @@ function MeetLiveMapPageContent() {
                       disabled={lifecycleBusy !== null}
                       className="rounded-lg border border-white/15 bg-white/[0.03] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 disabled:opacity-60"
                     >
-                      {lifecycleBusy === "ending" ? "Ending" : "End Ride"}
+                      {lifecycleBusy === "ending" ? "Ending" : "End Meet"}
                     </button>
                   )}
 

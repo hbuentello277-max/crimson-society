@@ -8,9 +8,37 @@ import type { ChangeEvent } from "react";
 import type { Meet, MeetTrackingStatus } from "@/lib/meets/types";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
+import {
+  buildCoHostCandidateList,
+  coHostAssignmentBlockedReason,
+  searchMemberProfiles,
+  setMeetCoHost,
+  type MemberProfileOption,
+} from "@/lib/meets/co-host";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
+import {
+  meetFooterActionLabel,
+  resolveMeetFooterActions,
+  type MeetFooterAction,
+} from "@/lib/meets/footer-actions";
+import { formatMeetHostDisplayLines } from "@/lib/meets/host-display";
+import { END_MEET_CONFIRM_TITLE } from "@/lib/meets/end-meet";
+import { LEAVE_MEET_CONFIRM_TITLE } from "@/lib/meets/leave-meet";
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
-import { startMeetTracking, parseMeetTrackingLifecycleRow } from "@/lib/meets/meet-tracking";
+import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
+import {
+  endMeetTracking,
+  parseMeetTrackingLifecycleRow,
+  startMeetTracking,
+} from "@/lib/meets/meet-tracking";
+import {
+  canAssignCoHost,
+  canManageMeetSettings,
+  canModerateMeet,
+  canRemoveRiderFromMeet,
+  isMeetCoHost,
+  isPrimaryMeetHost,
+} from "@/lib/meets/permissions";
 import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
 import {
   ensureRouteWithSteps,
@@ -37,10 +65,12 @@ interface Props {
   isAdmin: boolean;
   scrollToChat?: boolean;
   onJoin: () => void;
+  onLeave: () => void;
   onRead: (meetId: string) => void;
   onClose: () => void;
   onMeetUpdated: (patch: Partial<Meet>) => void;
   onAttendeesChanged: (going: Meet["going"]) => void;
+  onRefreshAttendees: () => void;
   onCancelMeet: () => void;
 }
 
@@ -152,10 +182,12 @@ export function MeetDetailsModal({
   isAdmin,
   scrollToChat = false,
   onJoin,
+  onLeave,
   onRead,
   onClose,
   onMeetUpdated,
   onAttendeesChanged,
+  onRefreshAttendees,
   onCancelMeet,
 }: Props) {
   const { session } = useAuth();
@@ -176,14 +208,23 @@ export function MeetDetailsModal({
   const [showRidersPanel, setShowRidersPanel] = useState(false);
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [coHostPickerOpen, setCoHostPickerOpen] = useState(false);
+  const [coHostSearchQuery, setCoHostSearchQuery] = useState("");
+  const [coHostSearchResults, setCoHostSearchResults] = useState<MemberProfileOption[]>([]);
+  const [coHostBusy, setCoHostBusy] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatSectionRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [resolvedRoute, setResolvedRoute] = useState(meet.route ?? []);
 
-  const isHost = meet.hostId === currentUserId;
-  const canModerate = isHost || isAdmin;
+  const hostContext = { hostId: meet.hostId, coHostId: meet.coHostId };
+  const isPrimaryHost = isPrimaryMeetHost(hostContext, currentUserId);
+  const isCoHost = isMeetCoHost(hostContext, currentUserId);
+  const isHostTeam = isPrimaryHost || isCoHost;
+  const canModerate = canModerateMeet(hostContext, currentUserId, isAdmin);
+  const canManageSettings = canManageMeetSettings(hostContext, currentUserId, isAdmin);
   const isCanceled = meet.status === "canceled";
   const inviteJoinBlocked =
     !canSelfJoinMeet({
@@ -193,7 +234,8 @@ export function MeetDetailsModal({
       isAdmin,
     }) && !isGoing;
   const isRideLive = meet.trackingStatus === "active";
-  const canUseChat = (isGoing || isHost) && !isCanceled;
+  const canUseChat = (isGoing || isHostTeam) && !isCanceled;
+  const hostDisplay = formatMeetHostDisplayLines(meet.host.name, meet.coHost?.name);
 
   useEffect(() => {
     let active = true;
@@ -440,7 +482,7 @@ export function MeetDetailsModal({
 
   async function removeRider(userId: string) {
     if (!canModerate || moderationBusy) return;
-    if (userId === meet.hostId) return;
+    if (!canRemoveRiderFromMeet(hostContext, currentUserId, userId, isAdmin)) return;
 
     const confirmed = window.confirm("Remove this rider from the meet?");
     if (!confirmed) return;
@@ -476,40 +518,27 @@ export function MeetDetailsModal({
   }
 
   async function endActiveRide() {
-    if (!canModerate || !isRideLive || moderationBusy) return;
+    if (!canModerate || !isRideLive || moderationBusy || !currentUserId) return;
 
-    const confirmed = window.confirm("End this ride now?");
+    const confirmed = window.confirm(END_MEET_CONFIRM_TITLE);
     if (!confirmed) return;
 
     setModerationBusy("end");
 
-    const endedAt = new Date().toISOString();
-    let query = supabase
-      .from(MEET_TABLES.meets)
-      .update({
-        tracking_status: "ended",
-        ended_at: endedAt,
-      })
-      .eq("id", meet.id);
+    const result = await endMeetTracking(meet.id, currentUserId, isAdmin);
 
-    if (!isAdmin) {
-      query = query.eq("host_id", session?.user?.id ?? "");
-    }
-
-    const { error } = await query;
-
-    if (error) {
-      console.error("Failed to end ride:", error);
-      setSafetyMessage(error.message || "Could not end meet.");
+    if (!result.ok) {
+      console.error("Failed to end meet:", result.error);
+      setSafetyMessage(result.error || "Could not end meet.");
       setModerationBusy(null);
       return;
     }
 
     onMeetUpdated({
       trackingStatus: "ended" as MeetTrackingStatus,
-      endedAt,
+      endedAt: result.endedAt,
     });
-    setSafetyMessage("Ride ended.");
+    setSafetyMessage("Meet ended.");
     window.setTimeout(() => setSafetyMessage(null), 2400);
     setModerationBusy(null);
   }
@@ -637,8 +666,102 @@ export function MeetDetailsModal({
   const safeRoute = hasRoadGeometry(resolvedRoute) ? resolvedRoute : [];
   const hasRoute = safeRoute.length > 0;
 
+  async function handleAssignCoHost(profile: MemberProfileOption) {
+    if (!canAssignCoHost(hostContext, currentUserId, isAdmin) || coHostBusy) return;
+
+    const blocked = coHostAssignmentBlockedReason(hostContext, !meet.coHostId);
+    if (blocked) {
+      setSafetyMessage(blocked);
+      window.setTimeout(() => setSafetyMessage(null), 3200);
+      return;
+    }
+
+    setCoHostBusy(true);
+    const result = await setMeetCoHost(meet.id, profile.id);
+    setCoHostBusy(false);
+
+    if (!result.ok) {
+      setSafetyMessage(result.error);
+      window.setTimeout(() => setSafetyMessage(null), 3200);
+      return;
+    }
+
+    onMeetUpdated({
+      coHostId: profile.id,
+      coHost: {
+        name: profile.name,
+        photo: profile.photo,
+        username: profile.username,
+      },
+    });
+    setCoHostPickerOpen(false);
+    setCoHostSearchQuery("");
+    setCoHostSearchResults([]);
+    setSafetyMessage(`${profile.name} is now co-host.`);
+    window.setTimeout(() => setSafetyMessage(null), 2400);
+  }
+
+  async function handleRemoveCoHost() {
+    if (!canAssignCoHost(hostContext, currentUserId, isAdmin) || coHostBusy || !meet.coHostId) return;
+
+    const confirmed = window.confirm("Remove the current co-host?");
+    if (!confirmed) return;
+
+    setCoHostBusy(true);
+    const result = await setMeetCoHost(meet.id, null);
+    setCoHostBusy(false);
+
+    if (!result.ok) {
+      setSafetyMessage(result.error);
+      window.setTimeout(() => setSafetyMessage(null), 3200);
+      return;
+    }
+
+    onMeetUpdated({ coHostId: null, coHost: null });
+    setSafetyMessage("Co-host removed.");
+    window.setTimeout(() => setSafetyMessage(null), 2400);
+  }
+
+  useEffect(() => {
+    if (!coHostPickerOpen) return;
+
+    let active = true;
+    const joinedRiders = attendees
+      .filter((attendee) => attendee.userId !== meet.hostId && attendee.userId !== meet.coHostId)
+      .map((attendee) => ({
+        id: attendee.userId,
+        name: attendee.name,
+        username: attendee.username,
+        photo: attendee.photo,
+      }));
+
+    const trimmedQuery = coHostSearchQuery.trim();
+    if (trimmedQuery.length < 2) {
+      setCoHostSearchResults(buildCoHostCandidateList(joinedRiders, [], hostContext));
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      const search = await searchMemberProfiles(trimmedQuery, {
+        excludeUserIds: [meet.hostId ?? "", meet.coHostId ?? ""].filter(Boolean),
+      });
+
+      if (!active) return;
+
+      const searched = search.ok ? search.profiles : [];
+      setCoHostSearchResults(
+        buildCoHostCandidateList(joinedRiders, searched, hostContext),
+      );
+    }, 220);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [attendees, coHostPickerOpen, coHostSearchQuery, meet.coHostId, meet.hostId]);
+
   async function handleStartMeetTracking() {
-    if (!currentUserId || !isHost || trackingBusy || isCanceled) return;
+    if (!currentUserId || !isHostTeam || trackingBusy || isCanceled) return;
 
     setTrackingBusy(true);
     const result = await startMeetTracking(meet.id, currentUserId);
@@ -660,6 +783,107 @@ export function MeetDetailsModal({
   const trimmedDescription = meet.description?.trim() ?? "";
   const memberCountLabel =
     meet.going.length === 1 ? "1 member" : `${meet.going.length} members`;
+  const mapsTarget = { lat: meet.lat, lng: meet.lng, label: meet.meetPoint };
+  const footerActions = resolveMeetFooterActions({
+    isPrimaryHost,
+    isCoHost,
+    isGoing,
+    isCanceled,
+    trackingStatus: meet.trackingStatus,
+    hasRoute,
+    inviteJoinBlocked,
+    hasMapsTarget: hasMapsNavigationTarget(mapsTarget),
+  });
+
+  function writeNavigationSession() {
+    writeActiveMeetSession({
+      id: meet.id,
+      hostId: meet.hostId ?? null,
+      route: safeRoute,
+      waypoints: meet.waypoints ?? [],
+      name: meet.name,
+      meetPoint: meet.meetPoint,
+      destination: meet.destination,
+      date: meet.date ?? null,
+      time: meet.time ?? null,
+      meetDurationMinutes: meet.meetDurationMinutes ?? null,
+      status: meet.status ?? "active",
+      trackingStatus: meet.trackingStatus ?? "not_started",
+      startedAt: meet.startedAt ?? null,
+      endedAt: meet.endedAt ?? null,
+    });
+  }
+
+  function handleConfirmLeave() {
+    setLeaveConfirmOpen(false);
+    onLeave();
+    onRefreshAttendees();
+  }
+
+  function renderFooterAction(action: MeetFooterAction) {
+    const label = meetFooterActionLabel(action);
+
+    if (action === "navigate") {
+      return (
+        <NavigateToMeetButton
+          key={action}
+          target={mapsTarget}
+          className="flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-100 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+        />
+      );
+    }
+
+    if (action === "start_meet") {
+      return (
+        <button
+          key={action}
+          type="button"
+          onClick={() => void handleStartMeetTracking()}
+          disabled={trackingBusy}
+          className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:opacity-60"
+        >
+          {trackingBusy ? "Starting..." : label}
+        </button>
+      );
+    }
+
+    if (action === "start_ride") {
+      return (
+        <Link
+          key={action}
+          href={meetNavigationHref(meet.id)}
+          onClick={writeNavigationSession}
+          className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+        >
+          {label}
+        </Link>
+      );
+    }
+
+    if (action === "join") {
+      return (
+        <button
+          key={action}
+          type="button"
+          onClick={onJoin}
+          className="flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/[0.02] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-100 transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/18"
+        >
+          {label}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={action}
+        type="button"
+        onClick={() => setLeaveConfirmOpen(true)}
+        className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/50 bg-transparent py-3 text-[10px] uppercase tracking-[0.2em] text-[#e87a82] transition hover:bg-[#b4141e]/10"
+      >
+        {label}
+      </button>
+    );
+  }
 
   return (
     <div
@@ -789,37 +1013,71 @@ export function MeetDetailsModal({
             )}
           </div>
 
-          <div className="mt-5">
-            <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-              Hosted by
-            </p>
-            {profileHref(meet.host.username) ? (
-              <Link href={profileHref(meet.host.username)!} className="flex items-center gap-3">
-                <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
-                  <Image
-                    src={meet.host.photo}
-                    alt={meet.host.name}
-                    fill
-                    sizes="36px"
-                    className="object-cover"
-                  />
+          <div className="mt-5 space-y-3">
+            <div>
+              <p className="text-sm text-zinc-200">{hostDisplay.hostedBy}</p>
+              {hostDisplay.coHostLine ? (
+                <p className="mt-1 text-sm text-zinc-300">{hostDisplay.coHostLine}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {profileHref(meet.host.username) ? (
+                <Link href={profileHref(meet.host.username)!} className="flex items-center gap-3">
+                  <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                    <Image
+                      src={meet.host.photo}
+                      alt={meet.host.name}
+                      fill
+                      sizes="36px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <span className="text-sm text-zinc-400 transition hover:text-[#f4dadd]">{meet.host.name}</span>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                    <Image
+                      src={meet.host.photo}
+                      alt={meet.host.name}
+                      fill
+                      sizes="36px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <span className="text-sm text-zinc-400">{meet.host.name}</span>
                 </div>
-                <span className="text-sm text-zinc-200 transition hover:text-[#f4dadd]">{meet.host.name}</span>
-              </Link>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
-                  <Image
-                    src={meet.host.photo}
-                    alt={meet.host.name}
-                    fill
-                    sizes="36px"
-                    className="object-cover"
-                  />
-                </div>
-                <span className="text-sm text-zinc-200">{meet.host.name}</span>
-              </div>
-            )}
+              )}
+              {meet.coHost ? (
+                profileHref(meet.coHost.username) ? (
+                  <Link href={profileHref(meet.coHost.username)!} className="flex items-center gap-3">
+                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                      <Image
+                        src={meet.coHost.photo}
+                        alt={meet.coHost.name}
+                        fill
+                        sizes="36px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <span className="text-sm text-zinc-400 transition hover:text-[#f4dadd]">{meet.coHost.name}</span>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                      <Image
+                        src={meet.coHost.photo}
+                        alt={meet.coHost.name}
+                        fill
+                        sizes="36px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <span className="text-sm text-zinc-400">{meet.coHost.name}</span>
+                  </div>
+                )
+              ) : null}
+            </div>
           </div>
 
           {isCanceled && (
@@ -849,7 +1107,7 @@ export function MeetDetailsModal({
                   {showRidersPanel ? "Hide Riders" : "View Riders"}
                 </button>
 
-                {!isCanceled && (
+                {canManageSettings && !isCanceled && (
                   <button
                     type="button"
                     onClick={onCancelMeet}
@@ -860,6 +1118,28 @@ export function MeetDetailsModal({
                   </button>
                 )}
 
+                {canManageSettings && !isCanceled && (
+                  <button
+                    type="button"
+                    onClick={() => setCoHostPickerOpen(true)}
+                    disabled={coHostBusy || !!coHostAssignmentBlockedReason(hostContext, !meet.coHostId)}
+                    className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
+                  >
+                    {meet.coHost ? "Change Co-Host" : "Add Co-Host"}
+                  </button>
+                )}
+
+                {canManageSettings && meet.coHost && !isCanceled && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveCoHost()}
+                    disabled={coHostBusy}
+                    className="rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/30 disabled:opacity-50"
+                  >
+                    Remove Co-Host
+                  </button>
+                )}
+
                 {isRideLive && !isCanceled && (
                   <button
                     type="button"
@@ -867,7 +1147,7 @@ export function MeetDetailsModal({
                     disabled={!!moderationBusy}
                     className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-white/30 disabled:opacity-50"
                   >
-                    End Ride
+                    End Meet
                   </button>
                 )}
               </div>
@@ -887,6 +1167,13 @@ export function MeetDetailsModal({
                       {attendees.map((attendee) => {
                         const href = profileHref(attendee.username);
                         const isMeetHost = attendee.userId === meet.hostId;
+                        const isMeetCoHostRider = attendee.userId === meet.coHostId;
+                        const canRemoveRider = canRemoveRiderFromMeet(
+                          hostContext,
+                          currentUserId,
+                          attendee.userId,
+                          isAdmin,
+                        );
 
                         return (
                           <div
@@ -921,11 +1208,12 @@ export function MeetDetailsModal({
                                     ? `@${attendee.username.replace(/^@+/, "")}`
                                     : "No username"}
                                   {isMeetHost ? " / Host" : ""}
+                                  {isMeetCoHostRider ? " / Co-host" : ""}
                                 </p>
                               </div>
                             </div>
 
-                            {!isMeetHost && (
+                            {canRemoveRider && !isMeetCoHostRider && (
                               <button
                                 type="button"
                                 onClick={() => void removeRider(attendee.userId)}
@@ -1015,7 +1303,7 @@ export function MeetDetailsModal({
                     message.sender?.avatar_url ||
                     "/icon.png";
 	                  const canDelete =
-	                    message.user_id === currentUserId || meet.hostId === currentUserId;
+	                    message.user_id === currentUserId || canModerate;
                     const senderHref = profileHref(message.sender?.username);
 
                   if (message.kind === "system") {
@@ -1191,99 +1479,125 @@ export function MeetDetailsModal({
         </div>
 
         <div className="shrink-0 border-t border-white/8 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4">
-          <NavigateToMeetButton
-            target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-100 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-          />
-
-          {isHost && !isRideLive && !isCanceled && hasRoute ? (
-            <button
-              type="button"
-              onClick={() => void handleStartMeetTracking()}
-              disabled={trackingBusy}
-              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:opacity-60"
-            >
-              {trackingBusy ? "Starting…" : "Start Meet"}
-            </button>
-          ) : null}
-
-          {hasRoute ? (
-            <Link
-              href={meetNavigationHref(meet.id)}
-              onClick={() => {
-                writeActiveMeetSession({
-                  id: meet.id,
-                  hostId: meet.hostId ?? null,
-                  route: safeRoute,
-                  waypoints: meet.waypoints ?? [],
-                  name: meet.name,
-                  meetPoint: meet.meetPoint,
-                  destination: meet.destination,
-                  date: meet.date ?? null,
-                  time: meet.time ?? null,
-                  meetDurationMinutes: meet.meetDurationMinutes ?? null,
-                  status: meet.status ?? "active",
-                  trackingStatus: meet.trackingStatus ?? "not_started",
-                  startedAt: meet.startedAt ?? null,
-                  endedAt: meet.endedAt ?? null,
-                });
-              }}
-              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-            >
-              Start Ride
-            </Link>
-          ) : null}
+          <div className="space-y-3">
+            {footerActions.map((action) => renderFooterAction(action))}
+          </div>
 
           <button
             type="button"
             onClick={() => setReportOpen(true)}
             disabled={!currentUserId}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#f4dadd] disabled:opacity-50"
+            className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 transition hover:border-[#b4141e]/50 hover:text-[#f4dadd] disabled:opacity-50"
           >
             Report Meet
           </button>
 
           {inviteJoinBlocked && (
-            <p className="mb-3 text-center text-xs leading-5 text-zinc-500">
+            <p className="mt-3 text-center text-xs leading-5 text-zinc-500">
               Invite-only meet. Ask the host for access.
             </p>
           )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
-            >
-              Close
-            </button>
-
-            <button
-              onClick={() => {
-                onJoin();
-              }}
-              disabled={isHost || isCanceled || inviteJoinBlocked}
-              className={`flex-1 rounded-lg border py-3 text-[10px] uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                isCanceled
-                  ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                  : inviteJoinBlocked
-                    ? "border-white/10 bg-white/[0.02] text-zinc-600"
-                    : isGoing
-                      ? "border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
-                      : "border-white/15 bg-white/[0.02] text-zinc-100 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/18"
-              }`}
-            >
-              {isCanceled
-                ? "Canceled"
-                : isHost
-                  ? "Hosting"
-                  : isGoing
-                    ? "✓ Going"
-                    : inviteJoinBlocked
-                      ? "Invite Only"
-                      : "JOIN MEET"}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-400 transition hover:border-white/25 hover:text-zinc-200"
+          >
+            Close
+          </button>
         </div>
+
+        {leaveConfirmOpen && (
+          <div className="absolute inset-0 z-30 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+            <div className="w-full rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[#f4dadd]">Leave Meet</p>
+              <h3 className="mt-2 font-serif text-2xl text-white">{LEAVE_MEET_CONFIRM_TITLE}</h3>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLeaveConfirmOpen(false)}
+                  className="flex-1 rounded-lg border border-white/15 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmLeave}
+                  className="flex-1 rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd]"
+                >
+                  Leave Meet
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {coHostPickerOpen && (
+          <div className="absolute inset-0 z-30 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">
+            <div className="w-full rounded-2xl border border-white/10 bg-[#0b0b0d] p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-[#f4dadd]">Co-Host</p>
+                  <h3 className="mt-2 font-serif text-2xl text-white">Add Co-Host</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoHostPickerOpen(false);
+                    setCoHostSearchQuery("");
+                    setCoHostSearchResults([]);
+                  }}
+                  className="rounded-full border border-white/10 px-3 py-1 text-sm text-zinc-400"
+                >
+                  Close
+                </button>
+              </div>
+
+              <input
+                type="text"
+                value={coHostSearchQuery}
+                onChange={(event) => setCoHostSearchQuery(event.target.value)}
+                placeholder="Search members or pick a joined rider"
+                className="mt-5 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-white outline-none placeholder:text-zinc-600"
+              />
+
+              <div className="mt-4 grid max-h-56 gap-2 overflow-y-auto">
+                {coHostSearchResults.length === 0 ? (
+                  <p className="text-sm text-zinc-500">
+                    {attendees.length > 1
+                      ? "Search for a member or choose from joined riders."
+                      : "Search for a member to assign as co-host."}
+                  </p>
+                ) : (
+                  coHostSearchResults.map((profile) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => void handleAssignCoHost(profile)}
+                      disabled={coHostBusy}
+                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-left transition hover:border-[#b4141e]/50 disabled:opacity-50"
+                    >
+                      <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10">
+                        <Image
+                          src={profile.photo}
+                          alt={profile.name}
+                          fill
+                          sizes="36px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-zinc-100">{profile.name}</p>
+                        <p className="truncate text-xs text-zinc-500">
+                          {profile.username ? `@${profile.username.replace(/^@+/, "")}` : "Member"}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {reportOpen && (
           <div className="absolute inset-0 z-20 flex items-end bg-black/80 p-4 backdrop-blur-sm sm:items-center">

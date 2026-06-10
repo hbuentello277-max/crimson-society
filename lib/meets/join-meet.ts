@@ -1,12 +1,14 @@
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { canSelfJoinMeet, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
+import { isMeetHostOrCoHost } from "@/lib/meets/permissions";
 import type { MeetPrivacy } from "@/lib/meets/types";
 
 export type JoinMeetInput = {
   meetId: string;
   userId: string | null | undefined;
   hostId?: string | null;
+  coHostId?: string | null;
   privacy?: MeetPrivacy | string | null;
   visibility?: string | null;
   status?: string | null;
@@ -22,7 +24,7 @@ export function canJoinDashboardMeet(input: JoinMeetInput) {
     return { allowed: false, message: "This meet was canceled." };
   }
 
-  if (input.hostId && input.hostId === input.userId) {
+  if (isMeetHostOrCoHost({ hostId: input.hostId, coHostId: input.coHostId }, input.userId)) {
     return { allowed: false, message: "You are hosting this meet." };
   }
 

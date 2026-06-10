@@ -37,6 +37,8 @@ import {
   type DashboardMapMeet,
 } from "@/lib/meets/dashboard-map";
 import { canJoinDashboardMeet, joinMeetAttendance } from "@/lib/meets/join-meet";
+import { leaveMeetAttendance } from "@/lib/meets/leave-meet";
+import { isMeetHostOrCoHost } from "@/lib/meets/permissions";
 import { deriveMeetLifecycle, parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
@@ -117,6 +119,7 @@ type RideWaypoint = RoutePoint & {
 type DashboardRideRow = {
   id: string;
   host_id: string;
+  co_host_id?: string | null;
   name: string;
   date: string | null;
   time: string | null;
@@ -317,6 +320,7 @@ function mapRideToDashboardMeet(
   return {
     id: ride.id,
     hostId: ride.host_id,
+    coHostId: ride.co_host_id ?? null,
     name: ride.name || "Untitled Meet",
     date: ride.date || "",
     time: ride.time || "",
@@ -1086,6 +1090,7 @@ if (livePostIds.length > 0) {
         meetId: selectedMapMeet.id,
         userId: session?.user?.id,
         hostId: selectedMapMeet.hostId,
+        coHostId: selectedMapMeet.coHostId,
         privacy: selectedMapMeet.privacy,
         visibility: selectedMapMeet.visibility,
         status: selectedMapMeet.status,
@@ -1101,6 +1106,7 @@ if (livePostIds.length > 0) {
       meetId: selectedMapMeet.id,
       userId: session.user.id,
       hostId: selectedMapMeet.hostId,
+      coHostId: selectedMapMeet.coHostId,
       privacy: selectedMapMeet.privacy,
       visibility: selectedMapMeet.visibility,
       status: selectedMapMeet.status,
@@ -1149,6 +1155,33 @@ if (livePostIds.length > 0) {
     },
     [mapMeets, router],
   );
+
+  const handleLeaveMapMeet = async () => {
+    if (!selectedMapMeet || !session?.user?.id || joinBusy) return;
+
+    if (!window.confirm("Leave this meet?")) return;
+
+    setJoinBusy(true);
+    const result = await leaveMeetAttendance(selectedMapMeet.id, session.user.id);
+    setJoinBusy(false);
+
+    if (!result.ok) {
+      setToast(result.error ?? "Could not leave meet.");
+      window.setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setGoing((current) => ({ ...current, [selectedMapMeet.id]: false }));
+    setMapMeets((current) =>
+      current.map((meet) =>
+        meet.id === selectedMapMeet.id
+          ? { ...meet, riderCount: Math.max(0, meet.riderCount - 1) }
+          : meet,
+      ),
+    );
+    setToast("Meet left.");
+    window.setTimeout(() => setToast(null), 2000);
+  };
 
   const previewMapRiders = liveMapPreview.riders.slice(0, 5).map((rider) => {
     const cleanUsername = rider.username?.trim().replace(/^@+/, "") || null;
@@ -2084,15 +2117,18 @@ if (livePostIds.length > 0) {
         meet={selectedMapMeet}
         open={!!selectedMapMeet}
         isGoing={selectedMapMeet ? !!going[selectedMapMeet.id] : false}
-        isHost={
+        isHostTeam={
           !!selectedMapMeet &&
-          !!session?.user?.id &&
-          selectedMapMeet.hostId === session.user.id
+          isMeetHostOrCoHost(
+            { hostId: selectedMapMeet.hostId, coHostId: selectedMapMeet.coHostId },
+            session?.user?.id,
+          )
         }
         canJoin={selectedMapMeetJoin.allowed}
         joinBlockedMessage={selectedMapMeetJoin.message}
         onClose={() => setSelectedMapMeetId(null)}
         onJoin={() => void handleJoinMapMeet()}
+        onLeave={() => void handleLeaveMapMeet()}
       />
 
       {toast && (

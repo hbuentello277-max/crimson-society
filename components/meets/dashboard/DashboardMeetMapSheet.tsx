@@ -11,15 +11,22 @@ import {
   dashboardMeetLifecycleLabel,
   type DashboardMapMeet,
 } from "@/lib/meets/dashboard-map";
+import {
+  dashboardMapSheetPrimaryActionLabel,
+  resolveDashboardMapSheetPrimaryAction,
+} from "@/lib/meets/dashboard-map-sheet-actions";
+import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
+
 type DashboardMeetMapSheetProps = {
   meet: DashboardMapMeet | null;
   open: boolean;
   isGoing: boolean;
-  isHost: boolean;
+  isHostTeam: boolean;
   canJoin: boolean;
   joinBlockedMessage?: string | null;
   onClose: () => void;
   onJoin: () => void;
+  onLeave: () => void;
 };
 
 function formatMeetSchedule(date: string, time: string) {
@@ -41,17 +48,24 @@ export function DashboardMeetMapSheet({
   meet,
   open,
   isGoing,
-  isHost,
+  isHostTeam,
   canJoin,
   joinBlockedMessage,
   onClose,
   onJoin,
+  onLeave,
 }: DashboardMeetMapSheetProps) {
   if (!open || !meet) return null;
 
   const hasRoute = dashboardMeetHasRoute(meet);
-  const showNavigation = meet.lifecyclePhase === "active" && hasRoute;
-  const showJoin = !isGoing && !isHost && canJoin;
+  const primaryAction = resolveDashboardMapSheetPrimaryAction({
+    hasRoute,
+    lifecyclePhase: meet.lifecyclePhase,
+    trackingStatus: meet.trackingStatus,
+    isHostTeam,
+    isGoing,
+    hasMapsTarget: hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }),
+  });
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end justify-center">
@@ -105,6 +119,9 @@ export function DashboardMeetMapSheet({
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Host</p>
                 <p className="mt-1 text-zinc-100">{meet.hostName}</p>
+                {meet.coHostName ? (
+                  <p className="mt-1 text-zinc-300">Co-host: {meet.coHostName}</p>
+                ) : null}
               </div>
             ) : null}
             {joinBlockedMessage && !isGoing ? (
@@ -123,7 +140,7 @@ export function DashboardMeetMapSheet({
               View Meet
             </Link>
 
-            {showJoin ? (
+            {!isHostTeam && !isGoing && canJoin ? (
               <button
                 type="button"
                 onClick={onJoin}
@@ -133,18 +150,30 @@ export function DashboardMeetMapSheet({
               </button>
             ) : null}
 
-            {showNavigation ? (
+            {!isHostTeam && isGoing ? (
+              <button
+                type="button"
+                onClick={onLeave}
+                className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/50 bg-transparent px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#e87a82] transition hover:bg-[#b4141e]/10"
+              >
+                Leave Meet
+              </button>
+            ) : null}
+
+            {primaryAction === "start_ride" || primaryAction === "navigate_in_app" ? (
               <StartRideLink
                 meet={dashboardMeetToStartRideInput(meet)}
-                label="Navigate to Meet"
+                label={dashboardMapSheetPrimaryActionLabel(primaryAction)}
                 className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                 onNavigate={onClose}
               />
-            ) : (
+            ) : null}
+
+            {primaryAction === "navigate_external" ? (
               <NavigateToMeetButton
                 target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
               />
-            )}
+            ) : null}
 
             {hasRoute ? (
               <Link
