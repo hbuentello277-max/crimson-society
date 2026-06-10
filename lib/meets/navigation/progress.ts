@@ -103,6 +103,39 @@ export function computeRouteProgress(
   };
 }
 
+/** Prevents progress from snapping backward on loops or parallel roads. */
+export function applyMonotonicRouteProgress(
+  previous: NavigationProgress | null,
+  next: NavigationProgress,
+): NavigationProgress {
+  if (!previous) return next;
+
+  const distanceTraveledMiles = Math.max(
+    previous.distanceTraveledMiles,
+    next.distanceTraveledMiles,
+  );
+  const distanceRemainingMiles = Math.min(
+    previous.distanceRemainingMiles,
+    next.distanceRemainingMiles,
+  );
+  const percentComplete = Math.max(previous.percentComplete, next.percentComplete);
+
+  const usePreviousIndices =
+    next.currentRouteIndex < previous.currentRouteIndex ||
+    (next.currentRouteIndex === previous.currentRouteIndex &&
+      next.distanceTraveledMiles + 0.01 < previous.distanceTraveledMiles);
+
+  return {
+    currentSegmentIndex: usePreviousIndices
+      ? previous.currentSegmentIndex
+      : next.currentSegmentIndex,
+    currentRouteIndex: usePreviousIndices ? previous.currentRouteIndex : next.currentRouteIndex,
+    distanceTraveledMiles,
+    distanceRemainingMiles,
+    percentComplete,
+  };
+}
+
 /** Minimum movement before recomputing progress (reduces rerenders). */
 export const PROGRESS_RECALC_MIN_METERS = 8;
 

@@ -65,6 +65,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const gpsBootstrappedRef = useRef(false);
   const latestPositionRef = useRef<NavigationPosition | null>(null);
   const offRouteTrackerRef = useRef(createOffRouteTracker());
+  const previousProgressRef = useRef<NavigationSession["progress"]>(null);
 
   if (!baseSessionRef.current && meetId && userId) {
     baseSessionRef.current = createInitialNavigationSession(meetId, userId);
@@ -148,6 +149,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       setHostName(null);
       latestPositionRef.current = null;
       setLatestPosition(null);
+      previousProgressRef.current = null;
       setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
 
       const sessionPayload = readActiveMeetSession();
@@ -228,7 +230,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       baseSessionRef.current ??
       createInitialNavigationSession(meetId ?? "", userId ?? "");
 
-    return buildNavigationSession({
+    const built = buildNavigationSession({
       base,
       meet,
       hostName,
@@ -240,7 +242,14 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       latestPosition,
       isPaused,
       offRoute,
+      previousProgress: previousProgressRef.current,
     });
+
+    if (built.progress) {
+      previousProgressRef.current = built.progress;
+    }
+
+    return built;
   }, [
     authLoading,
     gpsError,

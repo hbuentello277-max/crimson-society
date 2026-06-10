@@ -90,8 +90,15 @@ export type OffRouteSessionState = {
   offRouteStatus: OffRouteStatus;
   distanceFromRouteMeters: number | null;
   nearestRouteSegmentIndex: number | null;
+  nearestRejoinPoint: RoutePoint | null;
   lastOffRouteAt: string | null;
   lastBackOnRouteAt: string | null;
+  bannerMessage: string | null;
+};
+
+export type NavigationArrivalSessionState = {
+  atMeetStart: boolean;
+  atDestination: boolean;
   bannerMessage: string | null;
 };
 
@@ -125,6 +132,13 @@ export type NavigationSession = {
   shareError: string | null;
   isPaused: boolean;
   offRoute: OffRouteSessionState;
+  arrival: NavigationArrivalSessionState;
+};
+
+export const EMPTY_NAVIGATION_ARRIVAL: NavigationArrivalSessionState = {
+  atMeetStart: false,
+  atDestination: false,
+  bannerMessage: null,
 };
 
 export const EMPTY_NAVIGATION_METRICS: NavigationMetrics = {

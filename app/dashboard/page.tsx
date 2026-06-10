@@ -20,7 +20,9 @@ import { PostActionSheet, type PostActionTarget } from "@/components/social/Post
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
+import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import { DashboardMeetMapSheet } from "@/components/meets/dashboard/DashboardMeetMapSheet";
+import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import {
   buildDashboardMapMarkers,
@@ -1066,8 +1068,12 @@ if (livePostIds.length > 0) {
     setTimeout(() => setToast(null), 1400);
   };
 
-  const openMapHref = "/meets/live";
+  const openMapHref = "/meets/live?mode=global";
   const { active: activeMapMeets, upcoming: upcomingMapMeets } = groupDashboardMapMeets(mapMeets, now);
+  const activeLiveRiderCount = activeMapMeets.reduce(
+    (total, meet) => total + meet.liveRiderCount,
+    0,
+  );
   const dashboardMapMarkers = buildDashboardMapMarkers(mapMeets, now);
   const selectedMapMeet =
     mapMeets.find((meet) => meet.id === selectedMapMeetId) ?? null;
@@ -1337,7 +1343,7 @@ if (livePostIds.length > 0) {
                       Active Now ({activeMapMeets.length})
                     </p>
                     <span className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-2 py-0.5 text-[8px] uppercase tracking-[0.12em] text-[#f1c3c7]">
-                      {activeMapMeets.length} live
+                      {activeLiveRiderCount} live
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -1429,13 +1435,29 @@ if (livePostIds.length > 0) {
                               </div>
                             </div>
                           </button>
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <Link
-                              href={`/meets?meet=${meet.id}`}
-                              className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-                            >
-                              View Meet
-                            </Link>
+                          <div className="mt-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Link
+                                href={`/meets?meet=${meet.id}`}
+                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                              >
+                                View Meet
+                              </Link>
+                              {hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
+                                <NavigateToMeetButton
+                                  target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
+                                  className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMapMeetId(meet.id)}
+                                  className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+                                >
+                                  Map Details
+                                </button>
+                              )}
+                            </div>
                             {showNavigation ? (
                               <Link
                                 href={meetNavigationHref(meet.id)}
@@ -1457,19 +1479,11 @@ if (livePostIds.length > 0) {
                                     endedAt: null,
                                   });
                                 }}
-                                className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                                className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                               >
-                                Start Navigation
+                                Start Tracking
                               </Link>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedMapMeetId(meet.id)}
-                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                              >
-                                Map Details
-                              </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       );
@@ -1582,13 +1596,29 @@ if (livePostIds.length > 0) {
                               </div>
                             </div>
                           </button>
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <Link
-                              href={`/meets?meet=${meet.id}`}
-                              className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-                            >
-                              View Meet
-                            </Link>
+                          <div className="mt-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Link
+                                href={`/meets?meet=${meet.id}`}
+                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                              >
+                                View Meet
+                              </Link>
+                              {hasMapsNavigationTarget({ lat: meet.lat, lng: meet.lng }) ? (
+                                <NavigateToMeetButton
+                                  target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
+                                  className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMapMeetId(meet.id)}
+                                  className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+                                >
+                                  Map Details
+                                </button>
+                              )}
+                            </div>
                             {showNavigation ? (
                               <Link
                                 href={meetNavigationHref(meet.id)}
@@ -1610,19 +1640,11 @@ if (livePostIds.length > 0) {
                                     endedAt: null,
                                   });
                                 }}
-                                className="flex items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                                className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                               >
-                                Start Navigation
+                                Start Tracking
                               </Link>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedMapMeetId(meet.id)}
-                                className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-                              >
-                                Map Details
-                              </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       );

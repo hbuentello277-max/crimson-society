@@ -6,8 +6,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { Meet, MeetTrackingStatus } from "@/lib/meets/types";
+import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
+import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
+import { startMeetTracking, parseMeetTrackingLifecycleRow } from "@/lib/meets/meet-tracking";
 import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
 import {
   ensureRouteWithSteps,
@@ -172,6 +175,7 @@ export function MeetDetailsModal({
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [showRidersPanel, setShowRidersPanel] = useState(false);
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
+  const [trackingBusy, setTrackingBusy] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatSectionRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -632,6 +636,27 @@ export function MeetDetailsModal({
 
   const safeRoute = hasRoadGeometry(resolvedRoute) ? resolvedRoute : [];
   const hasRoute = safeRoute.length > 0;
+
+  async function handleStartMeetTracking() {
+    if (!currentUserId || !isHost || trackingBusy || isCanceled) return;
+
+    setTrackingBusy(true);
+    const result = await startMeetTracking(meet.id, currentUserId);
+    setTrackingBusy(false);
+
+    if (!result.ok) {
+      setSafetyMessage(result.error ?? "Could not start meet tracking.");
+      window.setTimeout(() => setSafetyMessage(null), 3200);
+      return;
+    }
+
+    const lifecycle = parseMeetTrackingLifecycleRow(result.row);
+    onMeetUpdated({
+      trackingStatus: lifecycle.trackingStatus,
+      startedAt: lifecycle.startedAt,
+      endedAt: lifecycle.endedAt,
+    });
+  }
   const trimmedDescription = meet.description?.trim() ?? "";
   const memberCountLabel =
     meet.going.length === 1 ? "1 member" : `${meet.going.length} members`;
@@ -1166,30 +1191,48 @@ export function MeetDetailsModal({
         </div>
 
         <div className="shrink-0 border-t border-white/8 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4">
-          <Link
-            href={`/meets/${meet.id}/navigation`}
-            onClick={() => {
-              writeActiveMeetSession({
-                id: meet.id,
-                hostId: meet.hostId ?? null,
-                route: meet.route ?? [],
-                waypoints: meet.waypoints ?? [],
-                name: meet.name,
-                meetPoint: meet.meetPoint,
-                destination: meet.destination,
-                date: meet.date ?? null,
-                time: meet.time ?? null,
-                meetDurationMinutes: meet.meetDurationMinutes ?? null,
-                status: meet.status ?? "active",
-                trackingStatus: meet.trackingStatus ?? "not_started",
-                startedAt: meet.startedAt ?? null,
-                endedAt: meet.endedAt ?? null,
-              });
-            }}
-            className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
-          >
-            Start Navigation
-          </Link>
+          <NavigateToMeetButton
+            target={{ lat: meet.lat, lng: meet.lng, label: meet.meetPoint }}
+            className="mb-3 flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] py-3 text-[10px] uppercase tracking-[0.2em] text-zinc-100 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+          />
+
+          {isHost && !isRideLive && !isCanceled && hasRoute ? (
+            <button
+              type="button"
+              onClick={() => void handleStartMeetTracking()}
+              disabled={trackingBusy}
+              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:opacity-60"
+            >
+              {trackingBusy ? "Starting..." : "Start Meet Tracking"}
+            </button>
+          ) : null}
+
+          {hasRoute ? (
+            <Link
+              href={meetNavigationHref(meet.id)}
+              onClick={() => {
+                writeActiveMeetSession({
+                  id: meet.id,
+                  hostId: meet.hostId ?? null,
+                  route: safeRoute,
+                  waypoints: meet.waypoints ?? [],
+                  name: meet.name,
+                  meetPoint: meet.meetPoint,
+                  destination: meet.destination,
+                  date: meet.date ?? null,
+                  time: meet.time ?? null,
+                  meetDurationMinutes: meet.meetDurationMinutes ?? null,
+                  status: meet.status ?? "active",
+                  trackingStatus: meet.trackingStatus ?? "not_started",
+                  startedAt: meet.startedAt ?? null,
+                  endedAt: meet.endedAt ?? null,
+                });
+              }}
+              className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+            >
+              Start Tracking
+            </Link>
+          ) : null}
 
           <button
             type="button"

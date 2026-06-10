@@ -1,8 +1,10 @@
 import { memo } from "react";
+import { openMapsNavigation } from "@/lib/meets/maps-links";
 import {
   BACK_ON_ROUTE_BANNER_MESSAGE,
   OFF_ROUTE_BANNER_MESSAGE,
 } from "@/lib/meets/navigation/off-route";
+import { formatManeuverDistance } from "@/lib/meets/navigation/steps";
 import type { NavigationMetrics, NavigationSession } from "@/lib/meets/navigation/types";
 
 type NavigationHudProps = {
@@ -49,7 +51,8 @@ function NavigationHudComponent({
   onTogglePause,
   canRecenter,
 }: NavigationHudProps) {
-  const { metrics, meet, route, navigationState, error, shareError, isPaused, offRoute } = session;
+  const { metrics, meet, route, navigationState, error, shareError, isPaused, offRoute, arrival } =
+    session;
 
   const showGpsAlert =
     navigationState === "gps_permission_required" ||
@@ -60,15 +63,51 @@ function NavigationHudComponent({
     offRoute.bannerMessage === OFF_ROUTE_BANNER_MESSAGE;
   const showBackOnRouteBanner =
     navigationState === "navigating" && offRoute.bannerMessage === BACK_ON_ROUTE_BANNER_MESSAGE;
+  const showArrivalBanner =
+    (navigationState === "navigating" || navigationState === "paused") && !!arrival.bannerMessage;
+  const showOffRouteDistance =
+    showOffRouteBanner &&
+    offRoute.distanceFromRouteMeters !== null &&
+    Number.isFinite(offRoute.distanceFromRouteMeters);
+  const canOpenRejoinMaps = !!offRoute.nearestRejoinPoint;
 
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-[600]">
+      {showArrivalBanner ? (
+        <div className="pointer-events-none mb-3 rounded-2xl border border-emerald-400/50 bg-[#07150f]/95 px-4 py-4 text-center shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <p className="text-[10px] uppercase tracking-[0.24em] text-emerald-300/90">Arrival</p>
+          <p className="mt-2 text-lg font-semibold leading-tight text-emerald-100">
+            {arrival.bannerMessage}
+          </p>
+        </div>
+      ) : null}
+
       {showOffRouteBanner ? (
-        <div className="pointer-events-none mb-3 rounded-2xl border border-[#f0b429]/70 bg-[#2a1d05]/95 px-4 py-4 text-center shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <div className="pointer-events-auto mb-3 rounded-2xl border border-[#f0b429]/70 bg-[#2a1d05]/95 px-4 py-4 text-center shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
           <p className="text-[10px] uppercase tracking-[0.24em] text-[#f6d58b]">Route Alert</p>
           <p className="mt-2 text-lg font-semibold leading-tight text-[#fff4d6]">
             {OFF_ROUTE_BANNER_MESSAGE}
           </p>
+          {showOffRouteDistance ? (
+            <p className="mt-2 text-sm text-[#f6d58b]/90">
+              About {formatManeuverDistance(offRoute.distanceFromRouteMeters)} off route
+            </p>
+          ) : null}
+          {canOpenRejoinMaps ? (
+            <button
+              type="button"
+              onClick={() =>
+                openMapsNavigation({
+                  lat: offRoute.nearestRejoinPoint!.lat,
+                  lng: offRoute.nearestRejoinPoint!.lng,
+                  label: "Rejoin route",
+                })
+              }
+              className="mt-3 rounded-xl border border-[#f0b429]/60 bg-[#3a2a08]/80 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-[#fff4d6] transition hover:border-[#f0b429]"
+            >
+              Open maps to rejoin
+            </button>
+          ) : null}
         </div>
       ) : null}
 

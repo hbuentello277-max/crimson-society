@@ -43,6 +43,7 @@ function NavigationMapPanelComponent({
       compact
       interactive
       hideHint
+      showMeetMarker
       showDestination={route.points.length > 1}
       recenterSignal={recenterSignal}
       initialZoom={14}

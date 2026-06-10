@@ -1,3 +1,4 @@
+import { getDistanceMiles } from "@/lib/gps/distance";
 import { formatDistanceMiles, formatPercentComplete } from "@/lib/meets/navigation/route-builder";
 import {
   formatManeuverDistance,
@@ -9,6 +10,7 @@ import type {
   NavigationPosition,
   NavigationProgress,
   NavigationRoute,
+  OffRouteSessionState,
 } from "@/lib/meets/navigation/types";
 
 function formatSpeedMph(speedMph: number | null | undefined): string {
@@ -65,10 +67,19 @@ function buildFallbackTurnLabel(hasManeuverData: boolean): string {
   return hasManeuverData ? "Follow route" : "Route guidance unavailable";
 }
 
+function isOffRouteGuidanceState(offRoute: OffRouteSessionState | undefined) {
+  return (
+    offRoute?.offRouteStatus === "off_route" ||
+    offRoute?.offRouteStatus === "possibly_off_route" ||
+    offRoute?.offRouteStatus === "returning"
+  );
+}
+
 export function buildNavigationMetrics(
   route: NavigationRoute | null,
   progress: NavigationProgress | null,
   position: NavigationPosition | null,
+  offRoute?: OffRouteSessionState,
 ): NavigationMetrics {
   const hasManeuverData = !!route?.steps.length;
 
@@ -89,6 +100,10 @@ export function buildNavigationMetrics(
     };
   }
 
+  const rejoinPoint = offRoute?.nearestRejoinPoint;
+  const showRejoinGuidance =
+    isOffRouteGuidanceState(offRoute) && !!rejoinPoint && !!position;
+
   const { nextStep, distanceToManeuverMeters } = resolveActiveStep(
     route.steps,
     route.points,
@@ -105,20 +120,27 @@ export function buildNavigationMetrics(
   let distanceToManeuverLabel = "—";
   let nextTurnLabel = nextInstructionLabel;
 
-  if (nextStep) {
+  if (showRejoinGuidance && rejoinPoint && position) {
+    const distanceToRejoinMeters = getDistanceMiles(position, rejoinPoint) * 1609.34;
+    nextInstructionLabel = "Head to the nearest point on the route";
+    distanceToManeuverLabel = formatManeuverDistance(distanceToRejoinMeters);
+    nextTurnLabel = `Rejoin route in ${distanceToManeuverLabel}`;
+  } else if (nextStep) {
     nextInstructionLabel = nextStep.instruction;
     distanceToManeuverLabel = formatManeuverDistance(distanceToManeuverMeters);
     nextTurnLabel = formatTurnInstruction(nextStep, distanceToManeuverMeters);
   }
 
+  const timeRemainingLabel = estimateTimeRemainingLabel(
+    progress.distanceRemainingMiles,
+    position?.speedMph,
+    remainingStepDurationSeconds,
+  );
+
   return {
-    etaLabel: "—",
+    etaLabel: timeRemainingLabel,
     distanceRemainingLabel: formatDistanceMiles(progress.distanceRemainingMiles),
-    timeRemainingLabel: estimateTimeRemainingLabel(
-      progress.distanceRemainingMiles,
-      position?.speedMph,
-      remainingStepDurationSeconds,
-    ),
+    timeRemainingLabel,
     currentSpeedLabel: formatSpeedMph(position?.speedMph),
     nextInstructionLabel,
     distanceToManeuverLabel,

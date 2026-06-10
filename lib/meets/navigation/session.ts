@@ -2,7 +2,6 @@ import type { NavigationMeet } from "@/lib/meets/load-navigation-meet";
 import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
 import { buildNavigationRoute } from "@/lib/meets/navigation/route-builder";
 import { buildNavigationMetrics } from "@/lib/meets/navigation/metrics";
-import { computeRouteProgress } from "@/lib/meets/navigation/progress";
 import {
   deriveNavigationState,
   mapGpsStateToConnection,
@@ -13,9 +12,21 @@ import type {
   NavigationPosition,
   NavigationSession,
 } from "@/lib/meets/navigation/types";
+import { detectNavigationArrival } from "@/lib/meets/navigation/arrival";
 import { createInitialOffRouteState } from "@/lib/meets/navigation/off-route";
-import { EMPTY_NAVIGATION_METRICS } from "@/lib/meets/navigation/types";
-import type { OffRouteSessionState } from "@/lib/meets/navigation/types";
+import {
+  applyMonotonicRouteProgress,
+  computeRouteProgress,
+} from "@/lib/meets/navigation/progress";
+import {
+  EMPTY_NAVIGATION_ARRIVAL,
+  EMPTY_NAVIGATION_METRICS,
+} from "@/lib/meets/navigation/types";
+import type {
+  NavigationArrivalSessionState,
+  NavigationProgress,
+  OffRouteSessionState,
+} from "@/lib/meets/navigation/types";
 import type { NavigationGpsState } from "@/lib/meets/use-navigation-gps";
 
 export function buildNavigationMeetContext(
@@ -59,6 +70,33 @@ export function createInitialNavigationSession(meetId: string, userId: string): 
     shareError: null,
     isPaused: false,
     offRoute: createInitialOffRouteState(),
+    arrival: { ...EMPTY_NAVIGATION_ARRIVAL },
+  };
+}
+
+function buildArrivalState(
+  route: NavigationSession["route"],
+  position: NavigationPosition | null,
+): NavigationArrivalSessionState {
+  if (!route || !position || route.points.length === 0) {
+    return { ...EMPTY_NAVIGATION_ARRIVAL };
+  }
+
+  const meetStart = route.points[0];
+  const destination = route.points[route.points.length - 1];
+  const detection = detectNavigationArrival(position, meetStart, destination);
+
+  let bannerMessage: string | null = null;
+  if (detection.atDestination) {
+    bannerMessage = "Destination reached. Tracking stays on until you stop.";
+  } else if (detection.atMeetStart) {
+    bannerMessage = "You've arrived at the meet start.";
+  }
+
+  return {
+    atMeetStart: detection.atMeetStart,
+    atDestination: detection.atDestination,
+    bannerMessage,
   };
 }
 
@@ -93,6 +131,7 @@ type BuildSessionInput = {
   latestPosition: NavigationPosition | null;
   isPaused: boolean;
   offRoute: OffRouteSessionState;
+  previousProgress: NavigationProgress | null;
 };
 
 export function buildNavigationSession(input: BuildSessionInput): NavigationSession {
@@ -112,14 +151,24 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
   };
 
   const navigationState = deriveNavigationState(stateInput);
-  const progress =
+  const rawProgress =
     route && input.latestPosition
       ? computeRouteProgress(route, input.latestPosition)
       : route
         ? computeRouteProgress(route, null)
         : null;
+  const progress =
+    rawProgress && route
+      ? applyMonotonicRouteProgress(input.previousProgress, rawProgress)
+      : rawProgress;
 
-  const metrics = buildNavigationMetrics(route, progress, input.latestPosition);
+  const metrics = buildNavigationMetrics(
+    route,
+    progress,
+    input.latestPosition,
+    input.offRoute,
+  );
+  const arrival = buildArrivalState(route, input.latestPosition);
 
   return {
     ...input.base,
@@ -137,5 +186,6 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
     shareError: input.shareError,
     isPaused: input.isPaused,
     offRoute: input.offRoute,
+    arrival,
   };
 }

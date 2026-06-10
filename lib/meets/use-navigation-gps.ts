@@ -55,9 +55,8 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
   }, []);
 
   const handleError = useCallback((error: GeolocationPositionError) => {
-    clearWatch();
-
     if (error.code === error.PERMISSION_DENIED) {
+      clearWatch();
       setGpsState("denied");
       setGpsError("Location permission was denied. Enable GPS to navigate this meet.");
       return;
@@ -65,7 +64,13 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
 
     if (error.code === error.POSITION_UNAVAILABLE) {
       setGpsState("error");
-      setGpsError("GPS signal is unavailable. Move to an open area and try again.");
+      setGpsError("GPS signal is weak. Move to an open area — tracking will resume automatically.");
+      return;
+    }
+
+    if (error.code === error.TIMEOUT) {
+      setGpsState("error");
+      setGpsError("GPS timed out. Waiting for the next location update.");
       return;
     }
 
@@ -106,6 +111,22 @@ export function useNavigationGps(options: UseNavigationGpsOptions = {}) {
       clearWatch();
     };
   }, [clearWatch]);
+
+  useEffect(() => {
+    if (!enabled || typeof document === "undefined") return;
+
+    const resumeOnVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (gpsState === "denied" || gpsState === "unavailable") return;
+      if (watchIdRef.current !== null) return;
+      requestGps();
+    };
+
+    document.addEventListener("visibilitychange", resumeOnVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", resumeOnVisible);
+    };
+  }, [enabled, gpsState, requestGps]);
 
   const recenter = useCallback(() => {
     setRecenterSignal((value) => value + 1);

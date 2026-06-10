@@ -126,6 +126,7 @@ export type OffRouteTracker = {
   backOnRouteBannerShownAt: number | null;
   distanceFromRouteMeters: number | null;
   nearestRouteSegmentIndex: number | null;
+  nearestRejoinPoint: RoutePoint | null;
 };
 
 export function createOffRouteTracker(): OffRouteTracker {
@@ -141,6 +142,7 @@ export function createOffRouteTracker(): OffRouteTracker {
     backOnRouteBannerShownAt: null,
     distanceFromRouteMeters: null,
     nearestRouteSegmentIndex: null,
+    nearestRejoinPoint: null,
   };
 }
 
@@ -151,6 +153,7 @@ export function createInitialOffRouteState(): OffRouteSessionState {
     offRouteStatus: "on_route",
     distanceFromRouteMeters: null,
     nearestRouteSegmentIndex: null,
+    nearestRejoinPoint: null,
     lastOffRouteAt: null,
     lastBackOnRouteAt: null,
     bannerMessage: null,
@@ -162,6 +165,7 @@ function trackerToSessionState(tracker: OffRouteTracker): OffRouteSessionState {
     offRouteStatus: tracker.status,
     distanceFromRouteMeters: tracker.distanceFromRouteMeters,
     nearestRouteSegmentIndex: tracker.nearestRouteSegmentIndex,
+    nearestRejoinPoint: tracker.nearestRejoinPoint,
     lastOffRouteAt: tracker.lastOffRouteAt,
     lastBackOnRouteAt: tracker.lastBackOnRouteAt,
     bannerMessage: tracker.bannerMessage,
@@ -173,6 +177,8 @@ function statesEqual(a: OffRouteSessionState, b: OffRouteSessionState): boolean 
     a.offRouteStatus === b.offRouteStatus &&
     a.distanceFromRouteMeters === b.distanceFromRouteMeters &&
     a.nearestRouteSegmentIndex === b.nearestRouteSegmentIndex &&
+    a.nearestRejoinPoint?.lat === b.nearestRejoinPoint?.lat &&
+    a.nearestRejoinPoint?.lng === b.nearestRejoinPoint?.lng &&
     a.lastOffRouteAt === b.lastOffRouteAt &&
     a.lastBackOnRouteAt === b.lastBackOnRouteAt &&
     a.bannerMessage === b.bannerMessage
@@ -234,12 +240,14 @@ export function stepOffRouteTracker(
   if (!deviation) {
     tracker.distanceFromRouteMeters = null;
     tracker.nearestRouteSegmentIndex = null;
+    tracker.nearestRejoinPoint = null;
     const next = trackerToSessionState(tracker);
     return { state: next, changed: !statesEqual(previous, next) };
   }
 
   tracker.distanceFromRouteMeters = deviation.distanceFromRouteMeters;
   tracker.nearestRouteSegmentIndex = deviation.nearestRouteSegmentIndex;
+  tracker.nearestRejoinPoint = deviation.nearestPoint;
 
   if (deviation.isBeyondOffRouteThreshold) {
     tracker.outsideSampleCount += 1;

@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import {
@@ -243,7 +244,9 @@ function formatLastUpdated(value: string | null, referenceTime = Date.now()) {
   });
 }
 
-export default function MeetLiveMapPage() {
+function MeetLiveMapPageContent() {
+  const searchParams = useSearchParams();
+  const globalMapMode = searchParams.get("mode") === "global";
   const { session, loading: authLoading } = useAuth();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -354,9 +357,53 @@ export default function MeetLiveMapPage() {
       : visibleMapRiders.length;
 
   useEffect(() => {
-    setLiveMapMode(true);
-    setLoaded(true);
-  }, []);
+    if (globalMapMode) {
+      setLiveMapMode(true);
+      setLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function bootstrapActiveRide() {
+      setLiveMapMode(false);
+
+      const fromSession = sessionPayloadToActiveRide(readActiveMeetSession());
+      if (fromSession) {
+        if (!cancelled) {
+          setActiveRide(fromSession);
+          setLoaded(true);
+        }
+        return;
+      }
+
+      if (authLoading) return;
+
+      if (!userId) {
+        if (!cancelled) setLoaded(true);
+        return;
+      }
+
+      const fromDb = await bootstrapActiveMeetFromDb(userId);
+      if (cancelled) return;
+
+      if (fromDb) {
+        writeActiveMeetSession(fromDb);
+        const ride = sessionPayloadToActiveRide(fromDb);
+        if (ride) {
+          setActiveRide(ride);
+        }
+      }
+
+      setLoaded(true);
+    }
+
+    void bootstrapActiveRide();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, globalMapMode, userId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10000);
@@ -1406,5 +1453,23 @@ function RouteInfo({ label, value }: { label: string; value: string }) {
       <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-600">{label}</p>
       <p className="mt-1 text-sm text-zinc-300">{value}</p>
     </div>
+  );
+}
+
+export default function MeetLiveMapPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
+          <div
+            className={`relative mx-auto flex min-h-screen max-w-[1080px] items-center justify-center px-4 ${BOTTOM_NAV_CLEARANCE}`}
+          >
+            <p className="text-sm text-zinc-500">Loading live map...</p>
+          </div>
+        </main>
+      }
+    >
+      <MeetLiveMapPageContent />
+    </Suspense>
   );
 }
