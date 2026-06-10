@@ -47,6 +47,7 @@ type MeetMapProps = {
   lng: number;
   meetPoint: string;
   route?: RoutePoint[];
+  recoveryRoute?: RoutePoint[];
   riders?: LiveRideRider[];
   selfLocation?: RoutePoint | null;
   selfRider?: LiveRideRider | null;
@@ -400,6 +401,7 @@ export default function MeetMap({
   lng,
   meetPoint,
   route = [],
+  recoveryRoute = [],
   riders = [],
   selfLocation = null,
   selfRider = null,
@@ -429,6 +431,7 @@ export default function MeetMap({
   const meetStart = meetStartPosition ?? { lat, lng };
   const destination = destinationPosition ?? displayRoute[displayRoute.length - 1];
   const hasMultiplePoints = displayRoute.length > 1;
+  const hasRecoveryRoute = recoveryRoute.length > 1;
   const showDestinationMarker = showDestination && !!destination;
   const mapInitialZoom = initialZoom ?? (compact ? 10 : 11);
   const selfMarker = selfLocation
@@ -716,6 +719,32 @@ export default function MeetMap({
             <Polyline
               positions={displayRoute.map((p) => [p.lat, p.lng] as [number, number])}
               pathOptions={{ color: "#f3d7db", weight: compact ? 1.2 : 1.5, opacity: 0.38, lineCap: "round", lineJoin: "round" }}
+            />
+          </>
+        )}
+
+        {hasRecoveryRoute && (
+          <>
+            <Polyline
+              positions={recoveryRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{
+                color: "#f0b429",
+                weight: compact ? 6 : 7,
+                opacity: 0.95,
+                lineCap: "round",
+                lineJoin: "round",
+                dashArray: "10 8",
+              }}
+            />
+            <Polyline
+              positions={recoveryRoute.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{
+                color: "#fff4d6",
+                weight: compact ? 2 : 2.5,
+                opacity: 0.55,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
             />
           </>
         )}

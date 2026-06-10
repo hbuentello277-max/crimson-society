@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  formatSpeedHudLabel,
-  resolveCurrentSpeedMph,
-  updateSessionMaxSpeedMph,
-} from "@/lib/meets/navigation/speed";
+import { formatSpeedHudLabel, resolveCurrentSpeedMph } from "@/lib/meets/navigation/speed";
 import type { NavigationPosition } from "@/lib/meets/navigation/types";
 
 function positionAt(
@@ -38,14 +34,6 @@ describe("resolveCurrentSpeedMph", () => {
   it("returns 0 mph when stationary or unavailable", () => {
     assert.equal(resolveCurrentSpeedMph(null, null), 0);
     assert.equal(resolveCurrentSpeedMph(positionAt({ lat: 1, lng: 1 }, { speedMph: 1.2 }), null), 0);
-  });
-});
-
-describe("updateSessionMaxSpeedMph", () => {
-  it("tracks the highest speed for the session", () => {
-    assert.equal(updateSessionMaxSpeedMph(40, 24), 40);
-    assert.equal(updateSessionMaxSpeedMph(40, 61), 61);
-    assert.equal(updateSessionMaxSpeedMph(61, 0), 61);
   });
 });
 

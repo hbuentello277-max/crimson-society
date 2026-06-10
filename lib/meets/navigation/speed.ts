@@ -5,12 +5,10 @@ export const STATIONARY_SPEED_MPH = 3;
 
 export type NavigationSpeedHud = {
   currentMph: number;
-  maxMph: number;
 };
 
 export const EMPTY_NAVIGATION_SPEED_HUD: NavigationSpeedHud = {
   currentMph: 0,
-  maxMph: 0,
 };
 
 export function resolveCurrentSpeedMph(
@@ -44,11 +42,6 @@ export function resolveCurrentSpeedMph(
   }
 
   return Math.round(mph);
-}
-
-export function updateSessionMaxSpeedMph(currentMax: number, currentSpeedMph: number): number {
-  if (currentSpeedMph <= 0) return currentMax;
-  return Math.max(currentMax, currentSpeedMph);
 }
 
 export function formatSpeedHudLabel(mph: number): string {

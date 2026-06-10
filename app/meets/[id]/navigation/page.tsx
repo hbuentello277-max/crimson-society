@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { NavigationErrorScreen } from "@/components/meets/navigation/NavigationErrorScreen";
 import { NavigationLayout } from "@/components/meets/navigation/NavigationLayout";
 import { NavigationLoadingScreen } from "@/components/meets/navigation/NavigationLoadingScreen";
+import { useNavigationBackgroundGuidance } from "@/hooks/useNavigationBackgroundGuidance";
 import { useMeetNavigation } from "@/hooks/useMeetNavigation";
 
 export default function MeetNavigationPage() {
@@ -23,6 +24,8 @@ export default function MeetNavigationPage() {
     retryGps,
     togglePause,
   } = useMeetNavigation(meetId);
+
+  useNavigationBackgroundGuidance(session);
 
   if (authLoading || session.navigationState === "loading") {
     return <NavigationLoadingScreen />;

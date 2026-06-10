@@ -14,6 +14,7 @@ import type {
 } from "@/lib/meets/navigation/types";
 import { detectNavigationArrival } from "@/lib/meets/navigation/arrival";
 import { createInitialOffRouteState } from "@/lib/meets/navigation/off-route";
+import { EMPTY_RECOVERY_ROUTE_STATE } from "@/lib/meets/navigation/recovery-route";
 import {
   applyMonotonicRouteProgress,
   computeRouteProgress,
@@ -71,6 +72,7 @@ export function createInitialNavigationSession(meetId: string, userId: string): 
     shareError: null,
     isPaused: false,
     offRoute: createInitialOffRouteState(),
+    recovery: { ...EMPTY_RECOVERY_ROUTE_STATE },
     arrival: { ...EMPTY_NAVIGATION_ARRIVAL },
     arrivalUi: { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };
@@ -188,6 +190,7 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
     shareError: input.shareError,
     isPaused: input.isPaused,
     offRoute: input.offRoute,
+    recovery: input.base.recovery ?? { ...EMPTY_RECOVERY_ROUTE_STATE },
     arrival,
     arrivalUi: input.base.arrivalUi ?? { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };

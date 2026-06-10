@@ -6,7 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { NavTabBadge } from "@/components/NavTabBadge";
+import { syncAppIconBadge } from "@/lib/app-icon-badge";
 import {
+  loadAppIconBadgeCount,
   loadConnectNavBadgeCount,
   loadInboxMessageBadgeCount,
   loadInboxNotificationBadgeCount,
@@ -99,16 +101,18 @@ export default function BottomNav() {
       setNotificationUnreadCount(0);
       setConnectBadgeCount(0);
       setProfileBadgeCount(0);
+      void syncAppIconBadge(0);
       return;
     }
 
-    const [meetCount, messageCount, notificationCount, connectCount, profileCount] =
+    const [meetCount, messageCount, notificationCount, connectCount, profileCount, appIconCount] =
       await Promise.all([
         loadMeetNavBadgeCount(supabase, userId),
         loadInboxMessageBadgeCount(supabase, userId),
         loadInboxNotificationBadgeCount(supabase, userId),
         loadConnectNavBadgeCount(supabase, userId),
         loadProfileNavBadgeCount(supabase, userId),
+        loadAppIconBadgeCount(supabase, userId),
       ]);
 
     setMeetBadgeCount(meetCount);
@@ -116,6 +120,7 @@ export default function BottomNav() {
     setNotificationUnreadCount(notificationCount);
     setConnectBadgeCount(connectCount);
     setProfileBadgeCount(profileCount);
+    void syncAppIconBadge(appIconCount);
   }, [session?.user?.id]);
 
   useEffect(() => {
