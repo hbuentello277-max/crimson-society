@@ -3,8 +3,19 @@ importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"
 importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-messaging-compat.js");
 
 let messagingReady = false;
+const LOG_PREFIX = "[crimson-push]";
 
-function resolveNotificationUrl(data) {
+function logPush(phase, details) {
+  console.info(LOG_PREFIX, phase, details || {});
+}
+
+function normalizeMessageDeepLinkPath(path) {
+  const match = String(path || "").match(/^\/messages\/([^/?#]+)/);
+  if (!match || !match[1]) return path;
+  return `/inbox?conversation=${encodeURIComponent(match[1])}`;
+}
+
+function resolveNotificationPath(data) {
   const raw =
     data?.targetUrl ||
     data?.url ||
@@ -24,7 +35,7 @@ function resolveNotificationUrl(data) {
     (data?.actorUsername ? `/profile/${data.actorUsername}` : null);
 
   if (!raw) {
-    if (data?.type === "direct_message") return "/messages";
+    if (data?.type === "direct_message") return "/inbox";
     if (data?.type === "admin_low_inventory" || String(data?.type || "").startsWith("admin_order")) {
       return "/admin/shop";
     }
@@ -34,23 +45,50 @@ function resolveNotificationUrl(data) {
   }
 
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    return raw;
+    try {
+      const parsed = new URL(raw);
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return "/inbox?tab=notifications";
+    }
   }
 
-  return new URL(raw, self.location.origin).toString();
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
+function resolveNotificationUrl(data) {
+  const path = normalizeMessageDeepLinkPath(resolveNotificationPath(data || {}));
+  return new URL(path, self.location.origin).toString();
+}
+
+function buildNotificationData(payloadData) {
+  const path = normalizeMessageDeepLinkPath(resolveNotificationPath(payloadData || {}));
+  const url = new URL(path, self.location.origin).toString();
+
+  return {
+    ...(payloadData || {}),
+    url,
+    targetUrl: payloadData?.targetUrl || url,
+  };
 }
 
 function showNotification(payload) {
   const title = payload.notification?.title || payload.data?.title || "Crimson Society";
   const body = payload.notification?.body || payload.data?.body || "";
-  const url = resolveNotificationUrl(payload.data || {});
+  const notificationData = buildNotificationData(payload.data || {});
   const tag =
-    payload.data?.groupKey ||
-    payload.data?.group_key ||
-    payload.data?.collapseKey ||
-    payload.data?.notificationId ||
-    payload.data?.type ||
+    notificationData.groupKey ||
+    notificationData.group_key ||
+    notificationData.collapseKey ||
+    notificationData.notificationId ||
+    notificationData.type ||
     "crimson-default";
+
+  logPush("show-notification", {
+    type: notificationData.type,
+    url: notificationData.url,
+    conversationId: notificationData.conversationId,
+  });
 
   return self.registration.showNotification(title, {
     body,
@@ -58,13 +96,22 @@ function showNotification(payload) {
     badge: "/icon-192.png",
     tag,
     renotify: true,
-    data: { url },
+    data: notificationData,
   });
 }
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = resolveNotificationUrl(event.notification?.data || {});
+
+  const data = event.notification?.data || {};
+  const targetUrl = data.url || resolveNotificationUrl(data);
+
+  logPush("notificationclick", {
+    type: data.type,
+    conversationId: data.conversationId,
+    targetUrl,
+    hasStoredUrl: !!data.url,
+  });
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
@@ -73,10 +120,17 @@ self.addEventListener("notificationclick", (event) => {
           const nextUrl = targetUrl.startsWith(self.location.origin)
             ? targetUrl.slice(self.location.origin.length) || "/"
             : targetUrl;
-          client.navigate(nextUrl);
+
+          logPush("notificationclick-focus-existing-client", { nextUrl });
+
+          if ("navigate" in client) {
+            client.navigate(nextUrl);
+          }
           return client.focus();
         }
       }
+
+      logPush("notificationclick-open-window", { targetUrl });
 
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);

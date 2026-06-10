@@ -11,6 +11,7 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deletionRequested = searchParams.get("deletion") === "requested";
+  const nextParam = searchParams.get("next");
   const { session, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -27,9 +28,9 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!authLoading && session?.user?.id) {
-      void redirectAfterAuth(router, session.user.id);
+      void redirectAfterAuth(router, session.user.id, nextParam);
     }
-  }, [authLoading, session, router]);
+  }, [authLoading, nextParam, session, router]);
 
   async function login() {
     setLoading(true);
@@ -73,7 +74,7 @@ function LoginPageContent() {
     } = await supabase.auth.getUser();
 
     if (user?.id) {
-      await redirectAfterAuth(router, user.id);
+      await redirectAfterAuth(router, user.id, nextParam);
     } else {
       router.replace("/profile/setup");
     }

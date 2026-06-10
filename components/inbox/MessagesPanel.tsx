@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { buildLoginRedirectPath } from "@/lib/auth/login-redirect";
+import { logAuthSessionEvent } from "@/lib/auth/session-log";
 import { MessageThreadScreen } from "@/components/inbox/MessageThreadScreen";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { NewMessageSheet } from "@/components/inbox/NewMessageSheet";
@@ -666,7 +668,16 @@ export default function MessagesPanel({
     if (authLoading) return;
 
     if (!session?.user?.id) {
-      router.replace("/login");
+      const returnPath = conversationParam
+        ? `/inbox?conversation=${encodeURIComponent(conversationParam)}`
+        : "/inbox";
+
+      logAuthSessionEvent("messages-panel-redirect-login", {
+        returnPath,
+        conversationParam,
+        authLoading,
+      });
+      router.replace(buildLoginRedirectPath(returnPath));
       return;
     }
 
@@ -691,7 +702,7 @@ export default function MessagesPanel({
     return () => {
       mounted = false;
     };
-  }, [authLoading, session, router]);
+  }, [authLoading, conversationParam, session, router]);
 
   useEffect(() => {
     if (!userId) return;
@@ -732,6 +743,12 @@ export default function MessagesPanel({
   useEffect(() => {
     if (!conversationParam || !userId || !isUuid(conversationParam) || peerParam) return;
     if (activeId === conversationParam) return;
+
+    logAuthSessionEvent("messages-panel-open-conversation", {
+      conversationParam,
+      userId,
+      source: "deep-link",
+    });
 
     const timer = window.setTimeout(() => {
       void enterConversationThread(conversationParam);
