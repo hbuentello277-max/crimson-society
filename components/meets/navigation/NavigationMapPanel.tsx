@@ -43,6 +43,7 @@ function NavigationMapPanelComponent({
   if (!route || !meetStart) return null;
 
   return (
+    <div className="absolute inset-0">
     <MeetMap
       lat={mapCenter.lat}
       lng={mapCenter.lng}
@@ -62,6 +63,7 @@ function NavigationMapPanelComponent({
       initialZoom={14}
       fitPoints={fitPoints}
     />
+    </div>
   );
 }
 
