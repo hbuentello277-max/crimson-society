@@ -20,7 +20,13 @@ import {
   type NotificationItem,
   type NotificationType,
 } from "@/lib/notifications";
-import { groupedNotificationCount } from "@/lib/notifications/grouping";
+import {
+  collapseNotificationsForFeed,
+  feedActorIdForItem,
+  groupFeedItemsByDate,
+  groupedDirectMessagePreview,
+  groupedDirectMessageSummary,
+} from "@/lib/notifications/feed-grouping";
 import { NotificationTypeIcon } from "@/components/inbox/notification-type-icon";
 import {
   NotificationDeleteButton,
@@ -31,41 +37,6 @@ import { supabase } from "@/lib/supabase";
 type NotificationRow = NotificationItem & {
   user_id: string;
 };
-
-type NotificationGroup = {
-  label: "Today" | "Yesterday" | "Earlier";
-  notifications: NotificationRow[];
-};
-
-function notificationDateLabel(createdAt: string): NotificationGroup["label"] {
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return "Earlier";
-
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfYesterday = new Date(startOfToday);
-  startOfYesterday.setDate(startOfToday.getDate() - 1);
-
-  if (date >= startOfToday) return "Today";
-  if (date >= startOfYesterday) return "Yesterday";
-  return "Earlier";
-}
-
-function groupNotifications(notifications: NotificationRow[]): NotificationGroup[] {
-  const groups: NotificationGroup[] = [
-    { label: "Today", notifications: [] },
-    { label: "Yesterday", notifications: [] },
-    { label: "Earlier", notifications: [] },
-  ];
-
-  const groupsByLabel = new Map(groups.map((group) => [group.label, group]));
-
-  for (const notification of notifications) {
-    groupsByLabel.get(notificationDateLabel(notification.created_at))?.notifications.push(notification);
-  }
-
-  return groups.filter((group) => group.notifications.length > 0);
-}
 
 function actorInitials(actor: NotificationActor | null | undefined, fallback: string) {
   const name = actorDisplayName(actor) || fallback || "Crimson";
@@ -112,7 +83,10 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
   const [actorsById, setActorsById] = useState<Record<string, NotificationActor>>({});
   const [loading, setLoading] = useState(true);
 
-  const notificationGroups = useMemo(() => groupNotifications(notifications), [notifications]);
+  const notificationGroups = useMemo(
+    () => groupFeedItemsByDate(collapseNotificationsForFeed(notifications)),
+    [notifications],
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -173,7 +147,14 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
         }));
 
       const actorIds = Array.from(
-        new Set(rows.map((notification) => notification.actor_id).filter(Boolean))
+        new Set(
+          rows
+            .flatMap((notification) => [
+              notification.actor_id,
+              notification.last_actor_id,
+            ])
+            .filter(Boolean),
+        ),
       ) as string[];
 
       if (actorIds.length > 0) {
@@ -359,14 +340,19 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
               </h2>
 
               <div className={embedded ? "" : "grid gap-3"}>
-                {group.notifications.map((notification) => {
-                  const actor = notification.actor_id
-                    ? actorsById[notification.actor_id]
+                {group.items.map((notification) => {
+                  const actorId = feedActorIdForItem(notification);
+                  const actor = actorId ? actorsById[actorId] : null;
+                  const actorName = actorDisplayName(actor);
+                  const summary = notification.isGroupedDirectMessage
+                    ? groupedDirectMessageSummary(actorName, notification.feedMessageCount)
+                    : notificationSummary(notification, actor);
+                  const previewLine = notification.isGroupedDirectMessage
+                    ? groupedDirectMessagePreview(notification.feedPreviewText)
                     : null;
-                  const summary = notificationSummary(notification, actor);
                   const href = notificationDestination(notification, actor);
                   const isUnread = !notification.read_at;
-                  const notificationCount = groupedNotificationCount(notification);
+                  const notificationCount = notification.feedMessageCount;
 
                   const rowContent = (
                     <div
@@ -411,7 +397,7 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                             {summary}
                           </p>
                           <span className="shrink-0 text-xs text-zinc-500">
-                            {formatRelativeNotificationTime(notification.created_at)}
+                            {formatRelativeNotificationTime(notification.feedTimestamp)}
                           </span>
                         </div>
 
@@ -421,10 +407,15 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
                           </p>
                         )}
 
-                        {notification.body && notification.body.trim() !== summary.trim() && (
-                          <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500">
-                            {notification.body}
-                          </p>
+                        {previewLine ? (
+                          <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500">{previewLine}</p>
+                        ) : (
+                          notification.body &&
+                          notification.body.trim() !== summary.trim() && (
+                            <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500">
+                              {notification.body}
+                            </p>
+                          )
                         )}
                       </div>
 
