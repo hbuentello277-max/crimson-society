@@ -17,6 +17,8 @@ import { supabase } from "@/lib/supabase";
 import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
 import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
+import { dedupeMeetsById } from "@/lib/meets/dedupe-meets";
+import { formatRouteDurationLabel } from "@/lib/meets/format-route-duration";
 import { buildSnappedRoute } from "@/lib/routing";
 import {
   buildNavigationStepsFromSnapped,
@@ -177,7 +179,6 @@ function meetToForm(ride: Meet): HostMeetForm {
     privacy: ride.privacy,
     visibility: ride.visibility,
     description: ride.description,
-    meetDurationMinutes: ride.meetDurationMinutes ?? 180,
   };
 }
 
@@ -398,6 +399,8 @@ function MeetsPageContent() {
   const [loadingMeets, setLoadingMeets] = useState(true);
   const selectedMeetRef = useRef<Meet | null>(null);
   const openedMeetParamRef = useRef<string | null>(null);
+  const saveMeetInFlightRef = useRef(false);
+  const [savingMeet, setSavingMeet] = useState(false);
   const meetParam = searchParams.get("meet");
   const meetSectionParam = searchParams.get("section");
 
@@ -766,9 +769,9 @@ const ridesWithRoutes = await Promise.all(
 );
 
       if (active) {
-         setRealMeets(ridesWithRoutes);
-         setLoadingMeets(false);
-}
+        setRealMeets(dedupeMeetsById(ridesWithRoutes));
+        setLoadingMeets(false);
+      }
       
       
 }
@@ -1001,8 +1004,12 @@ const ridesWithRoutes = await Promise.all(
 
 
   async function saveMeet(newMeet: HostMeetForm) {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || saveMeetInFlightRef.current) return;
 
+    saveMeetInFlightRef.current = true;
+    setSavingMeet(true);
+
+    try {
     const meetLat =
       typeof newMeet.meetPointLat === "number" && Number.isFinite(newMeet.meetPointLat)
         ? newMeet.meetPointLat
@@ -1056,18 +1063,18 @@ const ridesWithRoutes = await Promise.all(
         buildNavigationStepsFromSnapped(snapped.steps, snapped.geometry),
       );
 
-      distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} mi`;
+      distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} miles`;
 
-      duration = `${Math.round(snapped.durationSeconds / 60)} min`;
+      duration = formatRouteDurationLabel(snapped.durationSeconds);
     } catch (error) {
       console.error("Route generation failed", error);
     }
 
-  if (!hasRoadGeometry(route)) {
-    setToast("Could not generate a road route for those locations.");
-    window.setTimeout(() => setToast(null), 3500);
-    return;
-  }
+    if (!hasRoadGeometry(route)) {
+      setToast("Could not generate a road route for those locations.");
+      window.setTimeout(() => setToast(null), 3500);
+      return;
+    }
 
     const payload = {
       host_id: session.user.id,
@@ -1094,7 +1101,7 @@ const ridesWithRoutes = await Promise.all(
       route,
       route_steps: routeSteps,
       waypoints: [],
-      meet_duration_minutes: newMeet.meetDurationMinutes ?? 180,
+      meet_duration_minutes: null,
     };
 
     const { data, error } = editingMeet
@@ -1134,9 +1141,6 @@ const ridesWithRoutes = await Promise.all(
 
       if (attendeeError) {
         console.error("Failed to add host as meet attendee:", attendeeError);
-        setToast("Meet created, but could not add host as attendee.");
-        window.setTimeout(() => setToast(null), 3500);
-        return;
       }
 
       const { data: profile } = await supabase
@@ -1159,9 +1163,11 @@ const ridesWithRoutes = await Promise.all(
     const savedMeet = meetRowToMeet(savedRow);
 
     setRealMeets((current) =>
-      editingMeet
-        ? current.map((ride) => (ride.id === editingMeet.id ? savedMeet : ride))
-        : [savedMeet, ...current]
+      dedupeMeetsById(
+        editingMeet
+          ? current.map((ride) => (ride.id === editingMeet.id ? savedMeet : ride))
+          : [savedMeet, ...current.filter((ride) => ride.id !== savedMeet.id)],
+      ),
     );
 
     if (!editingMeet) {
@@ -1179,6 +1185,10 @@ const ridesWithRoutes = await Promise.all(
     setEditingMeet(null);
     setToast(editingMeet ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
+    } finally {
+      saveMeetInFlightRef.current = false;
+      setSavingMeet(false);
+    }
   }
 
 
@@ -1562,6 +1572,7 @@ const ridesWithRoutes = await Promise.all(
             setShowHostModal(false);
             setEditingMeet(null);
           }}
+          isSubmitting={savingMeet}
           onCreate={(newMeet) => void saveMeet(newMeet)}
         />
       )}

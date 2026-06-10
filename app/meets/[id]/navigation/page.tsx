@@ -16,6 +16,9 @@ export default function MeetNavigationPage() {
     userLocation,
     recenterSignal,
     speedHud,
+    liveRiders,
+    showRiders,
+    toggleShowRiders,
     recenter,
     retryGps,
     togglePause,
@@ -39,6 +42,9 @@ export default function MeetNavigationPage() {
       userLocation={userLocation}
       recenterSignal={recenterSignal}
       speedHud={speedHud}
+      liveRiders={liveRiders}
+      showRiders={showRiders}
+      onToggleShowRiders={toggleShowRiders}
       onRecenter={recenter}
       onRetryGps={retryGps}
       onTogglePause={togglePause}

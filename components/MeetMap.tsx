@@ -57,6 +57,8 @@ type MeetMapProps = {
   hideHint?: boolean;
   interactive?: boolean;
   showMeetMarker?: boolean;
+  meetStartPosition?: RoutePoint | null;
+  destinationPosition?: RoutePoint | null;
   showDestination?: boolean;
   showWaypoints?: boolean;
   recenterSignal?: number;
@@ -149,8 +151,11 @@ const destIcon = L.divIcon({
   html: `
     <div style="
       position: relative;
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       border-radius: 9999px;
       background: radial-gradient(circle at 32% 30%, rgba(255,248,220,0.98) 0%, rgba(255,200,80,0.95) 20%, rgba(200,130,0,0.98) 55%);
       border: 2px solid rgba(255,240,180,0.98);
@@ -159,14 +164,11 @@ const destIcon = L.divIcon({
         0 8px 20px rgba(10,6,0,0.5),
         0 0 22px rgba(180,130,0,0.28),
         inset 0 1px 0 rgba(255,255,255,0.28);
-    ">
-      <div style="
-        position: absolute;
-        inset: 6px;
-        border-radius: 9999px;
-        border: 1px solid rgba(255,255,255,0.2);
-      "></div>
-    </div>
+      color: #3a2200;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1;
+    ">★</div>
   `,
   className: "",
   iconSize: [26, 26],
@@ -408,6 +410,8 @@ export default function MeetMap({
   hideHint = false,
   interactive = true,
   showMeetMarker = true,
+  meetStartPosition = null,
+  destinationPosition = null,
   showDestination = false,
   showWaypoints = false,
   recenterSignal = 0,
@@ -422,8 +426,10 @@ export default function MeetMap({
 }: MeetMapProps) {
   const [mapKey] = useState(() => Math.random().toString(36).slice(2));
   const displayRoute = route.length > 0 ? route : [{ lat, lng }];
-  const destination = displayRoute[displayRoute.length - 1];
+  const meetStart = meetStartPosition ?? { lat, lng };
+  const destination = destinationPosition ?? displayRoute[displayRoute.length - 1];
   const hasMultiplePoints = displayRoute.length > 1;
+  const showDestinationMarker = showDestination && !!destination;
   const mapInitialZoom = initialZoom ?? (compact ? 10 : 11);
   const selfMarker = selfLocation
     ? {
@@ -493,10 +499,10 @@ export default function MeetMap({
           onRouteChange={onRouteChange}
         />
 
-        {showMeetMarker && !compact && meetMarkers.length === 0 && (
-          <Marker position={[lat, lng]} icon={meetIcon}>
+        {showMeetMarker && meetMarkers.length === 0 && (
+          <Marker position={[meetStart.lat, meetStart.lng]} icon={meetIcon}>
             <Tooltip direction="top" offset={[0, -14]} opacity={1} permanent={false}>
-              {meetPoint || "Meet point"}
+              {meetPoint || "Meet Start"}
             </Tooltip>
           </Marker>
         )}
@@ -595,7 +601,7 @@ export default function MeetMap({
           </Marker>
         )}
 
-        {showDestination && hasMultiplePoints && (
+        {showDestinationMarker && (
           <Marker position={[destination.lat, destination.lng]} icon={destIcon}>
             <Tooltip direction="top" offset={[0, -16]} opacity={1}>
               Destination

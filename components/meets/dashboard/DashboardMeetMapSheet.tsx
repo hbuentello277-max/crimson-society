@@ -171,7 +171,7 @@ export function DashboardMeetMapSheet({
                 }}
                 className="flex w-full items-center justify-center rounded-2xl border border-[#b4141e]/70 bg-[#b4141e]/25 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
               >
-                Start Tracking
+                Start Ride
               </Link>
             ) : null}
 

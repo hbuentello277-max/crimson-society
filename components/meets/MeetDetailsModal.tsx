@@ -1203,7 +1203,7 @@ export function MeetDetailsModal({
               disabled={trackingBusy}
               className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:opacity-60"
             >
-              {trackingBusy ? "Starting..." : "Start Meet Tracking"}
+              {trackingBusy ? "Starting…" : "Start Meet"}
             </button>
           ) : null}
 
@@ -1230,7 +1230,7 @@ export function MeetDetailsModal({
               }}
               className="mb-3 flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
             >
-              Start Tracking
+              Start Ride
             </Link>
           ) : null}
 

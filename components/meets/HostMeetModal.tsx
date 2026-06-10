@@ -6,6 +6,12 @@ import {
   MEET_VISIBILITY_OPTIONS,
   type MeetVisibility,
 } from "@/lib/meet-visibility";
+import { formatRouteDurationLabel } from "@/lib/meets/format-route-duration";
+import {
+  searchPlaces,
+  type PlaceSearchResult,
+} from "@/lib/meets/location-search";
+import { buildSnappedRoute } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
 
 export interface HostMeetForm {
@@ -20,20 +26,12 @@ export interface HostMeetForm {
   destinationLng: number | null;
   distance: string;
   duration: string;
-  meetDurationMinutes: number;
   type: MeetType;
   privacy: MeetPrivacy;
   visibility: MeetVisibility;
   description: string;
   cover?: string;
 }
-
-type LocationSuggestion = {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-};
 
 const MEET_TYPES: MeetType[] = ["Canyon Run", "Night Run", "Track Day", "Touring", "Group Ride"];
 
@@ -49,7 +47,6 @@ const EMPTY_FORM: HostMeetForm = {
   destinationLng: null,
   distance: "",
   duration: "",
-  meetDurationMinutes: 180,
   type: "Group Ride",
   privacy: "Open",
   visibility: "public",
@@ -61,6 +58,7 @@ interface Props {
   initialForm?: HostMeetForm;
   mode?: "create" | "edit";
   canHostBlackcard?: boolean;
+  isSubmitting?: boolean;
   onClose: () => void;
   onCreate: (form: HostMeetForm) => void;
 }
@@ -69,12 +67,18 @@ export function HostMeetModal({
   initialForm,
   mode = "create",
   canHostBlackcard = false,
+  isSubmitting = false,
   onClose,
   onCreate,
 }: Props) {
   const [form, setForm] = useState<HostMeetForm>(initialForm ?? EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof HostMeetForm, string>>>({});
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [routePreview, setRoutePreview] = useState<{
+    distance: string;
+    duration: string;
+  } | null>(null);
+  const [routePreviewLoading, setRoutePreviewLoading] = useState(false);
 
   function set<K extends keyof HostMeetForm>(key: K, value: HostMeetForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -87,16 +91,83 @@ export function HostMeetModal({
     if (!form.date) next.date = "Required";
     if (!form.time) next.time = "Required";
     if (!form.meetPoint.trim()) next.meetPoint = "Required";
+    else if (form.meetPointLat === null || form.meetPointLng === null) {
+      next.meetPoint = "Select a verified location from search";
+    }
     if (!form.destination.trim()) next.destination = "Required";
+    else if (form.destinationLat === null || form.destinationLng === null) {
+      next.destination = "Select a verified location from search";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validate()) return;
-    onCreate(form);
+    onCreate({
+      ...form,
+      distance: routePreview?.distance || form.distance,
+      duration: routePreview?.duration || form.duration,
+    });
   }
+
+  useEffect(() => {
+    const {
+      meetPointLat,
+      meetPointLng,
+      destinationLat,
+      destinationLng,
+    } = form;
+
+    if (
+      meetPointLat === null ||
+      meetPointLng === null ||
+      destinationLat === null ||
+      destinationLng === null
+    ) {
+      setRoutePreview(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setRoutePreviewLoading(true);
+        const snapped = await buildSnappedRoute({
+          origin: { lat: meetPointLat, lng: meetPointLng },
+          destination: { lat: destinationLat, lng: destinationLng },
+        });
+
+        if (controller.signal.aborted) return;
+
+        const distance = `${(snapped.distanceMeters * 0.000621371).toFixed(1)} miles`;
+        const duration = formatRouteDurationLabel(snapped.durationSeconds);
+        setRoutePreview({ distance, duration });
+        setForm((prev) => ({ ...prev, distance, duration }));
+      } catch {
+        if (!controller.signal.aborted) {
+          setRoutePreview(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setRoutePreviewLoading(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [
+    form.destinationLat,
+    form.destinationLng,
+    form.meetPointLat,
+    form.meetPointLng,
+  ]);
 
   return (
     <div
@@ -168,24 +239,6 @@ export function HostMeetModal({
                 </Field>
               </div>
 
-              <Field label="Scheduled Duration (hours)">
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  step={0.5}
-                  value={Math.round(((form.meetDurationMinutes || 180) / 60) * 10) / 10}
-                  onChange={(e) => {
-                    const hours = Number(e.target.value);
-                    set(
-                      "meetDurationMinutes",
-                      Number.isFinite(hours) && hours > 0 ? Math.round(hours * 60) : 180,
-                    );
-                  }}
-                  className={inputCls(false)}
-                />
-              </Field>
-
               <LocationAutocomplete
                 label="Meetup / Start Location"
                 placeholder="Search a real place or address"
@@ -202,12 +255,12 @@ export function HostMeetModal({
                     setErrors((prev) => ({ ...prev, meetPoint: undefined }));
                   }
                 }}
-                onSelect={(suggestion) => {
+                onSelect={(place) => {
                   setForm((prev) => ({
                     ...prev,
-                    meetPoint: suggestion.display_name,
-                    meetPointLat: Number(suggestion.lat),
-                    meetPointLng: Number(suggestion.lon),
+                    meetPoint: place.fullAddress,
+                    meetPointLat: place.lat,
+                    meetPointLng: place.lng,
                   }));
                   setErrors((prev) => ({ ...prev, meetPoint: undefined }));
                 }}
@@ -229,38 +282,38 @@ export function HostMeetModal({
                     setErrors((prev) => ({ ...prev, destination: undefined }));
                   }
                 }}
-                onSelect={(suggestion) => {
+                onSelect={(place) => {
                   setForm((prev) => ({
                     ...prev,
-                    destination: suggestion.display_name,
-                    destinationLat: Number(suggestion.lat),
-                    destinationLng: Number(suggestion.lon),
+                    destination: place.fullAddress,
+                    destinationLat: place.lat,
+                    destinationLng: place.lng,
                   }));
                   setErrors((prev) => ({ ...prev, destination: undefined }));
                 }}
               />
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Distance (optional)">
-                  <input
-                    type="text"
-                    placeholder="e.g. 180 mi"
-                    value={form.distance}
-                    onChange={(e) => set("distance", e.target.value)}
-                    className={inputCls(false)}
-                  />
-                </Field>
-
-                <Field label="Duration (optional)">
-                  <input
-                    type="text"
-                    placeholder="e.g. 5h"
-                    value={form.duration}
-                    onChange={(e) => set("duration", e.target.value)}
-                    className={inputCls(false)}
-                  />
-                </Field>
-              </div>
+              {(routePreviewLoading || routePreview) && (
+                <div className="rounded-lg border border-[#b4141e]/30 bg-[#14080b]/60 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Route preview</p>
+                  {routePreviewLoading && !routePreview ? (
+                    <p className="mt-2 text-sm text-zinc-400">Calculating route…</p>
+                  ) : routePreview ? (
+                    <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-zinc-200">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">Distance</p>
+                        <p className="mt-1 font-medium">{routePreview.distance}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-500">
+                          Estimated ride time
+                        </p>
+                        <p className="mt-1 font-medium">{routePreview.duration}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Meet Type">
@@ -415,9 +468,16 @@ export function HostMeetModal({
 
               <button
                 type="submit"
-                className="flex-1 rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
+                disabled={isSubmitting}
+                className="flex-1 rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/28 py-3 text-[10px] uppercase tracking-[0.2em] text-[#f4dadd] transition hover:bg-[#b4141e]/40 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {mode === "edit" ? "Save Changes" : "Create Meet"}
+                {isSubmitting
+                  ? mode === "edit"
+                    ? "Saving…"
+                    : "Creating…"
+                  : mode === "edit"
+                    ? "Save Changes"
+                    : "Create Meet"}
               </button>
             </div>
           </div>
@@ -440,9 +500,9 @@ function LocationAutocomplete({
   value: string;
   error?: string;
   onManualChange: (value: string) => void;
-  onSelect: (suggestion: LocationSuggestion) => void;
+  onSelect: (place: PlaceSearchResult) => void;
 }) {
-  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<PlaceSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const skipNextSearch = useRef(false);
@@ -467,25 +527,9 @@ function LocationAutocomplete({
       try {
         setLoading(true);
 
-        const url = new URL("https://nominatim.openstreetmap.org/search");
-        url.searchParams.set("q", query);
-        url.searchParams.set("format", "json");
-        url.searchParams.set("addressdetails", "1");
-        url.searchParams.set("limit", "5");
-        url.searchParams.set("countrycodes", "us");
-
-        const response = await fetch(url.toString(), {
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) throw new Error("Location search failed");
-
-        const data = (await response.json()) as LocationSuggestion[];
-        setSuggestions(data);
-        setOpen(data.length > 0);
+        const results = await searchPlaces(query, controller.signal);
+        setSuggestions(results);
+        setOpen(results.length > 0);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setSuggestions([]);
@@ -528,7 +572,7 @@ function LocationAutocomplete({
         <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-[#120b0d] shadow-[0_18px_50px_rgba(0,0,0,0.75)]">
           {suggestions.map((suggestion) => (
             <button
-              key={suggestion.place_id}
+              key={suggestion.placeId}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
@@ -537,9 +581,13 @@ function LocationAutocomplete({
                 setSuggestions([]);
                 setOpen(false);
               }}
-              className="block w-full border-b border-white/8 px-3 py-3 text-left text-sm text-zinc-200 transition last:border-b-0 hover:bg-white/[0.05]"
+              className="block w-full border-b border-white/8 px-3 py-3 text-left transition last:border-b-0 hover:bg-white/[0.05]"
             >
-              <span className="line-clamp-2">{suggestion.display_name}</span>
+              <span className="block text-sm font-medium text-zinc-100">{suggestion.label}</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">{suggestion.subtitle}</span>
+              <span className="mt-1 block line-clamp-1 text-[10px] text-zinc-600">
+                {suggestion.fullAddress}
+              </span>
             </button>
           ))}
         </div>

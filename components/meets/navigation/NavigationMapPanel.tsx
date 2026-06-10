@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { memo, useMemo } from "react";
+import type { LiveRideRider } from "@/components/MeetMap";
 import type { NavigationSession } from "@/lib/meets/navigation/types";
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
@@ -12,25 +13,34 @@ type NavigationMapPanelProps = {
   session: NavigationSession;
   userLocation: { lat: number; lng: number } | null;
   recenterSignal: number;
+  liveRiders?: LiveRideRider[];
 };
 
 function NavigationMapPanelComponent({
   session,
   userLocation,
   recenterSignal,
+  liveRiders = [],
 }: NavigationMapPanelProps) {
   const route = session.route;
 
+  const meetStart = route?.points[0] ?? null;
+  const destination = route && route.points.length > 0 ? route.points[route.points.length - 1] : null;
+
   const mapCenter = useMemo(() => {
-    return userLocation ?? route?.points[0] ?? { lat: 29.4241, lng: -98.4936 };
-  }, [route?.points, userLocation]);
+    return userLocation ?? meetStart ?? { lat: 29.4241, lng: -98.4936 };
+  }, [meetStart, userLocation]);
 
   const fitPoints = useMemo(() => {
     if (!route) return undefined;
-    return userLocation ? [userLocation, ...route.points] : route.points;
-  }, [route, userLocation]);
+    const points = [...route.points];
+    if (userLocation) points.push(userLocation);
+    if (meetStart) points.push(meetStart);
+    if (destination) points.push(destination);
+    return points;
+  }, [destination, meetStart, route, userLocation]);
 
-  if (!route) return null;
+  if (!route || !meetStart) return null;
 
   return (
     <MeetMap
@@ -38,13 +48,16 @@ function NavigationMapPanelComponent({
       lng={mapCenter.lng}
       meetPoint={route.meetPoint}
       route={route.points}
+      riders={liveRiders}
       selfLocation={userLocation}
       showSelfMarker
       compact
       interactive
       hideHint
       showMeetMarker
-      showDestination={route.points.length > 1}
+      meetStartPosition={meetStart}
+      destinationPosition={destination}
+      showDestination
       recenterSignal={recenterSignal}
       initialZoom={14}
       fitPoints={fitPoints}

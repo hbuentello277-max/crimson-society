@@ -88,7 +88,7 @@ function buildArrivalState(
 
   let bannerMessage: string | null = null;
   if (detection.atDestination) {
-    bannerMessage = "Destination reached. Tracking stays on until you stop.";
+    bannerMessage = "Destination reached.";
   } else if (detection.atMeetStart) {
     bannerMessage = "You've arrived at the meet start.";
   }

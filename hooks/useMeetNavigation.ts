@@ -39,8 +39,10 @@ import {
   clearMeetLiveLocation,
   publishMeetLiveLocation,
 } from "@/lib/meets/publish-live-location";
+import { loadMeetLiveRiders } from "@/lib/meets/live-riders";
 import { hasRoadGeometry } from "@/lib/meets/route-geometry";
 import { useNavigationGps } from "@/lib/meets/use-navigation-gps";
+import type { LiveRideRider } from "@/components/MeetMap";
 
 type UseMeetNavigationResult = {
   authLoading: boolean;
@@ -48,6 +50,9 @@ type UseMeetNavigationResult = {
   userLocation: { lat: number; lng: number } | null;
   recenterSignal: number;
   speedHud: NavigationSpeedHud;
+  liveRiders: LiveRideRider[];
+  showRiders: boolean;
+  toggleShowRiders: () => void;
   requestGps: () => void;
   recenter: () => void;
   retryGps: () => void;
@@ -67,6 +72,8 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const [latestPosition, setLatestPosition] = useState<NavigationPosition | null>(null);
   const [offRoute, setOffRoute] = useState<OffRouteSessionState>(createInitialOffRouteState);
   const [speedHud, setSpeedHud] = useState<NavigationSpeedHud>(EMPTY_NAVIGATION_SPEED_HUD);
+  const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
+  const [showRiders, setShowRiders] = useState(true);
 
   const baseSessionRef = useRef<NavigationSession | null>(null);
   const lastSentAtRef = useRef(0);
@@ -244,6 +251,32 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     };
   }, [clearWatch, meet?.id, userId]);
 
+  useEffect(() => {
+    if (!meet?.id || meet.trackingStatus !== "active") {
+      setLiveRiders([]);
+      return;
+    }
+
+    let active = true;
+
+    async function refreshLiveRiders() {
+      const riders = await loadMeetLiveRiders(meet!.id, { excludeUserId: userId });
+      if (active) {
+        setLiveRiders(riders);
+      }
+    }
+
+    void refreshLiveRiders();
+    const interval = window.setInterval(() => {
+      void refreshLiveRiders();
+    }, 12_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [meet?.id, meet?.trackingStatus, userId]);
+
   const navigationSession = useMemo(() => {
     const base =
       baseSessionRef.current ??
@@ -293,12 +326,19 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     setIsPaused((value) => !value);
   }, []);
 
+  const toggleShowRiders = useCallback(() => {
+    setShowRiders((value) => !value);
+  }, []);
+
   return {
     authLoading,
     session: navigationSession,
     userLocation,
     recenterSignal,
     speedHud,
+    liveRiders,
+    showRiders,
+    toggleShowRiders,
     requestGps,
     recenter,
     retryGps,

@@ -1132,6 +1132,35 @@ if (livePostIds.length > 0) {
     window.setTimeout(() => setToast(null), 2000);
   };
 
+  const handleDashboardMeetMarkerSelect = useCallback(
+    (meetId: string) => {
+      const meet = mapMeets.find((item) => item.id === meetId);
+      if (meet && meet.lifecyclePhase === "active" && dashboardMeetHasRoute(meet)) {
+        writeActiveMeetSession({
+          id: meet.id,
+          hostId: meet.hostId,
+          route: meet.route,
+          waypoints: meet.waypoints,
+          name: meet.name,
+          meetPoint: meet.meetPoint,
+          destination: meet.destination,
+          date: meet.date,
+          time: meet.time,
+          meetDurationMinutes: meet.meetDurationMinutes,
+          status: parseMeetStatus(meet.status),
+          trackingStatus: meet.trackingStatus,
+          startedAt: meet.startedAt,
+          endedAt: null,
+        });
+        router.push(meetNavigationHref(meet.id));
+        return;
+      }
+
+      setSelectedMapMeetId(meetId);
+    },
+    [mapMeets, router],
+  );
+
   const previewMapRiders = liveMapPreview.riders.slice(0, 5).map((rider) => {
     const cleanUsername = rider.username?.trim().replace(/^@+/, "") || null;
 
@@ -1277,7 +1306,7 @@ if (livePostIds.length > 0) {
                       showDestination={selectedMeetRoute.length > 1}
                       meetMarkers={dashboardMapMarkers}
                       selectedMeetMarkerId={selectedMapMeetId}
-                      onMeetMarkerSelect={setSelectedMapMeetId}
+                      onMeetMarkerSelect={handleDashboardMeetMarkerSelect}
                       recenterSignal={mapRecenterSignal}
                     />
                   </div>
@@ -1481,7 +1510,7 @@ if (livePostIds.length > 0) {
                                 }}
                                 className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                               >
-                                Start Tracking
+                                Start Ride
                               </Link>
                             ) : null}
                           </div>
@@ -1642,7 +1671,7 @@ if (livePostIds.length > 0) {
                                 }}
                                 className="flex w-full items-center justify-center rounded-lg border border-[#b4141e]/70 bg-[#b4141e]/25 px-3 py-2.5 text-[10px] uppercase tracking-[0.18em] text-[#f4dadd] transition hover:bg-[#b4141e]/40"
                               >
-                                Start Tracking
+                                Start Ride
                               </Link>
                             ) : null}
                           </div>

@@ -37,21 +37,11 @@ export function getMeetStartTime(
 
 export function getMeetEndTime(
   date: string | null | undefined,
-  time: string | null | undefined,
-  meetDurationMinutes?: number | null,
+  _time?: string | null,
+  _meetDurationMinutes?: number | null,
 ): Date | null {
-  const start = parseMeetStartTime(date, time);
   const normalizedDate = date?.trim();
   if (!normalizedDate) return null;
-
-  if (
-    typeof meetDurationMinutes === "number" &&
-    Number.isFinite(meetDurationMinutes) &&
-    meetDurationMinutes > 0 &&
-    start
-  ) {
-    return new Date(start.getTime() + meetDurationMinutes * 60 * 1000);
-  }
 
   return endOfMeetCalendarDay(normalizedDate);
 }
@@ -67,17 +57,12 @@ export function parseMeetStatus(value: unknown): MeetStatus {
 /**
  * Canonical meet lifecycle for all UI surfaces.
  * Schedule boundaries drive Upcoming / Active / Past.
- * Canceled meets are always Canceled. Host-ended tracking moves to Past early.
+ * Canceled meets are always Canceled. Active meets stay active through the meet calendar day.
  */
 export function deriveMeetLifecycle(input: MeetLifecycleInput): MeetLifecyclePhase {
   const status = parseMeetStatus(input.status);
   if (status === "canceled") {
     return "canceled";
-  }
-
-  const trackingStatus = parseMeetTrackingStatus(input.trackingStatus);
-  if (trackingStatus === "ended") {
-    return "past";
   }
 
   const now = input.now ?? Date.now();
