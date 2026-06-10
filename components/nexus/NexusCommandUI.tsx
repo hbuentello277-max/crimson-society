@@ -147,12 +147,12 @@ export function NexusDensePanel({
       ) : null}
       {collapsible ? (
         <span className="text-[10px] uppercase tracking-[0.12em] text-zinc-500 group-open:hidden">
-          Open
+          ▶ Collapsed
         </span>
       ) : null}
       {collapsible ? (
         <span className="hidden text-[10px] uppercase tracking-[0.12em] text-zinc-500 group-open:inline">
-          Close
+          ▼ Expanded
         </span>
       ) : null}
     </div>

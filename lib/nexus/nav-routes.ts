@@ -46,6 +46,7 @@ export const NEXUS_COMMAND_STACK_ROUTES = [
 
 export type NexusNavRoute = (typeof NEXUS_NAV_ROUTES)[number];
 
+/** @deprecated Primary shell nav uses NEXUS_PRIMARY_NAV; full routes live in NEXUS_SYSTEMS_DIRECTORY. */
 export function assertNavOrder(items: readonly { href: string }[]): void {
   if (items.length !== NEXUS_NAV_ROUTES.length) {
     throw new Error(
