@@ -100,6 +100,34 @@ const TOOL_PATTERNS: ToolPattern[] = [
     ],
   },
   {
+    tool: "getAutomationTriggered",
+    patterns: [
+      /\bwhat automations triggered\b/i,
+      /\bwhich automations triggered\b/i,
+      /\bshow triggered automations\b/i,
+      /\bwhat automation rules triggered\b/i,
+    ],
+  },
+  {
+    tool: "prepareAutomationRuleDraft",
+    patterns: [
+      /\bcreate blackcard growth automation\b/i,
+      /\bcreate launch protection automation\b/i,
+      /\bcreate shop automation\b/i,
+      /\bcreate community growth automation\b/i,
+      /\bcreate platform risk automation\b/i,
+      /\bcreate automation\b/i,
+    ],
+  },
+  {
+    tool: "updateAutomationRuleStatus",
+    patterns: [
+      /\bpause automation\b/i,
+      /\benable automation\b/i,
+      /\bdisable automation\b/i,
+    ],
+  },
+  {
     tool: "prepareIntelligenceActionDraft",
     patterns: [
       /\bprepare recommended action from intelligence\b/i,
@@ -423,7 +451,7 @@ const TOOL_PATTERNS: ToolPattern[] = [
 ];
 
 export const NEXUS_VOICE_HELP_RESPONSE =
-  "I can open the Executive Command Center, give founder briefings and executive summaries, show today's priorities, answer what to focus on, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, and prepare confirmed drafts for alerts, briefings, runbooks, and observations.";
+  "I can open the Executive Command Center and Automation Studio, give founder briefings and executive summaries, show today's priorities, answer what to focus on, what changed, launch blockers, and platform health, open Platform Status and Platform Health, monitor platform jobs, show triggered automations, and prepare confirmed drafts for alerts, briefings, runbooks, observations, and automation rules.";
 
 export function resolveNexusVoiceTool(transcript: string): NexusVoiceToolName | null {
   const normalized = transcript.trim();

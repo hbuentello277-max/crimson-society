@@ -190,6 +190,17 @@ export const NEXUS_VOICE_COMMANDS: VoiceCommandDefinition[] = [
     label: "Briefings",
     access: "owner",
   },
+  {
+    phrases: [
+      "open automation studio",
+      "automation studio",
+      "show automations",
+      "show automation studio",
+    ],
+    href: "/admin/nexus/automation-studio",
+    label: "Automation Studio",
+    access: "owner",
+  },
 ];
 
 function normalizeVoiceTranscript(value: string) {

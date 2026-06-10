@@ -8,6 +8,8 @@ import {
   parseTitleFromTranscript,
 } from "@/lib/admin/nexus-voice/routing";
 import { safeCount, safeSelect } from "@/lib/admin/nexus-voice/safe-query";
+import { buildAutomationStudioActionDraft } from "@/lib/admin/nexus-voice/automation-studio-tools";
+import { executeAutomationStudioConfirmedAction } from "@/lib/admin/nexus-voice/automation-studio-tools";
 import type {
   NexusVoiceActionResult,
   NexusVoiceActionReadToolName,
@@ -199,6 +201,9 @@ export function buildActionDraft(
         draft,
       };
     }
+    case "prepareAutomationRuleDraft":
+    case "updateAutomationRuleStatus":
+      return buildAutomationStudioActionDraft(tool, transcript);
     default:
       throw new Error("Unsupported draft action.");
   }
@@ -345,6 +350,9 @@ export async function executeConfirmedAction(
         },
       };
     }
+    case "prepareAutomationRuleDraft":
+    case "updateAutomationRuleStatus":
+      return executeAutomationStudioConfirmedAction(admin, userId, tool, draft);
     default:
       throw new Error("Unsupported confirmed action.");
   }

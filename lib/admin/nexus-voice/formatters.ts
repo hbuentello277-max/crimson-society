@@ -239,6 +239,15 @@ export function formatNexusVoiceResponse(
       return formatExecutiveBiggestRiskResponse(actionResult);
     case "getExecutiveBiggestOpportunity":
       return formatExecutiveBiggestOpportunityResponse(actionResult);
+    case "getAutomationTriggered": {
+      const triggers = (actionResult.data.triggers as Array<{ rule?: { name?: string }; trigger_reason?: string }>) ?? [];
+      if (!triggers.length) {
+        return "No automations are waiting for approval right now.";
+      }
+      return `Triggered automations pending approval: ${triggers
+        .map((trigger) => `${trigger.rule?.name ?? "Rule"} — ${trigger.trigger_reason ?? "condition met"}`)
+        .join("; ")}. Review them in Automation Studio or Action Center.`;
+    }
     default:
       return NEXUS_VOICE_HELP_RESPONSE;
   }
@@ -257,6 +266,13 @@ export function formatNexusVoiceConfirmSuccess(
       return `Runbook created: ${actionResult.data.title}.`;
     case "createNexusObservationDraft":
       return `Observation created: ${actionResult.data.title}.`;
+    case "prepareAutomationRuleDraft":
+      return String(
+        actionResult.data.message ??
+          `Automation rule draft created: ${(actionResult.data.rule as { name?: string } | undefined)?.name ?? "draft"}.`,
+      );
+    case "updateAutomationRuleStatus":
+      return String(actionResult.data.message ?? "Automation rule status updated.");
     default:
       return "Action completed successfully.";
   }

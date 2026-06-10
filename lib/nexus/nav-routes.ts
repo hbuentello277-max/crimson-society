@@ -25,6 +25,7 @@ export const NEXUS_NAV_ROUTES = [
   "/admin/nexus/correlations",
   "/admin/nexus/planning",
   "/admin/nexus/automation",
+  "/admin/nexus/automation-studio",
   "/admin/nexus/operator",
   "/admin/nexus/forecasting",
   "/admin/nexus/copilot",

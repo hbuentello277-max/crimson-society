@@ -157,6 +157,11 @@ const NAV_ITEMS = [
     icon: NexusNavAutomationIcon,
   },
   {
+    href: "/admin/nexus/automation-studio",
+    label: "Automation Studio",
+    icon: NexusNavAutomationIcon,
+  },
+  {
     href: "/admin/nexus/operator",
     label: "Operator",
     icon: NexusNavOperatorIcon,

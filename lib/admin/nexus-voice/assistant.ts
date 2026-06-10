@@ -25,6 +25,7 @@ import {
   NEXUS_VOICE_EXECUTIVE_TOOLS,
   NEXUS_VOICE_FOUNDER_TOOLS,
   NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
+  NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS,
 } from "@/lib/admin/nexus-voice/types";
 
 export { resolveNexusVoiceTool, NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
@@ -88,18 +89,30 @@ export async function runNexusVoiceAssistant(
     (NEXUS_VOICE_EXECUTIVE_TOOLS as readonly string[]).includes(tool) ||
     (NEXUS_VOICE_CROSS_SYSTEM_TOOLS as readonly string[]).includes(tool) ||
     (NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS as readonly string[]).includes(tool) ||
-    (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool)
+    (NEXUS_VOICE_ACTION_CENTER_TOOLS as readonly string[]).includes(tool) ||
+    (NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS as readonly string[]).includes(tool)
   ) {
     if (options.isPlatformOwner !== true) {
       return {
         transcript: trimmed,
-        response: "Founder copilot and Action Center are available to platform owners only.",
+        response: "Founder copilot, Action Center, and Automation Studio are available to platform owners only.",
         tool: null,
       };
     }
   }
 
   if (isConfirmTool(tool)) {
+    if (
+      (tool === "prepareAutomationRuleDraft" || tool === "updateAutomationRuleStatus") &&
+      options.isPlatformOwner !== true
+    ) {
+      return {
+        transcript: trimmed,
+        response: "Automation Studio voice commands are available to platform owners only.",
+        tool: null,
+      };
+    }
+
     const draft = buildActionDraft(tool, trimmed);
     const { token, expiresAt } = createNexusVoiceConfirmationToken({
       userId,

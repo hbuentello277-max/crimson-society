@@ -4,7 +4,7 @@ import type { LaunchReadiness } from "@/lib/proactive-intelligence/types";
 import type { OperationsPlan } from "@/lib/operations-planner/types";
 import type { PlatformRingStatus } from "@/lib/nexus/founder-derive";
 
-export const NEXUS_CURRENT_PHASE = 15;
+export const NEXUS_CURRENT_PHASE = 16;
 
 export type ExecutiveUrgency = "critical" | "high" | "medium" | "low";
 

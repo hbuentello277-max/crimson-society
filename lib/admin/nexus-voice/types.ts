@@ -18,7 +18,11 @@ export const NEXUS_VOICE_CONFIRM_TOOLS = [
   "createAdminBriefingDraft",
   "createRunbookDraft",
   "createNexusObservationDraft",
+  "prepareAutomationRuleDraft",
+  "updateAutomationRuleStatus",
 ] as const;
+
+export const NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS = ["getAutomationTriggered"] as const;
 
 export const NEXUS_VOICE_FOUNDER_TOOLS = [
   "getFounderBriefing",
@@ -78,6 +82,7 @@ export const NEXUS_VOICE_TOOLS = [
   ...NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   ...NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
   ...NEXUS_VOICE_ACTION_CENTER_TOOLS,
+  ...NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS,
 ] as const;
 
 export type NexusVoicePhase2ToolName = (typeof NEXUS_VOICE_PHASE2_TOOLS)[number];
@@ -90,6 +95,8 @@ export type NexusVoiceActionCenterToolName = (typeof NEXUS_VOICE_ACTION_CENTER_T
 export type NexusVoiceCrossSystemToolName = (typeof NEXUS_VOICE_CROSS_SYSTEM_TOOLS)[number];
 export type NexusVoiceOperationsPlannerToolName =
   (typeof NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS)[number];
+export type NexusVoiceAutomationStudioToolName =
+  (typeof NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS)[number];
 export type NexusVoiceToolName = (typeof NEXUS_VOICE_TOOLS)[number];
 
 export type NexusVoiceActionResult = {

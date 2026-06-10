@@ -58,6 +58,10 @@ export const LazyNexusAutomationCenter = lazyCenter(
   () => import("@/components/nexus/NexusAutomationCenter"),
   "NexusAutomationCenter",
 );
+export const LazyNexusAutomationStudioCenter = lazyCenter(
+  () => import("@/components/nexus/automation-studio/AutomationStudioCenter"),
+  "AutomationStudioCenter",
+);
 export const LazyNexusPlanningCenter = lazyCenter(
   () => import("@/components/nexus/NexusPlanningCenter"),
   "NexusPlanningCenter",

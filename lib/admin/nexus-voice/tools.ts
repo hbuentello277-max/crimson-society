@@ -8,9 +8,11 @@ import { runNexusCrossSystemVoiceTool } from "@/lib/admin/nexus-voice/cross-syst
 import { runNexusOperationsPlannerVoiceTool } from "@/lib/admin/nexus-voice/operations-planner-tools";
 import { runNexusVoiceFounderTool } from "@/lib/admin/nexus-voice/founder-tools";
 import { runNexusVoiceExecutiveTool } from "@/lib/admin/nexus-voice/executive-tools";
+import { runNexusAutomationStudioVoiceTool } from "@/lib/admin/nexus-voice/automation-studio-tools";
 import {
   NEXUS_VOICE_ACTION_CENTER_TOOLS,
   NEXUS_VOICE_ACTION_READ_TOOLS,
+  NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS,
   NEXUS_VOICE_CROSS_SYSTEM_TOOLS,
   NEXUS_VOICE_EXECUTIVE_TOOLS,
   NEXUS_VOICE_OPERATIONS_PLANNER_TOOLS,
@@ -219,6 +221,12 @@ function isExecutiveTool(
   return (NEXUS_VOICE_EXECUTIVE_TOOLS as readonly string[]).includes(tool);
 }
 
+function isAutomationStudioTool(
+  tool: NexusVoiceToolName,
+): tool is (typeof NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS)[number] {
+  return (NEXUS_VOICE_AUTOMATION_STUDIO_TOOLS as readonly string[]).includes(tool);
+}
+
 export type NexusVoiceToolOptions = {
   transcript?: string;
   ownerId?: string;
@@ -269,6 +277,15 @@ export async function runNexusVoiceTool(
     }
     return runNexusVoiceActionCenterTool(tool, admin, {
       transcript: options.transcript,
+      ownerId: options.ownerId,
+    });
+  }
+
+  if (isAutomationStudioTool(tool)) {
+    if (!options.ownerId) {
+      throw new Error("Platform owner context is required for automation studio tools.");
+    }
+    return runNexusAutomationStudioVoiceTool(tool, admin, {
       ownerId: options.ownerId,
     });
   }
