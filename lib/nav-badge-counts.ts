@@ -201,3 +201,14 @@ export async function loadConnectNavBadgeCount(admin: SupabaseClient, userId: st
 export async function loadProfileNavBadgeCount(admin: SupabaseClient, userId: string) {
   return countUnreadNotificationsByTypes(admin, userId, PROFILE_ALERT_TYPES);
 }
+
+/** Aggregate unread count for home-screen app icon badge (no double-counting). */
+export async function loadAppIconBadgeCount(admin: SupabaseClient, userId: string) {
+  const [messageCount, notificationCount, meetChatUnread] = await Promise.all([
+    loadInboxMessageBadgeCount(admin, userId),
+    loadInboxNotificationBadgeCount(admin, userId),
+    loadMeetChatUnreadTotal(admin, userId),
+  ]);
+
+  return messageCount + notificationCount + meetChatUnread;
+}

@@ -30,11 +30,19 @@ import {
   resetOffRouteTracker,
   stepOffRouteTracker,
 } from "@/lib/meets/navigation/off-route";
+import { buildNavigationMetrics } from "@/lib/meets/navigation/metrics";
+import { computeRouteProgress } from "@/lib/meets/navigation/progress";
+import {
+  EMPTY_RECOVERY_ROUTE_STATE,
+  fetchRecoveryNavigationRoute,
+  recoveryTargetKey,
+  shouldFetchRecoveryRoute,
+  type RecoveryRouteState,
+} from "@/lib/meets/navigation/recovery-route";
 import { shouldRecalculateProgress } from "@/lib/meets/navigation/progress";
 import {
   EMPTY_NAVIGATION_SPEED_HUD,
   resolveCurrentSpeedMph,
-  updateSessionMaxSpeedMph,
   type NavigationSpeedHud,
 } from "@/lib/meets/navigation/speed";
 import type {
@@ -80,6 +88,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const [isPaused, setIsPaused] = useState(false);
   const [latestPosition, setLatestPosition] = useState<NavigationPosition | null>(null);
   const [offRoute, setOffRoute] = useState<OffRouteSessionState>(createInitialOffRouteState);
+  const [recovery, setRecovery] = useState<RecoveryRouteState>(EMPTY_RECOVERY_ROUTE_STATE);
   const [speedHud, setSpeedHud] = useState<NavigationSpeedHud>(EMPTY_NAVIGATION_SPEED_HUD);
   const [liveRiders, setLiveRiders] = useState<LiveRideRider[]>([]);
   const [showRiders, setShowRiders] = useState(true);
@@ -92,7 +101,6 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
   const latestPositionRef = useRef<NavigationPosition | null>(null);
   const offRouteTrackerRef = useRef(createOffRouteTracker());
   const previousProgressRef = useRef<NavigationSession["progress"]>(null);
-  const maxSpeedMphRef = useRef(0);
 
   if (!baseSessionRef.current && meetId && userId) {
     baseSessionRef.current = createInitialNavigationSession(meetId, userId);
@@ -106,13 +114,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       const nextPosition = positionFromGeolocation(position);
       const previous = latestPositionRef.current;
       const currentMph = resolveCurrentSpeedMph(nextPosition, previous);
-      const maxMph = updateSessionMaxSpeedMph(maxSpeedMphRef.current, currentMph);
-      maxSpeedMphRef.current = maxMph;
-      setSpeedHud((current) =>
-        current.currentMph === currentMph && current.maxMph === maxMph
-          ? current
-          : { currentMph, maxMph },
-      );
+      setSpeedHud((current) => (current.currentMph === currentMph ? current : { currentMph }));
 
       if (!isPaused && meet?.route && hasRoadGeometry(meet.route)) {
         const offRouteResult = stepOffRouteTracker(
@@ -185,9 +187,9 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       latestPositionRef.current = null;
       setLatestPosition(null);
       previousProgressRef.current = null;
-      maxSpeedMphRef.current = 0;
       setSpeedHud(EMPTY_NAVIGATION_SPEED_HUD);
       setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
+      setRecovery(EMPTY_RECOVERY_ROUTE_STATE);
       setArrivalUiPhase("none");
       arrivalPhaseStartedRef.current = null;
 
@@ -245,6 +247,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     if (isPaused) {
       clearWatch();
       setOffRoute(resetOffRouteTracker(offRouteTrackerRef.current));
+      setRecovery(EMPTY_RECOVERY_ROUTE_STATE);
       return;
     }
 
@@ -317,6 +320,83 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     };
   }, [arrivalUiPhase, isAdmin, meetId, userId]);
 
+  useEffect(() => {
+    if (offRoute.offRouteStatus === "on_route") {
+      setRecovery((current) =>
+        current.status === "idle" ? current : EMPTY_RECOVERY_ROUTE_STATE,
+      );
+    }
+  }, [offRoute.offRouteStatus]);
+
+  useEffect(() => {
+    const rejoinPoint = offRoute.nearestRejoinPoint;
+    if (
+      !shouldFetchRecoveryRoute({
+        offRouteStatus: offRoute.offRouteStatus,
+        rejoinPoint,
+        currentTargetKey: recovery.targetKey,
+        status: recovery.status,
+      })
+    ) {
+      return;
+    }
+
+    if (!rejoinPoint || !latestPosition || !meet?.id) return;
+
+    let cancelled = false;
+    const targetKey = recoveryTargetKey(rejoinPoint);
+
+    setRecovery({
+      status: "loading",
+      route: recovery.targetKey === targetKey ? recovery.route : null,
+      targetKey,
+      error: null,
+    });
+
+    void fetchRecoveryNavigationRoute(meet.id, latestPosition, rejoinPoint)
+      .then((route) => {
+        if (cancelled) return;
+
+        if (!route) {
+          setRecovery({
+            status: "error",
+            route: null,
+            targetKey,
+            error: "Could not calculate recovery route.",
+          });
+          return;
+        }
+
+        setRecovery({
+          status: "active",
+          route,
+          targetKey,
+          error: null,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRecovery({
+          status: "error",
+          route: null,
+          targetKey,
+          error: "Could not calculate recovery route.",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    latestPosition,
+    meet?.id,
+    offRoute.nearestRejoinPoint,
+    offRoute.offRouteStatus,
+    recovery.route,
+    recovery.status,
+    recovery.targetKey,
+  ]);
+
   const navigationSession = useMemo(() => {
     const base =
       baseSessionRef.current ??
@@ -341,7 +421,34 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
       previousProgressRef.current = built.progress;
     }
 
-    return built;
+    const isOffRouteGuidance =
+      offRoute.offRouteStatus === "off_route" ||
+      offRoute.offRouteStatus === "possibly_off_route";
+
+    if (
+      isOffRouteGuidance &&
+      recovery.status === "active" &&
+      recovery.route &&
+      latestPosition
+    ) {
+      const recoveryProgress = computeRouteProgress(recovery.route, latestPosition);
+      const recoveryMetrics = buildNavigationMetrics(
+        recovery.route,
+        recoveryProgress,
+        latestPosition,
+      );
+
+      return {
+        ...built,
+        recovery,
+        metrics: recoveryMetrics,
+      };
+    }
+
+    return {
+      ...built,
+      recovery,
+    };
   }, [
     authLoading,
     gpsError,
@@ -353,6 +460,7 @@ export function useMeetNavigation(meetId: string | null): UseMeetNavigationResul
     meet,
     meetId,
     offRoute,
+    recovery,
     shareError,
     userId,
   ]);

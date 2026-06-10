@@ -20,22 +20,44 @@ function buildSegments(points: RoutePoint[]): NavigationRouteSegment[] {
   return segments;
 }
 
-export function buildNavigationRoute(meet: NavigationMeet): NavigationRoute {
-  const points = meet.route;
+export function buildNavigationRouteFromGeometry(input: {
+  meetId: string;
+  points: RoutePoint[];
+  steps: NavigationRoute["steps"];
+  totalDistanceMiles?: number;
+  meetPoint: string;
+  destination: string;
+  plannedDistanceLabel?: string | null;
+  plannedDurationLabel?: string | null;
+}): NavigationRoute {
+  const points = input.points;
   const segments = buildSegments(points);
-  const totalDistanceMiles = getRouteDistanceMiles(points);
+  const totalDistanceMiles =
+    input.totalDistanceMiles ?? (points.length >= 2 ? getRouteDistanceMiles(points) : 0);
 
   return {
-    meetId: meet.id,
+    meetId: input.meetId,
     points,
     segments,
-    steps: meet.routeSteps,
+    steps: input.steps,
     totalDistanceMiles,
+    meetPoint: input.meetPoint,
+    destination: input.destination,
+    plannedDistanceLabel: input.plannedDistanceLabel ?? null,
+    plannedDurationLabel: input.plannedDurationLabel ?? null,
+  };
+}
+
+export function buildNavigationRoute(meet: NavigationMeet): NavigationRoute {
+  return buildNavigationRouteFromGeometry({
+    meetId: meet.id,
+    points: meet.route,
+    steps: meet.routeSteps,
     meetPoint: meet.meetPoint,
     destination: meet.destination,
     plannedDistanceLabel: meet.distance,
     plannedDurationLabel: meet.duration,
-  };
+  });
 }
 
 export function formatDistanceMiles(value: number): string {

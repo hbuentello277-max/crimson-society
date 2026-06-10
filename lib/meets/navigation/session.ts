@@ -14,6 +14,7 @@ import type {
 } from "@/lib/meets/navigation/types";
 import { detectNavigationArrival } from "@/lib/meets/navigation/arrival";
 import { createInitialOffRouteState } from "@/lib/meets/navigation/off-route";
+import { EMPTY_RECOVERY_ROUTE_STATE } from "@/lib/meets/navigation/recovery-route";
 import {
   applyMonotonicRouteProgress,
   computeRouteProgress,
@@ -23,6 +24,7 @@ import {
   EMPTY_NAVIGATION_ARRIVAL_UI,
   EMPTY_NAVIGATION_METRICS,
 } from "@/lib/meets/navigation/types";
+import { speedMphFromGeolocationMetersPerSecond } from "@/lib/meets/navigation/speed";
 import type {
   NavigationArrivalSessionState,
   NavigationProgress,
@@ -71,6 +73,7 @@ export function createInitialNavigationSession(meetId: string, userId: string): 
     shareError: null,
     isPaused: false,
     offRoute: createInitialOffRouteState(),
+    recovery: { ...EMPTY_RECOVERY_ROUTE_STATE },
     arrival: { ...EMPTY_NAVIGATION_ARRIVAL },
     arrivalUi: { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };
@@ -103,10 +106,7 @@ function buildArrivalState(
 }
 
 export function positionFromGeolocation(position: GeolocationPosition): NavigationPosition {
-  const speedMph =
-    typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
-      ? position.coords.speed * 2.2369362921
-      : null;
+  const speedMph = speedMphFromGeolocationMetersPerSecond(position.coords.speed);
 
   return {
     lat: position.coords.latitude,
@@ -188,6 +188,7 @@ export function buildNavigationSession(input: BuildSessionInput): NavigationSess
     shareError: input.shareError,
     isPaused: input.isPaused,
     offRoute: input.offRoute,
+    recovery: input.base.recovery ?? { ...EMPTY_RECOVERY_ROUTE_STATE },
     arrival,
     arrivalUi: input.base.arrivalUi ?? { ...EMPTY_NAVIGATION_ARRIVAL_UI },
   };

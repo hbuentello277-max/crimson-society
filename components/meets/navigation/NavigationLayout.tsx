@@ -43,7 +43,6 @@ function NavigationLayoutComponent({
       <NavigationTopBar session={session} />
       <NavigationDirectionBanner
         session={session}
-        speedHud={speedHud}
         onShowRiders={() => {
           if (!showRiders) onToggleShowRiders();
         }}

@@ -23,6 +23,8 @@ function NavigationMapPanelComponent({
   liveRiders = [],
 }: NavigationMapPanelProps) {
   const route = session.route;
+  const recoveryRoute =
+    session.recovery.status === "active" ? session.recovery.route?.points ?? null : null;
 
   const meetStart = route?.points[0] ?? null;
   const destination = route && route.points.length > 0 ? route.points[route.points.length - 1] : null;
@@ -49,6 +51,7 @@ function NavigationMapPanelComponent({
       lng={mapCenter.lng}
       meetPoint={route.meetPoint}
       route={route.points}
+      recoveryRoute={recoveryRoute ?? undefined}
       riders={liveRiders}
       selfLocation={userLocation}
       showSelfMarker

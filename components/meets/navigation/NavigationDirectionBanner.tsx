@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { memo } from "react";
-import { openMapsNavigation } from "@/lib/meets/maps-links";
 import {
   formatRiderDistanceLine,
   meetArrivalBannerMessage,
@@ -12,15 +11,13 @@ import {
   BACK_ON_ROUTE_BANNER_MESSAGE,
   OFF_ROUTE_BANNER_MESSAGE,
 } from "@/lib/meets/navigation/off-route";
+import { computeRouteProgress } from "@/lib/meets/navigation/progress";
 import { formatManeuverDistance } from "@/lib/meets/navigation/steps";
 import { resolveActiveStep } from "@/lib/meets/navigation/steps";
-import { formatSpeedHudLabel } from "@/lib/meets/navigation/speed";
-import type { NavigationSpeedHud } from "@/lib/meets/navigation/speed";
 import type { NavigationSession } from "@/lib/meets/navigation/types";
 
 type NavigationDirectionBannerProps = {
   session: NavigationSession;
-  speedHud: NavigationSpeedHud;
   onShowRiders?: () => void;
 };
 
@@ -35,11 +32,19 @@ function TripStat({ label, value }: { label: string; value: string }) {
 
 function NavigationDirectionBannerComponent({
   session,
-  speedHud,
   onShowRiders,
 }: NavigationDirectionBannerProps) {
-  const { metrics, route, progress, navigationState, offRoute, arrival, arrivalUi, latestPosition } =
-    session;
+  const {
+    metrics,
+    route,
+    progress,
+    navigationState,
+    offRoute,
+    recovery,
+    arrival,
+    arrivalUi,
+    latestPosition,
+  } = session;
   const arrivalPhase = arrivalUi.phase;
 
   const showDestinationArrival =
@@ -56,13 +61,27 @@ function NavigationDirectionBannerComponent({
     !showMeetArrival &&
     !showDestinationArrival &&
     (navigationState === "navigating" || navigationState === "paused") &&
-    offRoute.bannerMessage === OFF_ROUTE_BANNER_MESSAGE;
+    (offRoute.offRouteStatus === "off_route" ||
+      offRoute.offRouteStatus === "possibly_off_route" ||
+      offRoute.bannerMessage === OFF_ROUTE_BANNER_MESSAGE);
   const showBackOnRoute =
     navigationState === "navigating" && offRoute.bannerMessage === BACK_ON_ROUTE_BANNER_MESSAGE;
 
+  const guidanceRoute =
+    showOffRoute && recovery.status === "active" && recovery.route ? recovery.route : route;
+  const guidanceProgress =
+    guidanceRoute && latestPosition
+      ? computeRouteProgress(guidanceRoute, latestPosition)
+      : progress;
+
   const activeStep =
-    route && progress
-      ? resolveActiveStep(route.steps, route.points, progress, latestPosition).nextStep
+    guidanceRoute && guidanceProgress
+      ? resolveActiveStep(
+          guidanceRoute.steps,
+          guidanceRoute.points,
+          guidanceProgress,
+          latestPosition,
+        ).nextStep
       : null;
   const maneuverArrow = resolveManeuverArrow(activeStep);
 
@@ -98,10 +117,6 @@ function NavigationDirectionBannerComponent({
                 <div>
                   <p className="text-[8px] uppercase tracking-[0.14em] text-emerald-200/70">Avg Speed</p>
                   <p className="mt-0.5 font-medium">{metrics.currentSpeedLabel}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-emerald-200/70">Max Rider Speed</p>
-                  <p className="mt-0.5 font-medium">{formatSpeedHudLabel(speedHud.maxMph)}</p>
                 </div>
                 <div>
                   <p className="text-[8px] uppercase tracking-[0.14em] text-emerald-200/70">Credits Earned</p>
@@ -233,52 +248,6 @@ function NavigationDirectionBannerComponent({
     );
   }
 
-  if (showOffRoute) {
-    const rejoinDistanceLabel =
-      metrics.distanceToManeuverLabel !== "—" ? metrics.distanceToManeuverLabel : null;
-
-    return (
-      <div className="shrink-0 border-b border-[#f0b429]/40 bg-[#2a1d05] px-4 py-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#f0b429]/50 bg-[#3a2a08]/80 text-xl text-[#fff4d6]">
-            !
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] uppercase tracking-[0.22em] text-[#f6d58b]">Route Alert</p>
-            <p className="mt-1 text-base font-semibold leading-tight text-[#fff4d6] sm:text-lg">
-              {OFF_ROUTE_BANNER_MESSAGE}
-            </p>
-            {offRoute.distanceFromRouteMeters !== null ? (
-              <p className="mt-1 text-xs text-[#f6d58b]/90">
-                About {formatManeuverDistance(offRoute.distanceFromRouteMeters)} off route
-              </p>
-            ) : null}
-            {rejoinDistanceLabel ? (
-              <p className="mt-0.5 text-xs text-[#fff4d6]/90">
-                Rejoin route in {rejoinDistanceLabel}
-              </p>
-            ) : null}
-            {offRoute.nearestRejoinPoint ? (
-              <button
-                type="button"
-                onClick={() =>
-                  openMapsNavigation({
-                    lat: offRoute.nearestRejoinPoint!.lat,
-                    lng: offRoute.nearestRejoinPoint!.lng,
-                    label: "Rejoin route",
-                  })
-                }
-                className="mt-2 rounded-lg border border-[#f0b429]/60 bg-[#3a2a08]/80 px-3 py-1.5 text-[9px] uppercase tracking-[0.14em] text-[#fff4d6] transition hover:border-[#f0b429]"
-              >
-                Open Maps to Rejoin
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (showBackOnRoute) {
     return (
       <div className="shrink-0 border-b border-emerald-500/30 bg-[#071a12] px-4 py-2.5 text-center">
@@ -288,20 +257,66 @@ function NavigationDirectionBannerComponent({
     );
   }
 
+  const recoveryStatusLabel =
+    recovery.status === "loading"
+      ? "Calculating recovery route…"
+      : recovery.status === "error"
+        ? recovery.error
+        : recovery.status === "active"
+          ? "Recovery route active — stay in Crimson Society"
+          : "Preparing in-app recovery…";
+
   return (
-    <div className="shrink-0 border-b border-emerald-500/30 bg-[#071a12] px-4 py-3.5">
+    <div
+      className={`shrink-0 border-b px-4 py-3.5 ${
+        showOffRoute ? "border-[#f0b429]/40 bg-[#1a1408]" : "border-emerald-500/30 bg-[#071a12]"
+      }`}
+    >
+      {showOffRoute ? (
+        <div className="mx-auto mb-3 max-w-4xl rounded-xl border border-[#f0b429]/45 bg-[#2a1d05]/90 px-3 py-2">
+          <p className="text-[9px] uppercase tracking-[0.22em] text-[#f6d58b]">Route Alert</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#fff4d6] sm:text-base">
+            {OFF_ROUTE_BANNER_MESSAGE}
+          </p>
+          {offRoute.distanceFromRouteMeters !== null ? (
+            <p className="mt-0.5 text-xs text-[#f6d58b]/90">
+              About {formatManeuverDistance(offRoute.distanceFromRouteMeters)} off route
+            </p>
+          ) : null}
+          <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#fff4d6]/85">
+            {recoveryStatusLabel}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mx-auto flex max-w-4xl items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-400/35 bg-emerald-500/10 text-3xl font-semibold leading-none text-emerald-300 sm:h-14 sm:w-14 sm:text-4xl">
-          {maneuverArrow}
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-3xl font-semibold leading-none sm:h-14 sm:w-14 sm:text-4xl ${
+            showOffRoute
+              ? "border-[#f0b429]/45 bg-[#3a2a08]/80 text-[#fff4d6]"
+              : "border-emerald-400/35 bg-emerald-500/10 text-emerald-300"
+          }`}
+        >
+          {showOffRoute && recovery.status !== "active" ? "!" : maneuverArrow}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[9px] uppercase tracking-[0.22em] text-emerald-300/90">Next Turn</p>
+          <p
+            className={`text-[9px] uppercase tracking-[0.22em] ${
+              showOffRoute ? "text-[#f6d58b]" : "text-emerald-300/90"
+            }`}
+          >
+            {showOffRoute ? "Recovery Turn" : "Next Turn"}
+          </p>
           <p className="mt-1 text-lg font-semibold leading-snug text-white sm:text-2xl">
             {metrics.nextTurnLabel}
           </p>
           {metrics.distanceToManeuverLabel !== "—" ? (
-            <p className="mt-1 text-base font-semibold text-emerald-300 sm:text-lg">
+            <p
+              className={`mt-1 text-base font-semibold sm:text-lg ${
+                showOffRoute ? "text-[#fff4d6]" : "text-emerald-300"
+              }`}
+            >
               {metrics.distanceToManeuverLabel}
             </p>
           ) : null}

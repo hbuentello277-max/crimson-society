@@ -1,5 +1,6 @@
 import type { MeetLifecyclePhase } from "@/lib/meets/lifecycle";
 import type { MeetTrackingStatus } from "@/lib/meets/types";
+import type { RecoveryRouteState } from "@/lib/meets/navigation/recovery-route";
 import type { RoutePoint } from "@/lib/meets/route-geometry";
 
 /** Primary navigation lifecycle — drives page behavior. */
@@ -163,6 +164,7 @@ export type NavigationSession = {
   shareError: string | null;
   isPaused: boolean;
   offRoute: OffRouteSessionState;
+  recovery: RecoveryRouteState;
   arrival: NavigationArrivalSessionState;
   arrivalUi: NavigationArrivalUiState;
 };

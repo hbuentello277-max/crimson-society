@@ -10,7 +10,7 @@ export const OFF_ROUTE_MIN_SAMPLES = 2;
 export const RETURN_TO_ROUTE_MIN_SAMPLES = 2;
 export const BACK_ON_ROUTE_BANNER_MS = 4000;
 
-export const OFF_ROUTE_BANNER_MESSAGE = "You may be off route.";
+export const OFF_ROUTE_BANNER_MESSAGE = "YOU MAY BE OFF ROUTE";
 export const BACK_ON_ROUTE_BANNER_MESSAGE = "Back on route.";
 
 export type RouteDeviation = {
