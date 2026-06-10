@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMeetStartTime } from "@/lib/meets/lifecycle";
+import { meetNotificationPath } from "@/lib/notifications";
 import { meetReminderGroupKey } from "@/lib/notifications/grouping";
 
 export type MeetReminderWindow = "24h" | "1h";
@@ -40,7 +41,7 @@ export function meetStartsWithinReminderWindow(
 }
 
 function meetDestinationUrl(meetId: string) {
-  return `/meets?meet=${meetId}`;
+  return meetNotificationPath(meetId);
 }
 
 export async function dispatchDueMeetReminders(admin: SupabaseClient) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { resolvePushNotificationUrl } from "@/lib/notifications/push-url-resolve";
 import { supabase } from "@/lib/supabase";
 import { getFirebasePublicConfig, getFirebaseVapidKey, isPushConfiguredOnClient } from "@/lib/push/firebase-public";
 import { savePushTokenRow, setPushNotificationsEnabled } from "@/lib/push/save-token";
@@ -210,6 +211,53 @@ async function registerFirebaseServiceWorker() {
   return registration;
 }
 
+let foregroundHandlerRegistered = false;
+
+async function registerForegroundPushHandler() {
+  if (foregroundHandlerRegistered || typeof window === "undefined") {
+    return;
+  }
+
+  if (getPushPermissionState() !== "granted" || !isPushSupported()) {
+    return;
+  }
+
+  try {
+    const { onMessage } = await import("firebase/messaging");
+    const { messaging } = await loadFirebaseMessaging();
+    onMessage(messaging, (payload) => {
+      const data = (payload.data ?? {}) as Record<string, string>;
+      const title = payload.notification?.title || data.title || "Crimson Society";
+      const body = payload.notification?.body || data.body || "";
+      const targetUrl = resolvePushNotificationUrl(data, window.location.origin);
+
+      if (Notification.permission !== "granted") {
+        return;
+      }
+
+      const notification = new Notification(title, {
+        body,
+        icon: "/icon-192.png",
+        tag: data.groupKey || data.group_key || data.collapseKey || data.type || "crimson-default",
+        data: { url: targetUrl },
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        const origin = window.location.origin;
+        const path = targetUrl.startsWith(origin)
+          ? targetUrl.slice(origin.length) || "/"
+          : targetUrl;
+        window.location.assign(path);
+        notification.close();
+      };
+    });
+    foregroundHandlerRegistered = true;
+  } catch {
+    // Foreground push is optional until Firebase is configured.
+  }
+}
+
 async function loadFirebaseMessaging() {
   const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported }] = await Promise.all([
     import("firebase/app"),
@@ -323,11 +371,13 @@ export async function ensurePushSubscription(): Promise<EnsurePushSubscriptionRe
 
   const serverRegistered = await checkServerPushSubscription(token);
   if (serverRegistered) {
+    await registerForegroundPushHandler();
     return { subscribed: true, token, serverRegistered: true };
   }
 
   try {
     await registerPushTokenWithServer(token);
+    await registerForegroundPushHandler();
     return { subscribed: true, token, serverRegistered: true };
   } catch {
     return { subscribed: false, token, serverRegistered: false };
@@ -404,5 +454,6 @@ export async function disablePushOnServer() {
 export async function enableDevicePush() {
   const token = await obtainWebPushToken();
   await registerPushTokenWithServer(token);
+  await registerForegroundPushHandler();
   return token;
 }

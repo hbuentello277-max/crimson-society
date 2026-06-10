@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  adminLowInventoryGroupKey,
   adminReportQueueGroupKey,
   connectRequestGroupKey,
   directMessageGroupKey,
+  followGroupKey,
   groupedNotificationCount,
+  meetChatGroupKey,
   meetJoinedGroupKey,
+  meetLeftGroupKey,
   meetReminderGroupKey,
   meetUpdatedGroupKey,
   postCommentedGroupKey,
@@ -31,8 +35,15 @@ describe("notification group keys", () => {
     );
   });
 
-  it("builds profile followed keys per recipient", () => {
+  it("builds follow keys per follower and recipient", () => {
+    assert.equal(followGroupKey("follower-1", "user-5"), "follow:follower-1:user-5");
     assert.equal(profileFollowedGroupKey("user-5"), "profile_followed:user-5");
+  });
+
+  it("builds meet chat and meet left keys", () => {
+    assert.equal(meetChatGroupKey("meet-1", "user-2"), "meet_chat:meet-1:user-2");
+    assert.equal(meetLeftGroupKey("meet-1", "host-1"), "meet_left:meet-1:host-1");
+    assert.equal(adminLowInventoryGroupKey("prod-1", "admin-1"), "admin_low_inventory:prod-1:admin-1");
   });
 
   it("builds shop order keys per order and user", () => {
@@ -45,7 +56,8 @@ describe("notification group keys", () => {
     assert.equal(meetReminderGroupKey("meet-1", "user-2"), "meet_reminder:meet-1:user-2");
     assert.equal(adminReportQueueGroupKey("admin-1"), "admin_report_queue:admin-1");
     assert.equal(postLikedGroupKey("post-1", "owner-1"), "post_liked:post-1:owner-1");
-    assert.equal(postCommentedGroupKey("post-1", "owner-1"), "post_commented:post-1:owner-1");
+    assert.equal(postLikedGroupKey("post-1", "owner-1", "liker-1"), "post_like:post-1:owner-1:liker-1");
+    assert.equal(postCommentedGroupKey("post-1", "owner-1"), "post_comment:post-1:owner-1");
   });
 });
 
@@ -80,6 +92,21 @@ describe("pushCollapseKey", () => {
     );
   });
 
+  it("uses meet chat group key fallback", () => {
+    assert.equal(
+      pushCollapseKey({
+        id: "n-chat",
+        type: "meet_chat_message",
+        notification_group_key: null,
+        conversation_id: null,
+        ride_id: "meet-1",
+        post_id: null,
+        user_id: "user-9",
+      }),
+      "meet_chat:meet-1:user-9",
+    );
+  });
+
   it("uses notification id when no group context exists", () => {
     assert.equal(
       pushCollapseKey({
@@ -103,18 +130,32 @@ describe("groupedNotificationCount", () => {
 });
 
 describe("direct message destination", () => {
-  it("opens the grouped conversation thread", () => {
+  it("opens the message thread path", () => {
     assert.equal(
       notificationDestination(
         {
           type: "direct_message",
           ride_id: null,
           conversation_id: "conv-abc",
-          target_url: "/inbox?conversation=conv-abc",
         },
         null,
       ),
-      "/inbox?conversation=conv-abc",
+      "/messages/conv-abc",
+    );
+  });
+
+  it("respects stored target_url when present", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "direct_message",
+          ride_id: null,
+          conversation_id: "conv-abc",
+          target_url: "/messages/conv-abc",
+        },
+        null,
+      ),
+      "/messages/conv-abc",
     );
   });
 });

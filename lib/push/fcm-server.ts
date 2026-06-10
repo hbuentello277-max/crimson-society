@@ -23,6 +23,7 @@ type PushPayload = {
   entityId?: string | null;
   postId?: string | null;
   orderId?: string | null;
+  groupKey?: string | null;
 };
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
@@ -156,6 +157,8 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
             entityId: payload.entityId || "",
             postId: payload.postId || "",
             orderId: payload.orderId || "",
+            groupKey: payload.groupKey || collapseKey,
+            group_key: payload.groupKey || collapseKey,
           },
           android: {
             collapse_key: collapseKey,

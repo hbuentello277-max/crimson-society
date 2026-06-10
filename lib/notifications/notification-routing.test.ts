@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  adminOrderNotificationPath,
+  adminShopPath,
   connectionRequestReviewPath,
+  meetNotificationPath,
+  messageThreadPath,
   notificationDestination,
   orderNotificationPath,
   postNotificationPath,
@@ -156,6 +160,109 @@ describe("connect notifications", () => {
   });
 });
 
+describe("meet notifications", () => {
+  it("opens meet detail for meet_joined", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "meet_joined",
+          ride_id: "meet-1",
+          target_url: meetNotificationPath("meet-1"),
+        },
+        actor,
+      ),
+      "/meets/meet-1",
+    );
+  });
+
+  it("opens meet chat for meet_chat_message", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "meet_chat_message",
+          ride_id: "meet-2",
+        },
+        null,
+      ),
+      "/meets/meet-2?section=chat",
+    );
+  });
+
+  it("opens meet detail for meet_reminder", () => {
+    assert.equal(
+      notificationDestination(
+        { type: "meet_reminder", ride_id: "meet-3" },
+        null,
+      ),
+      "/meets/meet-3",
+    );
+  });
+});
+
+describe("admin shop notifications", () => {
+  it("opens admin order detail for admin_order_paid", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "admin_order_paid",
+          ride_id: null,
+          metadata: { order_id: "order-88" },
+        },
+        null,
+      ),
+      adminOrderNotificationPath("order-88"),
+    );
+  });
+
+  it("falls back to admin shop for missing order id", () => {
+    assert.equal(
+      notificationDestination({ type: "admin_order_created", ride_id: null }, null),
+      adminShopPath(),
+    );
+  });
+
+  it("opens admin shop for low inventory", () => {
+    assert.equal(
+      notificationDestination({ type: "admin_low_inventory", ride_id: null }, null),
+      adminShopPath(),
+    );
+  });
+});
+
+describe("buyer order lifecycle notifications", () => {
+  it("opens order detail for order_created and order_confirmed", () => {
+    for (const type of ["order_created", "order_confirmed", "order_ready_to_ship", "order_completed"] as const) {
+      assert.equal(
+        notificationDestination(
+          {
+            type,
+            ride_id: null,
+            metadata: { order_id: "order-1" },
+          },
+          null,
+        ),
+        orderNotificationPath("order-1"),
+      );
+    }
+  });
+});
+
+describe("direct message notifications", () => {
+  it("opens message thread path", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "direct_message",
+          ride_id: null,
+          conversation_id: "thread-9",
+        },
+        null,
+      ),
+      messageThreadPath("thread-9"),
+    );
+  });
+});
+
 describe("inbox fallbacks", () => {
   it("falls back to /dashboard for missing post route data", () => {
     assert.equal(
@@ -226,6 +333,24 @@ describe("push payload metadata", () => {
     );
     assert.equal(orderPayload.orderId, "order-9");
     assert.equal(orderPayload.targetUrl, "https://crimson-society.com/profile/orders/order-9");
+  });
+
+  it("includes groupKey for grouped notifications", () => {
+    const payload = buildNotificationPushMetadata(
+      {
+        id: "n-1",
+        type: "meet_chat_message",
+        ride_id: "meet-1",
+        user_id: "user-2",
+        notification_group_key: "meet_chat:meet-1:user-2",
+        target_url: "/meets/meet-1?section=chat",
+      },
+      actor,
+      "https://crimson-society.com",
+    );
+
+    assert.equal(payload.groupKey, "meet_chat:meet-1:user-2");
+    assert.equal(payload.rideId, "meet-1");
   });
 
   it("includes request id for connect request pushes", () => {

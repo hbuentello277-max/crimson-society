@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminServiceClient, requireAdminSession } from "@/lib/admin-api";
+import { notifyAdminLowInventory } from "@/lib/shop/inventory-notifications";
+import { parseSizeInventory } from "@/lib/shop/inventory";
 
 export async function POST(request: Request) {
   const auth = await requireAdminSession();
@@ -50,6 +52,10 @@ export async function POST(request: Request) {
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
+
+  const productName = String((product as { name?: string }).name ?? "Product");
+  const sizeInventory = parseSizeInventory((product as { size_inventory?: unknown }).size_inventory);
+  await notifyAdminLowInventory(admin, productId, productName, sizeInventory);
 
   return NextResponse.json({ ok: true, product });
 }

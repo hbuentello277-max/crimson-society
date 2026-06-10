@@ -5,13 +5,17 @@ export const NOTIFICATION_GROUP_KEY_PATTERNS = {
   directMessage: "dm:{conversationId}:{recipientUserId}",
   connectRequest: "connect_request:{requesterId}:{receiverId}",
   meetJoined: "meet_joined:{meetId}:{hostUserId}",
+  meetLeft: "meet_left:{meetId}:{hostUserId}",
+  meetChat: "meet_chat:{meetId}:{recipientId}",
   meetUpdated: "meet_updated:{meetId}:{recipientId}",
   meetReminder: "meet_reminder:{meetId}:{recipientId}",
-  profileFollowed: "profile_followed:{recipientUserId}",
+  meetCanceled: "meet_canceled:{meetId}:{recipientId}",
+  follow: "follow:{followerId}:{followingId}",
   shopOrder: "order:{orderId}:{userId}",
-  postLiked: "post_liked:{postId}:{ownerId}",
-  postCommented: "post_commented:{postId}:{ownerId}",
+  postLike: "post_like:{postId}:{ownerId}:{likerId}",
+  postComment: "post_comment:{postId}:{ownerId}",
   adminReportQueue: "admin_report_queue:{adminId}",
+  adminLowInventory: "admin_low_inventory:{productId}:{adminId}",
 } as const;
 
 export function directMessageGroupKey(conversationId: string, recipientUserId: string) {
@@ -22,6 +26,23 @@ export function meetJoinedGroupKey(meetId: string, hostUserId: string) {
   return `meet_joined:${meetId}:${hostUserId}`;
 }
 
+export function meetLeftGroupKey(meetId: string, hostUserId: string) {
+  return `meet_left:${meetId}:${hostUserId}`;
+}
+
+export function meetChatGroupKey(meetId: string, recipientUserId: string) {
+  return `meet_chat:${meetId}:${recipientUserId}`;
+}
+
+export function meetCanceledGroupKey(meetId: string, recipientUserId: string) {
+  return `meet_canceled:${meetId}:${recipientUserId}`;
+}
+
+export function followGroupKey(followerId: string, followingId: string) {
+  return `follow:${followerId}:${followingId}`;
+}
+
+/** @deprecated Use followGroupKey — kept for legacy tests */
 export function profileFollowedGroupKey(recipientUserId: string) {
   return `profile_followed:${recipientUserId}`;
 }
@@ -42,16 +63,23 @@ export function meetReminderGroupKey(meetId: string, recipientId: string) {
   return `meet_reminder:${meetId}:${recipientId}`;
 }
 
-export function postLikedGroupKey(postId: string, ownerId: string) {
+export function postLikedGroupKey(postId: string, ownerId: string, likerId?: string) {
+  if (likerId) {
+    return `post_like:${postId}:${ownerId}:${likerId}`;
+  }
   return `post_liked:${postId}:${ownerId}`;
 }
 
 export function postCommentedGroupKey(postId: string, ownerId: string) {
-  return `post_commented:${postId}:${ownerId}`;
+  return `post_comment:${postId}:${ownerId}`;
 }
 
 export function adminReportQueueGroupKey(adminId: string) {
   return `admin_report_queue:${adminId}`;
+}
+
+export function adminLowInventoryGroupKey(productId: string, adminId: string) {
+  return `admin_low_inventory:${productId}:${adminId}`;
 }
 
 type CollapseInput = Pick<
@@ -78,17 +106,39 @@ export function pushCollapseKey(
     );
   }
 
+  if (
+    (notification.type === "meet_chat_message" || notification.type === "meet_chat_photo") &&
+    notification.ride_id
+  ) {
+    return meetChatGroupKey(notification.ride_id, notification.user_id || "recipient");
+  }
+
   if (notification.type === "meet_joined" && notification.ride_id) {
     return `meet_joined:${notification.ride_id}`;
   }
 
-  if (
-    (notification.type === "shop_order_paid" ||
-      notification.type === "shop_order_confirmed" ||
-      notification.type === "shop_order_ready_for_pickup" ||
-      notification.type === "shop_order_shipped") &&
-    notification.id
-  ) {
+  if (notification.type === "meet_left" && notification.ride_id) {
+    return meetLeftGroupKey(notification.ride_id, notification.user_id || "host");
+  }
+
+  const orderTypes = new Set([
+    "order_created",
+    "order_confirmed",
+    "order_preparing",
+    "order_ready_to_ship",
+    "order_shipped",
+    "order_ready_for_pickup",
+    "order_delivered",
+    "order_completed",
+    "shop_order_confirmed",
+    "shop_order_ready_for_pickup",
+    "shop_order_shipped",
+    "admin_order_created",
+    "admin_order_paid",
+    "shop_order_paid",
+  ]);
+
+  if (orderTypes.has(notification.type) && notification.id) {
     return `order-fallback:${notification.id}`;
   }
 

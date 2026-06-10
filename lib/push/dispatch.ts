@@ -212,6 +212,7 @@ export async function dispatchPushForNotification(notificationId: string) {
         entityId: pushMetadata.entityId || null,
         postId: pushMetadata.postId || row.post_id,
         orderId: pushMetadata.orderId || null,
+        groupKey: pushMetadata.groupKey || null,
       });
       sent += 1;
     } catch (error) {

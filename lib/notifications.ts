@@ -30,8 +30,18 @@ export type NotificationType =
   | "shop_order_confirmed"
   | "shop_order_ready_for_pickup"
   | "shop_order_shipped"
+  | "order_created"
+  | "order_confirmed"
   | "order_preparing"
-  | "order_shipped";
+  | "order_ready_to_ship"
+  | "order_shipped"
+  | "order_ready_for_pickup"
+  | "order_delivered"
+  | "order_completed"
+  | "admin_order_created"
+  | "admin_order_paid"
+  | "admin_low_inventory"
+  | "meet_cancelled";
 
 export type NotificationActor = {
   id: string;
@@ -100,11 +110,37 @@ const FOLLOW_TYPES = new Set<NotificationType>(["follow", "profile_followed"]);
 const POST_LIKE_TYPES = new Set<NotificationType>(["post_like", "post_liked"]);
 const POST_COMMENT_TYPES = new Set<NotificationType>(["post_comment", "post_commented"]);
 const ORDER_DETAIL_TYPES = new Set<NotificationType>([
+  "order_created",
+  "order_confirmed",
   "order_preparing",
+  "order_ready_to_ship",
   "order_shipped",
+  "order_ready_for_pickup",
+  "order_delivered",
+  "order_completed",
   "shop_order_confirmed",
   "shop_order_ready_for_pickup",
   "shop_order_shipped",
+]);
+
+const ADMIN_SHOP_ORDER_TYPES = new Set<NotificationType>([
+  "admin_order_created",
+  "admin_order_paid",
+  "shop_order_paid",
+]);
+
+const MEET_DETAIL_TYPES = new Set<NotificationType>([
+  "meet_joined",
+  "meet_left",
+  "meet_chat_message",
+  "meet_chat_photo",
+  "meet_removed",
+  "meet_canceled",
+  "meet_cancelled",
+  "meet_updated",
+  "meet_ended",
+  "meet_reminder",
+  "host_meet_created",
 ]);
 
 const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
@@ -139,8 +175,18 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "shop_order_confirmed",
   "shop_order_ready_for_pickup",
   "shop_order_shipped",
+  "order_created",
+  "order_confirmed",
   "order_preparing",
+  "order_ready_to_ship",
   "order_shipped",
+  "order_ready_for_pickup",
+  "order_delivered",
+  "order_completed",
+  "admin_order_created",
+  "admin_order_paid",
+  "admin_low_inventory",
+  "meet_cancelled",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -187,12 +233,33 @@ export function orderNotificationPath(orderId: string) {
   return `/profile/orders/${orderId}`;
 }
 
+export function meetNotificationPath(meetId: string, section?: "chat") {
+  const base = `/meets/${meetId}`;
+  if (section === "chat") {
+    return `${base}?section=chat`;
+  }
+  return base;
+}
+
+export function messageThreadPath(conversationId: string) {
+  return `/messages/${conversationId}`;
+}
+
+export function adminOrderNotificationPath(orderId: string) {
+  return `/admin/shop/orders/${orderId}`;
+}
+
+export function adminShopPath() {
+  return "/admin/shop";
+}
+
 export function shouldNotifyPostOwner(ownerId: string | null | undefined, actorId: string) {
   return Boolean(ownerId && ownerId !== actorId);
 }
 
 function metadataRoute(
   metadata: NotificationMetadata | null | undefined,
+  notificationType?: NotificationType | string,
 ): string | null {
   if (!metadata) return null;
 
@@ -218,6 +285,13 @@ function metadataRoute(
   }
 
   if (metadata.order_id) {
+    const entityType = metadata.entity_type || "";
+    if (
+      entityType.startsWith("admin_") ||
+      (notificationType && ADMIN_SHOP_ORDER_TYPES.has(notificationType as NotificationType))
+    ) {
+      return adminOrderNotificationPath(metadata.order_id);
+    }
     return orderNotificationPath(metadata.order_id);
   }
 
@@ -235,7 +309,7 @@ export function notificationDestination(
     return storedPath;
   }
 
-  const metadataPath = metadataRoute(notification.metadata);
+  const metadataPath = metadataRoute(notification.metadata, notification.type);
   if (metadataPath) {
     return metadataPath;
   }
@@ -263,8 +337,31 @@ export function notificationDestination(
   }
 
 
+  if (notification.type === "direct_message" && notification.conversation_id) {
+    return messageThreadPath(notification.conversation_id);
+  }
+
+  if (notification.type === "direct_message") {
+    return "/messages";
+  }
+
+  if (ADMIN_SHOP_ORDER_TYPES.has(notification.type)) {
+    const orderId = notification.metadata?.order_id || notification.metadata?.entity_id;
+    return orderId ? adminOrderNotificationPath(String(orderId)) : adminShopPath();
+  }
+
+  if (notification.type === "admin_low_inventory") {
+    return adminShopPath();
+  }
+
+  if (MEET_DETAIL_TYPES.has(notification.type) && notification.ride_id) {
+    const isChat =
+      notification.type === "meet_chat_message" || notification.type === "meet_chat_photo";
+    return meetNotificationPath(notification.ride_id, isChat ? "chat" : undefined);
+  }
+
   if (notification.type === "host_meet_created" && notification.ride_id) {
-    return `/meets?meet=${notification.ride_id}`;
+    return meetNotificationPath(notification.ride_id);
   }
 
   if (FOLLOW_TYPES.has(notification.type)) {
@@ -287,43 +384,12 @@ export function notificationDestination(
     return storedPath ?? "/admin?section=moderation";
   }
 
-  if (notification.type === "direct_message" && notification.conversation_id) {
-    return `/inbox?conversation=${notification.conversation_id}`;
-  }
-
-  if (notification.type === "direct_message") {
-    return "/messages";
-  }
-
   if (ORDER_DETAIL_TYPES.has(notification.type)) {
     const orderId = notification.metadata?.order_id || notification.metadata?.entity_id;
     return orderId ? orderNotificationPath(String(orderId)) : "/profile/orders";
   }
 
-  if (notification.type === "shop_order_paid") {
-    return storedPath ?? "/admin/shop?tab=orders";
-  }
-
-  if (notification.ride_id) {
-    const params = new URLSearchParams({ meet: notification.ride_id });
-    if (
-      notification.type === "meet_chat_message" ||
-      notification.type === "meet_chat_photo"
-    ) {
-      params.set("section", "chat");
-    }
-    return `/meets?${params.toString()}`;
-  }
-
-  if (
-    notification.type === "meet_joined" ||
-    notification.type === "meet_left" ||
-    notification.type === "meet_removed" ||
-    notification.type === "meet_canceled" ||
-    notification.type === "meet_updated" ||
-    notification.type === "meet_ended" ||
-    notification.type === "meet_reminder"
-  ) {
+  if (MEET_DETAIL_TYPES.has(notification.type)) {
     return "/meets";
   }
 
@@ -381,16 +447,33 @@ export function notificationTypeLabel(type: NotificationType) {
     case "host_meet_created":
       return "Host meet";
     case "shop_order_paid":
+    case "admin_order_paid":
       return "Shop order";
+    case "admin_order_created":
+      return "New order";
+    case "admin_low_inventory":
+      return "Low inventory";
     case "shop_order_confirmed":
+    case "order_confirmed":
       return "Order confirmed";
+    case "order_created":
+      return "Order received";
     case "shop_order_ready_for_pickup":
+    case "order_ready_for_pickup":
       return "Ready for pickup";
     case "shop_order_shipped":
     case "order_shipped":
       return "Shipped";
     case "order_preparing":
       return "Order preparing";
+    case "order_ready_to_ship":
+      return "Ready to ship";
+    case "order_delivered":
+      return "Delivered";
+    case "order_completed":
+      return "Order completed";
+    case "meet_cancelled":
+      return "Meet canceled";
     case "meet_chat_message":
     default:
       return "Meet chat";
@@ -456,11 +539,22 @@ export function notificationSummary(
     case "host_meet_created":
       return trimmedBody || `${name} created a new meet`;
     case "shop_order_paid":
+    case "admin_order_created":
+    case "admin_order_paid":
+    case "admin_low_inventory":
     case "shop_order_confirmed":
+    case "order_created":
+    case "order_confirmed":
     case "shop_order_ready_for_pickup":
+    case "order_ready_for_pickup":
     case "shop_order_shipped":
     case "order_preparing":
+    case "order_ready_to_ship":
     case "order_shipped":
+    case "order_delivered":
+    case "order_completed":
+    case "meet_canceled":
+    case "meet_cancelled":
       return trimmedBody || notification.title;
     default:
       return trimmedBody || notification.title;

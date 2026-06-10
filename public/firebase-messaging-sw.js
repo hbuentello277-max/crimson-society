@@ -10,12 +10,26 @@ function resolveNotificationUrl(data) {
     data?.url ||
     (data?.requestId ? `/connect/requests/${data.requestId}` : null) ||
     (data?.orderId ? `/profile/orders/${data.orderId}` : null) ||
-    (data?.postId ? `/dashboard?post=${data.postId}` : null) ||
+    (data?.conversationId ? `/messages/${data.conversationId}` : null) ||
+    (data?.rideId
+      ? data?.type === "meet_chat_message" || data?.type === "meet_chat_photo"
+        ? `/meets/${data.rideId}?section=chat`
+        : `/meets/${data.rideId}`
+      : null) ||
+    (data?.postId
+      ? data?.commentId
+        ? `/dashboard?post=${data.postId}&comment=${data.commentId}`
+        : `/dashboard?post=${data.postId}`
+      : null) ||
     (data?.actorUsername ? `/profile/${data.actorUsername}` : null);
 
   if (!raw) {
     if (data?.type === "direct_message") return "/messages";
+    if (data?.type === "admin_low_inventory" || String(data?.type || "").startsWith("admin_order")) {
+      return "/admin/shop";
+    }
     if (String(data?.type || "").startsWith("meet_")) return "/meets";
+    if (String(data?.type || "").startsWith("order_")) return "/profile/orders";
     return "/inbox?tab=notifications";
   }
 
@@ -31,6 +45,8 @@ function showNotification(payload) {
   const body = payload.notification?.body || payload.data?.body || "";
   const url = resolveNotificationUrl(payload.data || {});
   const tag =
+    payload.data?.groupKey ||
+    payload.data?.group_key ||
     payload.data?.collapseKey ||
     payload.data?.notificationId ||
     payload.data?.type ||

@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadActiveAdminUserIds } from "@/lib/admin/admin-user-ids";
+import {
+  adminOrderNotificationPath,
+  orderNotificationPath,
+} from "@/lib/notifications";
 import { shopOrderGroupKey } from "@/lib/notifications/grouping";
 import {
   formatCentsUsd,
@@ -16,14 +20,6 @@ type OrderNotificationRow = {
   delivery_method: string;
   pickup_note?: string | null;
 };
-
-function customerOrderUrl(orderId: string) {
-  return `/profile/orders/${orderId}`;
-}
-
-function adminOrderUrl(orderId: string) {
-  return `/admin/shop?tab=orders&order=${orderId}`;
-}
 
 async function loadOrder(admin: SupabaseClient, orderId: string): Promise<OrderNotificationRow | null> {
   const { data, error } = await admin
@@ -93,6 +89,87 @@ function deliveryShortLabel(deliveryMethod: string) {
   return deliveryMethod === "local_pickup" ? "Local Pickup" : "Shipping";
 }
 
+function customerOrderUrl(orderId: string) {
+  return orderNotificationPath(orderId);
+}
+
+function adminOrderUrl(orderId: string) {
+  return adminOrderNotificationPath(orderId);
+}
+
+/** Notify buyer that an order was received (payment succeeded). */
+export async function notifyBuyerOrderCreated(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_created",
+      title: "Order received",
+      body: `We received your Crimson Society order #${shortId}.`,
+      target_url: targetUrl,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
+/** Notify buyer that an order is confirmed. */
+async function notifyShopOrderConfirmedCustomer(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_confirmed",
+      title: "Order confirmed",
+      body: `Your Crimson Society order #${shortId} is confirmed.`,
+      target_url: targetUrl,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
+/** Notify all active admin/owner accounts about a new paid order. */
+export async function notifyAdminOrderCreated(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order) return { ok: false, reason: "order_not_found" as const };
+
+  const shortId = shortOrderId(orderId);
+  const total = formatCentsUsd(order.total_cents);
+  const delivery = deliveryShortLabel(order.delivery_method);
+  const adminIds = await loadActiveAdminUserIds(admin);
+  if (adminIds.length === 0) {
+    return { ok: false, reason: "no_admins" as const };
+  }
+
+  const rows = adminIds.map((adminId) => ({
+    user_id: adminId,
+    type: "admin_order_created",
+    title: "New shop order",
+    body: `New order #${shortId} · ${total} · ${delivery}`,
+    target_url: adminOrderUrl(orderId),
+    notification_group_key: shopOrderGroupKey(orderId, adminId),
+    metadata: { order_id: orderId },
+  }));
+
+  const result = await insertNotifications(admin, rows);
+  if (result.error) {
+    return { ok: false, reason: "insert_failed" as const, error: result.error };
+  }
+
+  return { ok: true, inserted: result.inserted };
+}
+
 /** Notify all active admin/owner accounts about a paid order. */
 export async function notifyShopOrderPaidAdmins(admin: SupabaseClient, orderId: string) {
   const order = await loadOrder(admin, orderId);
@@ -105,29 +182,19 @@ export async function notifyShopOrderPaidAdmins(admin: SupabaseClient, orderId: 
 
   const adminIds = await loadActiveAdminUserIds(admin);
   if (adminIds.length === 0) {
-    console.warn("[shop-notify] no active admin profiles found for shop_order_paid");
+    console.warn("[shop-notify] no active admin profiles found for admin_order_paid");
     return { ok: false, reason: "no_admins" as const };
   }
 
-  const rows: Array<{
-    user_id: string;
-    type: string;
-    title: string;
-    body: string;
-    target_url: string;
-    notification_group_key: string;
-  }> = [];
-
-  for (const adminId of adminIds) {
-    rows.push({
-      user_id: adminId,
-      type: "shop_order_paid",
-      title: "New shop order",
-      body: `New order #${shortId} · ${total} · ${delivery}`,
-      target_url: adminOrderUrl(orderId),
-      notification_group_key: shopOrderGroupKey(orderId, adminId),
-    });
-  }
+  const rows = adminIds.map((adminId) => ({
+    user_id: adminId,
+    type: "admin_order_paid",
+    title: "Order paid",
+    body: `Order #${shortId} paid · ${total} · ${delivery}`,
+    target_url: adminOrderUrl(orderId),
+    notification_group_key: shopOrderGroupKey(orderId, adminId),
+    metadata: { order_id: orderId },
+  }));
 
   const result = await insertNotifications(admin, rows);
   if (result.error) {
@@ -141,27 +208,12 @@ export async function notifyShopOrderPaidAdmins(admin: SupabaseClient, orderId: 
   return { ok: true, inserted: result.inserted, delivery: deliveryLong };
 }
 
-async function notifyShopOrderConfirmedCustomer(admin: SupabaseClient, orderId: string) {
-  const order = await loadOrder(admin, orderId);
-  if (!order?.user_id) return;
-
-  const shortId = shortOrderId(orderId);
-  await insertNotifications(admin, [
-    {
-      user_id: order.user_id,
-      type: "shop_order_confirmed",
-      title: "Order confirmed",
-      body: `Your Crimson Society order #${shortId} is confirmed.`,
-      target_url: customerOrderUrl(orderId),
-      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
-    },
-  ]);
-}
-
 /** Notify admins and the customer when an order is paid. */
 export async function notifyShopOrderPaid(admin: SupabaseClient, orderId: string) {
-  const adminResult = await notifyShopOrderPaidAdmins(admin, orderId);
+  await notifyBuyerOrderCreated(admin, orderId);
   await notifyShopOrderConfirmedCustomer(admin, orderId);
+  await notifyAdminOrderCreated(admin, orderId);
+  const adminResult = await notifyShopOrderPaidAdmins(admin, orderId);
   return adminResult;
 }
 
@@ -180,15 +232,17 @@ export async function notifyShopOrderReadyForPickup(admin: SupabaseClient, order
   const shortId = shortOrderId(orderId);
   const pickupSettings = await loadLocalPickupSettings(admin);
   const body = pickupReadyNotificationBody(shortId, pickupSettings, order.pickup_note);
+  const targetUrl = customerOrderUrl(orderId);
 
   await insertNotifications(admin, [
     {
       user_id: order.user_id,
-      type: "shop_order_ready_for_pickup",
+      type: "order_ready_for_pickup",
       title: "Ready for pickup",
       body,
-      target_url: customerOrderUrl(orderId),
+      target_url: targetUrl,
       notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
     },
   ]);
 }
@@ -197,7 +251,6 @@ export async function notifyShopOrderPreparing(admin: SupabaseClient, orderId: s
   const order = await loadOrder(admin, orderId);
   if (!order?.user_id) return;
 
-  const shortId = shortOrderId(orderId);
   const targetUrl = customerOrderUrl(orderId);
 
   await insertNotifications(admin, [
@@ -207,7 +260,27 @@ export async function notifyShopOrderPreparing(admin: SupabaseClient, orderId: s
       title: "Order preparing",
       body: "Your Crimson Society order is being prepared.",
       target_url: targetUrl,
-      notification_group_key: `order_preparing:${orderId}:${order.user_id}`,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
+export async function notifyShopOrderReadyToShip(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_ready_to_ship",
+      title: "Ready to ship",
+      body: `Your Crimson Society order #${shortId} is ready to ship.`,
+      target_url: targetUrl,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
       metadata: { order_id: orderId },
     },
   ]);
@@ -226,6 +299,26 @@ export async function notifyShopOrderShipped(admin: SupabaseClient, orderId: str
       type: "order_shipped",
       title: "Your order has shipped",
       body: `Your Crimson Society order #${shortId} has shipped.`,
+      target_url: targetUrl,
+      notification_group_key: shopOrderGroupKey(orderId, order.user_id),
+      metadata: { order_id: orderId },
+    },
+  ]);
+}
+
+export async function notifyShopOrderCompleted(admin: SupabaseClient, orderId: string) {
+  const order = await loadOrder(admin, orderId);
+  if (!order?.user_id) return;
+
+  const shortId = shortOrderId(orderId);
+  const targetUrl = customerOrderUrl(orderId);
+
+  await insertNotifications(admin, [
+    {
+      user_id: order.user_id,
+      type: "order_completed",
+      title: "Order completed",
+      body: `Your Crimson Society order #${shortId} is complete.`,
       target_url: targetUrl,
       notification_group_key: shopOrderGroupKey(orderId, order.user_id),
       metadata: { order_id: orderId },

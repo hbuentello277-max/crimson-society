@@ -5,6 +5,7 @@ import {
   type NotificationMetadata,
   type NotificationType,
 } from "@/lib/notifications";
+import { pushCollapseKey } from "@/lib/notifications/grouping";
 
 export type NotificationPushMetadata = {
   type: NotificationType | string;
@@ -17,6 +18,9 @@ export type NotificationPushMetadata = {
   postId: string;
   commentId: string;
   orderId: string;
+  rideId: string;
+  conversationId: string;
+  groupKey: string;
 };
 
 export function buildNotificationPushMetadata(
@@ -25,6 +29,11 @@ export function buildNotificationPushMetadata(
     actor_id?: string | null;
     post_id?: string | null;
     comment_id?: string | null;
+    ride_id?: string | null;
+    conversation_id?: string | null;
+    notification_group_key?: string | null;
+    user_id?: string | null;
+    id?: string;
   },
   actor: NotificationActor | null | undefined,
   appOrigin: string,
@@ -43,6 +52,18 @@ export function buildNotificationPushMetadata(
   const commentId = notification.comment_id || metadata.comment_id || "";
   const orderId = metadata.order_id || metadata.entity_id || "";
 
+  const rideId = notification.ride_id || "";
+  const conversationId = notification.conversation_id || "";
+  const groupKey = pushCollapseKey({
+    id: notification.id || "",
+    type: notification.type as NotificationType,
+    notification_group_key: notification.notification_group_key,
+    conversation_id: notification.conversation_id,
+    ride_id: notification.ride_id,
+    post_id: notification.post_id,
+    user_id: notification.user_id,
+  });
+
   return {
     type: notification.type,
     url,
@@ -55,10 +76,15 @@ export function buildNotificationPushMetadata(
       postId ||
       requestId ||
       commentId ||
+      rideId ||
+      conversationId ||
       "",
     requestId,
     postId,
     commentId,
     orderId,
+    rideId,
+    conversationId,
+    groupKey,
   };
 }

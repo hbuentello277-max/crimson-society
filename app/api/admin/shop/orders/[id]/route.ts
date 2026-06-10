@@ -17,8 +17,10 @@ import {
   type OrderEmailSendResult,
 } from "@/lib/shop/order-emails";
 import {
+  notifyShopOrderCompleted,
   notifyShopOrderPreparing,
   notifyShopOrderReadyForPickup,
+  notifyShopOrderReadyToShip,
   notifyShopOrderShipped,
 } from "@/lib/shop/order-notifications";
 import { serializeOrder } from "@/lib/shop/serialize-order";
@@ -205,6 +207,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     await notifyShopOrderPreparing(admin, orderId);
   }
 
+  const trackingAdded =
+    Boolean(patch.tracking_number?.trim() || patch.tracking_url?.trim()) &&
+    !(existing.tracking_number as string | null)?.trim() &&
+    !(existing.tracking_url as string | null)?.trim();
+
+  if (
+    trackingAdded &&
+    (updated.fulfillment_status as string) === "fulfilled" &&
+    (updated.delivery_method as string) === "shipping"
+  ) {
+    await notifyShopOrderReadyToShip(admin, orderId);
+  }
+
   if (
     patch.fulfillment_status === "shipped" &&
     prevFulfillment !== "shipped" &&
@@ -212,6 +227,15 @@ export async function PATCH(request: Request, context: RouteContext) {
   ) {
     emailResults.push(await sendShippedEmail(admin, orderId));
     await notifyShopOrderShipped(admin, orderId);
+  }
+
+  const prevPickupStatus = existing.pickup_status as string;
+  if (
+    patch.pickup_status === "picked_up" &&
+    prevPickupStatus !== "picked_up" &&
+    (updated.delivery_method as string) === "local_pickup"
+  ) {
+    await notifyShopOrderCompleted(admin, orderId);
   }
 
   const email_warnings = emailResults
