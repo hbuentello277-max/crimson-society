@@ -50,7 +50,7 @@ export function explainPlatformStatusMismatch(input: PlatformStatusExplainInput)
     input.workflowHealthScore < 50 &&
     input.degradedWorkflows === 0
   ) {
-    reasons.push(`workflow health score is ${input.workflowHealthScore}`);
+    reasons.push(`Platform Score is ${input.workflowHealthScore}`);
   }
 
   if (reasons.length > 0) {
@@ -64,7 +64,7 @@ export function explainPlatformStatusMismatch(input: PlatformStatusExplainInput)
     input.openAlerts === 0 &&
     input.failedJobs === 0
   ) {
-    return `Platform Status uses strategic mission scoring (growth, revenue, incidents, workflow penalties). Platform Health (${input.platformHealthScore}) reflects workflow check results. A high health score can coexist with At Risk when strategic factors weigh down mission status.`;
+    return `Platform Status uses strategic platform scoring (growth, revenue, incidents, workflow penalties). Platform Health (${input.platformHealthScore}) reflects workflow check results. A high Platform Score can coexist with At Risk when strategic factors weigh down Platform Status.`;
   }
 
   return `Platform Status is ${input.platformStatusLabel}. Review Platform Status for the full strategic breakdown.`;

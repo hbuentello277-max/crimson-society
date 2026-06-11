@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { MissionStatus } from "@/lib/mission-control/types";
 import { missionStatusLabel } from "@/lib/mission-control/score";
 import { NexusRefreshButton } from "@/components/nexus/NexusShared";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const STATUS_STYLES: Record<
   MissionStatus,
@@ -98,7 +99,9 @@ export function MissionStatusHero({
           <span className="text-sm text-zinc-500">/ 100</span>
         </HeroMetric>
         <HeroMetric label="Primary Focus">
-          <p className="break-words text-sm leading-6 text-zinc-200 sm:text-base">{primaryFocus}</p>
+          <p className="break-words text-sm leading-6 text-zinc-200 sm:text-base">
+            {formatNexusDisplayText(primaryFocus)}
+          </p>
         </HeroMetric>
       </div>
 
@@ -113,7 +116,9 @@ export function MissionStatusHero({
         </span>
       </div>
 
-      <p className="relative mt-4 break-words text-sm leading-7 text-zinc-400">{missionSummary}</p>
+      <p className="relative mt-4 break-words text-sm leading-7 text-zinc-400">
+        {formatNexusDisplayText(missionSummary)}
+      </p>
     </section>
   );
 }

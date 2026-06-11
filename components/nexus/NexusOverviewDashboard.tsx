@@ -18,6 +18,7 @@ import {
 import { isDegradedWorkflowStatus } from "@/lib/mission-health/degraded";
 import { NEXUS_INTEGRATION_SLUGS } from "@/lib/nexus/constants";
 import { explainPlatformStatusMismatch } from "@/lib/nexus/platform-status-display";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 import { NEXUS_LABELS } from "@/lib/nexus/terminology";
 import {
   NexusActivityTile,
@@ -247,12 +248,13 @@ export function NexusOverviewDashboard({ showFounderLink = false }: { showFounde
         </div>
         {statusExplanation ? (
           <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
-            {statusExplanation}
+            {formatNexusDisplayText(statusExplanation)}
           </p>
         ) : null}
         {exec?.recommended_focus_today ? (
           <p className="mt-2 text-sm text-zinc-400">
-            <span className="text-[#e87a82]">Focus:</span> {exec.recommended_focus_today}
+            <span className="text-[#e87a82]">Focus:</span>{" "}
+            {formatNexusDisplayText(exec.recommended_focus_today)}
           </p>
         ) : null}
       </NexusDensePanel>
@@ -270,18 +272,18 @@ export function NexusOverviewDashboard({ showFounderLink = false }: { showFounde
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-white">
-                    {index + 1}. {priority.title}
+                    {index + 1}. {formatNexusDisplayText(priority.title)}
                   </p>
                   <span className="shrink-0 text-[9px] uppercase tracking-[0.12em] text-zinc-500">
                     {priority.urgency}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-zinc-400">{priority.reason}</p>
+                <p className="mt-1 text-xs text-zinc-400">{formatNexusDisplayText(priority.reason)}</p>
                 <Link
                   href={priority.related_route}
                   className="mt-2 inline-flex text-[10px] uppercase tracking-[0.12em] text-[#f1c3c7] hover:underline"
                 >
-                  {priority.suggested_next_action}
+                  {formatNexusDisplayText(priority.suggested_next_action)}
                 </Link>
               </li>
             ))}
@@ -364,7 +366,7 @@ export function NexusOverviewDashboard({ showFounderLink = false }: { showFounde
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <NexusOverviewMetricCard
-            label="Health score"
+            label="Platform Score"
             value={platformHealth?.platform_health_score ?? mission?.score ?? "—"}
           />
           <NexusOverviewMetricCard

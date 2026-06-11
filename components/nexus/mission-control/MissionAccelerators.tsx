@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MissionAccelerator } from "@/lib/mission-control/types";
 import { NexusListEmpty } from "@/components/nexus/NexusShared";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 export function MissionAccelerators({ accelerators }: { accelerators: MissionAccelerator[] }) {
   if (accelerators.length === 0) {
@@ -22,12 +23,12 @@ export function MissionAccelerators({ accelerators }: { accelerators: MissionAcc
           className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 sm:p-4"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="break-words text-sm font-medium text-white">{accelerator.label}</p>
+            <p className="break-words text-sm font-medium text-white">{formatNexusDisplayText(accelerator.label)}</p>
             <span className="tabular-nums text-[10px] uppercase tracking-[0.14em] text-emerald-300">
               Influence {accelerator.influence_score}
             </span>
           </div>
-          <p className="mt-2 break-words text-sm leading-6 text-zinc-400">{accelerator.summary}</p>
+          <p className="mt-2 break-words text-sm leading-6 text-zinc-400">{formatNexusDisplayText(accelerator.summary)}</p>
           {accelerator.related_routes.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {accelerator.related_routes.map((route) => (

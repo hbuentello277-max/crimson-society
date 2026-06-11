@@ -191,7 +191,7 @@ export function buildRiskLines(context: ReportContext): string[] {
     risks.push(`Infrastructure status is ${context.health.systemStatus}`);
   }
   if (["degraded", "impaired", "critical", "failing"].includes(context.mission.status.toLowerCase())) {
-    risks.push(`User workflows are ${context.mission.status}`);
+    risks.push(`Platform workflows are ${context.mission.status}`);
   }
 
   for (const observation of context.observations.active) {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MissionThreat, MissionThreatSeverity } from "@/lib/mission-control/types";
 import { NexusListEmpty } from "@/components/nexus/NexusShared";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const SEVERITY_STYLES: Record<MissionThreatSeverity, string> = {
   critical: "border-red-500/30 bg-red-500/5 text-red-300",
@@ -29,11 +30,13 @@ export function MissionThreats({ threats }: { threats: MissionThreat[] }) {
           className={`rounded-xl border p-3 sm:p-4 ${SEVERITY_STYLES[threat.severity]}`}
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="break-words text-sm font-medium text-white">{threat.title}</p>
+            <p className="break-words text-sm font-medium text-white">{formatNexusDisplayText(threat.title)}</p>
             <span className="text-[10px] uppercase tracking-[0.14em]">{threat.severity}</span>
           </div>
-          <p className="mt-2 break-words text-sm leading-6 text-zinc-400">{threat.summary}</p>
-          <p className="mt-2 break-words text-xs leading-5 text-zinc-500">{threat.recommendation}</p>
+          <p className="mt-2 break-words text-sm leading-6 text-zinc-400">{formatNexusDisplayText(threat.summary)}</p>
+          <p className="mt-2 break-words text-xs leading-5 text-zinc-500">
+            {formatNexusDisplayText(threat.recommendation)}
+          </p>
           {threat.related_routes.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {threat.related_routes.map((route) => (

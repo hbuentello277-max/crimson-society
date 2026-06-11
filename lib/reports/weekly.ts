@@ -46,7 +46,7 @@ export async function getWeeklyExecutiveReport(
 
   const operationalBullets = [
     `Infrastructure status: ${health.systemStatus}`,
-    `User workflow status: ${mission.status}`,
+    `Platform workflow status: ${mission.status}`,
     formatCount(alerts.counts.active, "active alerts"),
     formatCount(incidents.open.length, "open incidents"),
     formatCount(observations.counts.active, "active insights"),

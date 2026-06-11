@@ -2,6 +2,7 @@
 
 import { ACTION_TYPE_LABELS } from "@/lib/action-center/constants";
 import type { NexusActionCard } from "@/lib/action-center/types";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 type Props = {
   action: NexusActionCard;
@@ -44,8 +45,8 @@ export function ActionCard({
           <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
             {ACTION_TYPE_LABELS[action.action_type]}
           </p>
-          <h3 className="mt-1 font-serif text-xl text-white">{action.title}</h3>
-          <p className="mt-1 text-sm text-zinc-400">{action.summary}</p>
+          <h3 className="mt-1 font-serif text-xl text-white">{formatNexusDisplayText(action.title)}</h3>
+          <p className="mt-1 text-sm text-zinc-400">{formatNexusDisplayText(action.summary)}</p>
         </div>
         <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">
           {STATUS_LABELS[action.status]}
@@ -53,14 +54,14 @@ export function ActionCard({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <InfoBlock title="Reason" value={action.reason} />
-        <InfoBlock title="Suggested outcome" value={action.suggested_outcome} />
+        <InfoBlock title="Reason" value={formatNexusDisplayText(action.reason)} />
+        <InfoBlock title="Suggested outcome" value={formatNexusDisplayText(action.suggested_outcome)} />
       </div>
 
       <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Generated content</p>
         <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-zinc-200">
-          {action.generated_content}
+          {formatNexusDisplayText(action.generated_content)}
         </pre>
       </div>
 

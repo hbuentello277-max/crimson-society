@@ -8,6 +8,7 @@ import { buildFounderGreeting } from "@/lib/nexus/founder-greeting";
 import { fetchNexusClientJson } from "@/lib/nexus/client-fetch";
 import type { WelcomeBriefing } from "@/lib/proactive-intelligence/types";
 import { RecommendedPlanBanner } from "@/components/nexus/founder/RecommendedPlanBanner";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 
 const EXPANDED_STORAGE_KEY = "nexus:briefing:expanded";
 
@@ -134,7 +135,7 @@ function BriefingColumn({
         {items.map((item) => (
           <li key={item} className="flex gap-2">
             <span className="text-[#e87a82]">•</span>
-            <span>{item}</span>
+            <span>{formatNexusDisplayText(item)}</span>
           </li>
         ))}
       </ul>

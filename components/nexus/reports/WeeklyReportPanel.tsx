@@ -2,6 +2,7 @@
 
 import type { WeeklyExecutiveReport } from "@/lib/reports/types";
 import { formatDateTime } from "@/lib/nexus/format";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 import { NEXUS_PANEL_CLASS } from "@/components/nexus/NexusShared";
 
 const PANEL_CLASS = `${NEXUS_PANEL_CLASS} rounded-2xl border border-white/10 bg-black/25 p-4`;
@@ -18,12 +19,12 @@ function ReportBlock({
   return (
     <div className={PANEL_CLASS}>
       <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">{title}</p>
-      <p className="mt-2 text-sm font-medium text-white">{headline}</p>
+      <p className="mt-2 text-sm font-medium text-white">{formatNexusDisplayText(headline)}</p>
       <ul className="mt-3 space-y-2">
         {bullets.map((bullet) => (
           <li key={bullet} className="flex gap-2 text-sm text-zinc-300">
             <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#b4141e]/80" aria-hidden />
-            <span>{bullet}</span>
+            <span>{formatNexusDisplayText(bullet)}</span>
           </li>
         ))}
       </ul>
@@ -54,7 +55,7 @@ export function WeeklyReportPanel({ report }: { report: WeeklyExecutiveReport })
           <ul className="mt-3 space-y-2">
             {report.risks.map((risk) => (
               <li key={risk} className="text-sm text-amber-100/90">
-                {risk}
+                {formatNexusDisplayText(risk)}
               </li>
             ))}
           </ul>
@@ -66,7 +67,7 @@ export function WeeklyReportPanel({ report }: { report: WeeklyExecutiveReport })
         <ul className="mt-3 space-y-2">
           {report.recommended_owner_focus.map((item) => (
             <li key={item} className="text-sm text-zinc-300">
-              {item}
+              {formatNexusDisplayText(item)}
             </li>
           ))}
         </ul>

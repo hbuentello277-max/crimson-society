@@ -49,7 +49,7 @@ function buildGeneratedContent(
   const members = briefing.membershipGrowth.newUsersThisWeek ?? briefing.membershipGrowth.totalUsers;
   const blackcard = briefing.blackcardGrowth.activeMembers;
   const revenue = briefing.revenueSummary.revenueToday ?? "n/a";
-  const platformLine = `Platform Health score ${briefing.platformHealth.missionScore ?? "n/a"} · Platform Status ${briefing.platformHealth.status}`;
+  const platformLine = `Platform Score ${briefing.platformHealth.missionScore ?? "n/a"} · Platform Status ${briefing.platformHealth.status}`;
   const memory = memoryLine(memoryHints);
 
   switch (actionType) {
@@ -78,13 +78,13 @@ function buildGeneratedContent(
       return {
         reason: "Weekly operational snapshot helps the founder review platform trajectory.",
         suggested_outcome: "Review metrics, risks, and next actions before the next operating week.",
-        generated_content: `Weekly report draft\n\nPlatform Health: ${briefing.platformHealth.missionScore ?? "n/a"} (${briefing.platformHealth.status})\nCritical alerts: ${briefing.openAlerts.critical}\nFailed platform jobs: ${briefing.failedPlatformJobs.failedCount}\nPending reports: ${briefing.pendingReports}\nMembership this week: ${members ?? "n/a"}\nBlackcard members: ${blackcard ?? "n/a"}\nRevenue today: ${revenue}\nLaunch readiness: ${launchReadiness.score}/100\n\nRecommended follow-up:\n${briefing.recommendedActions.slice(0, 3).join("\n") || "Review Platform Status."}${memory}`,
+        generated_content: `Weekly report draft\n\nPlatform Score: ${briefing.platformHealth.missionScore ?? "n/a"} (${briefing.platformHealth.status})\nCritical alerts: ${briefing.openAlerts.critical}\nFailed platform jobs: ${briefing.failedPlatformJobs.failedCount}\nPending reports: ${briefing.pendingReports}\nMembership this week: ${members ?? "n/a"}\nBlackcard members: ${blackcard ?? "n/a"}\nRevenue today: ${revenue}\nLaunch readiness: ${launchReadiness.score}/100\n\nRecommended follow-up:\n${briefing.recommendedActions.slice(0, 3).join("\n") || "Review Platform Status."}${memory}`,
       };
     case "monthly_report":
       return {
         reason: "Monthly founder review consolidates growth, revenue, and launch posture.",
         suggested_outcome: "Use this report for strategic decisions and approval planning.",
-        generated_content: `Monthly report draft\n\nMonth in review:\n- Platform Health: ${briefing.platformHealth.missionScore ?? "n/a"}\n- Membership total: ${briefing.membershipGrowth.totalUsers ?? "n/a"}\n- Blackcard members: ${blackcard ?? "n/a"}\n- Estimated MRR signal: ${briefing.revenueSummary.estimatedMrr ?? "n/a"}\n- Launch readiness: ${launchReadiness.score}/100 (${launchReadiness.status})\n\nRisks:\n${priorityIssue ?? "No single risk is dominating the signal stack."}\n\nApproval required before external distribution.${memory}`,
+        generated_content: `Monthly report draft\n\nMonth in review:\n- Platform Score: ${briefing.platformHealth.missionScore ?? "n/a"}\n- Membership total: ${briefing.membershipGrowth.totalUsers ?? "n/a"}\n- Blackcard members: ${blackcard ?? "n/a"}\n- Estimated MRR signal: ${briefing.revenueSummary.estimatedMrr ?? "n/a"}\n- Launch readiness: ${launchReadiness.score}/100 (${launchReadiness.status})\n\nRisks:\n${priorityIssue ?? "No single risk is dominating the signal stack."}\n\nApproval required before external distribution.${memory}`,
       };
     case "instagram_caption":
       return {

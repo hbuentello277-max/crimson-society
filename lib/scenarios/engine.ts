@@ -133,7 +133,7 @@ function buildBrief(
       ? `${riskiest.title} — ${riskiest.expected_risk}/100 expected risk`
       : "No risk differentiation available",
     favored_path: favored
-      ? `${favored.title} — Nexus favors this path based on current mission and forecast signals`
+      ? `${favored.title} — Nexus favors this path based on current platform and forecast signals`
       : strongest.title,
     tradeoff_summary:
       tradeoffParts.join(" ") ||

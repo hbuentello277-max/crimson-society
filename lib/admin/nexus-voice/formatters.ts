@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin/nexus-voice/founder-formatters";
 import type { NexusVoiceActionResult, NexusVoiceToolName } from "@/lib/admin/nexus-voice/types";
 import { NEXUS_VOICE_HELP_RESPONSE } from "@/lib/admin/nexus-voice/routing";
+import { formatNexusDisplayText } from "@/lib/nexus/terminology";
 import {
   formatNexusActionDraftResponse,
   formatNexusActionQueueResponse,
@@ -102,7 +103,7 @@ function formatFailedPlatformJobs(actionResult: NexusVoiceActionResult): string 
   return `Failed or overdue platform jobs: ${labels}.${partialSuffix(actionResult)}`;
 }
 
-export function formatNexusVoiceResponse(
+function formatNexusVoiceResponseRaw(
   tool: NexusVoiceToolName,
   actionResult: NexusVoiceActionResult,
 ): string {
@@ -253,27 +254,42 @@ export function formatNexusVoiceResponse(
   }
 }
 
+export function formatNexusVoiceResponse(
+  tool: NexusVoiceToolName,
+  actionResult: NexusVoiceActionResult,
+): string {
+  return formatNexusDisplayText(formatNexusVoiceResponseRaw(tool, actionResult));
+}
+
 export function formatNexusVoiceConfirmSuccess(
   tool: NexusVoiceToolName,
   actionResult: NexusVoiceActionResult,
 ): string {
+  let response: string;
   switch (tool) {
     case "createSystemAlertDraft":
-      return `System alert created: ${actionResult.data.title}.`;
+      response = `System alert created: ${actionResult.data.title}.`;
+      break;
     case "createAdminBriefingDraft":
-      return `Briefing draft saved: ${actionResult.data.title}.`;
+      response = `Briefing draft saved: ${actionResult.data.title}.`;
+      break;
     case "createRunbookDraft":
-      return `Runbook created: ${actionResult.data.title}.`;
+      response = `Runbook created: ${actionResult.data.title}.`;
+      break;
     case "createNexusObservationDraft":
-      return `Observation created: ${actionResult.data.title}.`;
+      response = `Observation created: ${actionResult.data.title}.`;
+      break;
     case "prepareAutomationRuleDraft":
-      return String(
+      response = String(
         actionResult.data.message ??
           `Automation rule draft created: ${(actionResult.data.rule as { name?: string } | undefined)?.name ?? "draft"}.`,
       );
+      break;
     case "updateAutomationRuleStatus":
-      return String(actionResult.data.message ?? "Automation rule status updated.");
+      response = String(actionResult.data.message ?? "Automation rule status updated.");
+      break;
     default:
-      return "Action completed successfully.";
+      response = "Action completed successfully.";
   }
+  return formatNexusDisplayText(response);
 }
