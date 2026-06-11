@@ -21,6 +21,7 @@ import {
   type DashboardMapMeet,
 } from "@/lib/meets/dashboard-map";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
+import { meetDetailHref } from "@/lib/navigation/meets-return";
 import type { DashboardLiveMapPreview, DashboardRoutePoint } from "@/lib/dashboard/types";
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
@@ -331,7 +332,7 @@ function DashboardMeetCard({
       <div className="mt-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <Link
-            href={`/meets?meet=${meet.id}`}
+            href={meetDetailHref(meet.id, "dashboard")}
             className="flex items-center justify-center rounded-lg border border-white/10 px-3 py-2.5 text-[10px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
           >
             View Meet

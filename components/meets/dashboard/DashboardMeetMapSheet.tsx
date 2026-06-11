@@ -16,6 +16,7 @@ import {
   resolveDashboardMapSheetPrimaryAction,
 } from "@/lib/meets/dashboard-map-sheet-actions";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
+import { meetDetailHref } from "@/lib/navigation/meets-return";
 
 type DashboardMeetMapSheetProps = {
   meet: DashboardMapMeet | null;
@@ -133,7 +134,7 @@ export function DashboardMeetMapSheet({
 
           <div className="space-y-2 border-t border-white/8 p-3">
             <Link
-              href={`/meets?meet=${meet.id}`}
+              href={meetDetailHref(meet.id, "dashboard")}
               onClick={onClose}
               className="flex w-full items-center justify-center rounded-2xl border border-white/10 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-zinc-100 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
             >
@@ -177,7 +178,7 @@ export function DashboardMeetMapSheet({
 
             {hasRoute ? (
               <Link
-                href={`/meets?meet=${meet.id}`}
+                href={meetDetailHref(meet.id, "dashboard")}
                 onClick={onClose}
                 className="flex w-full items-center justify-center rounded-2xl border border-white/10 px-4 py-3.5 text-[11px] uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
               >

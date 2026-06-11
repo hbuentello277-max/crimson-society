@@ -40,7 +40,12 @@ const HostMeetModal = dynamic(
 );
 import { BOTTOM_NAV_CLEARANCE, CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 import { useHistoryModal } from "@/hooks/useHistoryModal";
-import { blackcardLeaderboardHref } from "@/lib/navigation/meets-return";
+import { loadMeetDetailForModal } from "@/lib/meets/load-meet-detail";
+import {
+  blackcardLeaderboardHref,
+  getMeetDetailSource,
+  meetDetailCloseHref,
+} from "@/lib/navigation/meets-return";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { MEET_LIST_SELECT } from "@/lib/meets/list-query";
 import { loadMeetChatUnreadCountsByRide } from "@/lib/nav-badge-counts";
@@ -368,6 +373,8 @@ function MeetsPageContent() {
   const [savingMeet, setSavingMeet] = useState(false);
   const meetParam = searchParams.get("meet");
   const meetSectionParam = searchParams.get("section");
+  const meetDetailSource = getMeetDetailSource(searchParams);
+  const isDashboardMeetSource = meetDetailSource === "dashboard";
 
   const [lifecycleTab, setLifecycleTab] = useState<"upcoming" | "active" | "past">("upcoming");
   const [now, setNow] = useState(Date.now());
@@ -466,29 +473,75 @@ function MeetsPageContent() {
     [session?.user?.id]
   );
 
-  function openMeetDetails(ride: Meet) {
-    setSelectedMeet(ride);
-    void markMeetRead(ride.id);
-  }
+  const closeMeetDetails = useCallback(() => {
+    setSelectedMeet(null);
+    openedMeetParamRef.current = null;
+
+    if (meetParam) {
+      router.replace(meetDetailCloseHref(meetDetailSource));
+      return;
+    }
+  }, [meetDetailSource, meetParam, router]);
+
+  const { closeWithHistory: closeMeetDetailsWithHistory } = useHistoryModal(
+    Boolean(selectedMeet) && !isDashboardMeetSource,
+    closeMeetDetails,
+  );
+
+  const openMeetDetailsWithDetailLoad = useCallback(
+    (ride: Meet) => {
+      setSelectedMeet(ride);
+      void markMeetRead(ride.id);
+
+      void (async () => {
+        const detail = await loadMeetDetailForModal(ride.id);
+        if (!detail) return;
+
+        setSelectedMeet((current) => (current?.id === ride.id ? detail : current));
+      })();
+    },
+    [markMeetRead],
+  );
 
   useEffect(() => {
-    if (!meetParam || loadingMeets || openedMeetParamRef.current === meetParam) return;
+    if (!meetParam || openedMeetParamRef.current === meetParam) return;
+
+    openedMeetParamRef.current = meetParam;
 
     const ride = realMeets.find((meet) => meet.id === meetParam);
-    if (!ride) return;
+    if (ride) {
+      const phase = deriveMeetLifecycle({
+        status: ride.status,
+        trackingStatus: ride.trackingStatus,
+        date: ride.date,
+        time: ride.time,
+        meetDurationMinutes: ride.meetDurationMinutes,
+      });
+      setLifecycleTab(
+        phase === "active" ? "active" : phase === "past" || phase === "canceled" ? "past" : "upcoming",
+      );
+      setSelectedMeet(ride);
+      void markMeetRead(ride.id);
+    }
 
-    const phase = deriveMeetLifecycle({
-      status: ride.status,
-      trackingStatus: ride.trackingStatus,
-      date: ride.date,
-      time: ride.time,
-      meetDurationMinutes: ride.meetDurationMinutes,
-    });
-    setLifecycleTab(phase === "active" ? "active" : phase === "past" || phase === "canceled" ? "past" : "upcoming");
-    openedMeetParamRef.current = meetParam;
-    setSelectedMeet(ride);
-    void markMeetRead(ride.id);
-  }, [loadingMeets, markMeetRead, meetParam, realMeets]);
+    void (async () => {
+      const detail = await loadMeetDetailForModal(meetParam);
+      if (!detail) return;
+
+      setSelectedMeet((current) => (current?.id === meetParam || !current ? detail : current));
+      const phase = deriveMeetLifecycle({
+        status: detail.status,
+        trackingStatus: detail.trackingStatus,
+        date: detail.date,
+        time: detail.time,
+        meetDurationMinutes: detail.meetDurationMinutes,
+      });
+      setLifecycleTab(
+        phase === "active" ? "active" : phase === "past" || phase === "canceled" ? "past" : "upcoming",
+      );
+      void markMeetRead(detail.id);
+    })();
+  }, [markMeetRead, meetParam, realMeets]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -1318,7 +1371,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => openMeetDetails(panelFeatured)}
+                  onClick={() => openMeetDetailsWithDetailLoad(panelFeatured)}
                   className="relative rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-white/25 hover:text-zinc-100"
                 >
                   View Route / Details
@@ -1434,7 +1487,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
                       void leaveMeet(ride.id);
                     }
                   }}
-                  onViewDetails={() => openMeetDetails(ride)}
+                  onViewDetails={() => openMeetDetailsWithDetailLoad(ride)}
                 />
               );
             })}
@@ -1542,7 +1595,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
           onLeave={() => void leaveMeet(selectedMeet.id)}
           onRefreshAttendees={() => void refreshMeetAttendees(selectedMeet.id)}
           onRead={markMeetRead}
-          onClose={() => setSelectedMeet(null)}
+          onClose={isDashboardMeetSource ? closeMeetDetails : closeMeetDetailsWithHistory}
           onMeetUpdated={(patch) => applyMeetPatch(selectedMeet.id, patch)}
           onAttendeesChanged={(nextGoing) => {
             setSelectedMeet((current) =>

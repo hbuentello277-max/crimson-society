@@ -45,6 +45,7 @@ import {
 } from "@/lib/meets/permissions";
 import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
 import {
+  endpointRouteFromRow,
   ensureRouteWithSteps,
   hasRoadGeometry,
   needsRouteRepair,
@@ -232,6 +233,7 @@ export function MeetDetailsModal({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [resolvedRoute, setResolvedRoute] = useState(meet.route ?? []);
+  const [routeRepairing, setRouteRepairing] = useState(false);
 
   const hostContext = { hostId: meet.hostId, coHostId: meet.coHostId };
   const isPrimaryHost = isPrimaryMeetHost(hostContext, currentUserId);
@@ -368,9 +370,14 @@ export function MeetDetailsModal({
     async function repairRoute() {
       const currentRoute = parseRoute(meet.route);
       if (!needsRouteRepair(currentRoute)) {
-        if (active) setResolvedRoute(currentRoute);
+        if (active) {
+          setResolvedRoute(currentRoute);
+          setRouteRepairing(false);
+        }
         return;
       }
+
+      if (active) setRouteRepairing(true);
 
       const resolved = await ensureRouteWithSteps(
         {
@@ -388,10 +395,24 @@ export function MeetDetailsModal({
         },
       );
 
-      if (!active || !hasRoadGeometry(resolved.geometry)) return;
+      if (!active) return;
 
-      setResolvedRoute(resolved.geometry);
-      onMeetUpdated({ route: resolved.geometry });
+      if (hasRoadGeometry(resolved.geometry)) {
+        setResolvedRoute(resolved.geometry);
+        onMeetUpdated({ route: resolved.geometry });
+      } else {
+        const fallback = endpointRouteFromRow({
+          meet_point_lat: meet.lat,
+          meet_point_lng: meet.lng,
+          destination_lat: meet.destinationLat ?? null,
+          destination_lng: meet.destinationLng ?? null,
+        });
+        if (fallback.length >= 2) {
+          setResolvedRoute(fallback);
+        }
+      }
+
+      setRouteRepairing(false);
     }
 
     void repairRoute();
@@ -710,8 +731,18 @@ export function MeetDetailsModal({
     setReporting(false);
   }
 
-  const safeRoute = hasRoadGeometry(resolvedRoute) ? resolvedRoute : [];
-  const hasRoute = safeRoute.length > 0;
+  const endpointFallback = endpointRouteFromRow({
+    meet_point_lat: meet.lat,
+    meet_point_lng: meet.lng,
+    destination_lat: meet.destinationLat ?? null,
+    destination_lng: meet.destinationLng ?? null,
+  });
+  const safeRoute = hasRoadGeometry(resolvedRoute)
+    ? resolvedRoute
+    : endpointFallback.length >= 2
+      ? endpointFallback
+      : [];
+  const hasRoute = safeRoute.length >= 2;
 
   async function handleAssignCoHost(profile: MemberProfileOption) {
     if (!canAssignCoHost(hostContext, currentUserId, isAdmin) || coHostBusy) return;
@@ -1063,7 +1094,14 @@ export function MeetDetailsModal({
             className="mb-5 overflow-hidden rounded-lg border border-white/10"
             style={{ height: 260, touchAction: "none" }}
           >
-            {hasRoute ? (
+            {routeRepairing && !hasRoute ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-[#b4141e]" />
+                <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">
+                  Loading route map
+                </p>
+              </div>
+            ) : hasRoute ? (
               <MeetMap
                 lat={meet.lat}
                 lng={meet.lng}
