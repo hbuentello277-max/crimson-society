@@ -109,3 +109,13 @@ export function foundingLeaderboardDisplayName(entry: {
   if (entry.username?.trim()) return `@${entry.username.trim()}`;
   return "Crimson Rider";
 }
+
+/** Leaderboard race score shown in rows and rider preview sheets. */
+export function foundingLeaderboardRowPoints(entry: Pick<FoundingLeaderboardEntry, "points">) {
+  return typeof entry.points === "number" && Number.isFinite(entry.points) ? entry.points : 0;
+}
+
+export function formatFoundingLeaderboardPoints(points: number) {
+  const value = Number.isFinite(points) ? points : 0;
+  return `${value.toLocaleString("en-US")} points`;
+}

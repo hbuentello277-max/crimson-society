@@ -3,7 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { FoundingLeaderboardEntry } from "@/lib/growth/founding-leaderboard";
-import { foundingLeaderboardDisplayName } from "@/lib/growth/founding-leaderboard";
+import {
+  formatFoundingLeaderboardPoints,
+  foundingLeaderboardDisplayName,
+  foundingLeaderboardRowPoints,
+} from "@/lib/growth/founding-leaderboard";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
 type Props = {
@@ -15,6 +19,7 @@ export function LeaderboardRiderPreviewSheet({ entry, onClose }: Props) {
   if (!entry) return null;
 
   const name = foundingLeaderboardDisplayName(entry);
+  const points = foundingLeaderboardRowPoints(entry);
   const profileHref = entry.username?.trim() ? `/profile/${entry.username.trim()}` : null;
 
   return (
@@ -57,7 +62,7 @@ export function LeaderboardRiderPreviewSheet({ entry, onClose }: Props) {
               Rank <span className="font-medium text-white">#{entry.rank}</span>
             </p>
             <p className="mt-2 text-sm text-zinc-400">
-              <span className="font-medium text-white">{entry.creditsBalance}</span> Crimson Credits
+              <span className="font-medium text-white">{formatFoundingLeaderboardPoints(points)}</span>
             </p>
 
             {profileHref ? (

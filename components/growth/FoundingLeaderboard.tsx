@@ -5,6 +5,7 @@ import { useState } from "react";
 import { LeaderboardRiderPreviewSheet } from "@/components/growth/LeaderboardRiderPreviewSheet";
 import {
   foundingLeaderboardDisplayName,
+  foundingLeaderboardRowPoints,
   type FoundingLeaderboardData,
   type FoundingLeaderboardEntry,
 } from "@/lib/growth/founding-leaderboard";
@@ -166,7 +167,9 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
                         <p className="truncate text-xs text-zinc-500">@{entry.username}</p>
                       ) : null}
                     </div>
-                    <p className="shrink-0 text-sm font-medium text-[#f1c3c7]">{entry.points}</p>
+                    <p className="shrink-0 text-sm font-medium text-[#f1c3c7]">
+                      {foundingLeaderboardRowPoints(entry)}
+                    </p>
                   </button>
                 </li>
               );
