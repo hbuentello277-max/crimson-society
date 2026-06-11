@@ -432,6 +432,7 @@ const tabs = useMemo(() => {
 return [
 { k: "posts" as const, label: "Posts" },
 { k: "rides" as const, label: "Meets" },
+{ k: "garage" as const, label: "Garage" },
 { k: "saved" as const, label: "Saved" },
 ];
 }, []);
@@ -559,7 +560,6 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         loading={creditsLoading}
         membershipTier={membershipTier}
       />
-      <ProfileGarageSection userId={userId} />
     </div>
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
@@ -631,11 +631,17 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </section>
     )}
 
+    {tab === "garage" && (
+      <section className="mt-3">
+        <ProfileGarageSection userId={userId} />
+      </section>
+    )}
+
     {tab === "saved" && (
       <SavedPostsPanel viewerId={userId ?? undefined} isOwnProfile />
     )}
 
-    {tab !== "posts" && tab !== "saved" && (
+    {tab === "rides" && (
       <section className="mt-3">
         <EmptyPanel
           title="Coming into focus."
