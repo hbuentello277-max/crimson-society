@@ -67,8 +67,9 @@ export function parseRiderOnboardingRpcPayload(
   };
 }
 
+/** Show welcome checklist only while onboarding tasks are incomplete. */
 export function shouldShowRiderChecklist(status: RiderOnboardingStatus) {
-  return !status.creditsAwarded;
+  return !status.onboardingComplete;
 }
 
 export function dispatchRiderOnboardingRefresh() {

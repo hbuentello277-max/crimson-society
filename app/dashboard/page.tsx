@@ -413,6 +413,7 @@ function DashboardPageContent() {
     status: riderOnboardingStatus,
     loading: riderOnboardingLoading,
     awarding: riderOnboardingAwarding,
+    completionNotice,
   } = useRiderOnboardingChecklist(Boolean(userId));
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -2148,9 +2149,9 @@ if (livePostIds.length > 0) {
         onLeave={() => void handleLeaveMapMeet()}
       />
 
-      {toast && (
+      {(toast || completionNotice) && (
         <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
-          {toast}
+          {completionNotice || toast}
         </div>
       )}
 

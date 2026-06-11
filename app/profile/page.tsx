@@ -28,7 +28,9 @@ import {
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
-import { ProfileGarageCollapsible } from "@/components/profile/ProfileGarageCollapsible";
+import { ProfileGarageSection } from "@/components/profile/ProfileGarageSection";
+import { InviteRidersSheet } from "@/components/profile/InviteRidersSheet";
+import { useOwnReferralStats } from "@/hooks/useOwnReferralStats";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 
@@ -124,6 +126,7 @@ const menuOpenFromUrl = searchParams.get("menu") === PROFILE_MENU_OPEN_VALUE;
 const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequestRow | null>(null);
 const [deletionRequestLoading, setDeletionRequestLoading] = useState(false);
 const [stats, setStats] = useState<ProfileStats>({ posts: 0, followers: 0, following: 0 });
+const [inviteRidersOpen, setInviteRidersOpen] = useState(false);
 
 useEffect(() => {
 if (!userId || authLoading) return;
@@ -443,7 +446,11 @@ const {
   status: riderOnboardingStatus,
   loading: riderOnboardingLoading,
   awarding: riderOnboardingAwarding,
+  completionNotice,
 } = useRiderOnboardingChecklist(Boolean(userId));
+const { stats: referralStats, loading: referralLoading } = useOwnReferralStats(
+  Boolean(userId) && inviteRidersOpen,
+);
 
 if (authLoading || profileLoading) {
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8"> <ProfileSkeleton /> </div> </main>
@@ -485,14 +492,23 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         <h1 className="mt-1 font-serif text-2xl leading-none text-white sm:text-3xl">Profile</h1>
       </div>
 
-      <button
-        type="button"
-        onClick={openSettingsMenu}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
-        aria-label="Open profile menu"
-      >
-        ⋯
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setInviteRidersOpen(true)}
+          className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7] sm:px-4 sm:text-[11px]"
+        >
+          Invite Riders
+        </button>
+        <button
+          type="button"
+          onClick={openSettingsMenu}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-xl leading-none text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-[#f1c3c7]"
+          aria-label="Open profile menu"
+        >
+          ⋯
+        </button>
+      </div>
     </div>
 
     <CompactProfileCard
@@ -543,7 +559,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         loading={creditsLoading}
         membershipTier={membershipTier}
       />
-      <ProfileGarageCollapsible userId={userId} />
+      <ProfileGarageSection userId={userId} />
     </div>
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
@@ -706,9 +722,16 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     </div>
   )}
 
-  {toast && (
+  <InviteRidersSheet
+    open={inviteRidersOpen}
+    stats={referralStats}
+    loading={referralLoading}
+    onClose={() => setInviteRidersOpen(false)}
+  />
+
+  {(toast || completionNotice) && (
     <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
-      {toast}
+      {completionNotice || toast}
     </div>
   )}
 </main>

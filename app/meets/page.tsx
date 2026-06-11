@@ -29,6 +29,8 @@ import {
 } from "@/lib/meets/navigation/steps";
 import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
 import { BOTTOM_NAV_CLEARANCE, CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
+import { useHistoryModal } from "@/hooks/useHistoryModal";
+import { blackcardLeaderboardHref } from "@/lib/navigation/meets-return";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import {
   deriveMeetLifecycle,
@@ -358,6 +360,18 @@ function MeetsPageContent() {
 
   const [lifecycleTab, setLifecycleTab] = useState<"upcoming" | "active" | "past">("upcoming");
   const [now, setNow] = useState(Date.now());
+  const hostModalOpen = showHostModal || Boolean(editingMeet);
+
+  const closeHostModal = useCallback(() => {
+    setShowHostModal(false);
+    setEditingMeet(null);
+    createMeetIdempotencyKeyRef.current = null;
+  }, []);
+
+  const { closeWithHistory: closeHostModalWithHistory } = useHistoryModal(
+    hostModalOpen,
+    closeHostModal,
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -1120,9 +1134,7 @@ const ridesWithRoutes = await Promise.all(
             ),
           );
           setGoing((current) => ({ ...current, [existingMeet.id]: true }));
-          setShowHostModal(false);
-          setEditingMeet(null);
-          createMeetIdempotencyKeyRef.current = null;
+          closeHostModalWithHistory();
           setToast("Meet already created.");
           window.setTimeout(() => setToast(null), 2500);
           return;
@@ -1195,9 +1207,7 @@ const ridesWithRoutes = await Promise.all(
       setSelectedMeet(savedMeet);
     }
 
-    setShowHostModal(false);
-    setEditingMeet(null);
-    createMeetIdempotencyKeyRef.current = null;
+    closeHostModalWithHistory();
     setToast(editingMeet ? "Meet updated!" : "Meet created!");
     window.setTimeout(() => setToast(null), 2500);
     } finally {
@@ -1511,7 +1521,7 @@ const ridesWithRoutes = await Promise.all(
 
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              href="/profile/blackcard-leaderboard"
+              href={blackcardLeaderboardHref(true)}
               className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15 sm:px-4 sm:text-[11px] sm:tracking-[0.16em]"
             >
               🏆 Blackcard Leaderboard
@@ -1616,16 +1626,12 @@ const ridesWithRoutes = await Promise.all(
         />
       )}
 
-      {(showHostModal || editingMeet) && (
+      {hostModalOpen && (
         <HostMeetModal
           mode={editingMeet ? "edit" : "create"}
           canHostBlackcard={viewerHasBlackcard || isAdmin}
           initialForm={editingMeet ? meetToForm(editingMeet) : undefined}
-          onClose={() => {
-            setShowHostModal(false);
-            setEditingMeet(null);
-            createMeetIdempotencyKeyRef.current = null;
-          }}
+          onClose={closeHostModalWithHistory}
           isSubmitting={savingMeet}
           onCreate={(newMeet) => void saveMeet(newMeet)}
         />

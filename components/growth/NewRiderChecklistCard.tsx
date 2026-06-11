@@ -47,19 +47,6 @@ export function NewRiderChecklistCard({
   awarding = false,
   compact = false,
 }: Props) {
-  if (!loading && status.creditsAwarded && status.onboardingComplete) {
-    return (
-      <section className="rounded-[22px] border border-emerald-500/25 bg-emerald-500/5 p-4">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-emerald-300/80">
-          Onboarding Complete
-        </p>
-        <p className="mt-2 text-sm text-emerald-100">
-          +{status.rewardAmount} Crimson Credits Earned
-        </p>
-      </section>
-    );
-  }
-
   if (!loading && !shouldShowRiderChecklist(status)) {
     return null;
   }
@@ -105,7 +92,7 @@ export function NewRiderChecklistCard({
         <p className="mt-3 text-xs text-zinc-500">Awarding your onboarding credits…</p>
       ) : null}
 
-      {status.onboardingComplete && !status.creditsAwarded && !loading ? (
+      {status.onboardingComplete && !status.creditsAwarded && !loading && !awarding ? (
         <p className="mt-3 text-xs text-zinc-500">Finishing credit award…</p>
       ) : null}
     </section>

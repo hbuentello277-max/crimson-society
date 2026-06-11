@@ -50,13 +50,19 @@ describe("rider onboarding checklist", () => {
     assert.equal(status.profileComplete, true);
   });
 
-  it("hides checklist after credits are awarded", () => {
+  it("hides checklist once onboarding is complete", () => {
     const done = buildRiderOnboardingStatus({
       profile: { username: "rider1", display_name: "Rider One" },
       motorcycles: [{ name: "Ducati Panigale", year: "2023" }],
       creditsAwarded: true,
     });
     assert.equal(shouldShowRiderChecklist(done), false);
+
+    const inProgress = buildRiderOnboardingStatus({
+      profile: { username: "rider1", display_name: "Rider One" },
+      motorcycles: [],
+    });
+    assert.equal(shouldShowRiderChecklist(inProgress), true);
   });
 
   it("parses onboarding RPC payload", () => {

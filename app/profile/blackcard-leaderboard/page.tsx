@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
 import { FoundingLeaderboard } from "@/components/growth/FoundingLeaderboard";
+import { MeetsReturnBackButton } from "@/components/navigation/MeetsReturnBackButton";
 import { useFoundingLeaderboard } from "@/hooks/useFoundingLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 
-export default function BlackcardLeaderboardPage() {
+function BlackcardLeaderboardPageContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -28,12 +28,7 @@ export default function BlackcardLeaderboardPage() {
     <main className={`min-h-screen bg-[#050505] text-white ${BOTTOM_NAV_CLEARANCE}`}>
       <div className="mx-auto max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6">
         <div className="mb-4">
-          <Link
-            href="/meets"
-            className="text-xs uppercase tracking-[0.2em] text-zinc-500 transition hover:text-[#e87a82]"
-          >
-            ← Meets
-          </Link>
+          <MeetsReturnBackButton />
         </div>
 
         <FoundingLeaderboard
@@ -43,5 +38,13 @@ export default function BlackcardLeaderboardPage() {
         />
       </div>
     </main>
+  );
+}
+
+export default function BlackcardLeaderboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <BlackcardLeaderboardPageContent />
+    </Suspense>
   );
 }
