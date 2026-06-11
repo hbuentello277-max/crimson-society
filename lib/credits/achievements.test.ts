@@ -19,8 +19,17 @@ describe("achievement milestones", () => {
       "2026-06-15T12:00:00.000Z",
     );
     assert.equal(formatted.amountLine, "+50 Crimson Credits");
-    assert.match(formatted.detailLine, /Attended 10 Meets/);
-    assert.match(formatted.detailLine, /2026/);
+    assert.equal(formatted.detailLine, "Attended 10 Meets. June 15, 2026");
+  });
+
+  it("uses the generic achievement copy when a reason is missing", () => {
+    const formatted = formatAchievementMilestoneLine(
+      100,
+      null,
+      "2026-08-02T12:00:00.000Z",
+    );
+    assert.equal(formatted.amountLine, "+100 Crimson Credits");
+    assert.equal(formatted.detailLine, "Achievement milestone earned. August 2, 2026");
   });
 
   it("defines milestone reward groups for How It Works", () => {

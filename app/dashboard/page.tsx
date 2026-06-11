@@ -25,6 +25,7 @@ import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 import {
   formatGarageBuildRideLabel,
+  getGarageBuildPhotoUrls,
   parseGarageBuildMetadata,
 } from "@/lib/garage/garage-build";
 import { getPostImageUrls } from "@/lib/posts/post-images";
@@ -367,10 +368,10 @@ function mapPostToFeed(post: RawPost): FeedPost {
     post.post_type === "photo"
       ? getPostImageUrls(post, "feed")
       : post.post_type === "garage_build"
-        ? (() => {
-            const imageUrl = getBestImageUrl(post.image_display_url, post.image_url, "feed");
-            return imageUrl ? [imageUrl] : [];
-          })()
+        ? getGarageBuildPhotoUrls(
+            garageBuild,
+            post.image_display_url || post.image_url,
+          ).map((url) => getBestImageUrl(url, null, "feed") || url)
         : [];
   const videoThumbnail = getBestImageUrl(
     post.video_thumbnail_url,
