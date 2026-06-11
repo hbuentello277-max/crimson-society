@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  parseRiderOnboardingAwardPayload,
   parseRiderOnboardingRpcPayload,
   RIDER_ONBOARDING_REFRESH_EVENT,
+  shouldShowOnboardingCompletionToast,
   type RiderOnboardingStatus,
 } from "@/lib/growth/rider-checklist";
 import { supabase } from "@/lib/supabase";
@@ -17,9 +19,29 @@ const EMPTY_STATUS: RiderOnboardingStatus = {
   rewardAmount: 100,
 };
 
+const ONBOARDING_TOAST_SESSION_KEY = "crimson:onboarding-completion-toast-shown";
+
 type RefreshOptions = {
   silent?: boolean;
 };
+
+function markOnboardingToastShownInSession() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ONBOARDING_TOAST_SESSION_KEY, "1");
+  } catch {
+    // Ignore storage failures; RPC duplicate guard still prevents repeat awards.
+  }
+}
+
+function hasOnboardingToastBeenShownInSession() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(ONBOARDING_TOAST_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function useRiderOnboardingChecklist(enabled: boolean) {
   const [status, setStatus] = useState<RiderOnboardingStatus>(EMPTY_STATUS);
@@ -27,11 +49,12 @@ export function useRiderOnboardingChecklist(enabled: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [awarding, setAwarding] = useState(false);
   const [completionNotice, setCompletionNotice] = useState<string | null>(null);
-  const statusRef = useRef(status);
 
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
+  const showCompletionNotice = useCallback((rewardAmount: number) => {
+    if (hasOnboardingToastBeenShownInSession()) return;
+    markOnboardingToastShownInSession();
+    setCompletionNotice(`Onboarding complete — +${rewardAmount} Crimson Credits earned`);
+  }, []);
 
   const refresh = useCallback(
     async (options?: RefreshOptions) => {
@@ -56,7 +79,6 @@ export function useRiderOnboardingChecklist(enabled: boolean) {
       const nextStatus = parseRiderOnboardingRpcPayload(
         (data as Record<string, unknown> | null) ?? null,
       );
-      const previousStatus = statusRef.current;
 
       setStatus(nextStatus);
       setLoading(false);
@@ -67,8 +89,12 @@ export function useRiderOnboardingChecklist(enabled: boolean) {
         setAwarding(false);
 
         if (!awardResult.error) {
-          const awardPayload = awardResult.data as Record<string, unknown> | null;
-          const refreshed = awardPayload?.status as Record<string, unknown> | undefined;
+          const awardPayload = parseRiderOnboardingAwardPayload(
+            awardResult.data as Record<string, unknown> | null,
+          );
+          const refreshed = (awardResult.data as Record<string, unknown> | null)?.status as
+            | Record<string, unknown>
+            | undefined;
           const finalStatus = refreshed
             ? parseRiderOnboardingRpcPayload(refreshed)
             : parseRiderOnboardingRpcPayload(
@@ -80,23 +106,13 @@ export function useRiderOnboardingChecklist(enabled: boolean) {
 
           setStatus(finalStatus);
 
-          if (finalStatus.creditsAwarded && !previousStatus.creditsAwarded) {
-            setCompletionNotice(
-              `Onboarding complete — +${finalStatus.rewardAmount} Crimson Credits earned`,
-            );
+          if (shouldShowOnboardingCompletionToast(awardPayload)) {
+            showCompletionNotice(finalStatus.rewardAmount);
           }
         }
-      } else if (
-        nextStatus.onboardingComplete &&
-        nextStatus.creditsAwarded &&
-        !previousStatus.creditsAwarded
-      ) {
-        setCompletionNotice(
-          `Onboarding complete — +${nextStatus.rewardAmount} Crimson Credits earned`,
-        );
       }
     },
-    [enabled],
+    [enabled, showCompletionNotice],
   );
 
   useEffect(() => {

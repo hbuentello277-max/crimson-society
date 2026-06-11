@@ -67,6 +67,27 @@ export function parseRiderOnboardingRpcPayload(
   };
 }
 
+export type RiderOnboardingAwardResult = {
+  ok: boolean;
+  duplicate: boolean;
+  reason?: string;
+};
+
+export function parseRiderOnboardingAwardPayload(
+  payload: Record<string, unknown> | null | undefined,
+): RiderOnboardingAwardResult {
+  return {
+    ok: payload?.ok === true,
+    duplicate: payload?.duplicate === true,
+    reason: typeof payload?.reason === "string" ? payload.reason : undefined,
+  };
+}
+
+/** Toast only when credits were newly awarded, not on duplicate/status reads. */
+export function shouldShowOnboardingCompletionToast(award: RiderOnboardingAwardResult) {
+  return award.ok && !award.duplicate;
+}
+
 /** Show welcome checklist only while onboarding tasks are incomplete. */
 export function shouldShowRiderChecklist(status: RiderOnboardingStatus) {
   return !status.onboardingComplete;

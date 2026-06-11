@@ -14,7 +14,9 @@ import {
   buildRiderOnboardingStatus,
   hasCompleteRide,
   isRideComplete,
+  parseRiderOnboardingAwardPayload,
   parseRiderOnboardingRpcPayload,
+  shouldShowOnboardingCompletionToast,
   shouldShowRiderChecklist,
 } from "@/lib/growth/rider-checklist";
 
@@ -76,6 +78,23 @@ describe("rider onboarding checklist", () => {
     });
     assert.equal(parsed.profileComplete, true);
     assert.equal(parsed.rewardAmount, 100);
+  });
+
+  it("shows completion toast only for newly awarded credits", () => {
+    const freshAward = parseRiderOnboardingAwardPayload({ ok: true, award: { id: "x" } });
+    const duplicateAward = parseRiderOnboardingAwardPayload({
+      ok: true,
+      duplicate: true,
+      status: { credits_awarded: true },
+    });
+    const incomplete = parseRiderOnboardingAwardPayload({
+      ok: false,
+      reason: "incomplete",
+    });
+
+    assert.equal(shouldShowOnboardingCompletionToast(freshAward), true);
+    assert.equal(shouldShowOnboardingCompletionToast(duplicateAward), false);
+    assert.equal(shouldShowOnboardingCompletionToast(incomplete), false);
   });
 });
 
