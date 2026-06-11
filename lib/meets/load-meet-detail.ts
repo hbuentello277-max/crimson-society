@@ -4,7 +4,6 @@ import { MEET_LIST_SELECT } from "@/lib/meets/list-query";
 import { mapMeetRowToMeet } from "@/lib/meets/meet-row-mapper";
 import { profileToMeetAttendee } from "@/lib/meets/map-profile-attendee";
 import {
-  endpointRouteFromRow,
   hasRoadGeometry,
   parseRoute,
   type RoutePoint,
@@ -23,12 +22,7 @@ function resolveMeetDetailRoute(row: MeetRow): RoutePoint[] {
     return savedRoute;
   }
 
-  const endpointRoute = endpointRouteFromRow(row);
-  if (endpointRoute.length >= 2) {
-    return endpointRoute;
-  }
-
-  return savedRoute.length >= 2 ? savedRoute : [];
+  return [];
 }
 
 export function mapMeetDetailRow(

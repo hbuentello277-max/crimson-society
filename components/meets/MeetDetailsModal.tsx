@@ -233,7 +233,9 @@ export function MeetDetailsModal({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [resolvedRoute, setResolvedRoute] = useState(meet.route ?? []);
-  const [routeRepairing, setRouteRepairing] = useState(false);
+  const [routeRepairing, setRouteRepairing] = useState(() =>
+    needsRouteRepair(parseRoute(meet.route)),
+  );
 
   const hostContext = { hostId: meet.hostId, coHostId: meet.coHostId };
   const isPrimaryHost = isPrimaryMeetHost(hostContext, currentUserId);
@@ -344,7 +346,9 @@ export function MeetDetailsModal({
   }, [onRead, meet.id]);
 
   useEffect(() => {
-    setResolvedRoute(meet.route ?? []);
+    const nextRoute = parseRoute(meet.route);
+    setResolvedRoute(nextRoute);
+    setRouteRepairing(needsRouteRepair(nextRoute));
   }, [meet.id, meet.route]);
 
   useEffect(() => {
@@ -401,15 +405,7 @@ export function MeetDetailsModal({
         setResolvedRoute(resolved.geometry);
         onMeetUpdated({ route: resolved.geometry });
       } else {
-        const fallback = endpointRouteFromRow({
-          meet_point_lat: meet.lat,
-          meet_point_lng: meet.lng,
-          destination_lat: meet.destinationLat ?? null,
-          destination_lng: meet.destinationLng ?? null,
-        });
-        if (fallback.length >= 2) {
-          setResolvedRoute(fallback);
-        }
+        setResolvedRoute([]);
       }
 
       setRouteRepairing(false);
@@ -737,12 +733,9 @@ export function MeetDetailsModal({
     destination_lat: meet.destinationLat ?? null,
     destination_lng: meet.destinationLng ?? null,
   });
-  const safeRoute = hasRoadGeometry(resolvedRoute)
-    ? resolvedRoute
-    : endpointFallback.length >= 2
-      ? endpointFallback
-      : [];
-  const hasRoute = safeRoute.length >= 2;
+  const hasRoute = hasRoadGeometry(resolvedRoute);
+  const safeRoute = hasRoute ? resolvedRoute : [];
+  const destinationPin = endpointFallback[1] ?? null;
 
   async function handleAssignCoHost(profile: MemberProfileOption) {
     if (!canAssignCoHost(hostContext, currentUserId, isAdmin) || coHostBusy) return;
@@ -1117,10 +1110,22 @@ export function MeetDetailsModal({
                 waypoints={meet.waypoints ?? []}
               />
             ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-600">
-                  Route map unavailable
-                </p>
+              <div className="relative h-full">
+                <MeetMap
+                  lat={meet.lat}
+                  lng={meet.lng}
+                  meetPoint={meet.meetPoint}
+                  route={[]}
+                  height={260}
+                  interactive
+                  hideHint
+                  showDestination={Boolean(destinationPin)}
+                  destinationPosition={destinationPin}
+                  fitPoints={endpointFallback}
+                />
+                <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/75 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-zinc-300 backdrop-blur">
+                  Route Preview Unavailable
+                </div>
               </div>
             )}
           </div>

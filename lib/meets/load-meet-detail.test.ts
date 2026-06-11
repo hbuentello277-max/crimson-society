@@ -33,7 +33,7 @@ const baseRow: MeetRow = {
 };
 
 describe("mapMeetDetailRow", () => {
-  it("keeps endpoint route geometry for detail repair when saved route is only endpoints", () => {
+  it("does not treat endpoint fallback geometry as a valid detail route", () => {
     const meet = mapMeetDetailRow({
       ...baseRow,
       host: {
@@ -47,8 +47,8 @@ describe("mapMeetDetailRow", () => {
       attendeeRiders: [],
     });
 
-    assert.equal(meet.route?.length, 2);
-    assert.equal(meet.route?.[0]?.lat, 30.27);
+    assert.equal(meet.route?.length, 0);
+    assert.equal(meet.lat, 30.27);
     assert.equal(meet.destinationLat, 30.35);
   });
 
