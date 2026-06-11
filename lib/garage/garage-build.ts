@@ -6,6 +6,7 @@ export type GarageBuildMetadata = {
     modification_title?: string | null;
     motorcycle_name?: string | null;
     motorcycle_year?: string | null;
+    motorcycle_photo_url?: string | null;
   };
 };
 
@@ -37,4 +38,17 @@ export function formatGarageBuildDate(createdAt: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+export function resolveGarageBuildRideImageUrl(
+  garageBuild: GarageBuildMetadata["garage_build"] | null | undefined,
+  motorcyclePhotos?: ReadonlyMap<string, string | null>,
+) {
+  const motorcycleId = garageBuild?.motorcycle_id?.trim();
+  const storedPhoto = garageBuild?.motorcycle_photo_url?.trim();
+  if (storedPhoto) return storedPhoto;
+  if (motorcycleId && motorcyclePhotos?.has(motorcycleId)) {
+    return motorcyclePhotos.get(motorcycleId)?.trim() || null;
+  }
+  return null;
 }

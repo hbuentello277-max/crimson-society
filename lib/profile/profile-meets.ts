@@ -32,7 +32,7 @@ export async function loadProfileHostedMeets(
   const { data, error } = await supabase
     .from(MEET_TABLES.meets)
     .select(MEET_SELECT)
-    .eq("host_id", userId)
+    .or(`host_id.eq.${userId},co_host_id.eq.${userId}`)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(48);
@@ -67,7 +67,7 @@ export async function loadProfileAttendedMeets(
 
   const { data, error } = await supabase
     .from(MEET_TABLES.meets)
-    .select(MEET_SELECT)
+    .select(`${MEET_SELECT}, co_host_id`)
     .in("id", rideIds)
     .eq("status", "active")
     .neq("host_id", userId)
@@ -78,5 +78,9 @@ export async function loadProfileAttendedMeets(
     return { data: [], error: error.message };
   }
 
-  return { data: (data as ProfileMeetRow[]) ?? [], error: null };
+  const attended = ((data as (ProfileMeetRow & { co_host_id?: string | null })[]) ?? []).filter(
+    (meet) => meet.co_host_id !== userId,
+  );
+
+  return { data: attended, error: null };
 }

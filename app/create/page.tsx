@@ -28,6 +28,7 @@ type GarageMotorcycle = {
   name: string | null;
   year: string | null;
   label: string | null;
+  photo_url: string | null;
 };
 type TaggableRider = {
   id: string;
@@ -145,7 +146,7 @@ export default function CreatePage() {
     const loadMotorcycles = async () => {
       const { data, error } = await supabase
         .from("motorcycles")
-        .select("id, name, year, label")
+        .select("id, name, year, label, photo_url")
         .eq("user_id", userId)
         .order("created_at", { ascending: true });
 
@@ -421,6 +422,7 @@ export default function CreatePage() {
             modification_title: modificationTitle.trim(),
             motorcycle_name: selectedMotorcycle?.name?.trim() || selectedMotorcycle?.label?.trim() || null,
             motorcycle_year: selectedMotorcycle?.year?.trim() || null,
+            motorcycle_photo_url: selectedMotorcycle?.photo_url?.trim() || null,
           },
         };
       }

@@ -9,6 +9,7 @@ import {
   formatGarageBuildRideLabel,
   GARAGE_BUILD_POST_TYPE,
   parseGarageBuildMetadata,
+  resolveGarageBuildRideImageUrl,
 } from "@/lib/garage/garage-build";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { supabase } from "@/lib/supabase";
@@ -37,6 +38,7 @@ type Props = {
 
 export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Props) {
   const [posts, setPosts] = useState<GarageBuildPost[]>([]);
+  const [motorcyclePhotos, setMotorcyclePhotos] = useState<Map<string, string | null>>(new Map());
   const [state, setState] = useState<LoadState>("idle");
 
   const loadBuilds = useCallback(async () => {
@@ -58,7 +60,29 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
       return;
     }
 
-    setPosts((data as GarageBuildPost[]) ?? []);
+    const nextPosts = (data as GarageBuildPost[]) ?? [];
+    const motorcycleIds = Array.from(
+      new Set(
+        nextPosts
+          .map((post) => parseGarageBuildMetadata(post.media_metadata)?.motorcycle_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+
+    let photoMap = new Map<string, string | null>();
+    if (motorcycleIds.length > 0) {
+      const { data: motorcycles } = await supabase
+        .from("motorcycles")
+        .select("id, photo_url")
+        .in("id", motorcycleIds);
+
+      photoMap = new Map(
+        (motorcycles ?? []).map((bike) => [bike.id as string, (bike.photo_url as string | null) ?? null]),
+      );
+    }
+
+    setMotorcyclePhotos(photoMap);
+    setPosts(nextPosts);
     setState("loaded");
   }, [userId]);
 
@@ -100,6 +124,7 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
         const garageBuild = parseGarageBuildMetadata(post.media_metadata);
         const modificationTitle = garageBuild?.modification_title?.trim() || "Garage Build";
         const rideLabel = formatGarageBuildRideLabel(garageBuild);
+        const rideImageUrl = resolveGarageBuildRideImageUrl(garageBuild, motorcyclePhotos);
         const imageUrl = getBestImageUrl(
           post.image_thumbnail_url || post.image_display_url,
           post.image_url,
@@ -114,9 +139,26 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
             className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
           >
             <div className="border-b border-white/10 px-5 py-4">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{rideLabel}</p>
-              <h3 className="mt-2 font-serif text-2xl leading-tight text-white">{modificationTitle}</h3>
-              <p className="mt-2 text-xs text-zinc-500">{formatGarageBuildDate(post.created_at)}</p>
+              <div className="flex items-center gap-3">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                  {rideImageUrl ? (
+                    <Image
+                      src={rideImageUrl}
+                      alt={rideLabel}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                      unoptimized={rideImageUrl.includes("supabase")}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                      Ride
+                    </div>
+                  )}
+                </div>
+                <p className="min-w-0 text-sm font-medium text-white">{rideLabel}</p>
+              </div>
+              <h3 className="mt-4 font-serif text-2xl leading-tight text-white">{modificationTitle}</h3>
             </div>
 
             {imageUrl ? (
@@ -147,10 +189,14 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
             ) : null}
 
             {post.caption?.trim() ? (
-              <div className="px-5 py-4">
+              <div className="border-t border-white/10 px-5 py-4">
                 <p className="text-sm leading-6 text-zinc-300">{post.caption.trim()}</p>
               </div>
             ) : null}
+
+            <p className="border-t border-white/10 px-5 py-3 text-xs text-zinc-500">
+              {formatGarageBuildDate(post.created_at)}
+            </p>
           </article>
         );
       })}
