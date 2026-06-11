@@ -32,6 +32,8 @@ import { BOTTOM_NAV_CLEARANCE, CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/l
 import { useHistoryModal } from "@/hooks/useHistoryModal";
 import { blackcardLeaderboardHref } from "@/lib/navigation/meets-return";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
+import { MEET_LIST_SELECT } from "@/lib/meets/list-query";
+import { loadMeetChatUnreadCountsByRide } from "@/lib/nav-badge-counts";
 import {
   deriveMeetLifecycle,
   groupMeetsByLifecycle,
@@ -404,61 +406,21 @@ function MeetsPageContent() {
     selectedMeetRef.current = selectedMeet;
   }, [selectedMeet]);
 
-  const loadUnreadCounts = useCallback(
-    async (rideIds: string[]) => {
-      const userId = session?.user?.id;
-      const uniqueRideIds = Array.from(new Set(rideIds.filter(Boolean)));
+  const loadUnreadCounts = useCallback(async (rideIds: string[]) => {
+    const userId = session?.user?.id;
+    const uniqueRideIds = Array.from(new Set(rideIds.filter(Boolean)));
 
-      if (!userId || uniqueRideIds.length === 0) {
-        setUnreadCounts({});
-        return;
-      }
+    if (!userId || uniqueRideIds.length === 0) {
+      setUnreadCounts({});
+      return;
+    }
 
-      const [
-        { data: readRows, error: readsError },
-        { data: messageRows, error: messagesError },
-      ] = await Promise.all([
-        supabase
-          .from(MEET_TABLES.messageReads)
-          .select("ride_id, last_read_at")
-          .eq("user_id", userId)
-          .in("ride_id", uniqueRideIds),
-        supabase
-          .from(MEET_TABLES.messages)
-          .select("ride_id, user_id, created_at")
-          .in("ride_id", uniqueRideIds),
-      ]);
-
-      if (readsError) {
-        console.error("Failed to load meet read markers:", readsError);
-      }
-
-      if (messagesError) {
-        console.error("Failed to load meet unread counts:", messagesError);
-        return;
-      }
-
-      const readMap = new Map(
-        ((readRows || []) as MeetReadRow[]).map((row) => [row.ride_id, row.last_read_at])
-      );
-      const nextCounts = Object.fromEntries(uniqueRideIds.map((rideId) => [rideId, 0]));
-
-      for (const message of (messageRows || []) as MeetUnreadMessageRow[]) {
-        if (message.user_id === userId) continue;
-
-        const lastReadAt = readMap.get(message.ride_id);
-        if (!lastReadAt || message.created_at > lastReadAt) {
-          nextCounts[message.ride_id] = (nextCounts[message.ride_id] || 0) + 1;
-        }
-      }
-
-      setUnreadCounts((current) => ({
-        ...current,
-        ...nextCounts,
-      }));
-    },
-    [session?.user?.id]
-  );
+    const nextCounts = await loadMeetChatUnreadCountsByRide(supabase, uniqueRideIds);
+    setUnreadCounts((current) => ({
+      ...current,
+      ...nextCounts,
+    }));
+  }, [session?.user?.id]);
 
   const markMeetRead = useCallback(
     async (rideId: string) => {
@@ -561,14 +523,14 @@ function MeetsPageContent() {
       ] = await Promise.all([
         supabase
           .from(MEET_TABLES.meets)
-          .select("*")
+          .select(MEET_LIST_SELECT)
           .eq("status", "active")
           .order("created_at", { ascending: false })
           .limit(ACTIVE_MEETS_LIMIT),
         userId
           ? supabase
               .from(MEET_TABLES.meets)
-              .select("*")
+              .select(MEET_LIST_SELECT)
               .eq("status", "canceled")
               .eq("host_id", userId)
               .order("created_at", { ascending: false })
@@ -601,7 +563,7 @@ function MeetsPageContent() {
         if (attendedRideIds.length > 0) {
           const { data: canceledAttendeeData, error: canceledAttendeeError } = await supabase
             .from(MEET_TABLES.meets)
-            .select("*")
+            .select(MEET_LIST_SELECT)
             .eq("status", "canceled")
             .in("id", attendedRideIds)
             .order("created_at", { ascending: false });
@@ -609,15 +571,15 @@ function MeetsPageContent() {
           if (canceledAttendeeError) {
             console.error("Failed to load canceled meets:", canceledAttendeeError);
           } else {
-            canceledAttendeeRows = (canceledAttendeeData || []) as MeetRow[];
+            canceledAttendeeRows = (canceledAttendeeData || []) as unknown as MeetRow[];
           }
         }
       }
 
       const rowMap = new Map<string, MeetRow>();
       for (const row of [
-        ...((activeData || []) as MeetRow[]),
-        ...((canceledHostedData || []) as MeetRow[]),
+        ...((activeData || []) as unknown as MeetRow[]),
+        ...((canceledHostedData || []) as unknown as MeetRow[]),
         ...canceledAttendeeRows,
       ]) {
         rowMap.set(row.id, row);

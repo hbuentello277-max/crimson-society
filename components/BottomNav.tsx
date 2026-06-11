@@ -8,12 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { NavTabBadge } from "@/components/NavTabBadge";
 import { syncAppIconBadge } from "@/lib/app-icon-badge";
 import {
-  loadAppIconBadgeCount,
+  countUnreadNotificationsByTypes,
   loadConnectNavBadgeCount,
-  loadInboxMessageBadgeCount,
-  loadInboxNotificationBadgeCount,
-  loadMeetNavBadgeCount,
+  loadNavBadgeCounts,
   loadProfileNavBadgeCount,
+  MEET_ALERT_TYPES,
 } from "@/lib/nav-badge-counts";
 
 const BADGE_REFRESH_DEBOUNCE_MS = 400;
@@ -110,22 +109,19 @@ export default function BottomNav() {
       return;
     }
 
-    const [meetCount, messageCount, notificationCount, connectCount, profileCount, appIconCount] =
-      await Promise.all([
-        loadMeetNavBadgeCount(supabase, userId),
-        loadInboxMessageBadgeCount(supabase, userId),
-        loadInboxNotificationBadgeCount(supabase, userId),
-        loadConnectNavBadgeCount(supabase, userId),
-        loadProfileNavBadgeCount(supabase, userId),
-        loadAppIconBadgeCount(supabase, userId),
-      ]);
+    const [navCounts, meetAlerts, connectCount, profileCount] = await Promise.all([
+      loadNavBadgeCounts(supabase),
+      countUnreadNotificationsByTypes(supabase, userId, MEET_ALERT_TYPES),
+      loadConnectNavBadgeCount(supabase, userId),
+      loadProfileNavBadgeCount(supabase, userId),
+    ]);
 
-    setMeetBadgeCount(meetCount);
-    setMessageUnreadCount(messageCount);
-    setNotificationUnreadCount(notificationCount);
+    setMeetBadgeCount(navCounts.unreadMeetChatCount + meetAlerts);
+    setMessageUnreadCount(navCounts.unreadMessagesCount);
+    setNotificationUnreadCount(navCounts.unreadNotificationsCount);
     setConnectBadgeCount(connectCount);
     setProfileBadgeCount(profileCount);
-    void syncAppIconBadge(appIconCount);
+    void syncAppIconBadge(navCounts.totalBadgeCount);
   }, [session?.user?.id]);
 
   const scheduleBadgeRefresh = useCallback(

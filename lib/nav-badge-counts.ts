@@ -1,15 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  blockedUserIdSet,
-  countUnreadMessages,
-  type ConversationMemberBadgeRow,
-  type MessageBadgeRow,
-} from "@/lib/messages/unread-message-count";
-import { MEET_TABLES } from "@/lib/meets/db-tables";
-import { deriveMeetLifecycle } from "@/lib/meets/lifecycle";
 import type { NotificationType } from "@/lib/notifications";
 
-const MEET_ALERT_TYPES: NotificationType[] = [
+export const MEET_ALERT_TYPES: NotificationType[] = [
   "meet_joined",
   "meet_left",
   "meet_removed",
@@ -35,6 +27,87 @@ const PROFILE_ALERT_TYPES: NotificationType[] = [
   "favorite_rider_post",
 ];
 
+type NavBadgeCountsRow = {
+  unread_messages_count: number | string | null;
+  unread_notifications_count: number | string | null;
+  unread_meet_chat_count: number | string | null;
+  total_badge_count: number | string | null;
+};
+
+export type NavBadgeCounts = {
+  unreadMessagesCount: number;
+  unreadNotificationsCount: number;
+  unreadMeetChatCount: number;
+  totalBadgeCount: number;
+};
+
+const EMPTY_NAV_BADGE_COUNTS: NavBadgeCounts = {
+  unreadMessagesCount: 0,
+  unreadNotificationsCount: 0,
+  unreadMeetChatCount: 0,
+  totalBadgeCount: 0,
+};
+
+function toCount(value: number | string | null | undefined) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mapNavBadgeCountsRow(row: NavBadgeCountsRow | null | undefined): NavBadgeCounts {
+  if (!row) return EMPTY_NAV_BADGE_COUNTS;
+
+  const unreadMessagesCount = toCount(row.unread_messages_count);
+  const unreadNotificationsCount = toCount(row.unread_notifications_count);
+  const unreadMeetChatCount = toCount(row.unread_meet_chat_count);
+  const totalBadgeCount = toCount(row.total_badge_count);
+
+  return {
+    unreadMessagesCount,
+    unreadNotificationsCount,
+    unreadMeetChatCount,
+    totalBadgeCount:
+      totalBadgeCount > 0
+        ? totalBadgeCount
+        : unreadMessagesCount + unreadNotificationsCount + unreadMeetChatCount,
+  };
+}
+
+export async function loadNavBadgeCounts(admin: SupabaseClient): Promise<NavBadgeCounts> {
+  const { data, error } = await admin.rpc("get_nav_badge_counts");
+
+  if (error) {
+    console.error("Failed to load nav badge counts:", error);
+    return EMPTY_NAV_BADGE_COUNTS;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return mapNavBadgeCountsRow(row as NavBadgeCountsRow | undefined);
+}
+
+export async function loadMeetChatUnreadCountsByRide(
+  admin: SupabaseClient,
+  rideIds: string[],
+): Promise<Record<string, number>> {
+  const uniqueRideIds = Array.from(new Set(rideIds.filter(Boolean)));
+  if (uniqueRideIds.length === 0) return {};
+
+  const { data, error } = await admin.rpc("get_meet_chat_unread_counts", {
+    p_ride_ids: uniqueRideIds,
+  });
+
+  if (error) {
+    console.error("Failed to load meet chat unread counts:", error);
+    return Object.fromEntries(uniqueRideIds.map((rideId) => [rideId, 0]));
+  }
+
+  const counts = Object.fromEntries(uniqueRideIds.map((rideId) => [rideId, 0]));
+  for (const row of (data || []) as Array<{ ride_id: string; unread_count: number | string | null }>) {
+    counts[row.ride_id] = toCount(row.unread_count);
+  }
+
+  return counts;
+}
+
 export async function countUnreadNotificationsByTypes(
   admin: SupabaseClient,
   userId: string,
@@ -57,125 +130,28 @@ export async function countUnreadNotificationsByTypes(
   return count || 0;
 }
 
-export async function loadMeetChatUnreadTotal(admin: SupabaseClient, userId: string) {
-  const { data: rides, error: ridesError } = await admin
-    .from(MEET_TABLES.meets)
-    .select("id, date, time, meet_duration_minutes, tracking_status, status")
-    .eq("status", "active");
-
-  if (ridesError) {
-    console.error("Failed to load meet badge rides:", ridesError);
-    return 0;
-  }
-
-  const rideIds = (rides || [])
-    .filter((ride) => {
-      const phase = deriveMeetLifecycle({
-        status: "active",
-        date: ride.date,
-        time: ride.time,
-      });
-      return phase === "upcoming" || phase === "active";
-    })
-    .map((ride) => ride.id);
-
-  if (rideIds.length === 0) return 0;
-
-  const [{ data: readRows }, { data: messageRows }] = await Promise.all([
-    admin
-      .from(MEET_TABLES.messageReads)
-      .select("ride_id, last_read_at")
-      .eq("user_id", userId)
-      .in("ride_id", rideIds),
-    admin
-      .from(MEET_TABLES.messages)
-      .select("ride_id, user_id, created_at")
-      .in("ride_id", rideIds),
-  ]);
-
-  const readMap = new Map(
-    (readRows || []).map((row: { ride_id: string; last_read_at: string }) => [
-      row.ride_id,
-      row.last_read_at,
-    ]),
-  );
-
-  let total = 0;
-  for (const message of messageRows || []) {
-    const row = message as { ride_id: string; user_id: string; created_at: string };
-    if (row.user_id === userId) continue;
-    const lastReadAt = readMap.get(row.ride_id);
-    if (!lastReadAt || row.created_at > lastReadAt) {
-      total += 1;
-    }
-  }
-
-  return total;
+export async function loadMeetChatUnreadTotal(admin: SupabaseClient, _userId: string) {
+  const counts = await loadNavBadgeCounts(admin);
+  return counts.unreadMeetChatCount;
 }
 
 export async function loadMeetNavBadgeCount(admin: SupabaseClient, userId: string) {
-  const [chatUnread, meetAlerts] = await Promise.all([
-    loadMeetChatUnreadTotal(admin, userId),
+  const [counts, meetAlerts] = await Promise.all([
+    loadNavBadgeCounts(admin),
     countUnreadNotificationsByTypes(admin, userId, MEET_ALERT_TYPES),
   ]);
 
-  return chatUnread + meetAlerts;
+  return counts.unreadMeetChatCount + meetAlerts;
 }
 
-export async function loadInboxMessageBadgeCount(admin: SupabaseClient, userId: string) {
-  const [{ data: memberships, error: membershipsError }, { data: blocks, error: blocksError }] =
-    await Promise.all([
-      admin
-        .from("conversation_members")
-        .select("conversation_id, last_read_at")
-        .eq("user_id", userId),
-      admin
-        .from("user_blocks")
-        .select("blocker_id, blocked_id")
-        .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
-    ]);
-
-  if (membershipsError || blocksError) {
-    console.error("Failed to load inbox message badge:", membershipsError || blocksError);
-    return 0;
-  }
-
-  const memberRows = (memberships || []) as ConversationMemberBadgeRow[];
-  const conversationIds = memberRows.map((membership) => membership.conversation_id);
-  if (conversationIds.length === 0) return 0;
-
-  const { data: messages, error: messagesError } = await admin
-    .from("messages")
-    .select("conversation_id, sender_id, created_at")
-    .in("conversation_id", conversationIds);
-
-  if (messagesError) {
-    console.error("Failed to load inbox messages for badge:", messagesError);
-    return 0;
-  }
-
-  const blockedIds = blockedUserIdSet(userId, blocks || []);
-  return countUnreadMessages(
-    userId,
-    memberRows,
-    (messages || []) as MessageBadgeRow[],
-    blockedIds,
-  );
+export async function loadInboxMessageBadgeCount(admin: SupabaseClient, _userId: string) {
+  const counts = await loadNavBadgeCounts(admin);
+  return counts.unreadMessagesCount;
 }
 
-export async function loadInboxNotificationBadgeCount(admin: SupabaseClient, userId: string) {
-  const { count, error } = await admin
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("read_at", null);
-
-  if (error) {
-    console.error("Failed to load inbox notification badge:", error);
-    return 0;
-  }
-
-  return count || 0;
+export async function loadInboxNotificationBadgeCount(admin: SupabaseClient, _userId: string) {
+  const counts = await loadNavBadgeCounts(admin);
+  return counts.unreadNotificationsCount;
 }
 
 export async function loadConnectNavBadgeCount(admin: SupabaseClient, userId: string) {
@@ -203,12 +179,7 @@ export async function loadProfileNavBadgeCount(admin: SupabaseClient, userId: st
 }
 
 /** Aggregate unread count for home-screen app icon badge (no double-counting). */
-export async function loadAppIconBadgeCount(admin: SupabaseClient, userId: string) {
-  const [messageCount, notificationCount, meetChatUnread] = await Promise.all([
-    loadInboxMessageBadgeCount(admin, userId),
-    loadInboxNotificationBadgeCount(admin, userId),
-    loadMeetChatUnreadTotal(admin, userId),
-  ]);
-
-  return messageCount + notificationCount + meetChatUnread;
+export async function loadAppIconBadgeCount(admin: SupabaseClient, _userId: string) {
+  const counts = await loadNavBadgeCounts(admin);
+  return counts.totalBadgeCount;
 }

@@ -9,12 +9,7 @@ import NotificationsPanel from "@/components/inbox/NotificationsPanel";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
-import {
-  blockedUserIdSet,
-  countUnreadMessages,
-  type ConversationMemberBadgeRow,
-  type MessageBadgeRow,
-} from "@/lib/messages/unread-message-count";
+import { loadNavBadgeCounts } from "@/lib/nav-badge-counts";
 import { formatNavBadgeCount } from "@/lib/nav-badge-format";
 import { supabase } from "@/lib/supabase";
 
@@ -92,92 +87,22 @@ export default function InboxSwipeTabs() {
     });
   }, [activeIndex, isDragging]);
 
-  const loadNotificationUnreadCount = useCallback(async () => {
-    const userId = session?.user?.id;
-
-    if (!userId) {
+  const loadInboxUnreadCounts = useCallback(async () => {
+    if (!session?.user?.id) {
+      setMessageUnreadCount(0);
       setNotificationUnreadCount(0);
       return;
     }
 
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .is("read_at", null);
-
-    if (error) {
-      console.error("Failed to load inbox notification unread count:", error);
-      return;
-    }
-
-    setNotificationUnreadCount(count || 0);
-  }, [session?.user?.id]);
-
-  const loadMessageUnreadCount = useCallback(async () => {
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      setMessageUnreadCount(0);
-      return;
-    }
-
-    const [{ data: memberships, error: membershipsError }, { data: blocks, error: blocksError }] =
-      await Promise.all([
-        supabase
-          .from("conversation_members")
-          .select("conversation_id, last_read_at")
-          .eq("user_id", userId),
-        supabase
-          .from("user_blocks")
-          .select("blocker_id, blocked_id")
-          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
-      ]);
-
-    if (membershipsError) {
-      console.error("Failed to load inbox tab memberships:", membershipsError);
-      return;
-    }
-
-    if (blocksError) {
-      console.error("Failed to load inbox tab blocks:", blocksError);
-      return;
-    }
-
-    const memberRows = (memberships || []) as ConversationMemberBadgeRow[];
-    const conversationIds = memberRows.map((membership) => membership.conversation_id);
-
-    if (conversationIds.length === 0) {
-      setMessageUnreadCount(0);
-      return;
-    }
-
-    const { data: messages, error: messagesError } = await supabase
-      .from("messages")
-      .select("conversation_id, sender_id, created_at")
-      .in("conversation_id", conversationIds);
-
-    if (messagesError) {
-      console.error("Failed to load inbox tab unread messages:", messagesError);
-      return;
-    }
-
-    const blockedIds = blockedUserIdSet(userId, blocks || []);
-    const nextCount = countUnreadMessages(
-      userId,
-      memberRows,
-      (messages || []) as MessageBadgeRow[],
-      blockedIds,
-    );
-
-    setMessageUnreadCount(nextCount);
+    const counts = await loadNavBadgeCounts(supabase);
+    setMessageUnreadCount(counts.unreadMessagesCount);
+    setNotificationUnreadCount(counts.unreadNotificationsCount);
   }, [session?.user?.id]);
 
   useEffect(() => {
     if (loading) return;
-    void loadMessageUnreadCount();
-    void loadNotificationUnreadCount();
-  }, [loadMessageUnreadCount, loadNotificationUnreadCount, loading]);
+    void loadInboxUnreadCounts();
+  }, [loadInboxUnreadCounts, loading]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -189,14 +114,14 @@ export default function InboxSwipeTabs() {
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
         () => {
-          void loadMessageUnreadCount();
+          void loadInboxUnreadCounts();
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversation_members" },
         () => {
-          void loadMessageUnreadCount();
+          void loadInboxUnreadCounts();
         },
       )
       .subscribe();
@@ -212,7 +137,7 @@ export default function InboxSwipeTabs() {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          void loadNotificationUnreadCount();
+          void loadInboxUnreadCounts();
         },
       )
       .subscribe();
@@ -228,7 +153,7 @@ export default function InboxSwipeTabs() {
       void supabase.removeChannel(messageChannel);
       void supabase.removeChannel(notificationChannel);
     };
-  }, [loadMessageUnreadCount, loadNotificationUnreadCount, loading, session?.user?.id]);
+  }, [loadInboxUnreadCounts, loading, session?.user?.id]);
 
   useLayoutEffect(() => {
     if (threadOpen) {
