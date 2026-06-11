@@ -7,7 +7,7 @@ import { useFoundingLeaderboard } from "@/hooks/useFoundingLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 
-export default function FoundingLeaderboardPage() {
+export default function BlackcardLeaderboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -29,10 +29,10 @@ export default function FoundingLeaderboardPage() {
       <div className="mx-auto max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6">
         <div className="mb-4">
           <Link
-            href="/blackcard"
+            href="/meets"
             className="text-xs uppercase tracking-[0.2em] text-zinc-500 transition hover:text-[#e87a82]"
           >
-            ← Blackcard
+            ← Meets
           </Link>
         </div>
 

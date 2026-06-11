@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -29,6 +28,7 @@ import {
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
+import { ProfileGarageCollapsible } from "@/components/profile/ProfileGarageCollapsible";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 
@@ -58,25 +58,11 @@ carbon: "bg-gradient-to-br from-[#1a1a1c] via-[#2a2a2e] to-[#0a0a0c]",
 ember: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
 };
 
-type Motorcycle = {
-id: string;
-label: string | null;
-name: string | null;
-year: string | null;
-finish: string | null;
-photo_url: string | null;
-photo_path: string | null;
-};
-
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
 function EmptyPanel({ title, body }: { title: string; body: string }) {
 return ( <div className="rounded-[26px] border border-white/10 bg-white/[0.025] p-8 text-center shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]"> <div className="mx-auto flex items-center justify-center gap-4"> <span className="h-px w-10 bg-white/15" /> <span className="text-[#b4141e]">✦</span> <span className="h-px w-10 bg-white/15" /> </div> <p className="mt-5 font-serif text-2xl italic text-zinc-300">{title}</p> <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-zinc-500">{body}</p> </div>
 );
-}
-
-function bikeInitial(bike: Motorcycle) {
-return (bike.name?.trim() || bike.label?.trim() || "G").charAt(0).toUpperCase();
 }
 
 function getProfileUrl(username?: string | null) {
@@ -118,14 +104,12 @@ function profileCardDetails(profile: AppProfile) {
 
 function ProfilePageContent() {
 const { session, loading: authLoading, isAdmin, signOut, status: profileStatus } = useAuth();
-const { profile, loading: profileLoading, error, refresh } = useProfile();
+const { profile, loading: profileLoading, error, refresh, updatePrivacy } = useProfile();
 const userId = session?.user?.id ?? null;
 const [tab, setTab] = useState<ProfileTab>("posts");
 const [posts, setPosts] = useState<ProfilePost[]>([]);
-const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
 const [membership, setMembership] = useState<MembershipRow | null>(null);
 const [postsState, setPostsState] = useState<LoadState>("idle");
-const [garageState, setGarageState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [settingsOpen, setSettingsOpen] = useState(false);
 const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
@@ -317,33 +301,12 @@ setPostsState("loaded");
 
 }, [postsState, userId]);
 
-const loadGarage = useCallback(async () => {
-if (!userId || garageState === "loading" || garageState === "loaded") return;
-setGarageState("loading");
-
-const { data, error: garageError } = await supabase
-  .from("motorcycles")
-  .select("id, label, name, year, finish, photo_url, photo_path")
-  .eq("user_id", userId)
-  .order("created_at", { ascending: true });
-
-if (garageError) {
-  setGarageState("error");
-  return;
-}
-
-setMotorcycles((data as Motorcycle[]) ?? []);
-setGarageState("loaded");
-
-}, [garageState, userId]);
-
 useEffect(() => {
 const timer = window.setTimeout(() => {
 if (tab === "posts") void loadPosts();
-if (tab === "garage") void loadGarage();
 }, 0);
 return () => window.clearTimeout(timer);
-}, [loadGarage, loadPosts, tab]);
+}, [loadPosts, tab]);
 
 const deletePost = async (postId: string) => {
 if (!userId || deletingPostId) return;
@@ -466,7 +429,6 @@ const tabs = useMemo(() => {
 return [
 { k: "posts" as const, label: "Posts" },
 { k: "rides" as const, label: "Meets" },
-{ k: "garage" as const, label: "Garage" },
 { k: "saved" as const, label: "Saved" },
 ];
 }, []);
@@ -581,6 +543,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         loading={creditsLoading}
         membershipTier={membershipTier}
       />
+      <ProfileGarageCollapsible userId={userId} />
     </div>
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
@@ -652,74 +615,11 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </section>
     )}
 
-    {tab === "garage" && (
-      <section className="mt-3">
-        {garageState === "loading" && (
-          <EmptyPanel title="Loading garage." body="Pulling your machines from Supabase." />
-        )}
-
-        {garageState === "error" && (
-          <EmptyPanel
-            title="Garage could not load."
-            body="Motorcycle details are kept separate from the public profile shell."
-          />
-        )}
-
-        {garageState === "loaded" && motorcycles.length === 0 && (
-          <EmptyPanel
-            title="Add Your Ride"
-            body="Add your motorcycle from Edit Profile to complete your garage."
-          />
-        )}
-
-        {garageState === "loaded" && motorcycles.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {motorcycles.map((bike, index) => (
-              <article
-                key={bike.id}
-                className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
-              >
-                <div className="relative aspect-[4/3] bg-black">
-                  {bike.photo_url ? (
-                    <Image
-                      src={bike.photo_url}
-                      alt={`${bike.name || bike.label || "Motorcycle"} photo`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      priority={index === 0}
-                      className="object-cover"
-                      unoptimized={bike.photo_url.includes("supabase")}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] font-serif text-5xl text-[#f0c8cb]">
-                      {bikeInitial(bike)}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
-                </div>
-                <div className="border-b border-white/10 px-5 py-5">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-                    {bike.label || "Garage"}
-                  </p>
-                  <h3 className="mt-3 font-serif text-3xl leading-none text-white">
-                    {bike.name || "Unnamed Motorcycle"}
-                  </h3>
-                  <p className="mt-3 text-sm text-zinc-400">
-                    {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-    )}
-
     {tab === "saved" && (
       <SavedPostsPanel viewerId={userId ?? undefined} isOwnProfile />
     )}
 
-    {tab !== "posts" && tab !== "garage" && tab !== "saved" && (
+    {tab !== "posts" && tab !== "saved" && (
       <section className="mt-3">
         <EmptyPanel
           title="Coming into focus."
@@ -731,6 +631,9 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
   <ProfileSettingsMenuSheet
     open={settingsOpen || menuOpenFromUrl}
+    profile={profile}
+    userId={userId}
+    onUpdatePrivacy={updatePrivacy}
     isAdmin={isAdmin}
     deletionRequest={deletionRequest}
     deletionRequestLoading={deletionRequestLoading}

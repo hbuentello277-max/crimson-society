@@ -137,7 +137,7 @@ export default function ReferralCodeSection({ profile, onCodeUpdated }: Props) {
             className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-mono text-sm tracking-wider text-white outline-none placeholder:text-zinc-600 focus:border-[#b4141e]/60"
           />
           <p className="mt-2 text-xs text-zinc-500">
-            3–20 characters, uppercase A–Z and numbers only.
+            3–20 characters: letters, numbers, and . _ -
           </p>
         </div>
         <button

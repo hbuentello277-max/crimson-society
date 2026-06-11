@@ -5,12 +5,15 @@ import {
   readReferralCodeFromSignupUrl,
   referralShareText,
 } from "@/lib/credits/referral-link";
+import { validateReferralCodeFormat } from "@/lib/credits/referral-code";
 import {
   foundingLeaderboardDisplayName,
   parseFoundingLeaderboardPayload,
 } from "@/lib/growth/founding-leaderboard";
 import {
   buildRiderOnboardingStatus,
+  hasCompleteRide,
+  isRideComplete,
   parseRiderOnboardingRpcPayload,
   shouldShowRiderChecklist,
 } from "@/lib/growth/rider-checklist";
@@ -19,23 +22,38 @@ describe("rider onboarding checklist", () => {
   it("computes 50% progress per completed task", () => {
     const half = buildRiderOnboardingStatus({
       profile: { username: "rider1", display_name: "Rider One" },
-      motorcycleCount: 0,
+      motorcycles: [],
     });
     assert.equal(half.progressPercent, 50);
     assert.equal(half.onboardingComplete, false);
 
     const full = buildRiderOnboardingStatus({
       profile: { username: "rider1", display_name: "Rider One" },
-      motorcycleCount: 1,
+      motorcycles: [{ name: "Ducati Panigale", year: "2023" }],
     });
     assert.equal(full.progressPercent, 100);
     assert.equal(full.onboardingComplete, true);
   });
 
+  it("requires year and make/model for ride completion", () => {
+    assert.equal(isRideComplete({ name: "Ducati Panigale", year: "2023" }), true);
+    assert.equal(isRideComplete({ name: "Ducati Panigale", year: "" }), false);
+    assert.equal(isRideComplete({ name: "", year: "2023" }), false);
+    assert.equal(hasCompleteRide([{ name: "Yamaha R1", year: "2021" }]), true);
+  });
+
+  it("does not require bio or socials for profile completion", () => {
+    const status = buildRiderOnboardingStatus({
+      profile: { username: "rider1", display_name: "Rider One" },
+      motorcycles: [],
+    });
+    assert.equal(status.profileComplete, true);
+  });
+
   it("hides checklist after credits are awarded", () => {
     const done = buildRiderOnboardingStatus({
       profile: { username: "rider1", display_name: "Rider One" },
-      motorcycleCount: 1,
+      motorcycles: [{ name: "Ducati Panigale", year: "2023" }],
       creditsAwarded: true,
     });
     assert.equal(shouldShowRiderChecklist(done), false);
@@ -105,18 +123,34 @@ describe("founding leaderboard", () => {
 
 describe("referral link helpers", () => {
   it("builds signup URL with ref query param", () => {
-    const url = buildReferralSignupUrl("crimson42", "https://example.com");
-    assert.equal(url, "https://example.com/signup?ref=CRIMSON42");
+    const url = buildReferralSignupUrl("Rider_R1", "https://example.com");
+    assert.equal(url, "https://example.com/signup?ref=Rider_R1");
   });
 
   it("reads referral code from signup search params", () => {
-    assert.equal(readReferralCodeFromSignupUrl("?ref=ride-99"), "RIDE99");
-    assert.equal(readReferralCodeFromSignupUrl(new URLSearchParams("ref=abc123")), "ABC123");
+    assert.equal(readReferralCodeFromSignupUrl("?ref=rider-210"), "rider-210");
+    assert.equal(readReferralCodeFromSignupUrl(new URLSearchParams("ref=JJAY.MICK")), "JJAY.MICK");
   });
 
   it("builds share text with code and link", () => {
-    const text = referralShareText("RIDE1", "https://example.com/signup?ref=RIDE1");
-    assert.match(text, /RIDE1/);
-    assert.match(text, /signup\?ref=RIDE1/);
+    const text = referralShareText("JAVI10", "https://example.com/signup?ref=JAVI10");
+    assert.match(text, /JAVI10/);
+    assert.match(text, /signup\?ref=JAVI10/);
+  });
+});
+
+describe("referral code validation", () => {
+  it("accepts flexible referral codes", () => {
+    assert.equal(validateReferralCodeFormat("JAVI10"), null);
+    assert.equal(validateReferralCodeFormat("Rider_R1"), null);
+    assert.equal(validateReferralCodeFormat("rider-210"), null);
+    assert.equal(validateReferralCodeFormat("JJAY.MICK"), null);
+  });
+
+  it("rejects spaces and unsafe symbols", () => {
+    assert.notEqual(validateReferralCodeFormat("bad code!"), null);
+    assert.notEqual(validateReferralCodeFormat("unsafe?code"), null);
+    assert.notEqual(validateReferralCodeFormat("bad/code"), null);
+    assert.notEqual(validateReferralCodeFormat("  "), null);
   });
 });

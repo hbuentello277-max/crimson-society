@@ -11,6 +11,7 @@ import {
 } from "@/lib/credits/referral-code";
 import { readSignupReferralCode } from "@/lib/credits/signup-referral-session";
 import { cleanUsername } from "@/lib/profile";
+import { dispatchRiderOnboardingRefresh } from "@/lib/growth/rider-checklist";
 import { markPushPromptPending } from "@/lib/push/prompt-state";
 
 const STYLES = ["Street", "Track", "Touring", "Stunt", "Cruiser"];
@@ -169,15 +170,22 @@ const { error: profileError } = await supabase
         }
       }
 
-      if (make.trim() || model.trim() || year.trim() || color.trim()) {
+      const rideName = [make.trim(), model.trim()].filter(Boolean).join(" ");
+      const rideYear = year.trim();
+
+      if (rideName || rideYear || color.trim()) {
+        if (!rideName || !rideYear) {
+          throw new Error("Add your ride year and make/model before continuing.");
+        }
+
         const { error: motorcycleError } = await supabase
           .from("motorcycles")
           .upsert(
             {
               user_id: user.id,
               label: "Garage One",
-              name: [make.trim(), model.trim()].filter(Boolean).join(" "),
-              year: year.trim(),
+              name: rideName,
+              year: rideYear,
               finish: color.trim(),
             },
             { onConflict: "user_id,label" }
@@ -186,6 +194,7 @@ const { error: profileError } = await supabase
         if (motorcycleError) throw motorcycleError;
       }
 
+      dispatchRiderOnboardingRefresh();
       markPushPromptPending();
       router.replace("/dashboard?push_prompt=1");
     } catch (error) {
@@ -236,7 +245,7 @@ const { error: profileError } = await supabase
               {step === 1
                 ? "The Rider"
                 : step === 2
-                  ? "The Machine"
+                  ? "Your Ride"
                   : "The Style"}
             </h1>
             <div className="mx-auto mt-5 flex items-center justify-center gap-4">
@@ -415,7 +424,7 @@ const { error: profileError } = await supabase
                     className="mt-2 w-full rounded-full border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-base tracking-wider text-zinc-200 placeholder:text-zinc-600 transition focus:border-[#b4141e]/60 focus:outline-none focus:ring-2 focus:ring-[#b4141e]/20"
                   />
                   <p className="mt-2 text-xs text-zinc-500">
-                    If someone invited you, enter their code here (letters A–Z and numbers only).
+                    If someone invited you, enter their code here (letters, numbers, . _ -).
                   </p>
                   {referralWarning && (
                     <p className="mt-2 text-sm text-amber-200/90">{referralWarning}</p>

@@ -47,9 +47,7 @@ export function NewRiderChecklistCard({
   awarding = false,
   compact = false,
 }: Props) {
-  if (!loading && !shouldShowRiderChecklist(status)) {
-    if (!status.onboardingComplete) return null;
-
+  if (!loading && status.creditsAwarded && status.onboardingComplete) {
     return (
       <section className="rounded-[22px] border border-emerald-500/25 bg-emerald-500/5 p-4">
         <p className="text-[10px] uppercase tracking-[0.24em] text-emerald-300/80">
@@ -60,6 +58,10 @@ export function NewRiderChecklistCard({
         </p>
       </section>
     );
+  }
+
+  if (!loading && !shouldShowRiderChecklist(status)) {
+    return null;
   }
 
   return (

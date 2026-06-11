@@ -1509,17 +1509,25 @@ const ridesWithRoutes = await Promise.all(
             Meet Ledger
           </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingMeet(null);
-              createMeetIdempotencyKeyRef.current = createMeetIdempotencyKey();
-              setShowHostModal(true);
-            }}
-            className={CS_HOST_MEET_BTN}
-          >
-            + Host Meet
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/profile/blackcard-leaderboard"
+              className="rounded-full border border-[#b4141e]/35 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#f1c3c7] transition hover:border-[#b4141e]/60 hover:bg-[#b4141e]/15 sm:px-4 sm:text-[11px] sm:tracking-[0.16em]"
+            >
+              🏆 Blackcard Leaderboard
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingMeet(null);
+                createMeetIdempotencyKeyRef.current = createMeetIdempotencyKey();
+                setShowHostModal(true);
+              }}
+              className={CS_HOST_MEET_BTN}
+            >
+              + Host Meet
+            </button>
+          </div>
         </div>
 
         <header className="mt-8">

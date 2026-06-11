@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import {
   foundingLeaderboardDisplayName,
   type FoundingLeaderboardData,
@@ -58,12 +57,13 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
   return (
     <div className="space-y-4">
       <section className="rounded-[22px] border border-[#b4141e]/25 bg-gradient-to-b from-[#1a0405]/70 to-black/40 p-5">
-        <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">Founding Blackcard</p>
-        <h1 className="mt-2 font-serif text-3xl text-white">🏆 Founding Blackcard Race</h1>
+        <h1 className="font-serif text-3xl text-white">🏆 Blackcard Leaderboard</h1>
+        <p className="mt-3 rounded-2xl border border-[#b4141e]/30 bg-[#b4141e]/10 px-4 py-3 text-sm font-medium text-[#f1c3c7]">
+          Top {topN} Riders Earn Founding Blackcard
+        </p>
         <p className="mt-3 text-sm leading-6 text-zinc-400">
-          Top {topN} riders earn Founding Blackcard — lifetime premium recognition for early
-          supporters who complete their profile, show up to meets, host rides, and grow the
-          Society through referrals.
+          Earn points by completing your profile, attending and hosting meets, and inviting riders
+          who join and upgrade to Blackcard.
         </p>
         {cutoffPoints > 0 ? (
           <p className="mt-3 text-xs uppercase tracking-[0.16em] text-zinc-500">
@@ -165,20 +165,6 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
         )}
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/profile/credits/referrals"
-          className="rounded-full border border-white/15 px-4 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-white"
-        >
-          Invite Riders
-        </Link>
-        <Link
-          href="/profile/edit"
-          className="rounded-full border border-white/15 px-4 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300 transition hover:border-[#b4141e]/50 hover:text-white"
-        >
-          Complete Profile
-        </Link>
-      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChangeEvent, Suspense, useEffect, useState } from "react";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ReferralCodeSection from "@/components/profile/ReferralCodeSection";
-import PrivacySettingsSection from "@/components/profile/PrivacySettingsSection";
+import { dispatchRiderOnboardingRefresh } from "@/lib/growth/rider-checklist";
 import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { useAuth } from "@/components/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
@@ -82,7 +82,7 @@ function storageExtension(file: File) {
 
 function ProfileEditPageContent() {
   const { session, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, error, updateIdentity, updatePrivacy, updateAvatar, refresh } =
+  const { profile, loading: profileLoading, error, updateIdentity, updateAvatar, refresh } =
     useProfile();
   const userId = session?.user?.id ?? null;
   const [savingProfile, setSavingProfile] = useState(false);
@@ -90,6 +90,7 @@ function ProfileEditPageContent() {
   const [profileMsg, setProfileMsg] = useState("");
   const [garageMsg, setGarageMsg] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [garageExpanded, setGarageExpanded] = useState(false);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
 
   useEffect(() => {
@@ -183,6 +184,7 @@ function ProfileEditPageContent() {
     try {
       await updateIdentity(values);
       setProfileMsg("Profile saved.");
+      dispatchRiderOnboardingRefresh();
     } catch (saveError) {
       const message =
         saveError instanceof Error ? saveError.message : "Could not save profile. Please try again.";
@@ -226,6 +228,7 @@ function ProfileEditPageContent() {
     setMotorcycles((prev) => prev.map((bike) => ({ ...bike, isNew: false })));
     setGarageMsg("Garage saved.");
     setSavingGarage(false);
+    dispatchRiderOnboardingRefresh();
   }
 
   async function handleProfileImageUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -447,27 +450,37 @@ function ProfileEditPageContent() {
           onCodeUpdated={() => void refresh()}
         />
 
-        {userId && (
-          <PrivacySettingsSection
-            profile={profile}
-            userId={userId}
-            onUpdatePrivacy={updatePrivacy}
-          />
-        )}
-
-        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <section className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => setGarageExpanded((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 px-6 py-5 text-left"
+            aria-expanded={garageExpanded}
+          >
             <div>
               <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Garage</p>
               <h2 className="mt-2 font-serif text-3xl text-white">Add Your Ride</h2>
+              <p className="mt-2 text-sm text-zinc-500">Year and make/model required. Photo optional.</p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={addMotorcycle} className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">Add Ride</button>
-              <button type="button" onClick={() => void saveGarage()} disabled={savingGarage} className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:opacity-60">{savingGarage ? "Saving..." : "Save Garage"}</button>
-            </div>
-          </div>
-          {garageMsg && <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">{garageMsg}</p>}
-          <div className="mt-6 space-y-4">
+            <span className="text-xl text-zinc-500" aria-hidden>
+              {garageExpanded ? "−" : "+"}
+            </span>
+          </button>
+
+          {garageExpanded ? (
+            <div className="border-t border-white/10 px-6 pb-6">
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button type="button" onClick={addMotorcycle} className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">Add Your Ride</button>
+                <button type="button" onClick={() => void saveGarage()} disabled={savingGarage} className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:opacity-60">{savingGarage ? "Saving..." : "Save Garage"}</button>
+              </div>
+              {garageMsg && <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-400">{garageMsg}</p>}
+              {motorcycles.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-5 text-center">
+                  <p className="font-serif text-xl text-zinc-300">Add Your Ride</p>
+                  <p className="mt-2 text-sm text-zinc-500">Tell the Society what you ride.</p>
+                </div>
+              ) : null}
+              <div className="mt-6 space-y-4">
             {motorcycles.map((bike, index) => (
               <div key={bike.id} className="grid gap-5 rounded-[24px] border border-white/10 bg-black/20 p-5 md:grid-cols-[180px_1fr]">
                 <div>
@@ -511,19 +524,29 @@ function ProfileEditPageContent() {
                   </div>
                 </div>
                 <div className="grid content-start gap-4 md:grid-cols-2">
-                  {(["label", "name", "year", "finish"] as const).map((field) => (
+                  {(["name", "year", "finish", "label"] as const).map((field) => (
                     <input
                       key={field}
                       value={bike[field]}
                       onChange={(e) => updateMotorcycle(bike.id, field, e.target.value)}
-                      placeholder={field === "label" ? `Garage ${index + 1}` : field}
+                      placeholder={
+                        field === "name"
+                          ? "Make / model"
+                          : field === "year"
+                            ? "Year"
+                            : field === "label"
+                              ? `Garage ${index + 1}`
+                              : "Finish (optional)"
+                      }
                       className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60"
                     />
                   ))}
                 </div>
               </div>
             ))}
-          </div>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.025] p-5">

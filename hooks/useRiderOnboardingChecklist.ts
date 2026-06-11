@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   parseRiderOnboardingRpcPayload,
+  RIDER_ONBOARDING_REFRESH_EVENT,
   type RiderOnboardingStatus,
 } from "@/lib/growth/rider-checklist";
 import { supabase } from "@/lib/supabase";
@@ -70,6 +71,15 @@ export function useRiderOnboardingChecklist(enabled: boolean) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const handleRefresh = () => {
+      void refresh();
+    };
+    window.addEventListener(RIDER_ONBOARDING_REFRESH_EVENT, handleRefresh);
+    return () => window.removeEventListener(RIDER_ONBOARDING_REFRESH_EVENT, handleRefresh);
+  }, [enabled, refresh]);
 
   return {
     status,

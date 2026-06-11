@@ -1,6 +1,12 @@
 import { isProfileSetupComplete } from "@/lib/profile";
 
 export const RIDER_ONBOARDING_REWARD_CREDITS = 100;
+export const RIDER_ONBOARDING_REFRESH_EVENT = "crimson:rider-onboarding-refresh";
+
+export type RiderMotorcycleInput = {
+  name?: string | null;
+  year?: string | null;
+};
 
 export type RiderOnboardingStatus = {
   profileComplete: boolean;
@@ -13,16 +19,26 @@ export type RiderOnboardingStatus = {
 
 export type RiderOnboardingInput = {
   profile: { username?: string | null; display_name?: string | null } | null;
-  motorcycleCount: number;
+  motorcycles?: RiderMotorcycleInput[];
+  motorcycleCount?: number;
   creditsAwarded?: boolean;
   rewardAmount?: number;
 };
 
+export function isRideComplete(motorcycle: RiderMotorcycleInput) {
+  return Boolean(motorcycle.name?.trim() && motorcycle.year?.trim());
+}
+
+export function hasCompleteRide(motorcycles: RiderMotorcycleInput[]) {
+  return motorcycles.some(isRideComplete);
+}
+
 export function buildRiderOnboardingStatus(input: RiderOnboardingInput): RiderOnboardingStatus {
   const profileComplete = isProfileSetupComplete(input.profile);
-  const rideAdded = input.motorcycleCount > 0;
-  const progressPercent =
-    (profileComplete ? 50 : 0) + (rideAdded ? 50 : 0);
+  const rideAdded = input.motorcycles
+    ? hasCompleteRide(input.motorcycles)
+    : (input.motorcycleCount ?? 0) > 0;
+  const progressPercent = (profileComplete ? 50 : 0) + (rideAdded ? 50 : 0);
 
   return {
     profileComplete,
@@ -53,4 +69,9 @@ export function parseRiderOnboardingRpcPayload(
 
 export function shouldShowRiderChecklist(status: RiderOnboardingStatus) {
   return !status.creditsAwarded;
+}
+
+export function dispatchRiderOnboardingRefresh() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(RIDER_ONBOARDING_REFRESH_EVENT));
 }

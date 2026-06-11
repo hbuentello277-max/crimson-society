@@ -30,6 +30,8 @@ import {
   type AccountDeletionRequestRow,
 } from "@/lib/account-deletion";
 import { hrefWithProfileMenuFrom } from "@/lib/navigation/profile-menu-return";
+import { ProfileVisibilityMenuSection } from "@/components/profile/ProfileVisibilityMenuSection";
+import type { AppProfile, ProfilePrivacyInput } from "@/lib/profile";
 
 /** Compact gray/black row — matches pre–large-menu profile sheet */
 const MENU_ROW =
@@ -52,6 +54,9 @@ type MenuLinkItem = {
 
 type Props = {
   open: boolean;
+  profile: AppProfile | null;
+  userId: string | null;
+  onUpdatePrivacy: (input: ProfilePrivacyInput) => Promise<AppProfile>;
   isAdmin: boolean;
   deletionRequest: AccountDeletionRequestRow | null;
   deletionRequestLoading: boolean;
@@ -108,6 +113,9 @@ function MenuLinkRow({
 
 export function ProfileSettingsMenuSheet({
   open,
+  profile,
+  userId,
+  onUpdatePrivacy,
   isAdmin,
   deletionRequest,
   deletionRequestLoading,
@@ -236,6 +244,14 @@ export function ProfileSettingsMenuSheet({
               />
             )}
           </div>
+
+          {profile && userId ? (
+            <ProfileVisibilityMenuSection
+              profile={profile}
+              userId={userId}
+              onUpdatePrivacy={onUpdatePrivacy}
+            />
+          ) : null}
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
             <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Shop</p>

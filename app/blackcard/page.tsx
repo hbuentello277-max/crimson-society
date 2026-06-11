@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   checkoutPlanType,
@@ -257,17 +256,6 @@ export default function BlackcardPage() {
               </div>
             </div>
 
-            <Link
-              href="/profile/founding-leaderboard"
-              className="mt-8 block rounded-[24px] border border-[#b4141e]/30 bg-[#b4141e]/10 p-5 transition hover:border-[#b4141e]/50"
-            >
-              <p className="text-xs uppercase tracking-[0.24em] text-[#e87a82]">Founding Blackcard Race</p>
-              <h2 className="mt-2 text-xl font-semibold text-white">🏆 View the leaderboard</h2>
-              <p className="mt-2 text-sm text-zinc-400">
-                Top 15 riders earn Founding Blackcard. See your rank and how points are earned.
-              </p>
-            </Link>
-
             <BlackcardPerksPreview unlocked />
 
             {!isAdmin && (
@@ -348,17 +336,6 @@ export default function BlackcardPage() {
               </p>
             </div>
           )}
-
-          <Link
-            href="/profile/founding-leaderboard"
-            className="mt-8 block rounded-[24px] border border-[#b4141e]/30 bg-[#b4141e]/10 p-5 transition hover:border-[#b4141e]/50"
-          >
-            <p className="text-xs uppercase tracking-[0.24em] text-[#e87a82]">Founding Blackcard Race</p>
-            <h2 className="mt-2 text-xl font-semibold text-white">🏆 View the leaderboard</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Top 15 riders earn Founding Blackcard. Compete before you upgrade.
-            </p>
-          </Link>
 
           <BlackcardPerksPreview unlocked={false} />
         </div>
