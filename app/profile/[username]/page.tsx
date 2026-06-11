@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -10,9 +11,23 @@ import { PostGridTile } from "@/components/social/PostGridTile";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
 import { IconShare } from "@/components/profile/ProfileIcons";
 import ProfileTabs, { type ProfileTab } from "@/components/profile/ProfileTabs";
-import { ReportContentModal } from "@/components/safety/ReportContentModal";
-import { PostActionSheet, type PostActionTarget } from "@/components/social/PostActionSheet";
-import { ProfileActionSheet } from "@/components/social/ProfileActionSheet";
+import type { PostActionTarget } from "@/components/social/PostActionSheet";
+import { ProfilePostsGridSkeleton } from "@/components/ui/skeletons";
+
+const ReportContentModal = dynamic(
+  () => import("@/components/safety/ReportContentModal").then((module) => module.ReportContentModal),
+  { ssr: false },
+);
+
+const PostActionSheet = dynamic(
+  () => import("@/components/social/PostActionSheet").then((module) => module.PostActionSheet),
+  { ssr: false },
+);
+
+const ProfileActionSheet = dynamic(
+  () => import("@/components/social/ProfileActionSheet").then((module) => module.ProfileActionSheet),
+  { ssr: false },
+);
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { removeMutualFollows } from "@/lib/blocking";
 import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
@@ -796,9 +811,9 @@ export default function PublicProfilePage() {
                 title="Posts unavailable."
                 body="Profile content is hidden while a block is active between you and this rider."
               />
-            ) : postsState === "loading" && (
-              <EmptyPanel title="Loading posts." body="Gathering this rider's latest archive." />
-            )}
+            ) : postsState === "loading" ? (
+              <ProfilePostsGridSkeleton />
+            ) : null}
 
             {postsState === "error" && (
               <EmptyPanel title="Posts could not load." body="The profile is still available while the grid retries later." />
@@ -978,8 +993,9 @@ export default function PublicProfilePage() {
         }}
       />
 
+      {postActionTarget ? (
       <PostActionSheet
-        open={Boolean(postActionTarget)}
+        open
         target={postActionTarget}
         onClose={() => setPostActionTarget(null)}
         onReport={() => {
@@ -992,9 +1008,11 @@ export default function PublicProfilePage() {
           setTimeout(() => setSafetyMessage(null), 1800);
         }}
       />
+      ) : null}
 
+      {reportPostOpen ? (
       <ReportContentModal
-        open={reportPostOpen}
+        open
         title="Report Post"
         subtitle={
           profile
@@ -1031,6 +1049,7 @@ export default function PublicProfilePage() {
           window.setTimeout(() => setSafetyMessage(null), 2600);
         }}
       />
+      ) : null}
 
       {safetyMessage && (
         <div className="fixed bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">

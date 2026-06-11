@@ -12,15 +12,18 @@ import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { fetchBlockState, getBlockedUserIds } from "@/lib/blocking";
 import { authedFetch } from "@/lib/auth/authed-fetch";
-import { ReelPlayer } from "@/components/feed/ReelPlayer";
 import { CrimsonSoundAttribution } from "@/components/CrimsonSoundPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ReportContentModal } from "@/components/safety/ReportContentModal";
-import { PostActionSheet, type PostActionTarget } from "@/components/social/PostActionSheet";
+import type { PostActionTarget } from "@/components/social/PostActionSheet";
+import {
+  DashboardFeedSkeleton,
+  DashboardMeetCardSkeleton,
+  DashboardMeetsMapSkeleton,
+} from "@/components/ui/skeletons";
+import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
-import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
 import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 import {
@@ -34,7 +37,6 @@ import {
   dashboardMeetToStartRideInput,
   StartRideLink,
 } from "@/components/meets/StartRideLink";
-import { DashboardMeetMapSheet } from "@/components/meets/dashboard/DashboardMeetMapSheet";
 import { hasMapsNavigationTarget } from "@/lib/meets/maps-links";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import {
@@ -57,7 +59,36 @@ const FEED_FOCUS_RELOAD_DEBOUNCE_MS = 1500;
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
+  loading: () => <MapLoadingPlaceholder className="h-56 w-full" />,
 });
+
+const ReelPlayer = dynamic(
+  () => import("@/components/feed/ReelPlayer").then((module) => module.ReelPlayer),
+  { ssr: false },
+);
+
+const NewRiderChecklistCard = dynamic(
+  () => import("@/components/growth/NewRiderChecklistCard").then((module) => module.NewRiderChecklistCard),
+  { ssr: false },
+);
+
+const ReportContentModal = dynamic(
+  () => import("@/components/safety/ReportContentModal").then((module) => module.ReportContentModal),
+  { ssr: false },
+);
+
+const PostActionSheet = dynamic(
+  () => import("@/components/social/PostActionSheet").then((module) => module.PostActionSheet),
+  { ssr: false },
+);
+
+const DashboardMeetMapSheet = dynamic(
+  () =>
+    import("@/components/meets/dashboard/DashboardMeetMapSheet").then(
+      (module) => module.DashboardMeetMapSheet,
+    ),
+  { ssr: false },
+);
 
 type PostType = "photo" | "reel" | "status" | "garage_build";
 
@@ -1350,14 +1381,7 @@ if (livePostIds.length > 0) {
 
           <section className="space-y-4">
             {dashboardLoading ? (
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
-                <div className="h-40 animate-pulse bg-white/10" />
-                <div className="space-y-3 p-4">
-                  <div className="h-3 w-36 rounded-full bg-white/10" />
-                  <div className="h-6 w-48 rounded-full bg-white/10" />
-                  <div className="h-3 w-56 max-w-full rounded-full bg-white/10" />
-                </div>
-              </div>
+              <DashboardMeetsMapSkeleton />
             ) : (
               <article className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707]">
                 <div className="relative h-56 bg-[#07080a]">
@@ -1467,19 +1491,7 @@ if (livePostIds.length > 0) {
                 <div className="mt-3 grid gap-3">
                   {dashboardLoading &&
                     Array.from({ length: 2 }).map((_, index) => (
-                      <div
-                        key={`active-now-${index}`}
-                        className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3"
-                      >
-                        <div className="flex animate-pulse items-center gap-3">
-                          <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
-                            <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
-                            <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
-                          </div>
-                        </div>
-                      </div>
+                      <DashboardMeetCardSkeleton key={`active-now-${index}`} />
                     ))}
 
                   {!dashboardLoading && activeMapMeets.length === 0 ? (
@@ -1594,19 +1606,7 @@ if (livePostIds.length > 0) {
                 <div className="mt-4 grid gap-3">
                   {dashboardLoading &&
                     Array.from({ length: 2 }).map((_, index) => (
-                      <div
-                        key={`${section.title}-${index}`}
-                        className="overflow-hidden rounded-xl border border-white/10 bg-black/25 p-3"
-                      >
-                        <div className="flex animate-pulse items-center gap-3">
-                          <div className="h-16 w-16 shrink-0 rounded-lg bg-white/10" />
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="h-4 w-40 max-w-full rounded-full bg-white/10" />
-                            <div className="h-3 w-52 max-w-full rounded-full bg-white/10" />
-                            <div className="h-3 w-32 max-w-full rounded-full bg-white/10" />
-                          </div>
-                        </div>
-                      </div>
+                      <DashboardMeetCardSkeleton key={`${section.title}-${index}`} />
                     ))}
 
                   {!dashboardLoading && section.meets.length === 0 ? (
@@ -1726,21 +1726,7 @@ if (livePostIds.length > 0) {
           </div>
 
           <div className="space-y-6">
-            {feedLoading &&
-              Array.from({ length: 2 }).map((_, index) => (
-                <div
-                  key={`feed-skeleton-${index}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
-                >
-                  <div className="flex animate-pulse items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-white/10" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 w-32 rounded-full bg-white/10" />
-                      <div className="h-2 w-44 rounded-full bg-white/10" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {feedLoading && <DashboardFeedSkeleton />}
 
             {!feedLoading && posts.length === 0 && (
               <EmptyState
@@ -2138,8 +2124,9 @@ if (livePostIds.length > 0) {
         </div>
       )}
 
+      {reportPostTarget ? (
       <ReportContentModal
-        open={Boolean(reportPostTarget)}
+        open
         title="Report Post"
         subtitle={
           reportPostTarget
@@ -2172,9 +2159,11 @@ if (livePostIds.length > 0) {
           window.setTimeout(() => setToast(null), 2600);
         }}
       />
+      ) : null}
 
+      {postActionTarget ? (
       <PostActionSheet
-        open={Boolean(postActionTarget)}
+        open
         target={postActionTarget}
         onClose={() => setPostActionTarget(null)}
         onReport={() => {
@@ -2189,10 +2178,12 @@ if (livePostIds.length > 0) {
         onHidden={(postId) => setPosts((current) => current.filter((item) => item.id !== postId))}
         onToast={(message) => { setToast(message); setTimeout(() => setToast(null), 1600); }}
       />
+      ) : null}
 
+      {selectedMapMeet ? (
       <DashboardMeetMapSheet
         meet={selectedMapMeet}
-        open={!!selectedMapMeet}
+        open
         isGoing={selectedMapMeet ? !!going[selectedMapMeet.id] : false}
         isHostTeam={
           !!selectedMapMeet &&
@@ -2207,6 +2198,7 @@ if (livePostIds.length > 0) {
         onJoin={() => void handleJoinMapMeet()}
         onLeave={() => void handleLeaveMapMeet()}
       />
+      ) : null}
 
       {(toast || completionNotice) && (
         <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
@@ -2223,8 +2215,13 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <main className="relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100">
-          <div className="mx-auto max-w-2xl px-4 py-16 text-sm text-zinc-500">Loading feed…</div>
+        <main className={`relative min-h-screen overflow-hidden bg-[#050405] text-zinc-100 ${BOTTOM_NAV_CLEARANCE}`}>
+          <div className="mx-auto max-w-2xl px-5 pt-6">
+            <DashboardMeetsMapSkeleton />
+            <div className="mt-7">
+              <DashboardFeedSkeleton />
+            </div>
+          </div>
         </main>
       }
     >

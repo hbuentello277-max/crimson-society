@@ -15,7 +15,12 @@ import {
 import { buildSnappedRoute } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
 
-const MeetMap = dynamic(() => import("@/components/MeetMap"), { ssr: false });
+import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
+
+const MeetMap = dynamic(() => import("@/components/MeetMap"), {
+  ssr: false,
+  loading: () => <MapLoadingPlaceholder className="h-full min-h-[220px] w-full" />,
+});
 
 export interface HostMeetForm {
   name: string;

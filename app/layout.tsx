@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
-import CartDrawer from "@/components/CartDrawer";
-import CartToast from "@/components/CartToast";
+import { LazyGlobalShopUI } from "@/components/shop/LazyGlobalShopUI";
 import { AuthProvider } from "@/components/AuthProvider";
 import { DeletionPendingGate } from "@/components/DeletionPendingGate";
 import { RestrictedAccountGate } from "@/components/RestrictedAccountGate";
@@ -62,8 +61,7 @@ export default function RootLayout({
             </RestrictedAccountGate>
           </DeletionPendingGate>
           <BottomNav />
-          <CartDrawer />
-          <CartToast />
+          <LazyGlobalShopUI />
         </AuthProvider>
       </body>
     </html>

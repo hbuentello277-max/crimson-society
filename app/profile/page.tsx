@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { CompactProfileCard } from "@/components/profile/CompactProfileCard";
@@ -20,7 +21,6 @@ import { supabase } from "@/lib/supabase";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { BOTTOM_NAV_CLEARANCE, CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
 
-import { ProfileSettingsMenuSheet } from "@/components/profile/ProfileSettingsMenuSheet";
 import {
   PROFILE_MENU_OPEN_VALUE,
   profileMenuOpenPath,
@@ -30,7 +30,20 @@ import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
 import { ProfileGarageBuildsSection } from "@/components/profile/ProfileGarageBuildsSection";
 import { ProfileMeetsSection } from "@/components/profile/ProfileMeetsSection";
-import { InviteRidersSheet } from "@/components/profile/InviteRidersSheet";
+import { ProfilePostsGridSkeleton } from "@/components/ui/skeletons";
+
+const ProfileSettingsMenuSheet = dynamic(
+  () =>
+    import("@/components/profile/ProfileSettingsMenuSheet").then(
+      (module) => module.ProfileSettingsMenuSheet,
+    ),
+  { ssr: false },
+);
+
+const InviteRidersSheet = dynamic(
+  () => import("@/components/profile/InviteRidersSheet").then((module) => module.InviteRidersSheet),
+  { ssr: false },
+);
 import { useOwnReferralStats } from "@/hooks/useOwnReferralStats";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
@@ -569,9 +582,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
     {tab === "posts" && (
       <section className="mt-3">
-        {postsState === "loading" && (
-          <EmptyPanel title="Loading posts." body="Gathering your latest ride archive." />
-        )}
+        {postsState === "loading" && <ProfilePostsGridSkeleton />}
 
         {postsState === "error" && (
           <EmptyPanel
@@ -651,8 +662,9 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     )}
   </div>
 
+  {(settingsOpen || menuOpenFromUrl) ? (
   <ProfileSettingsMenuSheet
-    open={settingsOpen || menuOpenFromUrl}
+    open
     profile={profile}
     userId={userId}
     onUpdatePrivacy={updatePrivacy}
@@ -679,6 +691,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       setDeleteModalOpen(true);
     }}
   />
+  ) : null}
 
   {deleteModalOpen && (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">
@@ -728,12 +741,14 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
     </div>
   )}
 
-  <InviteRidersSheet
-    open={inviteRidersOpen}
-    stats={referralStats}
-    loading={referralLoading}
-    onClose={() => setInviteRidersOpen(false)}
-  />
+  {inviteRidersOpen ? (
+    <InviteRidersSheet
+      open
+      stats={referralStats}
+      loading={referralLoading}
+      onClose={() => setInviteRidersOpen(false)}
+    />
+  ) : null}
 
   {(toast || completionNotice) && (
     <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">

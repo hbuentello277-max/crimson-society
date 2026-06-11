@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -13,9 +14,8 @@ import {
   type MeetVisibility,
 } from "@/lib/meet-visibility";
 import { supabase } from "@/lib/supabase";
-import { MeetDetailsModal } from "@/components/meets/MeetDetailsModal";
-import { HostMeetModal } from "@/components/meets/HostMeetModal";
 import type { HostMeetForm } from "@/components/meets/HostMeetModal";
+import { MeetsListSkeleton } from "@/components/ui/skeletons";
 import {
   createMeetIdempotencyKey,
   isMeetCreateDuplicateError,
@@ -28,6 +28,16 @@ import {
   serializeRouteSteps,
 } from "@/lib/meets/navigation/steps";
 import { SwipeTabPanels } from "@/components/ui/SwipeTabPanels";
+
+const MeetDetailsModal = dynamic(
+  () => import("@/components/meets/MeetDetailsModal").then((module) => module.MeetDetailsModal),
+  { ssr: false },
+);
+
+const HostMeetModal = dynamic(
+  () => import("@/components/meets/HostMeetModal").then((module) => module.HostMeetModal),
+  { ssr: false },
+);
 import { BOTTOM_NAV_CLEARANCE, CS_BADGE_SM, CS_HOST_MEET_BTN, csPill } from "@/lib/crimson-accent";
 import { useHistoryModal } from "@/hooks/useHistoryModal";
 import { blackcardLeaderboardHref } from "@/lib/navigation/meets-return";
@@ -1254,16 +1264,8 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
     return (
       <>
         {loadingMeets && (
-          <section className="mt-7 overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
-            <div className="h-[280px] animate-pulse bg-white/10 sm:h-[360px]" />
-            <div className="space-y-4 p-5 sm:p-6">
-              <div className="h-4 w-2/3 rounded-full bg-white/10" />
-              <div className="h-3 w-1/2 rounded-full bg-white/10" />
-              <div className="flex flex-wrap gap-2">
-                <div className="h-10 w-36 rounded-lg bg-white/10" />
-                <div className="h-10 w-24 rounded-lg bg-white/10" />
-              </div>
-            </div>
+          <section className="mt-7">
+            <MeetsListSkeleton />
           </section>
         )}
 
@@ -1394,19 +1396,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
           </div>
 
           <div className="mt-4 grid gap-3">
-            {loadingMeets &&
-              Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
-                  <div className="flex animate-pulse gap-4">
-                    <div className="h-24 w-28 shrink-0 rounded-lg bg-white/10" />
-                    <div className="flex-1 space-y-3">
-                      <div className="h-5 w-2/3 rounded-full bg-white/10" />
-                      <div className="h-3 w-1/2 rounded-full bg-white/10" />
-                      <div className="h-3 w-4/5 rounded-full bg-white/10" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {loadingMeets ? <MeetsListSkeleton /> : null}
 
             {!loadingMeets && panelCompact.map((ride) => {
               const isGoingRide = !!going[ride.id];
@@ -1542,7 +1532,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
         </SwipeTabPanels>
       </div>
 
-      {selectedMeet && (
+      {selectedMeet ? (
         <MeetDetailsModal
           meet={selectedMeet}
           isGoing={!!going[selectedMeet.id]}
@@ -1577,9 +1567,9 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
               : undefined
           }
         />
-      )}
+      ) : null}
 
-      {hostModalOpen && (
+      {hostModalOpen ? (
         <HostMeetModal
           mode={editingMeet ? "edit" : "create"}
           canHostBlackcard={viewerHasBlackcard || isAdmin}
@@ -1588,7 +1578,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
           isSubmitting={savingMeet}
           onCreate={(newMeet) => void saveMeet(newMeet)}
         />
-      )}
+      ) : null}
 
       {toast && (
         <div className="fixed inset-x-4 bottom-[calc(var(--bottom-nav-clearance)+0.5rem)] z-50 mx-auto max-w-sm rounded-lg border border-[#b4141e]/55 bg-[#10080a]/95 px-4 py-3 text-center text-sm text-[#f0c9ce] shadow-[0_22px_60px_-28px_rgba(0,0,0,0.95)] backdrop-blur-md">

@@ -1,10 +1,11 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ShopCreditRewardsPanel } from "@/components/shop/ShopCreditRewardsPanel";
+import { motion } from "framer-motion";
+import { ShopCatalogSkeleton } from "@/components/ui/skeletons";
 import {
   Category,
   Product,
@@ -14,16 +15,7 @@ import {
   formatPrice,
   fetchMerchProducts,
 } from "@/lib/products";
-import { resolveProductImageUrl, resolveStoredProductImageUrl, normalizeProductImages } from "@/lib/shop/product-image-url";
-
-const FALLBACK_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800";
-
-function productImageAt(images: unknown, index = 0) {
-  const list = normalizeProductImages(images);
-  return resolveStoredProductImageUrl(list[index]) || FALLBACK_PRODUCT_IMAGE;
-}
-import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
+import { resolveProductImageUrl } from "@/lib/shop/product-image-url";
 import {
   STANDARD_SHIRT_SIZES,
   isSizePurchasable,
@@ -33,15 +25,40 @@ import {
 import { useCart, useCartCount } from "@/lib/cart-store";
 import { BOTTOM_NAV_CLEARANCE, CS_SHOP_BAG_BTN } from "@/lib/crimson-accent";
 
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800";
+
 type SortKey = "featured" | "newest" | "price-low" | "price-high";
 
 type ShopTab = "merch" | "credit-rewards";
+
+const ShopCreditRewardsPanel = dynamic(
+  () =>
+    import("@/components/shop/ShopCreditRewardsPanel").then((module) => module.ShopCreditRewardsPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <ShopCatalogSkeleton />
+      </div>
+    ),
+  },
+);
+
+const ShopProductDetailOverlay = dynamic(
+  () => import("@/components/shop/ShopProductDetailOverlay"),
+  { ssr: false },
+);
 
 export default function ShopPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#050405] px-5 py-20 text-sm text-zinc-500">Loading shop…</main>
+        <main className={`min-h-screen bg-[#050405] px-5 py-20 ${BOTTOM_NAV_CLEARANCE}`}>
+          <div className="mx-auto max-w-2xl pt-10">
+            <ShopCatalogSkeleton />
+          </div>
+        </main>
       }
     >
       <ShopPageInner />
@@ -371,9 +388,7 @@ function ShopPageInner() {
 
       <section className="relative mx-auto mt-6 max-w-2xl px-5">
         {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/70">
-            Loading shop…
-          </div>
+          <ShopCatalogSkeleton />
         ) : errorMsg ? (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-300">
             {errorMsg}
@@ -446,241 +461,30 @@ function ShopPageInner() {
       </>
       ) : null}
 
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md"
-            onClick={closeProduct}
-          >
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 280, damping: 32 }}
-              className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border-t border-white/10 bg-[#0a0a0b]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-center pt-3">
-                <div className="h-1 w-12 rounded-full bg-white/15" />
-              </div>
-
-              <div className="flex items-center justify-between px-5 pt-3">
-                <p className="text-[10px] uppercase tracking-[0.35em] text-[#e87a82]">
-                  Detail
-                </p>
-
-                <button
-                  type="button"
-                  onClick={closeProduct}
-                  className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/70 hover:bg-white/5"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="mt-4 px-5">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10 bg-black">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={imgIdx}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="absolute inset-0"
-                    >
-                      <Image
-                        src={productImageAt(active.images, imgIdx)}
-                        alt={active.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 768px"
-                        className={`object-cover object-[center_62%] ${
-                          isWaitlistState(active) ? "opacity-60 grayscale" : ""
-                        }`}
-                      />
-                    </motion.div>
-                  </AnimatePresence>
-
-                  {(active.badge || active.status === "coming_soon") && (
-                    <span
-                      className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.25em] backdrop-blur ${
-                        active.status === "coming_soon"
-                          ? "border-white/20 bg-black/80 text-white/70"
-                          : badgeStyle(active.badge)
-                      }`}
-                    >
-                      {active.status === "coming_soon"
-                        ? "Coming Soon"
-                        : badgeLabel(active.badge)}
-                    </span>
-                  )}
-                </div>
-
-                {active.images.length > 1 && (
-                  <div className="mt-3 flex gap-2">
-                    {active.images.map((src, i) => (
-                      <button
-                        key={`${src}-${i}`}
-                        type="button"
-                        onClick={() => setImgIdx(i)}
-                        className={`relative h-16 w-16 overflow-hidden rounded-xl border transition ${
-                          i === imgIdx
-                            ? "border-[#b4141e]"
-                            : "border-white/10 hover:border-white/30"
-                        }`}
-                      >
-                        <Image
-                          src={productImageAt(active.images, i)}
-                          alt={`${active.name} thumbnail ${i + 1}`}
-                          fill
-                          sizes="64px"
-                          className="object-cover object-[center_62%]"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="px-5 py-5">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                  {categoryLabels[active.category]}
-                </p>
-
-                <h2 className="mt-1 font-serif text-3xl italic text-white">
-                  {active.name}
-                </h2>
-
-                <p className="mt-1 text-xs uppercase tracking-[0.25em] text-white/50">
-                  {active.tagline}
-                </p>
-
-                <p className="mt-3 text-xl text-[#e87a82]">{formatPrice(active.price)}</p>
-
-                <div className="mt-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/40">
-                    Notes
-                  </p>
-                  <p className="text-sm leading-relaxed text-white/80">
-                    {active.description}
-                  </p>
-                </div>
-
-                {!showWaitlist && (
-                  <>
-                    <div className="mt-5">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p
-                          className={`text-[10px] uppercase tracking-[0.3em] transition ${
-                            sizeError ? "text-[#e87a82]" : "text-white/40"
-                          }`}
-                        >
-                          {sizeError ? "Pick a size first" : "Size"}
-                        </p>
-
-                        <button
-                          type="button"
-                          className="text-[10px] uppercase tracking-[0.25em] text-[#e87a82]"
-                        >
-                          Size Guide
-                        </button>
-                      </div>
-
-                      <motion.div
-                        animate={sizeError ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        <SizeSelectorButtons
-                          sizes={activeDisplaySizes}
-                          sizeInventory={activeSizeMap}
-                          selected={size}
-                          onSelect={(s) => {
-                            setSize(s);
-                            setSizeError(false);
-                          }}
-                          disabled={
-                            isWaitlistState(active) ||
-                            isComingSoon(active)
-                          }
-                        />
-                      </motion.div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleAdd}
-                      className={`mt-6 w-full rounded-full px-6 py-3.5 text-xs uppercase tracking-[0.3em] transition ${
-                        isComingSoon(active)
-                          ? "border border-white/10 bg-white/[0.04] text-white/65 hover:border-white/20"
-                          : isWaitlistState(active)
-                          ? "border border-white/10 bg-black/40 text-white/80 hover:border-[#b4141e]/60 hover:bg-[#b4141e]/10 hover:text-white"
-                          : "border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82] hover:bg-[#b4141e]/30"
-                      }`}
-                    >
-                      {isComingSoon(active)
-                        ? "Coming Soon"
-                        : isWaitlistState(active)
-                        ? "Join the Waitlist"
-                        : "Add to Bag"}
-                    </button>
-                  </>
-                )}
-
-                {showWaitlist && (
-                  <motion.form
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onSubmit={handleWaitlistSubmit}
-                    className="mt-6 rounded-2xl border border-[#b4141e]/40 bg-[#b4141e]/5 p-4"
-                  >
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-[#e87a82]">
-                      Join the Waitlist
-                    </p>
-
-                    <p className="mt-1 text-sm text-white/70">
-                      Drop your email — we&apos;ll write when it returns.
-                    </p>
-
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        type="email"
-                        required
-                        value={waitlistEmail}
-                        onChange={(e) => setWaitlistEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#b4141e]/60"
-                      />
-
-                      <button
-                        type="submit"
-                        className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
-                      >
-                        Notify
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowWaitlist(false)}
-                      className="mt-3 text-[10px] uppercase tracking-[0.25em] text-white/40 hover:text-white"
-                    >
-                      ← Back
-                    </button>
-                  </motion.form>
-                )}
-
-                <p className="mt-4 text-center text-[10px] uppercase tracking-[0.3em] text-white/35">
-                  Free shipping over $200 · Members get 15% off
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {active ? (
+        <ShopProductDetailOverlay
+          product={active}
+          imgIdx={imgIdx}
+          size={size}
+          sizeError={sizeError}
+          showWaitlist={showWaitlist}
+          waitlistEmail={waitlistEmail}
+          activeDisplaySizes={activeDisplaySizes}
+          activeSizeMap={activeSizeMap}
+          onClose={closeProduct}
+          onImgIdxChange={setImgIdx}
+          onSizeChange={(nextSize) => {
+            setSize(nextSize);
+            setSizeError(false);
+          }}
+          onWaitlistEmailChange={setWaitlistEmail}
+          onShowWaitlistChange={setShowWaitlist}
+          onAdd={handleAdd}
+          onWaitlistSubmit={handleWaitlistSubmit}
+          isWaitlistState={isWaitlistState}
+          isComingSoon={isComingSoon}
+        />
+      ) : null}
     </main>
   );
 }

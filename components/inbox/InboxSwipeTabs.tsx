@@ -1,11 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
-import MessagesPanel from "@/components/inbox/MessagesPanel";
-import NotificationsPanel from "@/components/inbox/NotificationsPanel";
+import { InboxTabSkeleton } from "@/components/ui/skeletons";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 import { CS_CTA_PRIMARY_MD, csPill } from "@/lib/crimson-accent";
@@ -14,6 +14,16 @@ import { formatNavBadgeCount } from "@/lib/nav-badge-format";
 import { supabase } from "@/lib/supabase";
 
 type InboxTab = "messages" | "notifications";
+
+const MessagesPanel = dynamic(() => import("@/components/inbox/MessagesPanel"), {
+  ssr: false,
+  loading: () => <InboxTabSkeleton />,
+});
+
+const NotificationsPanel = dynamic(() => import("@/components/inbox/NotificationsPanel"), {
+  ssr: false,
+  loading: () => <InboxTabSkeleton />,
+});
 
 function TabBadge({ count }: { count: number }) {
   if (count <= 0) return null;

@@ -1,8 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { LeaderboardRiderPreviewSheet } from "@/components/growth/LeaderboardRiderPreviewSheet";
+
+const LeaderboardRiderPreviewSheet = dynamic(
+  () =>
+    import("@/components/growth/LeaderboardRiderPreviewSheet").then(
+      (module) => module.LeaderboardRiderPreviewSheet,
+    ),
+  { ssr: false },
+);
 import {
   foundingLeaderboardDisplayName,
   foundingLeaderboardRowPoints,
@@ -178,7 +186,9 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
         )}
       </section>
 
-      <LeaderboardRiderPreviewSheet entry={previewEntry} onClose={() => setPreviewEntry(null)} />
+      {previewEntry ? (
+        <LeaderboardRiderPreviewSheet entry={previewEntry} onClose={() => setPreviewEntry(null)} />
+      ) : null}
     </div>
   );
 }

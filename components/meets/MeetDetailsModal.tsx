@@ -55,7 +55,12 @@ import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { buildMeetRouteCopyText, shareMeetLink } from "@/lib/meets/share-meet";
 import { supabase } from "@/lib/supabase";
 
-const MeetMap = dynamic(() => import("@/components/MeetMap"), { ssr: false });
+import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
+
+const MeetMap = dynamic(() => import("@/components/MeetMap"), {
+  ssr: false,
+  loading: () => <MapLoadingPlaceholder className="h-full min-h-[240px] w-full" />,
+});
 
 type MeetAttendee = {
   userId: string;

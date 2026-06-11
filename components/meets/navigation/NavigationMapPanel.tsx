@@ -5,8 +5,11 @@ import { memo, useMemo } from "react";
 import type { LiveRideRider } from "@/components/MeetMap";
 import type { NavigationSession } from "@/lib/meets/navigation/types";
 
+import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
+
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
+  loading: () => <MapLoadingPlaceholder className="h-full min-h-[320px] w-full" />,
 });
 
 type NavigationMapPanelProps = {
