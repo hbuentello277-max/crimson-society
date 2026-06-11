@@ -22,15 +22,6 @@ export function MembershipTierBadge({ tier, showAccessCta = true }: Props) {
         </span>
       ) : null}
 
-      {tier === "blackcard" ? (
-        <span className="inline-flex items-center gap-1 rounded-full border border-[#b4141e]/45 bg-[#b4141e]/10 px-2.5 py-1 text-[8px] font-medium uppercase tracking-[0.16em] text-[#e87a82]">
-          <span className="text-[11px] leading-none" aria-hidden>
-            👑
-          </span>
-          Blackcard Member
-        </span>
-      ) : null}
-
       {showAccessCta ? (
         <Link
           href="/blackcard"

@@ -13,6 +13,7 @@ import {
   VIDEO_LIMIT_BYTES,
   VIDEO_MAX_DURATION_SECONDS,
   videoFileSizeLimitMessage,
+  type PublicDisplayMedia,
   type UploadedOriginalMedia,
 } from "@/lib/media";
 import { assertVideoDurationWithinLimit } from "@/lib/media/video-metadata";
@@ -65,6 +66,8 @@ const statusBackgrounds = [
     className: "bg-gradient-to-br from-[#1a0405] via-[#6a0d14] to-[#0a0102]",
   },
 ];
+
+const GARAGE_BUILD_PHOTO_LIMIT = 6;
 
 export default function CreatePage() {
   const router = useRouter();
@@ -216,10 +219,19 @@ export default function CreatePage() {
         setVideoPreview(null);
       }
 
+      if (type === "photo" && photos.length > 1) {
+        photos.slice(1).forEach((p) => URL.revokeObjectURL(p.preview));
+        setPhotos(photos.slice(0, 1));
+      }
+
       if (type !== "status") {
         setStatusText("");
         setStatusBg(statusBackgrounds[0]);
       } else {
+        setSelectedSound(null);
+      }
+
+      if (type !== "photo" && type !== "reel") {
         setSelectedSound(null);
       }
 
@@ -242,8 +254,9 @@ export default function CreatePage() {
   const handlePhotos = (files: FileList | null) => {
     if (!files) return;
 
+    const limit = type === "garage_build" ? GARAGE_BUILD_PHOTO_LIMIT : 1;
     const next = Array.from(files)
-      .slice(0, 1)
+      .slice(0, limit)
       .map((file) => ({
         file,
         preview: URL.createObjectURL(file),
@@ -251,7 +264,7 @@ export default function CreatePage() {
 
     setPhotos((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p.preview));
-      return next.slice(0, 1);
+      return next;
     });
   };
 
@@ -322,6 +335,7 @@ export default function CreatePage() {
       return (
         Boolean(selectedMotorcycleId) &&
         modificationTitle.trim().length > 0 &&
+        caption.trim().length > 0 &&
         (photos.length > 0 || !!videoFile)
       );
     }
@@ -346,6 +360,8 @@ export default function CreatePage() {
       let videoUrl: string | null = null;
       let imageOriginal: UploadedOriginalMedia | null = null;
       let videoOriginal: UploadedOriginalMedia | null = null;
+      let imageOriginals: UploadedOriginalMedia[] = [];
+      let imageDisplays: PublicDisplayMedia[] = [];
       let mediaStatus = "ready";
       let mediaMetadata: Record<string, unknown> = {};
 
@@ -368,6 +384,8 @@ export default function CreatePage() {
           originals_preserved: true,
           display_source_path: display.path,
         };
+        imageOriginals = [imageOriginal];
+        imageDisplays = [display];
       }
 
       if ((type === "reel" || type === "garage_build") && videoFile) {
@@ -391,25 +409,37 @@ export default function CreatePage() {
         };
       }
 
-      if (type === "garage_build" && photos[0]) {
-        imageOriginal = await uploadOriginalMedia(
-          supabase,
-          user.id,
-          "image",
-          photos[0].file,
-        );
-        const display = await uploadImageDisplaySource(
-          supabase,
-          imageOriginal.path,
-          photos[0].file,
-        );
-        imageUrl = display.publicUrl;
+      if (type === "garage_build" && photos.length > 0) {
+        const uploadedPhotos: {
+          original: UploadedOriginalMedia;
+          display: PublicDisplayMedia;
+        }[] = [];
+
+        for (const photo of photos) {
+          const original = await uploadOriginalMedia(
+            supabase,
+            user.id,
+            "image",
+            photo.file,
+          );
+          const display = await uploadImageDisplaySource(
+            supabase,
+            original.path,
+            photo.file,
+          );
+          uploadedPhotos.push({ original, display });
+        }
+
+        imageOriginals = uploadedPhotos.map((photo) => photo.original);
+        imageDisplays = uploadedPhotos.map((photo) => photo.display);
+        imageOriginal = uploadedPhotos[0]?.original ?? null;
+        imageUrl = uploadedPhotos[0]?.display.publicUrl ?? null;
         mediaStatus = "queued";
         mediaMetadata = {
           ...mediaMetadata,
           pipeline: videoFile ? "garage-build-mixed-media" : "garage-build-image",
           originals_preserved: true,
-          display_source_path: display.path,
+          display_source_path: uploadedPhotos[0]?.display.path ?? null,
         };
       }
 
@@ -423,6 +453,9 @@ export default function CreatePage() {
             motorcycle_name: selectedMotorcycle?.name?.trim() || selectedMotorcycle?.label?.trim() || null,
             motorcycle_year: selectedMotorcycle?.year?.trim() || null,
             motorcycle_photo_url: selectedMotorcycle?.photo_url?.trim() || null,
+            photo_urls: imageDisplays.map((photo) => photo.publicUrl),
+            photo_display_paths: imageDisplays.map((photo) => photo.path),
+            photo_original_paths: imageOriginals.map((photo) => photo.path),
           },
         };
       }
@@ -437,7 +470,7 @@ export default function CreatePage() {
         video_url: videoUrl,
         status_text: isStatus ? statusText : null,
         status_bg: isStatus ? statusBg.id : null,
-        location: location || null,
+        location: type === "garage_build" ? null : location || null,
         media_pipeline_version: type === "status" ? 1 : 2,
         media_status: isStatus ? "ready" : mediaStatus,
         media_metadata: mediaMetadata,
@@ -472,13 +505,13 @@ export default function CreatePage() {
         if (soundError) throw soundError;
       }
 
-      if (imageOriginal) {
+      for (const original of imageOriginals) {
         await queueMediaProcessingJob(supabase, {
           userId: user.id,
           postId: insertedPost?.id ?? null,
           mediaKind: "image",
-          sourceBucket: imageOriginal.bucket,
-          sourcePath: imageOriginal.path,
+          sourceBucket: original.bucket,
+          sourcePath: original.path,
           metadata: mediaMetadata,
         });
       }
@@ -496,10 +529,10 @@ export default function CreatePage() {
         const processResult = await triggerReelProcessing(insertedPost.id);
         if (!processResult.ok) {
           setToast(
-            "Post created. Reel is queued — processing will retry automatically.",
+            "Post created. Video is queued — processing will retry automatically.",
           );
         } else if (processResult.failed && processResult.error) {
-          setToast("Post created, but reel processing failed. Check your feed.");
+          setToast("Post created, but video processing failed. Check your feed.");
           console.warn("[reel-processing] upload completed with worker error", {
             postId: insertedPost.id,
             error: processResult.error,
@@ -559,13 +592,12 @@ export default function CreatePage() {
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pt-6">
-        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5">
           {(
             [
               { id: "photo" as const, label: "Post" },
-              { id: "reel" as const, label: "Reel" },
+              { id: "reel" as const, label: "Video" },
               { id: "garage_build" as const, label: "Garage Build" },
-              { id: "status" as const, label: "Status" },
             ] as const
           ).map((option) => (
             <button
@@ -650,7 +682,7 @@ export default function CreatePage() {
           <section className="space-y-4">
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
               <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">
-                Reel
+                Video
               </p>
 
               {!videoPreview ? (
@@ -661,7 +693,7 @@ export default function CreatePage() {
                   <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 text-xl text-[#e87a82]">
                     ▶
                   </div>
-                  <p className="font-serif text-lg italic text-white">Upload reel</p>
+                  <p className="font-serif text-lg italic text-white">Upload video</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.28em] text-white/40">
                     MP4, MOV, or WEBM · 60s max · 50MB max
                   </p>
@@ -679,13 +711,13 @@ export default function CreatePage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-white">{videoFile?.name}</p>
                     <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
-                      {videoDurationLabel ? `${videoDurationLabel} · ` : ""}Reel selected
+                      {videoDurationLabel ? `${videoDurationLabel} · ` : ""}Video selected
                     </p>
                   </div>
                   <button
                     onClick={clearVideo}
                     className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/15 text-xs text-white/70 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                    aria-label="Remove reel"
+                    aria-label="Remove video"
                   >
                     ✕
                   </button>
@@ -770,50 +802,88 @@ export default function CreatePage() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
-              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">Photos</p>
-              {photos.length === 0 ? (
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">
+                Photos and/or Video
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex h-32 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60"
+                  className="flex h-28 flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60"
                 >
-                  <p className="font-serif text-lg italic text-white">Add photo</p>
+                  <p className="font-serif text-lg italic text-white">Add photos</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/35">
+                    Up to {GARAGE_BUILD_PHOTO_LIMIT}
+                  </p>
                 </button>
-              ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-3">
-                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photos[0].preview} alt="" className="h-full w-full object-cover" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(0)}
-                    className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70"
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
 
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
-              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">Video (optional)</p>
-              {!videoPreview ? (
                 <button
                   type="button"
                   onClick={() => videoInputRef.current?.click()}
-                  className="flex h-28 w-full items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-sm text-white/70"
+                  className="flex h-28 flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center text-sm text-white/70 transition hover:border-[#b4141e]/60"
                 >
-                  Add video
+                  <p className="font-serif text-lg italic text-white">Add video</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/35">
+                    Optional
+                  </p>
                 </button>
-              ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/50 p-3">
+              </div>
+
+              {photos.length > 0 ? (
+                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {photos.map((photo, index) => (
+                    <div key={photo.preview} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-black">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo.preview} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-xs text-white"
+                        aria-label="Remove garage build photo"
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {videoPreview ? (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-black/50 p-3">
                   <video src={videoPreview} muted playsInline className="h-16 w-16 rounded-lg object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white">{videoFile?.name}</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
+                      {videoDurationLabel ? `${videoDurationLabel} · ` : ""}Video selected
+                    </p>
+                  </div>
                   <button type="button" onClick={clearVideo} className="text-xs text-white/70">
                     Remove
                   </button>
                 </div>
-              )}
+              ) : null}
+
+              {mediaError ? (
+                <p className="mt-3 rounded-lg border border-[#b4141e]/35 bg-[#b4141e]/10 px-3 py-2 text-xs leading-5 text-[#e87a82]">
+                  {mediaError}
+                </p>
+              ) : null}
+
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => handlePhotos(e.target.files)}
+              />
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                hidden
+                onChange={(e) => handleVideo(e.target.files)}
+              />
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
@@ -915,80 +985,84 @@ export default function CreatePage() {
           </>
         )}
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-          <p className="mb-2 text-[10px] uppercase tracking-[0.35em] text-white/40">
-            Location
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="text-[#e87a82]">⌖</span>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Tag a place"
-              className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-          <button
-            onClick={() => setShowRiderPicker(true)}
-            className="flex w-full items-center justify-between"
-          >
-            <div className="text-left">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-white/40">
-                Tag Riders
+        {type !== "garage_build" && (
+          <>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+              <p className="mb-2 text-[10px] uppercase tracking-[0.35em] text-white/40">
+                Location
               </p>
-              <p className="mt-1 text-sm text-white">
-                {taggedRiders.length === 0
-                  ? "Add riders"
-                  : `${taggedRiders.length} tagged`}
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-[#e87a82]">⌖</span>
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Tag a place"
+                  className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                />
+              </div>
             </div>
-            <span className="text-white/30">›</span>
-          </button>
 
-          {taggedRiders.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {taggedRiders.map((h) => (
-                <span
-                  key={h}
-                  className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-1 text-xs text-[#e87a82]"
-                >
-                  {h}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
-          <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">
-            Audience
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { id: "public", label: "Public", sub: "All riders" },
-              { id: "close", label: "Close", sub: "Inner circle" },
-              { id: "group", label: "Group", sub: "Specific chat" },
-            ] as { id: Audience; label: string; sub: string }[]).map((opt) => (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
               <button
-                key={opt.id}
-                onClick={() => setAudience(opt.id)}
-                className={`rounded-xl border p-3 text-left transition ${
-                  audience === opt.id
-                    ? "border-[#b4141e] bg-[#b4141e]/10"
-                    : "border-white/10 bg-black/30 hover:border-white/30"
-                }`}
+                onClick={() => setShowRiderPicker(true)}
+                className="flex w-full items-center justify-between"
               >
-                <p className="text-xs uppercase tracking-[0.2em] text-white">
-                  {opt.label}
-                </p>
-                <p className="mt-1 text-[10px] text-white/40">{opt.sub}</p>
+                <div className="text-left">
+                  <p className="text-[10px] uppercase tracking-[0.35em] text-white/40">
+                    Tag Riders
+                  </p>
+                  <p className="mt-1 text-sm text-white">
+                    {taggedRiders.length === 0
+                      ? "Add riders"
+                      : `${taggedRiders.length} tagged`}
+                  </p>
+                </div>
+                <span className="text-white/30">›</span>
               </button>
-            ))}
-          </div>
-        </div>
+
+              {taggedRiders.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {taggedRiders.map((h) => (
+                    <span
+                      key={h}
+                      className="rounded-full border border-[#b4141e]/40 bg-[#b4141e]/10 px-3 py-1 text-xs text-[#e87a82]"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">
+                Audience
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: "public", label: "Public", sub: "All riders" },
+                  { id: "close", label: "Close", sub: "Inner circle" },
+                  { id: "group", label: "Group", sub: "Specific chat" },
+                ] as { id: Audience; label: string; sub: string }[]).map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAudience(opt.id)}
+                    className={`rounded-xl border p-3 text-left transition ${
+                      audience === opt.id
+                        ? "border-[#b4141e] bg-[#b4141e]/10"
+                        : "border-white/10 bg-black/30 hover:border-white/30"
+                    }`}
+                  >
+                    <p className="text-xs uppercase tracking-[0.2em] text-white">
+                      {opt.label}
+                    </p>
+                    <p className="mt-1 text-[10px] text-white/40">{opt.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
       </div>
 

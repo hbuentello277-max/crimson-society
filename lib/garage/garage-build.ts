@@ -7,6 +7,9 @@ export type GarageBuildMetadata = {
     motorcycle_name?: string | null;
     motorcycle_year?: string | null;
     motorcycle_photo_url?: string | null;
+    photo_urls?: string[] | null;
+    photo_display_paths?: string[] | null;
+    photo_original_paths?: string[] | null;
   };
 };
 
@@ -30,6 +33,18 @@ export function formatGarageBuildRideLabel(
   if (name && year) return `${year} ${name}`;
   if (name) return name;
   return "Garage Build";
+}
+
+export function getGarageBuildPhotoUrls(
+  garageBuild: GarageBuildMetadata["garage_build"] | null | undefined,
+  fallbackUrl?: string | null,
+) {
+  const urls = Array.isArray(garageBuild?.photo_urls)
+    ? garageBuild.photo_urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    : [];
+
+  if (urls.length > 0) return urls;
+  return fallbackUrl ? [fallbackUrl] : [];
 }
 
 export function formatGarageBuildDate(createdAt: string) {

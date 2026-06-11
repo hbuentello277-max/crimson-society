@@ -9,10 +9,25 @@ export type ProfileMeetRow = {
 };
 
 const MEET_SELECT = "id, name, date, cover";
+const ACTIVE_MEET_STATUS = "active";
 
 export function formatProfileMeetDate(date: string) {
   const trimmed = date?.trim();
   if (!trimmed) return "Date pending";
+
+  const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+    ).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 
   const parsed = Date.parse(trimmed);
   if (!Number.isNaN(parsed)) {
@@ -33,8 +48,8 @@ export async function loadProfileHostedMeets(
     .from(MEET_TABLES.meets)
     .select(MEET_SELECT)
     .or(`host_id.eq.${userId},co_host_id.eq.${userId}`)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
+    .eq("status", ACTIVE_MEET_STATUS)
+    .order("date", { ascending: false })
     .limit(48);
 
   if (error) {
@@ -69,9 +84,10 @@ export async function loadProfileAttendedMeets(
     .from(MEET_TABLES.meets)
     .select(`${MEET_SELECT}, co_host_id`)
     .in("id", rideIds)
-    .eq("status", "active")
+    .eq("status", ACTIVE_MEET_STATUS)
     .neq("host_id", userId)
-    .order("created_at", { ascending: false })
+    .or(`co_host_id.is.null,co_host_id.neq.${userId}`)
+    .order("date", { ascending: false })
     .limit(48);
 
   if (error) {

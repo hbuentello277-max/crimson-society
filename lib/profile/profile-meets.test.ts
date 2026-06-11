@@ -5,8 +5,7 @@ import { formatProfileMeetDate } from "@/lib/profile/profile-meets";
 describe("profile meets helpers", () => {
   it("formats ISO-like meet dates", () => {
     const formatted = formatProfileMeetDate("2026-06-15");
-    assert.match(formatted, /Jun/);
-    assert.match(formatted, /2026/);
+    assert.equal(formatted, "Jun 15, 2026");
   });
 
   it("returns pending label for empty dates", () => {
