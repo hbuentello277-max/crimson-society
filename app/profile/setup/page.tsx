@@ -248,7 +248,7 @@ const { error: profileError } = await supabase
               {step === 1
                 ? "Tell the Order who you are."
                 : step === 2
-                  ? "Introduce your iron."
+                  ? "Add your ride."
                   : "Choose how you ride."}
             </p>
           </header>

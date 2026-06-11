@@ -20,6 +20,8 @@ import { PostActionSheet, type PostActionTarget } from "@/components/social/Post
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
+import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
+import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import {
   dashboardMeetToStartRideInput,
@@ -406,6 +408,12 @@ function DashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading, isAdmin } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const {
+    status: riderOnboardingStatus,
+    loading: riderOnboardingLoading,
+    awarding: riderOnboardingAwarding,
+  } = useRiderOnboardingChecklist(Boolean(userId));
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
@@ -1297,6 +1305,15 @@ if (livePostIds.length > 0) {
         }}
       >
         <div className="mx-auto max-w-2xl px-5 pt-6">
+          <div className="mb-4">
+            <NewRiderChecklistCard
+              status={riderOnboardingStatus}
+              loading={riderOnboardingLoading}
+              awarding={riderOnboardingAwarding}
+              compact
+            />
+          </div>
+
           <section className="space-y-4">
             {dashboardLoading ? (
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">

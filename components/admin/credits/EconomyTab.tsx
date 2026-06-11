@@ -16,6 +16,7 @@ const NUMBER_FIELDS: {
   { key: "host_meet_credits", label: "Host Meet credits" },
   { key: "referral_signup_credits", label: "Referral Signup credits" },
   { key: "referral_blackcard_credits", label: "Referral → Blackcard credits" },
+  { key: "rider_onboarding_credits", label: "New rider onboarding credits" },
   { key: "monthly_earn_cap", label: "Monthly earn cap" },
   { key: "credits_per_100_usd", label: "Reward value (credits per $5)", hint: "100 credits = $5 → value 5" },
   { key: "blackcard_merch_discount_percent", label: "Blackcard merch discount (%)" },
@@ -26,6 +27,7 @@ const TOGGLE_FIELDS: { key: keyof CrimsonCreditsEconomySettings; label: string }
   { key: "earn_host_meet_enabled", label: "Host Meet earning" },
   { key: "earn_referral_signup_enabled", label: "Referral Signup earning" },
   { key: "earn_referral_blackcard_enabled", label: "Referral Blackcard earning" },
+  { key: "earn_rider_onboarding_enabled", label: "New rider onboarding earning" },
 ];
 
 export function EconomyTab({ onSaved }: Props) {

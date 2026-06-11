@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { saveSignupReferralCode } from "@/lib/credits/signup-referral-session";
 import { normalizeReferralCodeInput } from "@/lib/credits/referral-code";
+import { readReferralCodeFromSignupUrl } from "@/lib/credits/referral-link";
 import {
   getPasswordRequirementChecks,
   getPasswordValidationErrorKey,
@@ -99,7 +101,9 @@ const copy = {
   },
 } as const;
 
-export default function SignUpPage() {
+function SignUpPageContent() {
+  const searchParams = useSearchParams();
+
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window === "undefined") return "en";
 
@@ -118,6 +122,13 @@ export default function SignUpPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+
+  useEffect(() => {
+    const fromUrl = readReferralCodeFromSignupUrl(searchParams);
+    if (!fromUrl) return;
+    setReferralCode(fromUrl);
+    saveSignupReferralCode(fromUrl);
+  }, [searchParams]);
 
   const complianceComplete = ageConfirmed && termsAccepted && guidelinesAccepted;
   const passwordChecks = getPasswordRequirementChecks(password);
@@ -545,5 +556,13 @@ export default function SignUpPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpPageContent />
+    </Suspense>
   );
 }

@@ -30,6 +30,7 @@ export const CREDIT_EARN_AMOUNTS = {
   meet_hosted: 20,
   referral_signup: 25,
   referral_blackcard: 50,
+  rider_onboarding: 100,
 } as const;
 
 export function formatCreditsRewardValueUsd(credits: number) {

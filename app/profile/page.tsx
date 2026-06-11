@@ -28,7 +28,9 @@ import {
 } from "@/lib/navigation/profile-menu-return";
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
+import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
+import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 
 type ProfilePost = {
 id: string;
@@ -475,6 +477,11 @@ const {
   loading: creditsLoading,
   refresh: refreshCreditsSummary,
 } = useCrimsonCreditsSummary(userId);
+const {
+  status: riderOnboardingStatus,
+  loading: riderOnboardingLoading,
+  awarding: riderOnboardingAwarding,
+} = useRiderOnboardingChecklist(Boolean(userId));
 
 if (authLoading || profileLoading) {
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="relative mx-auto max-w-5xl px-5 pb-28 pt-10 sm:px-6 lg:px-8"> <ProfileSkeleton /> </div> </main>
@@ -563,11 +570,18 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       }
     />
 
-    <CrimsonCreditsCard
-      summary={creditsSummary}
-      loading={creditsLoading}
-      membershipTier={membershipTier}
-    />
+    <div className="mt-4 space-y-4">
+      <NewRiderChecklistCard
+        status={riderOnboardingStatus}
+        loading={riderOnboardingLoading}
+        awarding={riderOnboardingAwarding}
+      />
+      <CrimsonCreditsCard
+        summary={creditsSummary}
+        loading={creditsLoading}
+        membershipTier={membershipTier}
+      />
+    </div>
 
     <ProfileTabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -652,7 +666,10 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
         )}
 
         {garageState === "loaded" && motorcycles.length === 0 && (
-          <EmptyPanel title="No motorcycles listed." body="Garage entries can be added from profile editing." />
+          <EmptyPanel
+            title="Add Your Ride"
+            body="Add your motorcycle from Edit Profile to complete your garage."
+          />
         )}
 
         {garageState === "loaded" && motorcycles.length > 0 && (

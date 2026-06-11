@@ -7,6 +7,7 @@ export type CrimsonCreditsEconomySettings = {
   host_meet_credits: number;
   referral_signup_credits: number;
   referral_blackcard_credits: number;
+  rider_onboarding_credits: number;
   monthly_earn_cap: number;
   credits_per_100_usd: number;
   blackcard_merch_discount_percent: number;
@@ -14,6 +15,7 @@ export type CrimsonCreditsEconomySettings = {
   earn_host_meet_enabled: boolean;
   earn_referral_signup_enabled: boolean;
   earn_referral_blackcard_enabled: boolean;
+  earn_rider_onboarding_enabled: boolean;
 };
 
 export const DEFAULT_CRIMSON_CREDITS_ECONOMY: CrimsonCreditsEconomySettings = {
@@ -21,6 +23,7 @@ export const DEFAULT_CRIMSON_CREDITS_ECONOMY: CrimsonCreditsEconomySettings = {
   host_meet_credits: 20,
   referral_signup_credits: 25,
   referral_blackcard_credits: 50,
+  rider_onboarding_credits: 100,
   monthly_earn_cap: 500,
   credits_per_100_usd: 5,
   blackcard_merch_discount_percent: 10,
@@ -28,6 +31,7 @@ export const DEFAULT_CRIMSON_CREDITS_ECONOMY: CrimsonCreditsEconomySettings = {
   earn_host_meet_enabled: true,
   earn_referral_signup_enabled: true,
   earn_referral_blackcard_enabled: true,
+  earn_rider_onboarding_enabled: true,
 };
 
 const INT_FIELDS: (keyof CrimsonCreditsEconomySettings)[] = [
@@ -35,6 +39,7 @@ const INT_FIELDS: (keyof CrimsonCreditsEconomySettings)[] = [
   "host_meet_credits",
   "referral_signup_credits",
   "referral_blackcard_credits",
+  "rider_onboarding_credits",
   "monthly_earn_cap",
   "credits_per_100_usd",
   "blackcard_merch_discount_percent",
@@ -45,6 +50,7 @@ const BOOL_FIELDS: (keyof CrimsonCreditsEconomySettings)[] = [
   "earn_host_meet_enabled",
   "earn_referral_signup_enabled",
   "earn_referral_blackcard_enabled",
+  "earn_rider_onboarding_enabled",
 ];
 
 function parsePositiveInt(value: unknown, field: string, max: number): number {

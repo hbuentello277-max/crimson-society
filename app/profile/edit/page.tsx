@@ -459,10 +459,10 @@ function ProfileEditPageContent() {
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Garage</p>
-              <h2 className="mt-2 font-serif text-3xl text-white">Motorcycles</h2>
+              <h2 className="mt-2 font-serif text-3xl text-white">Add Your Ride</h2>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={addMotorcycle} className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">Add Motorcycle</button>
+              <button type="button" onClick={addMotorcycle} className="rounded-full border border-white/10 px-5 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]">Add Ride</button>
               <button type="button" onClick={() => void saveGarage()} disabled={savingGarage} className="rounded-full bg-[#b4141e]/80 px-5 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-[#b4141e] disabled:opacity-60">{savingGarage ? "Saving..." : "Save Garage"}</button>
             </div>
           </div>

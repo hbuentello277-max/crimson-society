@@ -45,10 +45,17 @@ export function CreditsReferralsPageContent() {
     },
   ];
 
+  const blackcardConversions = stats.referred_users.filter(
+    (person) => person.blackcard_reward_awarded,
+  ).length;
+  const pendingSignups = stats.referred_users.filter(
+    (person) => !person.signup_reward_awarded,
+  ).length;
+
   return (
     <CreditsPageShell
-      title="Referrals"
-      subtitle="Share your code at signup. Rewards credit when referrals join and upgrade to Blackcard."
+      title="Invite Riders"
+      subtitle="Share your referral link. Earn Crimson Credits when riders join and upgrade to Blackcard."
     >
       {error ? (
         <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -57,6 +64,24 @@ export function CreditsReferralsPageContent() {
       ) : null}
 
       <MemberReferralCodeCard referralCode={stats.referral_code} loading={authLoading || loading} />
+
+      <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Referral progress</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">Blackcard conversions</p>
+            <p className="mt-1 text-lg font-medium text-white">
+              {authLoading || loading ? "—" : blackcardConversions}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">Pending signups</p>
+            <p className="mt-1 text-lg font-medium text-white">
+              {authLoading || loading ? "—" : pendingSignups}
+            </p>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
         <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Referral stats</p>
