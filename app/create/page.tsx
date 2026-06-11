@@ -21,6 +21,7 @@ import CrimsonSoundPicker from "@/components/CrimsonSoundPicker";
 import type { CrimsonSound } from "@/lib/sounds";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
+import { MAX_POST_PHOTOS, type PostImageMetadataEntry } from "@/lib/posts/post-images";
 
 type PostType = "photo" | "reel" | "status" | "garage_build";
 type GarageMotorcycle = {
@@ -242,16 +243,24 @@ export default function CreatePage() {
   const handlePhotos = (files: FileList | null) => {
     if (!files) return;
 
-    const next = Array.from(files)
-      .slice(0, 1)
-      .map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-      }));
+    const maxPhotos = type === "photo" ? MAX_POST_PHOTOS : 1;
+    const incoming = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
 
     setPhotos((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.preview));
-      return next.slice(0, 1);
+      if (type === "garage_build") {
+        prev.forEach((p) => URL.revokeObjectURL(p.preview));
+        return incoming.slice(0, 1);
+      }
+
+      const merged = [...prev, ...incoming].slice(0, maxPhotos);
+      const keep = new Set(merged.map((photo) => photo.preview));
+      prev.forEach((photo) => {
+        if (!keep.has(photo.preview)) URL.revokeObjectURL(photo.preview);
+      });
+      return merged;
     });
   };
 
@@ -349,24 +358,33 @@ export default function CreatePage() {
       let mediaStatus = "ready";
       let mediaMetadata: Record<string, unknown> = {};
 
-      if (type === "photo" && photos[0]) {
-        imageOriginal = await uploadOriginalMedia(
-          supabase,
-          user.id,
-          "image",
-          photos[0].file,
-        );
-        const display = await uploadImageDisplaySource(
-          supabase,
-          imageOriginal.path,
-          photos[0].file,
-        );
-        imageUrl = display.publicUrl;
+      if (type === "photo" && photos.length > 0) {
+        const uploadedImages: PostImageMetadataEntry[] = [];
+
+        for (const photo of photos) {
+          const original = await uploadOriginalMedia(supabase, user.id, "image", photo.file);
+          const display = await uploadImageDisplaySource(supabase, original.path, photo.file);
+          uploadedImages.push({
+            display_url: display.publicUrl,
+            thumbnail_url: null,
+            original_path: original.path,
+            original_bucket: original.bucket,
+            display_source_path: display.path,
+          });
+
+          if (!imageOriginal) {
+            imageOriginal = original;
+            imageUrl = display.publicUrl;
+          }
+        }
+
         mediaStatus = "queued";
         mediaMetadata = {
           pipeline: "original-plus-display-source",
           originals_preserved: true,
-          display_source_path: display.path,
+          display_source_path: uploadedImages[0]?.display_source_path ?? null,
+          images: uploadedImages,
+          image_count: uploadedImages.length,
         };
       }
 
@@ -605,32 +623,43 @@ export default function CreatePage() {
                   </div>
                   <p className="font-serif text-lg italic text-white">Add photo</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-white/40">
-                    JPG · PNG · WebP
+                    JPG · PNG · WebP · up to {MAX_POST_PHOTOS}
                   </p>
                 </button>
               ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-3">
-                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photos[0].preview}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {photos.map((photo, index) => (
+                      <div
+                        key={photo.preview}
+                        className="relative aspect-square overflow-hidden rounded-lg border border-white/10"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo.preview} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(index)}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/15 bg-black/70 text-[10px] text-white/80"
+                          aria-label="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {photos.length < MAX_POST_PHOTOS ? (
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-white/15 bg-black/30 text-xl text-[#e87a82]"
+                        aria-label="Add another photo"
+                      >
+                        ＋
+                      </button>
+                    ) : null}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-white">{photos[0].file.name}</p>
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
-                      Photo selected
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => removePhoto(0)}
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/15 text-xs text-white/70 hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-                    aria-label="Remove photo"
-                  >
-                    ✕
-                  </button>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">
+                    {photos.length} photo{photos.length === 1 ? "" : "s"} selected
+                  </p>
                 </div>
               )}
 

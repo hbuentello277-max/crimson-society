@@ -15,6 +15,7 @@ export type FoundingLeaderboardEntry = {
   displayName: string | null;
   avatarUrl: string | null;
   points: number;
+  creditsBalance: number;
   profilePoints: number;
   attendPoints: number;
   hostPoints: number;
@@ -51,6 +52,7 @@ function parseEntry(raw: Record<string, unknown>): FoundingLeaderboardEntry {
     displayName: typeof raw.display_name === "string" ? raw.display_name : null,
     avatarUrl: typeof raw.avatar_url === "string" ? raw.avatar_url : null,
     points: typeof raw.points === "number" ? raw.points : 0,
+    creditsBalance: typeof raw.credits_balance === "number" ? raw.credits_balance : 0,
     profilePoints: typeof raw.profile_points === "number" ? raw.profile_points : 0,
     attendPoints: typeof raw.attend_points === "number" ? raw.attend_points : 0,
     hostPoints: typeof raw.host_points === "number" ? raw.host_points : 0,

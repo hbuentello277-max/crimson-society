@@ -46,6 +46,7 @@ image_display_url?: string | null;
 image_thumbnail_url?: string | null;
 video_thumbnail_url?: string | null;
 media_status?: string | null;
+media_metadata?: Record<string, unknown> | null;
 };
 
 type ProfileStats = {
@@ -289,7 +290,8 @@ const { data, error: postsError } = await supabase
     image_display_url,
     image_thumbnail_url,
     video_thumbnail_url,
-    media_status
+    media_status,
+    media_metadata
   `)
   .eq("user_id", userId)
   .order("created_at", { ascending: false });

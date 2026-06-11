@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import {
+  getPostGridImageCount,
   getPostGridPreviewUrl,
   getReelGridStatusLabel,
   isReelFailed,
@@ -34,6 +35,7 @@ export function PostGridTile({
   children,
 }: PostGridTileProps) {
   const previewUrl = getPostGridPreviewUrl(post);
+  const imageCount = getPostGridImageCount(post);
   const showReelOverlay = isReelPost(post) && !!previewUrl;
   const processing = isReelProcessing(post);
   const failed = isReelFailed(post);
@@ -68,6 +70,11 @@ export function PostGridTile({
               </span>
             </div>
           )}
+          {imageCount > 1 ? (
+            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-white backdrop-blur">
+              1/{imageCount}
+            </span>
+          ) : null}
         </>
       ) : failed ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black/80 px-3 text-center">

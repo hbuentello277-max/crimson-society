@@ -3,6 +3,7 @@ import {
   MEDIA_RENDERS_BUCKET,
 } from "@/lib/media";
 import { pathFromPublicStorageUrl } from "@/lib/account-deletion/storage-purge";
+import { parsePostImagesMetadata } from "@/lib/posts/post-images";
 
 export type PostMediaRecord = {
   image_original_path?: string | null;
@@ -12,6 +13,7 @@ export type PostMediaRecord = {
   video_playback_url?: string | null;
   video_hls_url?: string | null;
   video_thumbnail_url?: string | null;
+  media_metadata?: unknown;
 };
 
 /** Collect storage object paths for a post across originals and renders buckets. */
@@ -47,6 +49,16 @@ export function collectPostMediaPaths(post: PostMediaRecord): {
     if (parsed) {
       if (bucket === "originals") originals.push(parsed);
       else renders.push(parsed);
+    }
+  }
+
+  const imageMetadata = parsePostImagesMetadata(post.media_metadata);
+  for (const image of imageMetadata?.images ?? []) {
+    if (image.original_path) originals.push(image.original_path);
+    for (const renderUrl of [image.display_url, image.thumbnail_url]) {
+      if (!renderUrl) continue;
+      const parsed = pathFromPublicStorageUrl(renderUrl, MEDIA_RENDERS_BUCKET);
+      if (parsed) renders.push(parsed);
     }
   }
 

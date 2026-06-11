@@ -60,6 +60,7 @@ type ProfilePost = {
   image_thumbnail_url?: string | null;
   video_thumbnail_url?: string | null;
   media_status?: string | null;
+  media_metadata?: Record<string, unknown> | null;
 };
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -235,7 +236,8 @@ export default function PublicProfilePage() {
           image_display_url,
           image_thumbnail_url,
           video_thumbnail_url,
-          media_status
+          media_status,
+          media_metadata
         `)
         .eq("user_id", profile.id)
         .order("pinned_at", { ascending: false, nullsFirst: false })

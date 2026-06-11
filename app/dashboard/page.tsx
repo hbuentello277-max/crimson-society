@@ -27,6 +27,7 @@ import {
   formatGarageBuildRideLabel,
   parseGarageBuildMetadata,
 } from "@/lib/garage/garage-build";
+import { getPostImageUrls } from "@/lib/posts/post-images";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import {
   dashboardMeetToStartRideInput,
@@ -361,12 +362,16 @@ function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
   const sound = pickSound(post.post_sounds);
   const isReel = post.post_type === "reel";
-  const imageUrl = getBestImageUrl(
-    isReel ? null : post.image_display_url,
-    isReel ? null : post.image_url,
-    "feed",
-  );
   const garageBuild = parseGarageBuildMetadata(post.media_metadata);
+  const photoUrls =
+    post.post_type === "photo"
+      ? getPostImageUrls(post, "feed")
+      : post.post_type === "garage_build"
+        ? (() => {
+            const imageUrl = getBestImageUrl(post.image_display_url, post.image_url, "feed");
+            return imageUrl ? [imageUrl] : [];
+          })()
+        : [];
   const videoThumbnail = getBestImageUrl(
     post.video_thumbnail_url,
     null,
@@ -388,7 +393,7 @@ function mapPostToFeed(post: RawPost): FeedPost {
     },
     location: post.location || "",
     caption: post.caption || "",
-    photos: imageUrl ? [imageUrl] : [],
+    photos: photoUrls,
     video: getVideoPlaybackUrl(
       post.video_playback_url || post.video_url,
       post.video_hls_url,

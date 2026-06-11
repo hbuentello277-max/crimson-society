@@ -21,6 +21,7 @@ export function ProfileVisibilityMenuSection({
   userId,
   onUpdatePrivacy,
 }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const [showInDiscovery, setShowInDiscovery] = useState(
     () => !(profile.hide_from_suggestions ?? false),
   );
@@ -91,41 +92,56 @@ export function ProfileVisibilityMenuSection({
 
   return (
     <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Visibility</p>
-      <p className="mt-1 text-xs leading-5 text-zinc-600">
-        Control how other riders find you in Connect.
-      </p>
-
-      {message ? (
-        <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-zinc-500">{message}</p>
-      ) : null}
-
-      <div className="mt-3 space-y-2">
-        <PrivacyToggle
-          label="Show Me in Discovery"
-          description="Allow other members to find you in Connect."
-          enabled={showInDiscovery}
-          disabled={savingField !== null}
-          onChange={(enabled) => void saveDiscoveryToggle(enabled)}
-        />
-        <PrivacyToggle
-          label="Show Location in Discovery"
-          description="Show city and riding area in member suggestions."
-          enabled={showLocationInDiscovery}
-          disabled={savingField !== null || !showInDiscovery}
-          onChange={(enabled) => void saveLocationToggle(enabled)}
-        />
-      </div>
-
-      <Link
-        href={hrefWithProfileMenuFrom("/profile/privacy/blocked")}
-        className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs text-zinc-300 transition hover:border-white/15 hover:text-white"
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-1 py-1 text-left transition hover:text-white"
+        aria-expanded={expanded}
       >
-        <span>Blocked Members</span>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-          {blockedCount}
+        <span className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Visibility</span>
+        <span className="text-sm text-zinc-400" aria-hidden>
+          {expanded ? "⌄" : "›"}
         </span>
-      </Link>
+      </button>
+
+      {expanded ? (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs leading-5 text-zinc-600">
+            Control how other riders find you in Connect.
+          </p>
+
+          {message ? (
+            <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">{message}</p>
+          ) : null}
+
+          <div className="space-y-2">
+            <PrivacyToggle
+              label="Show Me in Discovery"
+              description="Allow other members to find you in Connect."
+              enabled={showInDiscovery}
+              disabled={savingField !== null}
+              onChange={(enabled) => void saveDiscoveryToggle(enabled)}
+            />
+            <PrivacyToggle
+              label="Show Location in Discovery"
+              description="Show city and riding area in member suggestions."
+              enabled={showLocationInDiscovery}
+              disabled={savingField !== null || !showInDiscovery}
+              onChange={(enabled) => void saveLocationToggle(enabled)}
+            />
+          </div>
+
+          <Link
+            href={hrefWithProfileMenuFrom("/profile/privacy/blocked")}
+            className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5 text-xs text-zinc-300 transition hover:border-white/15 hover:text-white"
+          >
+            <span>Blocked Members</span>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+              {blockedCount}
+            </span>
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

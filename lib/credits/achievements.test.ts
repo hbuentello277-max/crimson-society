@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ACHIEVEMENT_MILESTONE_GROUPS,
   formatAchievementMilestoneLine,
   isAchievementMilestoneTransaction,
 } from "@/lib/credits/achievements";
@@ -20,5 +21,13 @@ describe("achievement milestones", () => {
     assert.equal(formatted.amountLine, "+50 Crimson Credits");
     assert.match(formatted.detailLine, /Attended 10 Meets/);
     assert.match(formatted.detailLine, /2026/);
+  });
+
+  it("defines milestone reward groups for How It Works", () => {
+    assert.equal(ACHIEVEMENT_MILESTONE_GROUPS.length, 4);
+    assert.equal(
+      ACHIEVEMENT_MILESTONE_GROUPS[0]?.milestones[0]?.credits,
+      50,
+    );
   });
 });

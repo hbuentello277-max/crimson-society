@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
+import { LeaderboardRiderPreviewSheet } from "@/components/growth/LeaderboardRiderPreviewSheet";
 import {
   foundingLeaderboardDisplayName,
   type FoundingLeaderboardData,
+  type FoundingLeaderboardEntry,
 } from "@/lib/growth/founding-leaderboard";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
@@ -53,6 +56,11 @@ function LeaderboardAvatar({
 
 export function FoundingLeaderboard({ data, loading = false, error = null }: Props) {
   const { entries, currentUser, topN, cutoffPoints, scoring } = data;
+  const [previewEntry, setPreviewEntry] = useState<FoundingLeaderboardEntry | null>(null);
+
+  const openPreview = (entry: FoundingLeaderboardEntry) => {
+    setPreviewEntry(entry);
+  };
 
   return (
     <div className="space-y-4">
@@ -137,8 +145,10 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
                     </div>
                   ) : null}
 
-                  <div
-                    className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
+                  <button
+                    type="button"
+                    onClick={() => openPreview(entry)}
+                    className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition hover:border-[#b4141e]/35 ${
                       entry.isCurrentUser
                         ? "border-[#b4141e]/50 bg-[#b4141e]/10"
                         : entry.inTop15
@@ -157,7 +167,7 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
                       ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-medium text-[#f1c3c7]">{entry.points}</p>
-                  </div>
+                  </button>
                 </li>
               );
             })}
@@ -165,6 +175,7 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
         )}
       </section>
 
+      <LeaderboardRiderPreviewSheet entry={previewEntry} onClose={() => setPreviewEntry(null)} />
     </div>
   );
 }

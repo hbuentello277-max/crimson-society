@@ -1,8 +1,10 @@
 "use client";
 
+import { AchievementBadgeIcon } from "@/components/credits/AchievementBadgeIcon";
 import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { useCrimsonCreditsEconomy } from "@/hooks/useCrimsonCreditsEconomy";
+import { ACHIEVEMENT_MILESTONE_GROUPS } from "@/lib/credits/achievements";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
 
 function RuleRow({ label, value, enabled }: { label: string; value: string; enabled: boolean }) {
@@ -86,6 +88,35 @@ export function CreditsHowItWorksPageContent() {
         <p className="mt-4 text-xs leading-6 text-zinc-500">
           Admins may adjust credit values during beta. Past ledger history always remains unchanged.
         </p>
+      </section>
+
+      <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Milestone Rewards</h2>
+        <p className="mt-2 text-xs leading-6 text-zinc-500">
+          One-time achievement rewards. Each milestone awards once and appears in Credits History only.
+        </p>
+
+        <div className="mt-4 space-y-5">
+          {ACHIEVEMENT_MILESTONE_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{group.title}</p>
+              <ul className="mt-2 space-y-2">
+                {group.milestones.map((milestone) => (
+                  <li
+                    key={milestone.label}
+                    className="flex items-center gap-3 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5"
+                  >
+                    <AchievementBadgeIcon className="h-8 w-8" />
+                    <span className="min-w-0 flex-1 text-sm text-zinc-300">{milestone.label}</span>
+                    <span className="shrink-0 text-sm font-medium text-white">
+                      +{milestone.credits} credits
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </section>
     </CreditsPageShell>
   );

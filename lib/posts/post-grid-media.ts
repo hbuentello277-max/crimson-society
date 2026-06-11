@@ -1,5 +1,6 @@
 import { getBestImageUrl } from "@/lib/media";
 import { getReelProcessingLabel, isReelMediaFailed, isReelMediaPending } from "@/lib/media/reel-status";
+import { getPostImageCount } from "@/lib/posts/post-images";
 
 export type PostGridMediaFields = {
   post_type?: string | null;
@@ -8,6 +9,7 @@ export type PostGridMediaFields = {
   image_thumbnail_url?: string | null;
   video_thumbnail_url?: string | null;
   media_status?: string | null;
+  media_metadata?: unknown;
 };
 
 export function isGarageBuildPost(post: Pick<PostGridMediaFields, "post_type">) {
@@ -44,4 +46,15 @@ export function getPostGridPreviewUrl(post: PostGridMediaFields) {
     post.image_url,
     "profileGrid",
   );
+}
+
+export function getPostGridImageCount(post: PostGridMediaFields) {
+  if (isStatusPost(post) || isReelPost(post) || isGarageBuildPost(post)) {
+    return 0;
+  }
+  return getPostImageCount(post);
+}
+
+function isStatusPost(post: Pick<PostGridMediaFields, "post_type">) {
+  return post.post_type === "status";
 }
