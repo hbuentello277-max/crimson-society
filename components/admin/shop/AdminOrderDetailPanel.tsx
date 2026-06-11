@@ -9,12 +9,14 @@ import {
   formatFulfillmentStatusLabel,
   formatOrderStatusLabel,
   formatPickupStatusLabel,
+  formatShippingAddress,
   fulfillmentStatusBadgeClass,
   paymentStatusBadgeClass,
   pickupStatusBadgeClass,
   shortOrderId,
   type ShopFulfillmentStatus,
   type ShopPickupStatus,
+  type ShopOrderShippingAddress,
 } from "@/lib/shop/orders";
 
 type OrderItem = {
@@ -46,6 +48,8 @@ type AdminOrderDetail = {
   total_cents: number;
   shipping_email: string | null;
   shipping_name: string | null;
+  shipping_phone: string | null;
+  shipping_address: ShopOrderShippingAddress | null;
   tracking_carrier: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
@@ -336,10 +340,23 @@ export function AdminOrderDetailPanel({
               </span>
             </div>
 
-            <p className="text-xs text-zinc-500">
-              {order.shipping_email ?? "—"}
-              {order.shipping_name ? ` · ${order.shipping_name}` : ""}
-            </p>
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-300">
+              <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-600">
+                {isPickup ? "Customer contact" : "Shipping contact"}
+              </p>
+              <p className="mt-1 text-white">
+                {order.shipping_name?.trim() || "—"}
+              </p>
+              <p className="mt-0.5 text-zinc-400">{order.shipping_email ?? "—"}</p>
+              {order.shipping_phone ? (
+                <p className="mt-0.5 text-zinc-400">{order.shipping_phone}</p>
+              ) : null}
+              {!isPickup ? (
+                <p className="mt-2 whitespace-pre-line text-zinc-300">
+                  {formatShippingAddress(order.shipping_address) ?? "No shipping address saved yet."}
+                </p>
+              ) : null}
+            </div>
 
             <ul className="space-y-2">
               {order.items.map((item) => (

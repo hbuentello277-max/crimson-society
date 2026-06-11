@@ -208,6 +208,17 @@ export function formatDeliveryMethodLabel(method: ShopDeliveryMethod | string) {
   }
 }
 
+export function formatShippingAddress(address: ShopOrderShippingAddress | null | undefined) {
+  if (!address) return null;
+
+  const locality = [address.city, address.state, address.postal_code]
+    .filter(Boolean)
+    .join(", ");
+  const lines = [address.line1, address.line2, locality, address.country].filter(Boolean);
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
 export function formatPickupStatusLabel(status: ShopPickupStatus | string) {
   switch (status) {
     case "not_applicable":

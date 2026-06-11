@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
+import {
+  extractMerchShippingFromCheckoutSession,
+  mergeMerchShippingPatch,
+  merchCheckoutSessionShippingInput,
+  resolveMerchDeliveryMethod,
+} from "@/lib/shop/merch-shipping-from-session";
 import { sendOrderConfirmationEmail } from "@/lib/shop/order-emails";
 import { notifyShopOrderPaid, ensureShopOrderPaidAdminNotifications } from "@/lib/shop/order-notifications";
+import type { ShopDeliveryMethod } from "@/lib/shop/orders";
 
 export type MerchFulfillmentResult = {
   ok: boolean;
@@ -40,7 +47,9 @@ export async function fulfillMerchOrderFromCheckoutSession(
 
   const { data: order, error: orderError } = await admin
     .from("shop_orders")
-    .select("id, status, stripe_checkout_session_id")
+    .select(
+      "id, status, stripe_checkout_session_id, delivery_method, shipping_name, shipping_email, shipping_phone, shipping_address",
+    )
     .eq("id", orderId)
     .maybeSingle();
 
@@ -97,6 +106,29 @@ export async function fulfillMerchOrderFromCheckoutSession(
   }
 
   const piId = paymentIntentId(session);
+  const deliveryMethod = resolveMerchDeliveryMethod(
+    session,
+    (order.delivery_method as ShopDeliveryMethod | null) ?? "shipping",
+  );
+  const shippingExtraction = extractMerchShippingFromCheckoutSession(
+    merchCheckoutSessionShippingInput(session),
+    deliveryMethod,
+  );
+  const shippingPatch = mergeMerchShippingPatch(
+    {
+      shipping_name: (order.shipping_name as string | null) ?? null,
+      shipping_email: (order.shipping_email as string | null) ?? null,
+      shipping_phone: (order.shipping_phone as string | null) ?? null,
+      shipping_address:
+        (order.shipping_address as Record<string, string | undefined> | null) ?? null,
+    },
+    shippingExtraction,
+    deliveryMethod,
+  );
+
+  for (const warning of shippingExtraction.warnings) {
+    console.warn("[merch-fulfill] shipping", orderId, warning);
+  }
 
   const { data: updated, error: updateError } = await admin
     .from("shop_orders")
@@ -104,6 +136,7 @@ export async function fulfillMerchOrderFromCheckoutSession(
       status: "paid",
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: piId,
+      ...shippingPatch,
     })
     .eq("id", orderId)
     .eq("status", "pending")
