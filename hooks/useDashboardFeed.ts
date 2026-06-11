@@ -11,7 +11,9 @@ import {
   FEED_POST_LIMIT,
 } from "@/lib/dashboard/constants";
 import { mapPostToFeed } from "@/lib/dashboard/map-post-to-feed";
+import { insertDashboardPostComment } from "@/lib/dashboard/post-comment-insert";
 import type { DashboardFeedPost, DashboardRawPost } from "@/lib/dashboard/types";
+import { toggleSavedPost } from "@/lib/social/actions";
 import { supabase } from "@/lib/supabase";
 import type { PostActionTarget } from "@/components/social/PostActionSheet";
 
@@ -446,11 +448,23 @@ export function useDashboardFeed({
   );
 
   const toggleBookmark = useCallback(
-    (id: string) => {
-      setBookmarked((prev) => ({ ...prev, [id]: !prev[id] }));
-      onToast(bookmarked[id] ? "Removed from saved." : "Saved to your dossier.");
+    async (id: string) => {
+      const userId = session?.user?.id;
+      if (!userId) return;
+
+      const wasBookmarked = !!bookmarked[id];
+      setBookmarked((prev) => ({ ...prev, [id]: !wasBookmarked }));
+
+      const result = await toggleSavedPost(supabase, userId, id);
+      if (result.error) {
+        setBookmarked((prev) => ({ ...prev, [id]: wasBookmarked }));
+        onToast(result.error);
+        return;
+      }
+
+      onToast(result.saved ? "Saved to your dossier." : "Removed from saved.");
     },
-    [bookmarked, onToast],
+    [bookmarked, onToast, session?.user?.id],
   );
 
   const sendComment = useCallback(async () => {
@@ -460,11 +474,7 @@ export function useDashboardFeed({
 
     if (!userId || !postId || !body) return;
 
-    const { error } = await supabase.from("post_comments").insert({
-      post_id: postId,
-      user_id: userId,
-      body,
-    });
+    const { error } = await insertDashboardPostComment(supabase, postId, userId, body);
 
     if (error) {
       onToast(error.message || "Could not post comment.");

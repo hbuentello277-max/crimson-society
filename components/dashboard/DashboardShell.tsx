@@ -6,6 +6,7 @@ import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 
 type DashboardShellProps = {
   children: ReactNode;
+  overlays?: ReactNode;
   visibleOffset: number;
   pullY: number;
   pullProgress: number;
@@ -21,6 +22,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({
   children,
+  overlays,
   visibleOffset,
   pullY,
   pullProgress,
@@ -98,6 +100,8 @@ export function DashboardShell({
       >
         {children}
       </div>
+
+      {overlays}
     </main>
   );
 }

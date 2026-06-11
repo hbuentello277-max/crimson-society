@@ -57,7 +57,7 @@ export function useDashboardMeets({ session, isAdmin, router, onToast }: UseDash
     const { data: rideData, error: ridesError } = await supabase
       .from(MEET_TABLES.meets)
       .select(
-        "id, host_id, name, date, time, meet_point, destination, city, cover, route, waypoints, tracking_status, started_at, meet_duration_minutes, status, meet_point_lat, meet_point_lng, distance, duration, privacy, visibility",
+        "id, host_id, co_host_id, name, date, time, meet_point, destination, city, cover, route, waypoints, tracking_status, started_at, meet_duration_minutes, status, meet_point_lat, meet_point_lng, distance, duration, privacy, visibility",
       )
       .eq("status", "active")
       .order("date", { ascending: true })

@@ -154,6 +154,8 @@ export function DashboardFeedSection({
                   {currentUserId ? (
                     <button
                       type="button"
+                      onTouchStart={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
                       onClick={() =>
                         onOpenPostActions({
                           postId: post.id,
@@ -263,12 +265,17 @@ export function DashboardFeedSection({
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 px-4 pt-3">
-                  <button
-                    onClick={() => onToggleLike(post.id)}
-                    className="flex items-center gap-1.5"
-                    aria-label="Like"
-                  >
+                <div
+                  className="flex items-center gap-4 px-4 pt-3"
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                    <button
+                      type="button"
+                      onClick={() => onToggleLike(post.id)}
+                      className="flex items-center gap-1.5"
+                      aria-label="Like"
+                    >
                     <span
                       className={`text-2xl transition-transform ${
                         isLiked ? "text-[#b4141e]" : "text-white/70"
@@ -279,26 +286,29 @@ export function DashboardFeedSection({
                     <span className="text-xs text-white/70">{count}</span>
                   </button>
 
-                  <button
-                    onClick={() => onOpenComments(post.id)}
-                    className="flex items-center gap-1.5 text-white/70 hover:text-white"
-                    aria-label="Comment"
-                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenComments(post.id)}
+                      className="flex items-center gap-1.5 text-white/70 hover:text-white"
+                      aria-label="Comment"
+                    >
                     <span className="text-xl">💬</span>
                     <span className="text-xs">{post.comments}</span>
                   </button>
 
-                  <button
-                    onClick={() => onOpenShare(post.id)}
-                    className="text-xl text-white/70 hover:text-white"
-                    aria-label="Share"
-                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenShare(post.id)}
+                      className="text-xl text-white/70 hover:text-white"
+                      aria-label="Share"
+                    >
                     ↗
                   </button>
 
-                  <button
-                    onClick={() => onToggleBookmark(post.id)}
-                    className={`ml-auto text-2xl transition ${
+                    <button
+                      type="button"
+                      onClick={() => onToggleBookmark(post.id)}
+                      className={`ml-auto text-2xl transition ${
                       isBookmarked ? "text-[#e87a82]" : "text-white/70"
                     }`}
                     aria-label="Bookmark"

@@ -122,6 +122,51 @@ function DashboardPageContent() {
       onMouseDown={feed.handleMouseDown}
       onMouseMove={feed.handleMouseMove}
       onMouseUp={feed.handleMouseUp}
+      overlays={
+        <>
+          <DashboardModals
+            session={session}
+            commentSheet={feed.commentSheet}
+            commentDraft={feed.commentDraft}
+            shareSheet={feed.shareSheet}
+            postActionTarget={feed.postActionTarget}
+            reportPostTarget={feed.reportPostTarget}
+            reportBusy={feed.reportBusy}
+            posts={feed.posts}
+            selectedMapMeet={meets.selectedMapMeet}
+            going={meets.going}
+            selectedMapMeetJoin={meets.selectedMapMeetJoin}
+            onCloseCommentSheet={() => feed.setCommentSheet(null)}
+            onCommentDraftChange={feed.setCommentDraft}
+            onSendComment={() => void feed.sendComment()}
+            onCloseShareSheet={() => feed.setShareSheet(null)}
+            onShare={feed.handleShare}
+            onClosePostActionTarget={() => feed.setPostActionTarget(null)}
+            onReportPost={(target) => feed.setReportPostTarget(target)}
+            onDeletePost={(post) => void feed.deletePost(post)}
+            onHidePost={(postId) =>
+              feed.setPosts((current) => current.filter((item) => item.id !== postId))
+            }
+            onToast={showToast}
+            onCloseReportPost={() => {
+              if (!feed.reportBusy) feed.setReportPostTarget(null);
+            }}
+            onReportBusyChange={feed.setReportBusy}
+            onCloseReportPostTarget={() => feed.setReportPostTarget(null)}
+            onCloseSelectedMapMeet={() => meets.setSelectedMapMeetId(null)}
+            onJoinMapMeet={() => void meets.handleJoinMapMeet()}
+            onLeaveMapMeet={() => void meets.handleLeaveMapMeet()}
+          />
+
+          {(toast || completionNotice) && (
+            <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
+              {completionNotice || toast}
+            </div>
+          )}
+
+          <PushPermissionPrompt />
+        </>
+      }
     >
       <div className="mx-auto max-w-2xl px-5 pt-6">
         <div className="mb-4">
@@ -172,51 +217,11 @@ function DashboardPageContent() {
           onToggleLike={(id) => void feed.toggleLike(id)}
           onOpenComments={feed.setCommentSheet}
           onOpenShare={feed.setShareSheet}
-          onToggleBookmark={feed.toggleBookmark}
+          onToggleBookmark={(id) => void feed.toggleBookmark(id)}
           onOpenPostActions={feed.setPostActionTarget}
           onActiveReelChange={feed.setActiveReelId}
         />
       </div>
-
-      <DashboardModals
-        session={session}
-        commentSheet={feed.commentSheet}
-        commentDraft={feed.commentDraft}
-        shareSheet={feed.shareSheet}
-        postActionTarget={feed.postActionTarget}
-        reportPostTarget={feed.reportPostTarget}
-        reportBusy={feed.reportBusy}
-        posts={feed.posts}
-        selectedMapMeet={meets.selectedMapMeet}
-        going={meets.going}
-        selectedMapMeetJoin={meets.selectedMapMeetJoin}
-        onCloseCommentSheet={() => feed.setCommentSheet(null)}
-        onCommentDraftChange={feed.setCommentDraft}
-        onSendComment={() => void feed.sendComment()}
-        onCloseShareSheet={() => feed.setShareSheet(null)}
-        onShare={feed.handleShare}
-        onClosePostActionTarget={() => feed.setPostActionTarget(null)}
-        onReportPost={(target) => feed.setReportPostTarget(target)}
-        onDeletePost={(post) => void feed.deletePost(post)}
-        onHidePost={(postId) => feed.setPosts((current) => current.filter((item) => item.id !== postId))}
-        onToast={showToast}
-        onCloseReportPost={() => {
-          if (!feed.reportBusy) feed.setReportPostTarget(null);
-        }}
-        onReportBusyChange={feed.setReportBusy}
-        onCloseReportPostTarget={() => feed.setReportPostTarget(null)}
-        onCloseSelectedMapMeet={() => meets.setSelectedMapMeetId(null)}
-        onJoinMapMeet={() => void meets.handleJoinMapMeet()}
-        onLeaveMapMeet={() => void meets.handleLeaveMapMeet()}
-      />
-
-      {(toast || completionNotice) && (
-        <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-[#b4141e]/40 bg-[#0a0a0b]/95 px-5 py-2.5 text-xs uppercase tracking-[0.3em] text-white shadow-[0_0_30px_rgba(180,20,30,0.4)] backdrop-blur">
-          {completionNotice || toast}
-        </div>
-      )}
-
-      <PushPermissionPrompt />
     </DashboardShell>
   );
 }
