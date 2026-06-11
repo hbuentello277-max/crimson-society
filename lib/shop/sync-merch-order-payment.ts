@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
+import { isShopPaymentCheckoutType } from "@/lib/shop/checkout-types";
 import { fulfillMerchOrderFromCheckoutSession } from "@/lib/shop/fulfill-merch-order";
 
 export type SyncMerchOrderPaymentResult = {
@@ -32,7 +33,7 @@ export async function syncMerchOrderPaymentFromStripeSession(
     return { synced: false, reason: "session_retrieve_failed" };
   }
 
-  if (session.metadata?.checkout_type !== "merch") {
+  if (!isShopPaymentCheckoutType(session.metadata?.checkout_type)) {
     return { synced: false, reason: "not_merch_checkout" };
   }
 

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { awardReferralBlackcardConversion } from "@/lib/credits/award-referral-blackcard";
+import { isShopPaymentCheckoutType } from "@/lib/shop/checkout-types";
 import { fulfillMerchOrderFromCheckoutSession } from "@/lib/shop/fulfill-merch-order";
 import { cancelPendingMerchOrderById } from "@/lib/shop/merch-checkout";
 import { syncBlackcardPublicForUser } from "@/lib/stripe/sync-blackcard-public";
@@ -185,7 +186,7 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  if (session.metadata?.checkout_type === "merch") {
+  if (isShopPaymentCheckoutType(session.metadata?.checkout_type)) {
     const admin = getSupabaseAdmin();
     const result = await fulfillMerchOrderFromCheckoutSession(admin, session);
     if (!result.ok && result.reason !== "not_merch_checkout") {
@@ -219,7 +220,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 }
 
 async function handleCheckoutSessionFailedOrExpired(session: Stripe.Checkout.Session) {
-  if (session.metadata?.checkout_type !== "merch") {
+  if (!isShopPaymentCheckoutType(session.metadata?.checkout_type)) {
     return;
   }
 

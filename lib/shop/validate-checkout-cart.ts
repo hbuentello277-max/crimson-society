@@ -58,13 +58,28 @@ function priceToCents(price: number): number {
 }
 
 function purchasableStatuses(status: string) {
-  return status === "in_stock";
+  return status === "in_stock" || status === "waitlist";
+}
+
+function isCashPurchasableProduct(
+  product: Pick<ProductRow, "product_type" | "price">,
+  options?: { allowCreditRewardCashPurchase?: boolean },
+) {
+  if (isMerchProduct({ product_type: product.product_type as "cash_product" | "credit_reward" })) {
+    return true;
+  }
+  return (
+    Boolean(options?.allowCreditRewardCashPurchase) &&
+    product.product_type === "credit_reward" &&
+    Number(product.price) > 0
+  );
 }
 
 export async function validateCheckoutCart(
   supabase: SupabaseClient,
   cartItems: CheckoutCartItemPayload[],
   deliveryMethod: ShopDeliveryMethod = "shipping",
+  options?: { allowCreditRewardCashPurchase?: boolean },
 ): Promise<CheckoutCartValidationResult> {
   const errors: CheckoutCartValidationError[] = [];
   const validated: ValidatedCheckoutLine[] = [];
@@ -155,7 +170,7 @@ export async function validateCheckoutCart(
       continue;
     }
 
-    if (!isMerchProduct({ product_type: product.product_type as "cash_product" | "credit_reward" })) {
+    if (!isCashPurchasableProduct(product, options)) {
       errors.push({
         product_id: productId,
         size,

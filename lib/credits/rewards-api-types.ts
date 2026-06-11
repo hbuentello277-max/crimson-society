@@ -13,7 +13,9 @@ export type CreditsRewardsSummary = {
   can_redeem: boolean;
 };
 
-/** Purchasable merch product linked to a credit reward for Buy Now fallback. */
+export type CreditsRewardBuyProductMode = "linked_merch" | "direct_reward";
+
+/** Purchasable product for Buy Now fallback (linked merch or direct reward cash price). */
 export type CreditsRewardBuyProduct = {
   product_id: string;
   slug: string;
@@ -23,6 +25,7 @@ export type CreditsRewardBuyProduct = {
   sizes: string[];
   size_inventory: SizeInventoryMap | null;
   inventory_remaining: number | null;
+  purchase_mode: CreditsRewardBuyProductMode;
 };
 
 /** `id` is the crimson_credit_rewards row used by redeem RPC. */

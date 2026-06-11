@@ -17,6 +17,7 @@ import { CRIMSON_CREDIT_SHIRT_SIZES } from "@/lib/credits/rewards-ui";
 import { SizeSelectorButtons } from "@/components/shop/SizeSelectorButtons";
 import { SCALAR_INVENTORY_KEY } from "@/lib/shop/inventory";
 import { useCreditRewardsPage } from "@/hooks/useCreditRewardsPage";
+import { authedFetch } from "@/lib/auth/authed-fetch";
 import { useCart } from "@/lib/cart-store";
 import { supabase } from "@/lib/supabase";
 
@@ -29,6 +30,8 @@ export function ShopCreditRewardsPanel() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [pendingRedeem, setPendingRedeem] = useState<PendingRedeem | null>(null);
+  const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
   const addItem = useCart((s) => s.addItem);
   const openDrawer = useCart((s) => s.openDrawer);
 
@@ -68,10 +71,37 @@ export function ShopCreditRewardsPanel() {
     }
   }
 
-  function handleBuyNow(buyProduct: CreditsRewardBuyProduct, shirtSize: string | null) {
+  async function handleBuyNow(buyProduct: CreditsRewardBuyProduct, shirtSize: string | null) {
     const size = buyProduct.requires_shirt_size
       ? shirtSize ?? buyProduct.sizes[0] ?? "M"
       : buyProduct.sizes[0] ?? "One Size";
+
+    if (buyProduct.purchase_mode === "direct_reward") {
+      setBuyingProductId(buyProduct.product_id);
+      setBuyError(null);
+      try {
+        const response = await authedFetch("/api/credits/rewards/buy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product_id: buyProduct.product_id, size }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          url?: string;
+          error?: string;
+        };
+        if (!response.ok || !payload.url) {
+          throw new Error(payload.error || "Could not start checkout.");
+        }
+        window.location.href = payload.url;
+      } catch (checkoutError) {
+        setBuyError(
+          checkoutError instanceof Error ? checkoutError.message : "Could not start checkout.",
+        );
+      } finally {
+        setBuyingProductId(null);
+      }
+      return;
+    }
 
     addItem(buyProduct.product_id, size, buyProduct.title);
     openDrawer();
@@ -102,9 +132,9 @@ export function ShopCreditRewardsPanel() {
           {successMessage}
         </p>
       ) : null}
-      {error ? (
+      {error || buyError ? (
         <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
+          {error ?? buyError}
         </p>
       ) : null}
 

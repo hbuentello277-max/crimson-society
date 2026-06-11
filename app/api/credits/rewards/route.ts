@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { mapProductToBuyProduct } from "@/lib/credits/buy-product";
+import { resolveRewardBuyProduct } from "@/lib/credits/buy-product";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
 import { memberCanRedeemFromProfileAndSubscription } from "@/lib/credits/member-redeem-eligibility";
 import type { CreditsRewardCatalogItem, CreditsRewardsCatalogResponse } from "@/lib/credits/rewards-api-types";
@@ -9,7 +9,7 @@ import { parseSizeInventory } from "@/lib/shop/inventory";
 import { getAuthedSupabaseFromRequest } from "@/lib/supabase-route-auth";
 
 const PRODUCT_COLUMNS =
-  "id, slug, name, description, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, size_inventory, requires_shirt_size, status, sort_order, credit_reward_id, linked_merch_product_id";
+  "id, slug, name, description, price, credit_cost, reward_category, reward_kind, images, inventory_total, inventory_remaining, size_inventory, requires_shirt_size, status, sort_order, credit_reward_id, linked_merch_product_id, sizes";
 
 const MERCH_PRODUCT_COLUMNS =
   "id, slug, name, price, sizes, size_inventory, inventory_remaining, requires_shirt_size, status, product_type";
@@ -115,6 +115,7 @@ export async function GET(request: Request) {
     const linkedMerch = row.linked_merch_product_id
       ? merchById.get(row.linked_merch_product_id as string)
       : undefined;
+    const buyProduct = resolveRewardBuyProduct(row as Product, linkedMerch ?? null);
 
     return {
       id: row.credit_reward_id as string,
@@ -133,7 +134,7 @@ export async function GET(request: Request) {
       requires_shirt_size: Boolean(row.requires_shirt_size),
       is_active: row.status !== "coming_soon" && row.status !== "archived",
       sort_order: row.sort_order ?? 0,
-      buy_product: linkedMerch ? mapProductToBuyProduct(linkedMerch) : null,
+      buy_product: buyProduct,
     };
   });
 

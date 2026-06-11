@@ -8,6 +8,7 @@ import {
 } from "@/lib/shop/merch-shipping-from-session";
 import { sendOrderConfirmationEmail } from "@/lib/shop/order-emails";
 import { notifyShopOrderPaid, ensureShopOrderPaidAdminNotifications } from "@/lib/shop/order-notifications";
+import { isShopPaymentCheckoutType } from "@/lib/shop/checkout-types";
 import type { ShopDeliveryMethod } from "@/lib/shop/orders";
 
 export type MerchFulfillmentResult = {
@@ -31,7 +32,7 @@ export async function fulfillMerchOrderFromCheckoutSession(
   session: Stripe.Checkout.Session,
 ): Promise<MerchFulfillmentResult> {
   const metadata = session.metadata ?? {};
-  if (metadata.checkout_type !== "merch") {
+  if (!isShopPaymentCheckoutType(metadata.checkout_type)) {
     return { ok: false, reason: "not_merch_checkout" };
   }
 

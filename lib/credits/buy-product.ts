@@ -14,6 +14,16 @@ export function isBuyProductRowPurchasable(
   );
 }
 
+export function isCreditRewardDirectBuyable(
+  row: Pick<Product, "product_type" | "status" | "price">,
+): boolean {
+  return (
+    row.product_type === "credit_reward" &&
+    BUYABLE_STATUSES.has(row.status) &&
+    Number(row.price) > 0
+  );
+}
+
 export function mapProductToBuyProduct(row: Product): CreditsRewardBuyProduct | null {
   if (!isBuyProductRowPurchasable(row)) {
     return null;
@@ -28,7 +38,37 @@ export function mapProductToBuyProduct(row: Product): CreditsRewardBuyProduct | 
     sizes: row.sizes ?? [],
     size_inventory: parseSizeInventory(row.size_inventory),
     inventory_remaining: row.inventory_remaining,
+    purchase_mode: "linked_merch",
   };
+}
+
+export function mapCreditRewardToDirectBuyProduct(row: Product): CreditsRewardBuyProduct | null {
+  if (!isCreditRewardDirectBuyable(row)) {
+    return null;
+  }
+
+  return {
+    product_id: row.id,
+    slug: row.slug,
+    title: row.name,
+    price: Number(row.price),
+    requires_shirt_size: Boolean(row.requires_shirt_size) || (row.sizes?.length ?? 0) > 0,
+    sizes: row.sizes ?? [],
+    size_inventory: parseSizeInventory(row.size_inventory),
+    inventory_remaining: row.inventory_remaining,
+    purchase_mode: "direct_reward",
+  };
+}
+
+/** Linked merch takes priority for backward compatibility. */
+export function resolveRewardBuyProduct(
+  rewardRow: Product,
+  linkedMerchRow?: Product | null,
+): CreditsRewardBuyProduct | null {
+  if (linkedMerchRow) {
+    return mapProductToBuyProduct(linkedMerchRow);
+  }
+  return mapCreditRewardToDirectBuyProduct(rewardRow);
 }
 
 export function isBuyProductPurchasable(

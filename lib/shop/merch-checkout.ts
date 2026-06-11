@@ -146,6 +146,10 @@ export async function createMerchCheckoutSession(input: {
   userEmail?: string | null;
   cartItems: CheckoutCartItemPayload[];
   deliveryMethod?: ShopDeliveryMethod;
+  allowCreditRewardCashPurchase?: boolean;
+  checkoutType?: "merch" | "reward_cash";
+  successUrl?: string;
+  cancelUrl?: string;
 }): Promise<MerchCheckoutSessionResult> {
   const deliveryMethod = input.deliveryMethod ?? "shipping";
 
@@ -158,7 +162,12 @@ export async function createMerchCheckoutSession(input: {
     );
   }
 
-  const validation = await validateCheckoutCart(input.admin, input.cartItems, deliveryMethod);
+  const validation = await validateCheckoutCart(
+    input.admin,
+    input.cartItems,
+    deliveryMethod,
+    { allowCreditRewardCashPurchase: input.allowCreditRewardCashPurchase },
+  );
 
   if (!validation.ok || validation.items.length === 0) {
     return {
@@ -192,8 +201,10 @@ export async function createMerchCheckoutSession(input: {
     .map((l) => l.reservation_id)
     .filter((id): id is string => Boolean(id));
 
+  const checkoutType = input.checkoutType ?? "merch";
+
   const orderMetadata = {
-    checkout_type: "merch",
+    checkout_type: checkoutType,
     delivery_method: deliveryMethod,
     reservation_ids: reservationIds,
     validated_at: new Date().toISOString(),
@@ -301,11 +312,15 @@ export async function createMerchCheckoutSession(input: {
       mode: "payment",
       customer: stripeCustomerId,
       line_items: buildStripeLineItems(validation),
-      success_url: `${SITE_URL}/shop/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/shop/checkout?cancelled=1&order=${orderId}`,
+      success_url:
+        input.successUrl ??
+        `${SITE_URL}/shop/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:
+        input.cancelUrl ??
+        `${SITE_URL}/shop/checkout?cancelled=1&order=${orderId}`,
       client_reference_id: orderId,
       metadata: {
-        checkout_type: "merch",
+        checkout_type: checkoutType,
         shop_order_id: orderId,
         supabase_user_id: input.userId,
         delivery_method: deliveryMethod,
