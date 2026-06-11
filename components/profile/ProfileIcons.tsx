@@ -44,13 +44,23 @@ export function IconTabPosts({ className = "h-3.5 w-3.5" }: IconProps) {
 
 export function IconTabRides({ className = "h-3.5 w-3.5" }: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={`${base} ${className}`} aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" className={`${base} ${className}`} aria-hidden>
       <path
         d="M12 21s6-5.2 6-10.5a6 6 0 1 0-12 0C6 15.8 12 21 12 21z"
+        fill="rgba(180,20,30,0.16)"
+        stroke="#e87a82"
+        strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="10.5" r="2.25" />
+      <circle cx="12" cy="10.5" r="2.25" fill="#b4141e" stroke="#f1c3c7" strokeWidth="1" />
+      <path
+        d="M8.8 18.2c1.2.7 5.2.7 6.4 0"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.2"
+        opacity="0.55"
+      />
     </svg>
   );
 }

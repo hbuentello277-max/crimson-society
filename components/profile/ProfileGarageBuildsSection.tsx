@@ -8,6 +8,7 @@ import {
   formatGarageBuildDate,
   formatGarageBuildRideLabel,
   GARAGE_BUILD_POST_TYPE,
+  getGarageBuildPhotoUrls,
   parseGarageBuildMetadata,
 } from "@/lib/garage/garage-build";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
@@ -100,13 +101,15 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
         const garageBuild = parseGarageBuildMetadata(post.media_metadata);
         const modificationTitle = garageBuild?.modification_title?.trim() || "Garage Build";
         const rideLabel = formatGarageBuildRideLabel(garageBuild);
-        const imageUrl = getBestImageUrl(
-          post.image_thumbnail_url || post.image_display_url,
-          post.image_url,
-          "profileGrid",
+        const primaryImageUrl = post.image_thumbnail_url || post.image_display_url || post.image_url;
+        const imageUrls = getGarageBuildPhotoUrls(garageBuild, primaryImageUrl).map(
+          (url) => getBestImageUrl(url, null, "profileGrid") || url,
         );
+        const rideImageUrl = garageBuild?.motorcycle_photo_url
+          ? getBestImageUrl(garageBuild.motorcycle_photo_url, null, "thumbnail")
+          : null;
         const videoUrl = getVideoPlaybackUrl(post.video_playback_url || post.video_url, post.video_hls_url);
-        const videoPoster = getBestImageUrl(post.video_thumbnail_url, imageUrl, "profileGrid");
+        const videoPoster = getBestImageUrl(post.video_thumbnail_url, imageUrls[0], "profileGrid");
 
         return (
           <article
@@ -114,21 +117,53 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
             className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
           >
             <div className="border-b border-white/10 px-5 py-4">
-              <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{rideLabel}</p>
-              <h3 className="mt-2 font-serif text-2xl leading-tight text-white">{modificationTitle}</h3>
-              <p className="mt-2 text-xs text-zinc-500">{formatGarageBuildDate(post.created_at)}</p>
+              <div className="flex items-center gap-3">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                  {rideImageUrl ? (
+                    <Image
+                      src={rideImageUrl}
+                      alt={rideLabel}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                      unoptimized={rideImageUrl.includes("supabase")}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[#b4141e]/10 text-[10px] uppercase tracking-[0.16em] text-[#e87a82]">
+                      Ride
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{rideLabel}</p>
+                  <h3 className="mt-1 font-serif text-2xl leading-tight text-white">{modificationTitle}</h3>
+                  <p className="mt-1 text-xs text-zinc-500">{formatGarageBuildDate(post.created_at)}</p>
+                </div>
+              </div>
             </div>
 
-            {imageUrl ? (
-              <div className="relative aspect-[16/10] bg-black">
-                <Image
-                  src={imageUrl}
-                  alt={modificationTitle}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 720px"
-                  className="object-cover"
-                  unoptimized={imageUrl.includes("supabase")}
-                />
+            {imageUrls.length > 0 ? (
+              <div className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto bg-black">
+                {imageUrls.map((imageUrl, index) => (
+                  <div
+                    key={`${post.id}-garage-photo-${index}`}
+                    className="relative aspect-[16/10] w-full shrink-0 snap-center bg-black"
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={`${modificationTitle} photo ${index + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 720px"
+                      className="object-cover"
+                      unoptimized={imageUrl.includes("supabase")}
+                    />
+                    {imageUrls.length > 1 ? (
+                      <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white backdrop-blur">
+                        {index + 1} / {imageUrls.length}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
               </div>
             ) : null}
 

@@ -25,6 +25,7 @@ import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 import {
   formatGarageBuildRideLabel,
+  getGarageBuildPhotoUrls,
   parseGarageBuildMetadata,
 } from "@/lib/garage/garage-build";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
@@ -367,6 +368,10 @@ function mapPostToFeed(post: RawPost): FeedPost {
     "feed",
   );
   const garageBuild = parseGarageBuildMetadata(post.media_metadata);
+  const garageBuildPhotos = getGarageBuildPhotoUrls(
+    garageBuild,
+    post.image_display_url || post.image_url,
+  ).map((url) => getBestImageUrl(url, null, "feed") || url);
   const videoThumbnail = getBestImageUrl(
     post.video_thumbnail_url,
     null,
@@ -388,7 +393,7 @@ function mapPostToFeed(post: RawPost): FeedPost {
     },
     location: post.location || "",
     caption: post.caption || "",
-    photos: imageUrl ? [imageUrl] : [],
+    photos: post.post_type === "garage_build" ? garageBuildPhotos : imageUrl ? [imageUrl] : [],
     video: getVideoPlaybackUrl(
       post.video_playback_url || post.video_url,
       post.video_hls_url,
