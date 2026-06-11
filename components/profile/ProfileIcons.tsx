@@ -45,14 +45,12 @@ export function IconTabPosts({ className = "h-3.5 w-3.5" }: IconProps) {
 export function IconTabRides({ className = "h-3.5 w-3.5" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={`${base} ${className}`} aria-hidden>
-      <circle cx="5" cy="17" r="2.25" />
-      <circle cx="19" cy="17" r="2.25" />
       <path
-        d="M7 17h10M7.5 14.5 10 11h2.5l1.5 3.5M16.5 14.5 14 11h-1.5M10 11l1.5-2.5h2L15 11"
+        d="M12 21s6-5.2 6-10.5a6 6 0 1 0-12 0C6 15.8 12 21 12 21z"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M12.5 8.5V6M11 6h3" strokeLinecap="round" />
+      <circle cx="12" cy="10.5" r="2.25" />
     </svg>
   );
 }

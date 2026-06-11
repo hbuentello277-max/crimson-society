@@ -21,7 +21,12 @@ import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import type { CrimsonSound } from "@/lib/sounds";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
+import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
+import {
+  formatGarageBuildRideLabel,
+  parseGarageBuildMetadata,
+} from "@/lib/garage/garage-build";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import {
   dashboardMeetToStartRideInput,
@@ -51,7 +56,7 @@ const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
 });
 
-type PostType = "photo" | "reel" | "status";
+type PostType = "photo" | "reel" | "status" | "garage_build";
 
 type FeedPost = {
   id: string;
@@ -67,6 +72,8 @@ type FeedPost = {
   statusText?: string;
   statusBg?: string;
   mediaStatus?: string;
+  garageRideLabel?: string;
+  garageModificationTitle?: string;
   taggedRiders?: string[];
   timeLabel: string;
   likes: number;
@@ -98,6 +105,7 @@ type RawPost = {
   status_text?: string | null;
   status_bg?: string | null;
   location?: string | null;
+  media_metadata?: Record<string, unknown> | null;
   created_at: string;
   profiles?: RawProfile | RawProfile[];
   post_likes?: { count: number }[];
@@ -352,11 +360,13 @@ function mapRideToDashboardMeet(
 function mapPostToFeed(post: RawPost): FeedPost {
   const profile = pickProfile(post.profiles);
   const sound = pickSound(post.post_sounds);
+  const isReel = post.post_type === "reel";
   const imageUrl = getBestImageUrl(
-    post.post_type === "reel" ? null : post.image_display_url,
-    post.post_type === "reel" ? null : post.image_url,
+    isReel ? null : post.image_display_url,
+    isReel ? null : post.image_url,
     "feed",
   );
+  const garageBuild = parseGarageBuildMetadata(post.media_metadata);
   const videoThumbnail = getBestImageUrl(
     post.video_thumbnail_url,
     null,
@@ -388,6 +398,8 @@ function mapPostToFeed(post: RawPost): FeedPost {
     statusText: post.status_text || "",
     statusBg: post.status_bg || "noir",
     mediaStatus: post.media_status || "ready",
+    garageRideLabel: formatGarageBuildRideLabel(garageBuild),
+    garageModificationTitle: garageBuild?.modification_title?.trim() || undefined,
     taggedRiders: [],
     timeLabel: timeAgo(post.created_at),
     likes: post.post_likes?.[0]?.count || 0,
@@ -415,6 +427,7 @@ function DashboardPageContent() {
     awarding: riderOnboardingAwarding,
     completionNotice,
   } = useRiderOnboardingChecklist(Boolean(userId));
+  useAchievementMilestones(userId, Boolean(userId));
 
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
@@ -508,6 +521,7 @@ function DashboardPageContent() {
         video_hls_url,
         video_thumbnail_url,
         media_status,
+        media_metadata,
         status_text,
         status_bg,
         location,
@@ -1813,7 +1827,18 @@ if (livePostIds.length > 0) {
                     )}
                   </div>
 
-                  {p.type === "photo" && photos.length > 0 && (
+                  {p.type === "garage_build" && (
+                    <div className="border-b border-white/10 px-4 py-3">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-[#e87a82]">
+                        Garage Build · {p.garageRideLabel}
+                      </p>
+                      {p.garageModificationTitle ? (
+                        <p className="mt-1 font-serif text-xl text-white">{p.garageModificationTitle}</p>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {(p.type === "photo" || p.type === "garage_build") && photos.length > 0 && (
                     <div
                       ref={(el) => {
                         carouselRefs.current[p.id] = el;
@@ -1841,6 +1866,21 @@ if (livePostIds.length > 0) {
                           )}
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {p.type === "garage_build" && p.video && (
+                    <div className="relative aspect-[9/16] max-h-[560px] bg-black">
+                      <ReelPlayer
+                        postId={p.id}
+                        src={p.video || null}
+                        poster={p.videoThumbnail || photos[0] || null}
+                        mediaStatus={p.mediaStatus || "ready"}
+                        isActive={activeReelId === p.id}
+                        onBecameVisible={setActiveReelId}
+                        authorName={p.author.name}
+                        priority={postIndex === 0}
+                      />
                     </div>
                   )}
 

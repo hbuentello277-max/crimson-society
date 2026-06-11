@@ -28,7 +28,8 @@ import {
 import { SavedPostsPanel } from "@/components/social/SavedPostsPanel";
 import { CrimsonCreditsCard } from "@/components/profile/CrimsonCreditsCard";
 import { NewRiderChecklistCard } from "@/components/growth/NewRiderChecklistCard";
-import { ProfileGarageSection } from "@/components/profile/ProfileGarageSection";
+import { ProfileGarageBuildsSection } from "@/components/profile/ProfileGarageBuildsSection";
+import { ProfileMeetsSection } from "@/components/profile/ProfileMeetsSection";
 import { InviteRidersSheet } from "@/components/profile/InviteRidersSheet";
 import { useOwnReferralStats } from "@/hooks/useOwnReferralStats";
 import { useCrimsonCreditsSummary } from "@/hooks/useCrimsonCreditsSummary";
@@ -633,7 +634,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
     {tab === "garage" && (
       <section className="mt-3">
-        <ProfileGarageSection userId={userId} />
+        <ProfileGarageBuildsSection userId={userId} isOwnProfile />
       </section>
     )}
 
@@ -643,10 +644,7 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
 
     {tab === "rides" && (
       <section className="mt-3">
-        <EmptyPanel
-          title="Coming into focus."
-          body="This profile section is wired to shared state and ready for the next data layer."
-        />
+        <ProfileMeetsSection userId={userId} />
       </section>
     )}
   </div>

@@ -5,6 +5,7 @@ const TYPE_LABELS: Record<string, string> = {
   referral_signup: "Referral Signup",
   referral_blackcard: "Referral Blackcard",
   rider_onboarding: "New Rider Onboarding",
+  achievement_milestone: "Achievement Milestone",
   admin_adjustment: "Admin Adjustment",
   adjustment: "Adjustment",
   reward_redemption: "Reward Redemption",

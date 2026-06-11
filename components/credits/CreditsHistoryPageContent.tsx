@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CreditsAccountOverview } from "@/components/credits/CreditsAccountOverview";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { CreditsTransactionList } from "@/components/credits/CreditsTransactionList";
+import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useCrimsonCreditTransactions } from "@/hooks/useCrimsonCreditTransactions";
 import { useCrimsonCreditsAccount } from "@/hooks/useCrimsonCreditsAccount";
 import { supabase } from "@/lib/supabase";
@@ -30,8 +31,20 @@ export function CreditsHistoryPageContent() {
     loadingMore,
     hasMore,
     loadMore,
+    refresh: refreshTransactions,
     error: txError,
   } = useCrimsonCreditTransactions(userId);
+  const { syncMilestones } = useAchievementMilestones(userId, Boolean(userId));
+
+  useEffect(() => {
+    if (!userId) return;
+    void (async () => {
+      const synced = await syncMilestones({ force: true });
+      if (synced) {
+        refreshTransactions();
+      }
+    })();
+  }, [refreshTransactions, syncMilestones, userId]);
 
   const loading = authLoading || accountLoading;
 

@@ -18,7 +18,8 @@ import { removeMutualFollows } from "@/lib/blocking";
 import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 import { BOTTOM_NAV_CLEARANCE, CS_PROFILE_BTN_PRIMARY, CS_PROFILE_BTN_SOFT } from "@/lib/crimson-accent";
-import { deriveMeetLifecycle, meetLifecycleLabel } from "@/lib/meets/lifecycle";
+import { ProfileGarageBuildsSection } from "@/components/profile/ProfileGarageBuildsSection";
+import { ProfileMeetsSection } from "@/components/profile/ProfileMeetsSection";
 
 type PublicProfile = {
   id: string;
@@ -59,34 +60,6 @@ type ProfilePost = {
   image_thumbnail_url?: string | null;
   video_thumbnail_url?: string | null;
   media_status?: string | null;
-};
-
-type Motorcycle = {
-  id: string;
-  label: string | null;
-  name: string | null;
-  year: string | null;
-  finish: string | null;
-  photo_url: string | null;
-  photo_path: string | null;
-};
-
-type ProfileRide = {
-  id: string;
-  name: string;
-  date: string;
-  time: string;
-  meet_point: string;
-  destination: string;
-  privacy: string | null;
-  distance: string | null;
-  duration: string | null;
-  cover: string | null;
-  tracking_status: string | null;
-  started_at: string | null;
-  ended_at: string | null;
-  meet_duration_minutes?: number | null;
-  status?: string | null;
 };
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -133,25 +106,6 @@ function normalizeSocialUrl(value: string | null) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-function bikeInitial(bike: Motorcycle) {
-  return (bike.name?.trim() || bike.label?.trim() || "G").charAt(0).toUpperCase();
-}
-
-function formatRideTime(time: string) {
-  if (!time || time.toLowerCase().includes("am") || time.toLowerCase().includes("pm")) return time;
-  if (!time.includes(":")) return time;
-
-  const [hours, minutes] = time.split(":");
-  const date = new Date();
-  date.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
 function EmptyPanel({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-[26px] border border-white/10 bg-white/[0.025] p-8 text-center shadow-[0_20px_60px_-40px_rgba(0,0,0,0.95)]">
@@ -191,13 +145,9 @@ export default function PublicProfilePage() {
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
-  const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
-  const [rides, setRides] = useState<ProfileRide[]>([]);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
   const [profileState, setProfileState] = useState<LoadState>("idle");
   const [postsState, setPostsState] = useState<LoadState>("idle");
-  const [garageState, setGarageState] = useState<LoadState>("idle");
-  const [ridesState, setRidesState] = useState<LoadState>("idle");
   const [tab, setTab] = useState<ProfileTab>("posts");
   const [isBlocked, setIsBlocked] = useState(false);
   const [isBlockingMe, setIsBlockingMe] = useState(false);
@@ -301,72 +251,6 @@ export default function PublicProfilePage() {
     };
 
     void loadPosts();
-  }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
-
-  useEffect(() => {
-    if (!profile?.id || tab !== "garage") return;
-
-    const viewerId = session?.user?.id;
-    if (viewerId && viewerId !== profile.id && (isBlocked || isBlockingMe)) {
-      setMotorcycles([]);
-      setGarageState("loaded");
-      return;
-    }
-
-    const loadGarage = async () => {
-      setGarageState("loading");
-
-      const { data, error } = await supabase
-        .from("motorcycles")
-        .select("id, label, name, year, finish, photo_url, photo_path")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        setGarageState("error");
-        return;
-      }
-
-      setMotorcycles((data as Motorcycle[]) ?? []);
-      setGarageState("loaded");
-    };
-
-    void loadGarage();
-  }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
-
-  useEffect(() => {
-    if (!profile?.id || tab !== "rides") return;
-
-    const viewerId = session?.user?.id;
-    if (viewerId && viewerId !== profile.id && (isBlocked || isBlockingMe)) {
-      setRides([]);
-      setRidesState("loaded");
-      return;
-    }
-
-    const loadRides = async () => {
-      setRidesState("loading");
-
-      const { data, error } = await supabase
-        .from("rides")
-        .select(
-          "id, name, date, time, meet_point, destination, privacy, distance, duration, cover, tracking_status, started_at, ended_at, meet_duration_minutes, status",
-        )
-        .eq("host_id", profile.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(24);
-
-      if (error) {
-        setRidesState("error");
-        return;
-      }
-
-      setRides((data as ProfileRide[]) ?? []);
-      setRidesState("loaded");
-    };
-
-    void loadRides();
   }, [profile?.id, tab, session?.user?.id, isBlocked, isBlockingMe]);
 
   useEffect(() => {
@@ -620,11 +504,7 @@ export default function PublicProfilePage() {
         }
         void removeMutualFollows(session.user.id, profile.id);
         setPosts([]);
-        setMotorcycles([]);
-        setRides([]);
         setPostsState("loaded");
-        setGarageState("loaded");
-        setRidesState("loaded");
         setSafetyMessage("Rider blocked. They cannot message you.");
       }
     }
@@ -993,57 +873,8 @@ export default function PublicProfilePage() {
                 title="Garage unavailable."
                 body="Profile content is hidden while a block is active between you and this rider."
               />
-            ) : garageState === "loading" && (
-              <EmptyPanel title="Loading garage." body="Pulling this rider's machines from Supabase." />
-            )}
-
-            {garageState === "error" && (
-              <EmptyPanel title="Garage could not load." body="Motorcycle details are unavailable right now." />
-            )}
-
-            {garageState === "loaded" && motorcycles.length === 0 && (
-              <EmptyPanel title="No motorcycles listed." body="This rider has not added garage entries yet." />
-            )}
-
-            {garageState === "loaded" && motorcycles.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {motorcycles.map((bike, index) => (
-                  <article
-                    key={bike.id}
-                    className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
-                  >
-                    <div className="relative aspect-[4/3] bg-black">
-                      {bike.photo_url ? (
-                        <Image
-                          src={bike.photo_url}
-                          alt={`${bike.name || bike.label || "Motorcycle"} photo`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          priority={index === 0}
-                          className="object-cover"
-                          unoptimized={bike.photo_url.includes("supabase")}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(180,20,30,0.22),transparent_58%)] font-serif text-5xl text-[#f0c8cb]">
-                          {bikeInitial(bike)}
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
-                    </div>
-                    <div className="border-b border-white/10 px-5 py-5">
-                      <p className="text-[10px] uppercase tracking-[0.32em] text-zinc-500">
-                        {bike.label || "Garage"}
-                      </p>
-                      <h3 className="mt-3 font-serif text-3xl leading-none text-white">
-                        {bike.name || "Unnamed Motorcycle"}
-                      </h3>
-                      <p className="mt-3 text-sm text-zinc-400">
-                        {bike.year || "Year pending"} · {bike.finish || "Finish pending"}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-              </div>
+            ) : (
+              <ProfileGarageBuildsSection userId={profile?.id ?? null} isOwnProfile={isOwnProfile} />
             )}
           </section>
         )}
@@ -1059,70 +890,8 @@ export default function PublicProfilePage() {
                 title="Meets unavailable."
                 body="Profile content is hidden while a block is active between you and this rider."
               />
-            ) : ridesState === "loading" && (
-              <EmptyPanel title="Loading meets." body="Finding this rider's hosted meets." />
-            )}
-
-            {ridesState === "error" && (
-              <EmptyPanel title="Meets could not load." body="Hosted meet history is unavailable right now." />
-            )}
-
-            {ridesState === "loaded" && rides.length === 0 && (
-              <EmptyPanel title="No meets listed." body="Hosted public meets will appear here." />
-            )}
-
-            {ridesState === "loaded" && rides.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
-                {rides.map((ride) => (
-                  <article
-                    key={ride.id}
-                    className="overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#0f0f10] to-[#070707]"
-                  >
-                    <div className="relative h-44 bg-black">
-                      {ride.cover ? (
-                        <Image
-                          src={ride.cover}
-                          alt={ride.name}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.26em] text-zinc-600">
-                          Meet
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#070707] via-transparent to-transparent" />
-                      <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/50 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-zinc-200 backdrop-blur">
-                        {meetLifecycleLabel(
-                          deriveMeetLifecycle({
-                            status: ride.status ?? "active",
-                            trackingStatus: ride.tracking_status,
-                            date: ride.date,
-                            time: ride.time,
-                            meetDurationMinutes: ride.meet_duration_minutes,
-                          }),
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="p-5">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-[#e87a82]">
-                        {ride.date} / {formatRideTime(ride.time)}
-                      </p>
-                      <h3 className="mt-2 font-serif text-3xl leading-none text-white">
-                        {ride.name}
-                      </h3>
-                      <p className="mt-3 text-sm leading-6 text-zinc-400">
-                        {ride.meet_point} to {ride.destination}
-                      </p>
-                      <p className="mt-3 text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-                        {ride.distance || "Distance pending"} / {ride.duration || "Duration pending"}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-              </div>
+            ) : (
+              <ProfileMeetsSection userId={profile?.id ?? null} />
             )}
           </section>
         )}

@@ -1,5 +1,10 @@
 "use client";
 
+import { AchievementBadgeIcon } from "@/components/credits/AchievementBadgeIcon";
+import {
+  formatAchievementMilestoneLine,
+  isAchievementMilestoneTransaction,
+} from "@/lib/credits/achievements";
 import type { CrimsonCreditTransactionRow } from "@/lib/credits/types";
 import { formatCreditTransactionLine } from "@/lib/credits/transaction-labels";
 
@@ -34,8 +39,33 @@ export function CreditsTransactionList({
     <div className="space-y-2">
       <ul className="space-y-2">
         {transactions.map((tx) => {
-          const line = formatCreditTransactionLine(tx.transaction_type, tx.amount, tx.reason);
           const positive = tx.amount > 0;
+          const isAchievement = isAchievementMilestoneTransaction(tx.transaction_type);
+
+          if (isAchievement) {
+            const { amountLine, detailLine } = formatAchievementMilestoneLine(
+              tx.amount,
+              tx.reason,
+              tx.created_at,
+            );
+
+            return (
+              <li
+                key={tx.id}
+                className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3"
+              >
+                <AchievementBadgeIcon className="h-10 w-10" />
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-medium ${positive ? "text-emerald-300" : "text-red-300"}`}>
+                    {amountLine}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-300">{detailLine}</p>
+                </div>
+              </li>
+            );
+          }
+
+          const line = formatCreditTransactionLine(tx.transaction_type, tx.amount, tx.reason);
 
           return (
             <li

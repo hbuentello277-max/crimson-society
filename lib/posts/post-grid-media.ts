@@ -10,6 +10,10 @@ export type PostGridMediaFields = {
   media_status?: string | null;
 };
 
+export function isGarageBuildPost(post: Pick<PostGridMediaFields, "post_type">) {
+  return post.post_type === "garage_build";
+}
+
 export function isReelPost(post: Pick<PostGridMediaFields, "post_type">) {
   return post.post_type === "reel";
 }
@@ -31,7 +35,7 @@ export function getReelGridStatusLabel(post: PostGridMediaFields) {
 
 /** Best-effort grid thumbnail for photos and reels. */
 export function getPostGridPreviewUrl(post: PostGridMediaFields) {
-  if (isReelPost(post) && post.video_thumbnail_url) {
+  if ((isReelPost(post) || isGarageBuildPost(post)) && post.video_thumbnail_url) {
     return getBestImageUrl(post.video_thumbnail_url, null, "profileGrid");
   }
 

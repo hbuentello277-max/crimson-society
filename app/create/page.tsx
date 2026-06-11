@@ -22,7 +22,13 @@ import type { CrimsonSound } from "@/lib/sounds";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 
-type PostType = "photo" | "reel" | "status";
+type PostType = "photo" | "reel" | "status" | "garage_build";
+type GarageMotorcycle = {
+  id: string;
+  name: string | null;
+  year: string | null;
+  label: string | null;
+};
 type TaggableRider = {
   id: string;
   name: string;
@@ -80,6 +86,9 @@ export default function CreatePage() {
   const [videoDurationLabel, setVideoDurationLabel] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [garageMotorcycles, setGarageMotorcycles] = useState<GarageMotorcycle[]>([]);
+  const [selectedMotorcycleId, setSelectedMotorcycleId] = useState("");
+  const [modificationTitle, setModificationTitle] = useState("");
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -131,6 +140,29 @@ export default function CreatePage() {
   }, [loadTaggableRiders, showRiderPicker, userId]);
 
   useEffect(() => {
+    if (!userId) return;
+
+    const loadMotorcycles = async () => {
+      const { data, error } = await supabase
+        .from("motorcycles")
+        .select("id, name, year, label")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        setGarageMotorcycles([]);
+        return;
+      }
+
+      const rows = (data as GarageMotorcycle[]) ?? [];
+      setGarageMotorcycles(rows);
+      setSelectedMotorcycleId((current) => current || rows[0]?.id || "");
+    };
+
+    void loadMotorcycles();
+  }, [userId]);
+
+  useEffect(() => {
   let active = true;
 
   const checkUser = async () => {
@@ -172,12 +204,12 @@ export default function CreatePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (type !== "photo") {
+      if (type !== "photo" && type !== "garage_build") {
         photos.forEach((p) => URL.revokeObjectURL(p.preview));
         setPhotos([]);
       }
 
-      if (type !== "reel") {
+      if (type !== "reel" && type !== "garage_build") {
         if (videoPreview) URL.revokeObjectURL(videoPreview);
         setVideoFile(null);
         setVideoPreview(null);
@@ -188,6 +220,10 @@ export default function CreatePage() {
         setStatusBg(statusBackgrounds[0]);
       } else {
         setSelectedSound(null);
+      }
+
+      if (type !== "garage_build") {
+        setModificationTitle("");
       }
     }, 0);
 
@@ -281,6 +317,13 @@ export default function CreatePage() {
     if (type === "photo") return photos.length > 0;
     if (type === "reel") return !!videoFile;
     if (type === "status") return statusText.trim().length > 0;
+    if (type === "garage_build") {
+      return (
+        Boolean(selectedMotorcycleId) &&
+        modificationTitle.trim().length > 0 &&
+        (photos.length > 0 || !!videoFile)
+      );
+    }
     return false;
   };
 
@@ -326,7 +369,7 @@ export default function CreatePage() {
         };
       }
 
-      if (type === "reel" && videoFile) {
+      if ((type === "reel" || type === "garage_build") && videoFile) {
         await assertVideoDurationWithinLimit(videoFile);
 
         videoOriginal = await uploadOriginalMedia(
@@ -338,11 +381,46 @@ export default function CreatePage() {
         videoUrl = null;
         mediaStatus = "queued";
         mediaMetadata = {
-          pipeline: "reel-mp4-playback-pending",
+          pipeline: type === "garage_build" ? "garage-build-video-pending" : "reel-mp4-playback-pending",
           originals_preserved: true,
           beta_limits: {
             max_duration_seconds: VIDEO_MAX_DURATION_SECONDS,
             max_size_bytes: VIDEO_LIMIT_BYTES,
+          },
+        };
+      }
+
+      if (type === "garage_build" && photos[0]) {
+        imageOriginal = await uploadOriginalMedia(
+          supabase,
+          user.id,
+          "image",
+          photos[0].file,
+        );
+        const display = await uploadImageDisplaySource(
+          supabase,
+          imageOriginal.path,
+          photos[0].file,
+        );
+        imageUrl = display.publicUrl;
+        mediaStatus = "queued";
+        mediaMetadata = {
+          ...mediaMetadata,
+          pipeline: videoFile ? "garage-build-mixed-media" : "garage-build-image",
+          originals_preserved: true,
+          display_source_path: display.path,
+        };
+      }
+
+      const selectedMotorcycle = garageMotorcycles.find((bike) => bike.id === selectedMotorcycleId);
+      if (type === "garage_build") {
+        mediaMetadata = {
+          ...mediaMetadata,
+          garage_build: {
+            motorcycle_id: selectedMotorcycleId,
+            modification_title: modificationTitle.trim(),
+            motorcycle_name: selectedMotorcycle?.name?.trim() || selectedMotorcycle?.label?.trim() || null,
+            motorcycle_year: selectedMotorcycle?.year?.trim() || null,
           },
         };
       }
@@ -479,18 +557,25 @@ export default function CreatePage() {
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pt-6">
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5">
-          {(["photo", "reel", "status"] as PostType[]).map((t) => (
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-1.5 sm:grid-cols-4">
+          {(
+            [
+              { id: "photo" as const, label: "Post" },
+              { id: "reel" as const, label: "Reel" },
+              { id: "garage_build" as const, label: "Garage Build" },
+              { id: "status" as const, label: "Status" },
+            ] as const
+          ).map((option) => (
             <button
-              key={t}
-              onClick={() => setType(t)}
-              className={`rounded-xl py-2.5 text-[11px] uppercase tracking-[0.3em] transition ${
-                type === t
+              key={option.id}
+              onClick={() => setType(option.id)}
+              className={`rounded-xl py-2.5 text-[10px] uppercase tracking-[0.22em] transition sm:text-[11px] sm:tracking-[0.28em] ${
+                type === option.id
                   ? "border border-[#b4141e] bg-[#b4141e]/20 text-[#e87a82]"
                   : "border border-transparent text-white/55 hover:text-white"
               }`}
             >
-              {t}
+              {option.label}
             </button>
           ))}
         </div>
@@ -647,6 +732,101 @@ export default function CreatePage() {
           </section>
         )}
 
+        {type === "garage_build" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">Ride</p>
+              {garageMotorcycles.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  Add a ride in Edit Profile before posting a Garage Build.
+                </p>
+              ) : (
+                <select
+                  value={selectedMotorcycleId}
+                  onChange={(e) => setSelectedMotorcycleId(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none"
+                >
+                  {garageMotorcycles.map((bike) => (
+                    <option key={bike.id} value={bike.id}>
+                      {[bike.year, bike.name || bike.label].filter(Boolean).join(" ") || "Ride"}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">
+                Modification Title
+              </p>
+              <input
+                value={modificationTitle}
+                onChange={(e) => setModificationTitle(e.target.value)}
+                placeholder="Installed Full Exhaust"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">Photos</p>
+              {photos.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="flex h-32 w-full flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-center transition hover:border-[#b4141e]/60"
+                >
+                  <p className="font-serif text-lg italic text-white">Add photo</p>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-3">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-white/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photos[0].preview} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(0)}
+                    className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-5">
+              <p className="mb-3 text-[10px] uppercase tracking-[0.35em] text-white/40">Video (optional)</p>
+              {!videoPreview ? (
+                <button
+                  type="button"
+                  onClick={() => videoInputRef.current?.click()}
+                  className="flex h-28 w-full items-center justify-center rounded-xl border border-dashed border-white/15 bg-black/40 text-sm text-white/70"
+                >
+                  Add video
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/50 p-3">
+                  <video src={videoPreview} muted playsInline className="h-16 w-16 rounded-lg object-cover" />
+                  <button type="button" onClick={clearVideo} className="text-xs text-white/70">
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
+              <p className="mb-2 text-[10px] uppercase tracking-[0.35em] text-white/40">Description</p>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Installed and tuned the new system."
+                rows={4}
+                className="w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+          </section>
+        )}
+
         {type === "status" && (
           <section className="space-y-4">
             <div
@@ -690,7 +870,7 @@ export default function CreatePage() {
           </section>
         )}
 
-        {type !== "status" && (
+        {type !== "status" && type !== "garage_build" && (
           <>
             {type === "photo" && (
               <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-4">
