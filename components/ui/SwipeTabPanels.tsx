@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useHorizontalSwipe } from "@/hooks/useHorizontalSwipe";
 
 type SwipeTabPanelsProps = {
@@ -8,6 +8,7 @@ type SwipeTabPanelsProps = {
   onIndexChange: (index: number) => void;
   children: ReactNode[];
   className?: string;
+  lazyMount?: boolean;
 };
 
 export function SwipeTabPanels({
@@ -15,14 +16,49 @@ export function SwipeTabPanels({
   onIndexChange,
   children,
   className = "",
+  lazyMount = false,
 }: SwipeTabPanelsProps) {
   const panelCount = children.length;
+  const [mountedPanels, setMountedPanels] = useState<Set<number>>(() => new Set([activeIndex]));
+
+  useEffect(() => {
+    if (!lazyMount) return;
+    setMountedPanels((current) => {
+      if (current.has(activeIndex)) return current;
+      const next = new Set(current);
+      next.add(activeIndex);
+      return next;
+    });
+  }, [activeIndex, lazyMount]);
+
   const { viewportRef, swipeHandlers, translateX, isDragging, panelWidthPercent } =
     useHorizontalSwipe({
       activeIndex,
       panelCount,
-      onIndexChange,
+      onIndexChange: (index) => {
+        if (lazyMount) {
+          setMountedPanels((current) => {
+            if (current.has(index)) return current;
+            const next = new Set(current);
+            next.add(index);
+            return next;
+          });
+        }
+        onIndexChange(index);
+      },
     });
+
+  useEffect(() => {
+    if (!lazyMount || !isDragging) return;
+    const adjacentIndex = activeIndex > 0 ? activeIndex - 1 : activeIndex + 1;
+    if (adjacentIndex < 0 || adjacentIndex >= panelCount) return;
+    setMountedPanels((current) => {
+      if (current.has(adjacentIndex)) return current;
+      const next = new Set(current);
+      next.add(adjacentIndex);
+      return next;
+    });
+  }, [activeIndex, isDragging, lazyMount, panelCount]);
 
   return (
     <div
@@ -44,7 +80,7 @@ export function SwipeTabPanels({
             style={{ width: `${panelWidthPercent}%` }}
             aria-hidden={index !== activeIndex}
           >
-            {panel}
+            {!lazyMount || mountedPanels.has(index) ? panel : null}
           </div>
         ))}
       </div>

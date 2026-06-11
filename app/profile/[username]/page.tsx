@@ -241,7 +241,8 @@ export default function PublicProfilePage() {
         `)
         .eq("user_id", profile.id)
         .order("pinned_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(24);
 
       if (error) {
         setPostsState("error");

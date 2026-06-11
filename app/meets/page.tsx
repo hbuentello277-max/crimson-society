@@ -57,7 +57,6 @@ import {
   hasRoadGeometry,
   parseRoute,
   endpointRouteFromRow,
-  ensureRouteWithSteps,
 } from "@/lib/meets/route-geometry";
 
 type MeetReadRow = { ride_id: string; last_read_at: string };
@@ -717,24 +716,15 @@ const rowsWithHosts = rows.map((row) => ({
   attendeeRiders: attendeesByRide.get(row.id) || [],
 }));
 
-const ridesWithRoutes = await Promise.all(
-  rowsWithHosts.map(async (row) => {
-    const savedRoute = parseRoute(row.route);
-    if (hasRoadGeometry(savedRoute)) {
-      return meetRowToMeet(row as MeetRow, savedRoute);
-    }
+const ridesWithRoutes = rowsWithHosts.map((row) => {
+  const savedRoute = parseRoute(row.route);
+  if (hasRoadGeometry(savedRoute)) {
+    return meetRowToMeet(row as MeetRow, savedRoute);
+  }
 
-    if (endpointRouteFromRow(row as MeetRow).length < 2) {
-      return meetRowToMeet(row as MeetRow, []);
-    }
-
-    const resolved = await ensureRouteWithSteps(row as MeetRow, {
-      persistUserId: session?.user?.id ?? null,
-      persistAsAdmin: isAdmin,
-    });
-    return meetRowToMeet(row as MeetRow, resolved.geometry);
-  }),
-);
+  const endpointRoute = endpointRouteFromRow(row as MeetRow);
+  return meetRowToMeet(row as MeetRow, endpointRoute.length >= 2 ? endpointRoute : []);
+});
 
       if (active) {
         setRealMeets(dedupeMeetsById(ridesWithRoutes));
@@ -1582,6 +1572,7 @@ const ridesWithRoutes = await Promise.all(
           activeIndex={lifecycleTabIndex}
           onIndexChange={(index) => setLifecycleTab(index === 0 ? "upcoming" : index === 1 ? "active" : "past")}
           className="mt-1"
+          lazyMount
         >
           {renderMeetPanel(upcomingMeets, "Upcoming Meets", true)}
           {renderMeetPanel(activeMeets, "Active Meets", true)}

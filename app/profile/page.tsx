@@ -294,7 +294,8 @@ const { data, error: postsError } = await supabase
     media_metadata
   `)
   .eq("user_id", userId)
-  .order("created_at", { ascending: false });
+  .order("created_at", { ascending: false })
+  .limit(24);
 
 if (postsError) {
   setPostsState("error");
@@ -302,7 +303,6 @@ if (postsError) {
 }
 
 setPosts((data as ProfilePost[]) ?? []);
-setStats((current) => ({ ...current, posts: data?.length ?? current.posts }));
 setPostsState("loaded");
 
 }, [postsState, userId]);

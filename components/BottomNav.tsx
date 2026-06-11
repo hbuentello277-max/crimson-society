@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -15,6 +15,8 @@ import {
   loadMeetNavBadgeCount,
   loadProfileNavBadgeCount,
 } from "@/lib/nav-badge-counts";
+
+const BADGE_REFRESH_DEBOUNCE_MS = 400;
 
 const NAV = [
   {
@@ -92,6 +94,9 @@ export default function BottomNav() {
   const [profileBadgeCount, setProfileBadgeCount] = useState(0);
 
   const inboxUnreadTotal = messageUnreadCount + notificationUnreadCount;
+  const badgeRefreshTimerRef = useRef<number | null>(null);
+  const badgeRefreshInFlightRef = useRef(false);
+  const badgeRefreshQueuedRef = useRef(false);
 
   const refreshAllBadges = useCallback(async () => {
     const userId = session?.user?.id;
@@ -123,15 +128,56 @@ export default function BottomNav() {
     void syncAppIconBadge(appIconCount);
   }, [session?.user?.id]);
 
-  useEffect(() => {
-    if (loading) return;
-    void refreshAllBadges();
-  }, [loading, refreshAllBadges]);
+  const scheduleBadgeRefresh = useCallback(
+    (immediate = false) => {
+      if (loading) return;
+
+      const runRefresh = () => {
+        if (badgeRefreshInFlightRef.current) {
+          badgeRefreshQueuedRef.current = true;
+          return;
+        }
+
+        badgeRefreshInFlightRef.current = true;
+        void refreshAllBadges().finally(() => {
+          badgeRefreshInFlightRef.current = false;
+          if (badgeRefreshQueuedRef.current) {
+            badgeRefreshQueuedRef.current = false;
+            runRefresh();
+          }
+        });
+      };
+
+      if (immediate) {
+        if (badgeRefreshTimerRef.current) {
+          window.clearTimeout(badgeRefreshTimerRef.current);
+          badgeRefreshTimerRef.current = null;
+        }
+        runRefresh();
+        return;
+      }
+
+      if (badgeRefreshTimerRef.current) {
+        window.clearTimeout(badgeRefreshTimerRef.current);
+      }
+
+      badgeRefreshTimerRef.current = window.setTimeout(() => {
+        badgeRefreshTimerRef.current = null;
+        runRefresh();
+      }, BADGE_REFRESH_DEBOUNCE_MS);
+    },
+    [loading, refreshAllBadges],
+  );
 
   useEffect(() => {
     if (loading) return;
-    void refreshAllBadges();
-  }, [loading, pathname, refreshAllBadges]);
+    scheduleBadgeRefresh(true);
+  }, [loading, scheduleBadgeRefresh]);
+
+  useEffect(() => {
+    if (loading) return;
+    scheduleBadgeRefresh();
+  }, [loading, pathname, scheduleBadgeRefresh]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -142,17 +188,17 @@ export default function BottomNav() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ride_messages" },
-        () => void refreshAllBadges(),
+        () => scheduleBadgeRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
-        () => void refreshAllBadges(),
+        () => scheduleBadgeRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversation_members" },
-        () => void refreshAllBadges(),
+        () => scheduleBadgeRefresh(),
       )
       .on(
         "postgres_changes",
@@ -162,27 +208,31 @@ export default function BottomNav() {
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => void refreshAllBadges(),
+        () => scheduleBadgeRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "user_connections" },
-        () => void refreshAllBadges(),
+        () => scheduleBadgeRefresh(),
       )
       .subscribe();
 
-    const handleMeetRead = () => void refreshAllBadges();
-    const handleNotificationsRead = () => void refreshAllBadges();
+    const handleMeetRead = () => scheduleBadgeRefresh();
+    const handleNotificationsRead = () => scheduleBadgeRefresh();
 
     window.addEventListener("crimson-meet-chat-read", handleMeetRead);
     window.addEventListener("crimson-notifications-read", handleNotificationsRead);
 
     return () => {
+      if (badgeRefreshTimerRef.current) {
+        window.clearTimeout(badgeRefreshTimerRef.current);
+        badgeRefreshTimerRef.current = null;
+      }
       window.removeEventListener("crimson-meet-chat-read", handleMeetRead);
       window.removeEventListener("crimson-notifications-read", handleNotificationsRead);
       void supabase.removeChannel(channel);
     };
-  }, [loading, refreshAllBadges, session?.user?.id]);
+  }, [loading, scheduleBadgeRefresh, session?.user?.id]);
 
   const hideOn = ["/", "/login", "/signup", "/profile/setup"];
   if (hideOn.includes(pathname)) return null;

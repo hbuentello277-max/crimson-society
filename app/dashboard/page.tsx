@@ -52,7 +52,8 @@ import { deriveMeetLifecycle, parseMeetStatus, parseMeetTrackingStatus } from "@
 import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
 
-const FEED_POST_LIMIT = 40;
+const FEED_POST_LIMIT = 15;
+const FEED_FOCUS_RELOAD_DEBOUNCE_MS = 1500;
 
 const MeetMap = dynamic(() => import("@/components/MeetMap"), {
   ssr: false,
@@ -833,6 +834,8 @@ if (livePostIds.length > 0) {
     setDashboardLoading(false);
   }, [session]);
 
+  const feedFocusReloadTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!session) return;
 
@@ -841,12 +844,22 @@ if (livePostIds.length > 0) {
     }, 0);
 
     const onFocus = () => {
-      void loadFeed();
+      if (feedFocusReloadTimerRef.current) {
+        window.clearTimeout(feedFocusReloadTimerRef.current);
+      }
+      feedFocusReloadTimerRef.current = window.setTimeout(() => {
+        feedFocusReloadTimerRef.current = null;
+        void loadFeed();
+      }, FEED_FOCUS_RELOAD_DEBOUNCE_MS);
     };
 
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearTimeout(timer);
+      if (feedFocusReloadTimerRef.current) {
+        window.clearTimeout(feedFocusReloadTimerRef.current);
+        feedFocusReloadTimerRef.current = null;
+      }
       window.removeEventListener("focus", onFocus);
     };
   }, [loadFeed, session]);

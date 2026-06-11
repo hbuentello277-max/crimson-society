@@ -45,6 +45,16 @@ export default function InboxSwipeTabs() {
     searchParams.get("tab") === "notifications" ? "notifications" : "messages";
   const activeIndex = activeTab === "messages" ? 0 : 1;
   const swipeEnabled = !threadOpen;
+  const [mountedTabs, setMountedTabs] = useState<Set<InboxTab>>(() => new Set([activeTab]));
+
+  useEffect(() => {
+    setMountedTabs((current) => {
+      if (current.has(activeTab)) return current;
+      const next = new Set(current);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   const setTab = useCallback(
     (tab: InboxTab) => {
@@ -59,8 +69,28 @@ export default function InboxSwipeTabs() {
       activeIndex,
       panelCount: 2,
       enabled: swipeEnabled,
-      onIndexChange: (index) => setTab(index === 0 ? "messages" : "notifications"),
+      onIndexChange: (index) => {
+        const tab: InboxTab = index === 0 ? "messages" : "notifications";
+        setMountedTabs((current) => {
+          if (current.has(tab)) return current;
+          const next = new Set(current);
+          next.add(tab);
+          return next;
+        });
+        setTab(tab);
+      },
     });
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const adjacentTab: InboxTab = activeIndex === 0 ? "notifications" : "messages";
+    setMountedTabs((current) => {
+      if (current.has(adjacentTab)) return current;
+      const next = new Set(current);
+      next.add(adjacentTab);
+      return next;
+    });
+  }, [activeIndex, isDragging]);
 
   const loadNotificationUnreadCount = useCallback(async () => {
     const userId = session?.user?.id;
@@ -282,15 +312,17 @@ export default function InboxSwipeTabs() {
           }}
         >
           <div className="h-full shrink-0 touch-pan-y overflow-y-auto overscroll-contain" style={{ width: `${panelWidthPercent}%` }}>
-            <MessagesPanel
-              embedded
-              inboxHeaderOffsetPx={headerHeight}
-              newMessageRequestId={newMessageRequestId}
-              onThreadActiveChange={setThreadOpen}
-            />
+            {mountedTabs.has("messages") ? (
+              <MessagesPanel
+                embedded
+                inboxHeaderOffsetPx={headerHeight}
+                newMessageRequestId={newMessageRequestId}
+                onThreadActiveChange={setThreadOpen}
+              />
+            ) : null}
           </div>
           <div className="h-full shrink-0 touch-pan-y overflow-y-auto overscroll-contain" style={{ width: `${panelWidthPercent}%` }}>
-            <NotificationsPanel embedded />
+            {mountedTabs.has("notifications") ? <NotificationsPanel embedded /> : null}
           </div>
         </div>
       </div>

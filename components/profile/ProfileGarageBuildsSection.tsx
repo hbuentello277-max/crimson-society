@@ -37,6 +37,114 @@ type Props = {
   isOwnProfile?: boolean;
 };
 
+function GarageBuildGallery({
+  postId,
+  modificationTitle,
+  imageUrls,
+}: {
+  postId: string;
+  modificationTitle: string;
+  imageUrls: string[];
+}) {
+  const [visibleCount, setVisibleCount] = useState(1);
+
+  useEffect(() => {
+    if (imageUrls.length <= 1) return;
+    const timer = window.setTimeout(() => {
+      setVisibleCount(imageUrls.length);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [imageUrls.length]);
+
+  return (
+    <div className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto bg-black">
+      {imageUrls.slice(0, visibleCount).map((imageUrl, index) => (
+        <div
+          key={`${postId}-garage-photo-${index}`}
+          className="relative aspect-[16/10] w-full shrink-0 snap-center bg-black"
+        >
+          <Image
+            src={imageUrl}
+            alt={`${modificationTitle} photo ${index + 1}`}
+            fill
+            sizes="(max-width: 768px) 100vw, 720px"
+            className="object-cover"
+            unoptimized={imageUrl.includes("supabase")}
+            priority={index === 0}
+            loading={index === 0 ? "eager" : "lazy"}
+          />
+          {imageUrls.length > 1 ? (
+            <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white backdrop-blur">
+              {index + 1} / {imageUrls.length}
+            </span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GarageBuildVideo({
+  postId,
+  videoUrl,
+  videoPoster,
+  mediaStatus,
+  rideLabel,
+}: {
+  postId: string;
+  videoUrl: string;
+  videoPoster: string | null;
+  mediaStatus: string;
+  rideLabel: string;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  if (!isPlaying) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsPlaying(true)}
+        className="relative aspect-[9/16] max-h-[420px] w-full bg-black"
+        aria-label="Play garage build video"
+      >
+        {videoPoster ? (
+          <Image
+            src={videoPoster}
+            alt={`${rideLabel} video`}
+            fill
+            sizes="(max-width: 768px) 100vw, 420px"
+            className="object-cover"
+            unoptimized={videoPoster.includes("supabase")}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-zinc-900" />
+        )}
+        <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-black/60 text-white backdrop-blur">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-0.5 h-6 w-6">
+              <path d="M8 5.14v13.72L19 12 8 5.14z" />
+            </svg>
+          </span>
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative aspect-[9/16] max-h-[420px] bg-black">
+      <ReelPlayer
+        postId={postId}
+        src={videoUrl}
+        poster={videoPoster}
+        mediaStatus={mediaStatus}
+        isActive
+        onBecameVisible={() => {}}
+        authorName={rideLabel}
+      />
+    </div>
+  );
+}
+
 export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Props) {
   const [posts, setPosts] = useState<GarageBuildPost[]>([]);
   const [motorcyclePhotos, setMotorcyclePhotos] = useState<Map<string, string | null>>(new Map());
@@ -168,42 +276,21 @@ export function ProfileGarageBuildsSection({ userId, isOwnProfile = false }: Pro
             </div>
 
             {imageUrls.length > 0 ? (
-              <div className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto bg-black">
-                {imageUrls.map((imageUrl, index) => (
-                  <div
-                    key={`${post.id}-garage-photo-${index}`}
-                    className="relative aspect-[16/10] w-full shrink-0 snap-center bg-black"
-                  >
-                    <Image
-                      src={imageUrl}
-                      alt={`${modificationTitle} photo ${index + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 720px"
-                      className="object-cover"
-                      unoptimized={imageUrl.includes("supabase")}
-                    />
-                    {imageUrls.length > 1 ? (
-                      <span className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white backdrop-blur">
-                        {index + 1} / {imageUrls.length}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+              <GarageBuildGallery
+                postId={post.id}
+                modificationTitle={modificationTitle}
+                imageUrls={imageUrls}
+              />
             ) : null}
 
             {videoUrl ? (
-              <div className="relative aspect-[9/16] max-h-[420px] bg-black">
-                <ReelPlayer
-                  postId={post.id}
-                  src={videoUrl}
-                  poster={videoPoster}
-                  mediaStatus={post.media_status || "ready"}
-                  isActive={false}
-                  onBecameVisible={() => {}}
-                  authorName={rideLabel}
-                />
-              </div>
+              <GarageBuildVideo
+                postId={post.id}
+                videoUrl={videoUrl}
+                videoPoster={videoPoster}
+                mediaStatus={post.media_status || "ready"}
+                rideLabel={rideLabel}
+              />
             ) : null}
 
             {post.caption?.trim() ? (
