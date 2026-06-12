@@ -1,4 +1,5 @@
 import { isProfileSetupComplete } from "@/lib/profile";
+import { PASSWORD_RESET_PATH } from "@/lib/auth/password-reset";
 
 export const POST_AUTH_SETUP_PATH = "/profile/setup";
 export const POST_AUTH_HOME_PATH = "/dashboard";
@@ -31,4 +32,20 @@ export function resolvePostAuthPath(
   }
 
   return POST_AUTH_HOME_PATH;
+}
+
+/**
+ * Auth email links (confirm, recovery) hit `/auth/callback` first.
+ * Password recovery must reach the reset form even when profile setup is incomplete.
+ */
+export function resolveAuthCallbackRedirectPath(
+  profile: PostAuthProfile | null | undefined,
+  requestedNext?: string | null,
+) {
+  const next = requestedNext?.trim();
+  if (next && isSafeInternalPath(next) && next === PASSWORD_RESET_PATH) {
+    return PASSWORD_RESET_PATH;
+  }
+
+  return resolvePostAuthPath(profile, requestedNext);
 }

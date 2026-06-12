@@ -8,10 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test 'lib/**/*.test.ts'",
+    "cap:sync": "npx cap sync ios",
+    "cap:open:ios": "npx cap open ios",
     "verify:meet-migrations": "node scripts/verify-meet-migrations.mjs",
     "verify:existing-meets": "node scripts/verify-existing-meets.mjs"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@stripe/stripe-js": "^9.6.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
