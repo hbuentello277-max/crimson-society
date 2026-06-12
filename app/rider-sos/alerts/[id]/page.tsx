@@ -221,6 +221,8 @@ export default function RiderSosAlertDetailPage() {
               submitting={sosResponse.submitting}
               error={sosResponse.error}
               status={sosResponse.response?.status ?? null}
+              etaMinutes={sosResponse.response?.eta_minutes ?? null}
+              distanceMiles={sosResponse.response?.distance_miles ?? null}
               onRespond={() => void sosResponse.respond()}
               onMarkArrived={() => void sosResponse.markArrived()}
               onCancel={() => void sosResponse.cancelResponse()}

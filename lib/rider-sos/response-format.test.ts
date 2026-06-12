@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  estimateSosEtaMinutes,
   formatResponderCount,
   formatResponseStatusLabel,
+  formatSosDistanceSummary,
+  formatSosResponseEtaLine,
   isActiveResponseStatus,
 } from "@/lib/rider-sos/response-format";
 
@@ -24,5 +27,18 @@ describe("rider sos response formatting", () => {
     assert.equal(isActiveResponseStatus("arrived"), true);
     assert.equal(isActiveResponseStatus("cancelled"), false);
     assert.equal(isActiveResponseStatus(null), false);
+  });
+
+  it("estimates distance-based ETA conservatively", () => {
+    assert.equal(estimateSosEtaMinutes(2.1), 9);
+    assert.equal(estimateSosEtaMinutes(0), 1);
+    assert.equal(estimateSosEtaMinutes(null), null);
+  });
+
+  it("formats response ETA lines", () => {
+    assert.equal(formatSosResponseEtaLine({ status: "responding", etaMinutes: 8 }), "Responding · 8 min away");
+    assert.equal(formatSosResponseEtaLine({ status: "responding", etaMinutes: null }), "Responding · ETA unavailable");
+    assert.equal(formatSosResponseEtaLine({ status: "arrived", etaMinutes: 8 }), "Arrived");
+    assert.equal(formatSosDistanceSummary(2.14), "2.1 miles away");
   });
 });

@@ -1,6 +1,9 @@
 "use client";
 
-import { formatResponseStatusLabel } from "@/lib/rider-sos/response-format";
+import {
+  formatSosDistanceSummary,
+  formatSosResponseEtaLine,
+} from "@/lib/rider-sos/response-format";
 import type { RiderSosResponderView } from "@/lib/rider-sos/response-types";
 
 type Props = {
@@ -50,6 +53,21 @@ export function RiderSosOwnerRespondersPanel({ responders, loading = false, erro
                 {responder.bike_info ? (
                   <p className="mt-1 truncate text-sm text-zinc-400">{responder.bike_info}</p>
                 ) : null}
+                {responder.status === "responding" ? (
+                  <p className="mt-1 text-sm text-[#f1c3c7]">
+                    {formatSosResponseEtaLine({
+                      status: responder.status,
+                      etaMinutes: responder.eta_minutes,
+                    })}
+                  </p>
+                ) : responder.status === "arrived" ? (
+                  <p className="mt-1 text-sm text-emerald-100">Arrived</p>
+                ) : null}
+                {responder.status === "responding" ? (
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {formatSosDistanceSummary(responder.distance_miles)}
+                  </p>
+                ) : null}
               </div>
               <span
                 className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.16em] ${
@@ -58,7 +76,7 @@ export function RiderSosOwnerRespondersPanel({ responders, loading = false, erro
                     : "border-[#b4141e]/35 bg-[#b4141e]/10 text-[#e87a82]"
                 }`}
               >
-                {formatResponseStatusLabel(responder.status)}
+                {responder.status === "arrived" ? "Arrived" : "Responding"}
               </span>
             </div>
           </article>

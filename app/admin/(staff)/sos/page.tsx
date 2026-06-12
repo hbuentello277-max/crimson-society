@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { loadAdminSosRespondersByEventIds } from "@/lib/rider-sos/load-sos-responses";
-import { formatResponseStatusLabel } from "@/lib/rider-sos/response-format";
+import {
+  formatResponseStatusLabel,
+  formatSosDistanceSummary,
+  formatSosResponseEtaLine,
+} from "@/lib/rider-sos/response-format";
 import type { RiderSosResponderView } from "@/lib/rider-sos/response-types";
 import {
   type RiderSosEventRow,
@@ -183,6 +187,15 @@ export default function AdminSosPage() {
                         <p className="font-medium text-white">{responder.rider_name}</p>
                         {responder.bike_info ? (
                           <p className="mt-1 text-xs text-zinc-500">{responder.bike_info}</p>
+                        ) : null}
+                        {responder.status === "responding" ? (
+                          <p className="mt-1 text-xs text-[#f1c3c7]">
+                            {formatSosResponseEtaLine({
+                              status: responder.status,
+                              etaMinutes: responder.eta_minutes,
+                            })}{" "}
+                            · {formatSosDistanceSummary(responder.distance_miles)}
+                          </p>
                         ) : null}
                       </div>
                       <span className="text-[10px] uppercase tracking-[0.16em] text-[#e87a82]">

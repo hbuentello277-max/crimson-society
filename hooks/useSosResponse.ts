@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RIDER_SOS_FEED_REFRESH_MS } from "@/lib/rider-sos/nearby-config";
-import { loadMySosResponse, setSosResponse } from "@/lib/rider-sos/load-sos-responses";
+import {
+  loadMySosResponse,
+  setSosResponse,
+  setSosResponseWithLocation,
+} from "@/lib/rider-sos/load-sos-responses";
+import { requestCurrentPosition } from "@/lib/rider-sos/geolocation";
 import type { RiderSosResponseRow, RiderSosResponseStatus } from "@/lib/rider-sos/response-types";
 import { isActiveResponseStatus } from "@/lib/rider-sos/response-format";
 
@@ -49,14 +54,19 @@ export function useSosResponse(sosEventId: string | null, enabled: boolean) {
   }, [enabled, refresh, sosEventId]);
 
   const updateStatus = useCallback(
-    async (status: RiderSosResponseStatus) => {
+    async (
+      status: RiderSosResponseStatus,
+      location?: { latitude: number | null; longitude: number | null; accuracy?: number | null },
+    ) => {
       if (!sosEventId) return null;
 
       setSubmitting(true);
       setError(null);
 
       try {
-        const row = await setSosResponse(sosEventId, status);
+        const row = location
+          ? await setSosResponseWithLocation(sosEventId, status, location)
+          : await setSosResponse(sosEventId, status);
         setResponse(row);
         return row;
       } catch (updateError) {
@@ -76,7 +86,23 @@ export function useSosResponse(sosEventId: string | null, enabled: boolean) {
     submitting,
     error,
     refresh,
-    respond: () => updateStatus("responding"),
+    respond: async () => {
+      const location = await requestCurrentPosition(8000);
+      return updateStatus(
+        "responding",
+        location.ok
+          ? {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              accuracy: location.accuracy,
+            }
+          : {
+              latitude: null,
+              longitude: null,
+              accuracy: null,
+            },
+      );
+    },
     markArrived: () => updateStatus("arrived"),
     cancelResponse: () => updateStatus("cancelled"),
   };

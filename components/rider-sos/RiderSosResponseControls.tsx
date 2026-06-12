@@ -1,7 +1,11 @@
 "use client";
 
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
-import { formatResponseStatusLabel } from "@/lib/rider-sos/response-format";
+import {
+  formatResponseStatusLabel,
+  formatSosDistanceSummary,
+  formatSosResponseEtaLine,
+} from "@/lib/rider-sos/response-format";
 import type { RiderSosResponseStatus } from "@/lib/rider-sos/response-types";
 
 type Props = {
@@ -9,6 +13,8 @@ type Props = {
   submitting?: boolean;
   error?: string | null;
   status: RiderSosResponseStatus | null;
+  etaMinutes?: number | null;
+  distanceMiles?: number | null;
   onRespond: () => void;
   onMarkArrived: () => void;
   onCancel: () => void;
@@ -19,6 +25,8 @@ export function RiderSosResponseControls({
   submitting = false,
   error,
   status,
+  etaMinutes,
+  distanceMiles,
   onRespond,
   onMarkArrived,
   onCancel,
@@ -48,6 +56,16 @@ export function RiderSosResponseControls({
             <p className="text-sm font-medium text-emerald-100">
               ✅ {formatResponseStatusLabel(status!)}
             </p>
+            {status === "responding" ? (
+              <>
+                <p className="mt-1 text-sm text-emerald-50">
+                  {formatSosResponseEtaLine({ status, etaMinutes })}
+                </p>
+                <p className="mt-0.5 text-xs text-emerald-100/70">
+                  {formatSosDistanceSummary(distanceMiles)}
+                </p>
+              </>
+            ) : null}
           </div>
 
           {status === "responding" ? (
