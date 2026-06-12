@@ -15,6 +15,7 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: "automatic",
+    scheme: "crimsonsociety",
   },
 };
 
