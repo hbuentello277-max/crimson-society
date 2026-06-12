@@ -59,6 +59,7 @@ type PublicProfile = {
   youtube_url: string | null;
   website_url: string | null;
   blackcard_public?: boolean | null;
+  is_founder_blackcard?: boolean | null;
   is_founding_blackcard?: boolean | null;
   founding_blackcard_granted_at?: string | null;
   membership_tier?: string | null;
@@ -196,7 +197,7 @@ export default function PublicProfilePage() {
       const { data, error } = await supabase
         .from("public_profiles")
         .select(
-          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, instagram_url, tiktok_url, youtube_url, website_url",
+          "id, username, display_name, full_name, bio, quote, profile_image_url, avatar_url, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, blackcard_public, is_founder_blackcard, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, instagram_url, tiktok_url, youtube_url, website_url",
         )
         .eq("username", usernameParam)
         .maybeSingle();

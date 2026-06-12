@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       auth.supabase
         .from("profiles")
         .select(
-          "role, is_admin, status, is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public",
+          "role, is_admin, status, is_premium, premium_tier, premium_expires_at, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public",
         )
         .eq("id", auth.userId)
         .maybeSingle(),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { MEMBERSHIP_UPDATED_EVENT } from "@/lib/membership-events";
 import {
   fetchProfile,
   updateProfileAvatar,
@@ -77,9 +78,17 @@ export function useProfile(): UseProfileResult {
       setLoading(false);
     };
 
+    const onMembershipUpdated = () => {
+      void refresh();
+    };
+
     window.addEventListener("crimson-profile-updated", onProfileUpdated);
-    return () => window.removeEventListener("crimson-profile-updated", onProfileUpdated);
-  }, [userId]);
+    window.addEventListener(MEMBERSHIP_UPDATED_EVENT, onMembershipUpdated);
+    return () => {
+      window.removeEventListener("crimson-profile-updated", onProfileUpdated);
+      window.removeEventListener(MEMBERSHIP_UPDATED_EVENT, onMembershipUpdated);
+    };
+  }, [refresh, userId]);
 
   const updateIdentity = useCallback(
     async (input: ProfileIdentityInput) => {

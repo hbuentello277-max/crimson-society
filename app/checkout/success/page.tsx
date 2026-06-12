@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { dispatchMembershipUpdated } from "@/lib/membership-events";
+import { fetchProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
 type SubscriptionStatus =
@@ -53,7 +55,19 @@ export default function CheckoutSuccessPage() {
           return;
         }
 
-        setStatus((data?.status as SubscriptionStatus) ?? null);
+        const nextStatus = (data?.status as SubscriptionStatus) ?? null;
+        setStatus(nextStatus);
+
+        if (nextStatus === "active" || nextStatus === "trialing") {
+          const refreshedProfile = await fetchProfile(user.id);
+          if (refreshedProfile) {
+            window.dispatchEvent(
+              new CustomEvent("crimson-profile-updated", { detail: refreshedProfile }),
+            );
+          }
+          dispatchMembershipUpdated();
+        }
+
         setLoading(false);
       } catch (error: unknown) {
         console.error(error);

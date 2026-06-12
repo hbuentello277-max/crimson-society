@@ -12,7 +12,8 @@ import type { AppProfile } from "@/lib/profile";
 import { profileDisplayName, profileHandle, profileLocation } from "@/lib/profile";
 import { useProfile } from "@/hooks/useProfile";
 import { PostGridTile } from "@/components/social/PostGridTile";
-import { resolveMembershipTier, type MembershipRow } from "@/lib/membership";
+import { resolveMembershipTier } from "@/lib/membership";
+import { useOwnMembership } from "@/hooks/useOwnMembership";
 import {
   type AccountDeletionRequestRow,
   isOpenDeletionStatus,
@@ -125,7 +126,7 @@ const { profile, loading: profileLoading, error, refresh, updatePrivacy } = useP
 const userId = session?.user?.id ?? null;
 const [tab, setTab] = useState<ProfileTab>("posts");
 const [posts, setPosts] = useState<ProfilePost[]>([]);
-const [membership, setMembership] = useState<MembershipRow | null>(null);
+const { membership } = useOwnMembership(userId);
 const [postsState, setPostsState] = useState<LoadState>("idle");
 const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 const [settingsOpen, setSettingsOpen] = useState(false);
@@ -215,27 +216,6 @@ useEffect(() => {
   }
 }, [authLoading, profileStatus, router]);
 
-
-useEffect(() => {
-if (!userId) return;
-
-const loadMembership = async () => {
-  const { data } = await supabase
-    .from("subscriptions")
-    .select("status, plan_type, current_period_end, created_at")
-    .eq("user_id", userId)
-    .in("status", ["active", "trialing"])
-    .or(`current_period_end.is.null,current_period_end.gte.${new Date().toISOString()}`)
-    .order("current_period_end", { ascending: false, nullsFirst: true })
-    .limit(1)
-    .maybeSingle();
-
-  setMembership((data as MembershipRow | null) ?? null);
-};
-
-void loadMembership();
-
-}, [userId]);
 
 useEffect(() => {
 if (!userId) {

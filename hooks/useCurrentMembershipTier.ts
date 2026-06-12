@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { MEMBERSHIP_UPDATED_EVENT } from "@/lib/membership-events";
 import {
   hasActiveMembership,
   resolveMembershipTier,
@@ -25,7 +26,7 @@ export function useCurrentMembershipTier(userId: string | null | undefined) {
       supabase
         .from("profiles")
         .select(
-          "is_premium, premium_tier, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, role",
+          "is_premium, premium_tier, premium_expires_at, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, role",
         )
         .eq("id", userId)
         .maybeSingle(),
@@ -60,6 +61,15 @@ export function useCurrentMembershipTier(userId: string | null | undefined) {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const onMembershipUpdated = () => {
+      void refresh();
+    };
+
+    window.addEventListener(MEMBERSHIP_UPDATED_EVENT, onMembershipUpdated);
+    return () => window.removeEventListener(MEMBERSHIP_UPDATED_EVENT, onMembershipUpdated);
   }, [refresh]);
 
   return { tier, loading, refresh };

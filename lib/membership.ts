@@ -3,7 +3,7 @@ export const MEMBERSHIP_PLAN_TYPES = ["monthly", "yearly"] as const;
 export type MembershipPlanType = (typeof MEMBERSHIP_PLAN_TYPES)[number];
 
 /** Canonical Crimson Society membership tiers. */
-export type CrimsonMembershipTier = "free" | "blackcard" | "founding";
+export type CrimsonMembershipTier = "free" | "blackcard" | "founding" | "founder";
 
 export type SubscriptionStatus =
   | "trialing"
@@ -29,6 +29,8 @@ export type MembershipProfileFields = {
   is_premium?: boolean | null;
   premium_tier?: string | null;
   premium_expires_at?: string | null;
+  is_founder_blackcard?: boolean | null;
+  founder_blackcard_granted_at?: string | null;
   is_founding_blackcard?: boolean | null;
   founding_blackcard_granted_at?: string | null;
   membership_tier?: CrimsonMembershipTier | string | null;
@@ -65,6 +67,10 @@ export function hasActiveMembership(membership: MembershipRow | null) {
   return new Date(membership.current_period_end).getTime() >= Date.now();
 }
 
+export function isFounderBlackcard(profile?: MembershipProfileFields | null) {
+  return profile?.is_founder_blackcard === true;
+}
+
 export function isFoundingBlackcardMember(profile?: MembershipProfileFields | null) {
   return profile?.is_founding_blackcard === true;
 }
@@ -84,13 +90,19 @@ export function hasAdminBlackcardOverride(profile?: MembershipProfileFields | nu
 export function normalizeMembershipTier(
   value: string | null | undefined,
 ): CrimsonMembershipTier | null {
-  if (value === "free" || value === "blackcard" || value === "founding") return value;
+  if (value === "free" || value === "blackcard" || value === "founding" || value === "founder") {
+    return value;
+  }
   return null;
 }
 
 /** Resolve the visible membership tier for profile display and future perks. */
 export function resolveMembershipTier(options: BlackcardAccessOptions): CrimsonMembershipTier {
   const profile = options.profile;
+
+  if (isFounderBlackcard(profile)) {
+    return "founder";
+  }
 
   if (isFoundingBlackcardMember(profile)) {
     return "founding";
@@ -106,7 +118,7 @@ export function resolveMembershipTier(options: BlackcardAccessOptions): CrimsonM
   }
 
   const stored = normalizeMembershipTier(profile?.membership_tier ?? null);
-  if (stored === "blackcard" || stored === "founding") {
+  if (stored === "founder" || stored === "founding" || stored === "blackcard") {
     return stored;
   }
 
@@ -133,6 +145,8 @@ export function hasBlackcardAccess(
 
 export function membershipTierLabel(tier: CrimsonMembershipTier) {
   switch (tier) {
+    case "founder":
+      return "Founder Blackcard";
     case "founding":
       return "Founding Blackcard Member";
     case "blackcard":
@@ -150,6 +164,12 @@ export function membershipStatusLabel(options: {
   const tier = resolveMembershipTier(options);
 
   if (options.isAdmin) return "Admin · full access";
+  if (tier === "founder") {
+    const granted = options.profile?.founder_blackcard_granted_at;
+    return granted
+      ? `Founder Blackcard · granted ${new Date(granted).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      : "Founder Blackcard · permanent";
+  }
   if (tier === "founding") {
     const granted = options.profile?.founding_blackcard_granted_at;
     return granted
@@ -178,7 +198,7 @@ export function subscriptionStatusLabel(membership: MembershipRow | null | undef
 }
 
 export function creditTierFromMembership(tier: CrimsonMembershipTier) {
-  if (tier === "founding") return "founding" as const;
+  if (tier === "founder" || tier === "founding") return "founding" as const;
   if (tier === "blackcard") return "blackcard" as const;
   return "regular" as const;
 }

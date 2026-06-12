@@ -20,7 +20,7 @@ import type { MembershipRow } from "@/lib/membership";
 
 type UserRole = "user" | "moderator" | "admin";
 type UserStatus = "active" | "limited" | "suspended" | "blocked" | "deletion_pending" | "deleted";
-type MembershipTier = "regular" | "blackcard" | "founding";
+type MembershipTier = "regular" | "blackcard" | "founding" | "founder";
 
 type AdminProfile = {
   id: string;
@@ -29,10 +29,13 @@ type AdminProfile = {
   display_name: string | null;
   role: string | null;
   status: string | null;
+  is_platform_owner?: boolean | null;
   is_premium?: boolean | null;
   premium_tier?: string | null;
   premium_since?: string | null;
   premium_expires_at?: string | null;
+  is_founder_blackcard?: boolean | null;
+  founder_blackcard_granted_at?: string | null;
   is_founding_blackcard?: boolean | null;
   founding_blackcard_granted_at?: string | null;
   membership_tier?: string | null;
@@ -177,10 +180,12 @@ function getProfileLabel(id: string | null | undefined, profileMap: Map<string, 
 }
 
 function getMembershipTier(item: AdminProfile): MembershipTier {
+  if (item.is_founder_blackcard) return "founder";
   if (item.is_founding_blackcard) return "founding";
   if (item.is_premium && (item.premium_tier || "").toLowerCase() === "blackcard") {
     return "blackcard";
   }
+  if ((item.membership_tier || "").toLowerCase() === "founder") return "founder";
   if ((item.membership_tier || "").toLowerCase() === "founding") return "founding";
   if ((item.membership_tier || "").toLowerCase() === "blackcard") return "blackcard";
   return "regular";
@@ -293,7 +298,7 @@ function AdminPageContent() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, username, email, display_name, role, status, is_premium, premium_tier, premium_since, premium_expires_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, created_at",
+        "id, username, email, display_name, role, status, is_platform_owner, is_premium, premium_tier, premium_since, premium_expires_at, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, created_at",
       )
       .order("created_at", { ascending: true });
 
@@ -695,7 +700,16 @@ function AdminPageContent() {
 
   async function runMembershipAction(
     profileId: string,
-    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration" | "grant_founding" | "revoke_founding",
+    action:
+      | "grant"
+      | "revoke"
+      | "extend_30"
+      | "extend_90"
+      | "set_expiration"
+      | "grant_founding"
+      | "revoke_founding"
+      | "grant_founder"
+      | "revoke_founder",
     expiresAt?: string,
   ) {
     setSavingId(profileId);
@@ -1175,6 +1189,7 @@ function AdminPageContent() {
                 subscriptionsByUserId={subscriptionsByUserId}
                 savingId={savingId}
                 onAction={runMembershipAction}
+                canManageFounder={profile?.is_platform_owner === true}
               />
             </AdminAccordionSection>
 
@@ -1232,6 +1247,10 @@ function AdminPageContent() {
                   const membershipControl = isAdminAccount ? (
                     <div className="flex min-h-10 items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm uppercase tracking-[0.18em] text-zinc-200">
                       ADMIN
+                    </div>
+                  ) : membership === "founder" ? (
+                    <div className="flex min-h-10 items-center rounded-xl border border-[#f5d0a0]/30 bg-[#f5d0a0]/10 px-3 py-2 text-sm uppercase tracking-[0.18em] text-[#fff1d6]">
+                      🏆 founder
                     </div>
                   ) : membership === "founding" ? (
                     <div className="flex min-h-10 items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm uppercase tracking-[0.18em] text-amber-100">

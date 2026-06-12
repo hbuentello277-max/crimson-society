@@ -4,6 +4,7 @@ export type AdminProfileMembershipFields = {
   is_premium?: boolean | null;
   premium_tier?: string | null;
   membership_tier?: string | null;
+  is_founder_blackcard?: boolean | null;
   is_founding_blackcard?: boolean | null;
 };
 
@@ -42,6 +43,9 @@ export function resolveUsernameHandle(profile: Pick<AdminUserIdentityFields, "us
 }
 
 export function resolveMembershipLabel(profile: AdminProfileMembershipFields): string {
+  if (profile.is_founder_blackcard) {
+    return "Founder Blackcard";
+  }
   if (profile.is_founding_blackcard) {
     return "Founding Blackcard";
   }
@@ -49,6 +53,7 @@ export function resolveMembershipLabel(profile: AdminProfileMembershipFields): s
     return "Blackcard Member";
   }
   const tier = (profile.membership_tier || "").toLowerCase();
+  if (tier === "founder") return "Founder Blackcard";
   if (tier === "founding") return "Founding Blackcard";
   if (tier === "blackcard") return "Blackcard Member";
   if (tier) {

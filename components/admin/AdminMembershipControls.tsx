@@ -21,6 +21,9 @@ type AdminProfile = {
   premium_since?: string | null;
   premium_expires_at?: string | null;
   blackcard_public?: boolean | null;
+  is_platform_owner?: boolean | null;
+  is_founder_blackcard?: boolean | null;
+  founder_blackcard_granted_at?: string | null;
   is_founding_blackcard?: boolean | null;
   founding_blackcard_granted_at?: string | null;
 };
@@ -34,9 +37,19 @@ type Props = {
   bare?: boolean;
   onAction: (
     profileId: string,
-    action: "grant" | "revoke" | "extend_30" | "extend_90" | "set_expiration" | "grant_founding" | "revoke_founding",
+    action:
+      | "grant"
+      | "revoke"
+      | "extend_30"
+      | "extend_90"
+      | "set_expiration"
+      | "grant_founding"
+      | "revoke_founding"
+      | "grant_founder"
+      | "revoke_founder",
     expiresAt?: string,
   ) => Promise<void>;
+  canManageFounder?: boolean;
 };
 
 function profileLabel(profile: AdminProfile) {
@@ -62,6 +75,7 @@ export function AdminMembershipControls({
   savingId,
   bare = false,
   onAction,
+  canManageFounder = false,
 }: Props) {
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<"all" | "founding" | "blackcard">("all");
@@ -144,6 +158,11 @@ export function AdminMembershipControls({
                   <p className="mt-1 text-sm text-zinc-500">
                     Subscription: {subscriptionStatusLabel(subscription)}
                   </p>
+                  {profile.founder_blackcard_granted_at ? (
+                    <p className="mt-1 text-sm text-[#fff1d6]/80">
+                      Founder granted: {formatDate(profile.founder_blackcard_granted_at)}
+                    </p>
+                  ) : null}
                   {profile.founding_blackcard_granted_at ? (
                     <p className="mt-1 text-sm text-amber-200/80">
                       Founding granted: {formatDate(profile.founding_blackcard_granted_at)}
@@ -158,6 +177,29 @@ export function AdminMembershipControls({
                     </p>
                   ) : null}
                 </div>
+
+                {profile.is_platform_owner && canManageFounder ? (
+                  <div className="flex flex-col gap-2 sm:min-w-[280px]">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || Boolean(profile.is_founder_blackcard)}
+                        onClick={() => void onAction(profile.id, "grant_founder")}
+                        className="rounded-full border border-[#f5d0a0]/40 bg-[#f5d0a0]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#fff1d6] transition hover:bg-[#f5d0a0]/20 disabled:opacity-50"
+                      >
+                        Grant Founder
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || !profile.is_founder_blackcard}
+                        onClick={() => void onAction(profile.id, "revoke_founder")}
+                        className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-300 transition hover:border-white/25 disabled:opacity-50"
+                      >
+                        Revoke Founder
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {!isAdminAccount ? (
                   <div className="flex flex-col gap-2 sm:min-w-[280px]">

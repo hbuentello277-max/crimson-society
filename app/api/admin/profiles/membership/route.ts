@@ -9,7 +9,9 @@ type MembershipAction =
   | "extend_90"
   | "set_expiration"
   | "grant_founding"
-  | "revoke_founding";
+  | "revoke_founding"
+  | "grant_founder"
+  | "revoke_founder";
 
 type MembershipRequestBody = {
   profileId?: string;
@@ -19,7 +21,7 @@ type MembershipRequestBody = {
 };
 
 const PROFILE_SELECT =
-  "id, username, email, display_name, role, status, created_at, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public, is_founding_blackcard, founding_blackcard_granted_at, membership_tier";
+  "id, username, email, display_name, role, status, created_at, is_platform_owner, is_premium, premium_tier, premium_since, premium_expires_at, blackcard_public, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier";
 
 function addDays(from: Date, days: number) {
   const next = new Date(from);
@@ -145,6 +147,37 @@ export async function POST(request: Request) {
     updatePayload = {
       is_founding_blackcard: false,
       founding_blackcard_granted_at: null,
+    };
+  } else if (action === "grant_founder") {
+    if (!auth.session.isPlatformOwner) {
+      return NextResponse.json(
+        { error: "Only the platform owner can grant Founder Blackcard." },
+        { status: 403 },
+      );
+    }
+
+    if (existingProfile.is_platform_owner !== true) {
+      return NextResponse.json(
+        { error: "Founder Blackcard can only be assigned to the platform owner account." },
+        { status: 400 },
+      );
+    }
+
+    updatePayload = {
+      is_founder_blackcard: true,
+      founder_blackcard_granted_at: new Date().toISOString(),
+    };
+  } else if (action === "revoke_founder") {
+    if (!auth.session.isPlatformOwner) {
+      return NextResponse.json(
+        { error: "Only the platform owner can revoke Founder Blackcard." },
+        { status: 403 },
+      );
+    }
+
+    updatePayload = {
+      is_founder_blackcard: false,
+      founder_blackcard_granted_at: null,
     };
   } else {
     return NextResponse.json({ error: "Invalid membership action" }, { status: 400 });

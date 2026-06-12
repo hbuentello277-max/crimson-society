@@ -43,6 +43,6 @@ export function formatCreditsRewardValueUsd(credits: number) {
   });
 }
 
-export function canRedeemCrimsonCredits(tier: "free" | "blackcard" | "founding") {
-  return tier === "blackcard" || tier === "founding";
+export function canRedeemCrimsonCredits(tier: "free" | "blackcard" | "founding" | "founder") {
+  return tier === "blackcard" || tier === "founding" || tier === "founder";
 }
