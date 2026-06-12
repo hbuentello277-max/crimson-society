@@ -28,6 +28,7 @@ export async function loadActiveSosAlertDetail(
   eventId: string,
   viewer: ViewerLocation,
   radiusMiles = RIDER_SOS_NEARBY_RADIUS_MILES,
+  viewerUserId?: string | null,
 ) {
   const { data, error } = await supabase.rpc("get_active_rider_sos_alert", {
     p_event_id: eventId,
@@ -43,6 +44,10 @@ export async function loadActiveSosAlertDetail(
   }
 
   if (!viewer) {
+    return row;
+  }
+
+  if (viewerUserId && row.user_id === viewerUserId) {
     return row;
   }
 

@@ -6,10 +6,18 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
+import { RiderSosOwnerRespondersPanel } from "@/components/rider-sos/RiderSosOwnerRespondersPanel";
 import { RiderSosResponseControls } from "@/components/rider-sos/RiderSosResponseControls";
+import { useSosResponders } from "@/hooks/useSosResponders";
 import { useSosResponse } from "@/hooks/useSosResponse";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { getDistanceMiles } from "@/lib/gps/distance";
+import {
+  loadSosResponderLiveLocations,
+  responderLocationToMapRider,
+  RIDER_SOS_RESPONDER_LOCATION_POLL_MS,
+  type RiderSosResponderLocationView,
+} from "@/lib/rider-sos/live-location";
 import { RIDER_SOS_NEARBY_RADIUS_MILES } from "@/lib/rider-sos/nearby-config";
 import {
   formatSosDistanceMiles,
@@ -36,11 +44,18 @@ export default function RiderSosAlertDetailPage() {
   const eventId = params?.id ?? "";
   const { session, loading: authLoading } = useAuth();
   const [alert, setAlert] = useState<NearbyRiderSosAlert | null>(null);
+  const [liveLocations, setLiveLocations] = useState<RiderSosResponderLocationView[]>([]);
   const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isOwner = Boolean(alert && session?.user && alert.user_id === session.user.id);
   const canRespond = Boolean(alert && session?.user && alert.user_id !== session.user.id);
   const sosResponse = useSosResponse(alert?.id ?? null, canRespond);
+  const {
+    responders,
+    loading: respondersLoading,
+    error: respondersError,
+  } = useSosResponders(alert?.id ?? null, isOwner && Boolean(alert?.id));
 
   useEffect(() => {
     if (authLoading) return;
@@ -65,7 +80,12 @@ export default function RiderSosAlertDetailPage() {
       try {
         const position = await requestCurrentPosition(8000);
         const viewer = position.ok ? { lat: position.latitude, lng: position.longitude } : null;
-        const row = await loadActiveSosAlertDetail(eventId, viewer, RIDER_SOS_NEARBY_RADIUS_MILES);
+        const row = await loadActiveSosAlertDetail(
+          eventId,
+          viewer,
+          RIDER_SOS_NEARBY_RADIUS_MILES,
+          session?.user?.id,
+        );
 
         if (!active) return;
 
@@ -73,11 +93,6 @@ export default function RiderSosAlertDetailPage() {
           setAlert(null);
           setError("This SOS alert is no longer active.");
           setLoading(false);
-          return;
-        }
-
-        if (row.user_id === session?.user?.id) {
-          router.replace("/rider-sos");
           return;
         }
 
@@ -121,6 +136,52 @@ export default function RiderSosAlertDetailPage() {
     [alert],
   );
   const navigationTarget = useMemo(() => buildRiderSosNavigationTarget(alert), [alert]);
+  const liveMapRiders = useMemo(
+    () => liveLocations.map(responderLocationToMapRider),
+    [liveLocations],
+  );
+  const liveResponderIds = useMemo(
+    () => new Set(liveLocations.map((location) => location.responder_user_id)),
+    [liveLocations],
+  );
+  const mapFitPoints = useMemo(() => {
+    if (!alert || !hasCoords) return undefined;
+    return [
+      { lat: Number(alert.latitude), lng: Number(alert.longitude) },
+      ...liveLocations.map((location) => ({
+        lat: Number(location.latitude),
+        lng: Number(location.longitude),
+      })),
+    ];
+  }, [alert, hasCoords, liveLocations]);
+
+  useEffect(() => {
+    if (!isOwner || !alert?.id) {
+      setLiveLocations([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadLocations() {
+      try {
+        const rows = await loadSosResponderLiveLocations(alert!.id);
+        if (active) setLiveLocations(rows);
+      } catch {
+        if (active) setLiveLocations([]);
+      }
+    }
+
+    void loadLocations();
+    const interval = window.setInterval(() => {
+      void loadLocations();
+    }, RIDER_SOS_RESPONDER_LOCATION_POLL_MS);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [alert, isOwner]);
 
   if (authLoading || loading) {
     return (
@@ -188,10 +249,12 @@ export default function RiderSosAlertDetailPage() {
                     lat={Number(alert.latitude)}
                     lng={Number(alert.longitude)}
                     meetPoint="SOS location"
+                    riders={isOwner ? liveMapRiders : []}
+                    fitPoints={isOwner ? mapFitPoints : undefined}
                     height={220}
                     compact
                     hideHint
-                    interactive={false}
+                    interactive={isOwner && liveMapRiders.length > 0}
                     showMeetMarker
                   />
                 </div>
@@ -216,17 +279,29 @@ export default function RiderSosAlertDetailPage() {
               <p className="mt-5 text-sm text-zinc-500">Location was not shared for this SOS alert.</p>
             )}
 
-            <RiderSosResponseControls
-              loading={sosResponse.loading}
-              submitting={sosResponse.submitting}
-              error={sosResponse.error}
-              status={sosResponse.response?.status ?? null}
-              etaMinutes={sosResponse.response?.eta_minutes ?? null}
-              distanceMiles={sosResponse.response?.distance_miles ?? null}
-              onRespond={() => void sosResponse.respond()}
-              onMarkArrived={() => void sosResponse.markArrived()}
-              onCancel={() => void sosResponse.cancelResponse()}
-            />
+            {isOwner ? (
+              <RiderSosOwnerRespondersPanel
+                responders={responders}
+                loading={respondersLoading}
+                error={respondersError}
+                liveResponderIds={liveResponderIds}
+              />
+            ) : (
+              <RiderSosResponseControls
+                loading={sosResponse.loading}
+                submitting={sosResponse.submitting}
+                error={sosResponse.error}
+                status={sosResponse.response?.status ?? null}
+                etaMinutes={sosResponse.response?.eta_minutes ?? null}
+                distanceMiles={sosResponse.response?.distance_miles ?? null}
+                liveSharing={sosResponse.liveSharing}
+                arrivalAssist={sosResponse.arrivalAssist}
+                onRespond={() => void sosResponse.respond()}
+                onMarkArrived={() => void sosResponse.markArrived()}
+                onCancel={() => void sosResponse.cancelResponse()}
+                onStopSharing={() => void sosResponse.stopLiveSharing()}
+              />
+            )}
           </article>
         ) : null}
       </div>
