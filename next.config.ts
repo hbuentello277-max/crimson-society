@@ -31,6 +31,17 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_BUILD_COMMIT: process.env.VERCEL_GIT_COMMIT_SHA || "local",
     NEXT_PUBLIC_PUSH_CLIENT_BUILD: "push-v4",
   },
+  async headers() {
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=300" },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

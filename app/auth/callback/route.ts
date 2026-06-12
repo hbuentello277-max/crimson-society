@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { resolvePostAuthPath } from "@/lib/auth/post-auth-redirect";
+import { resolveAuthCallbackRedirectPath } from "@/lib/auth/post-auth-redirect";
 
 type CookieToSet = {
   name: string;
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let redirectPath = resolvePostAuthPath(null, requestedNext);
+  let redirectPath = resolveAuthCallbackRedirectPath(null, requestedNext);
 
   if (user?.id) {
     const { data: profile } = await supabase
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    redirectPath = resolvePostAuthPath(profile, requestedNext);
+    redirectPath = resolveAuthCallbackRedirectPath(profile, requestedNext);
   }
 
   const response = NextResponse.redirect(new URL(redirectPath, requestUrl.origin));

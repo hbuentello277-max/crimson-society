@@ -24,6 +24,7 @@ import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
 import { supabase } from "@/lib/supabase";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
+import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 function formatMembershipDate(value?: string | null) {
   if (!value) return null;
@@ -89,7 +90,7 @@ function CheckoutButton({
             });
             const portalData = await portalRes.json();
             if (portalRes.ok && portalData.url) {
-              window.location.href = portalData.url;
+              await openExternalUrl(portalData.url);
             }
           }
           return;
@@ -104,7 +105,7 @@ function CheckoutButton({
         return;
       }
 
-      window.location.href = data.url;
+      await openExternalUrl(data.url);
     } catch (error) {
       console.error(error);
       alert("Something went wrong starting checkout.");

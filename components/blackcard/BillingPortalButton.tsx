@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 type Props = {
   className?: string;
@@ -33,7 +34,7 @@ export function BillingPortalButton({
         return;
       }
 
-      window.location.href = data.url;
+      await openExternalUrl(data.url);
     } catch (error) {
       console.error(error);
       alert("Something went wrong opening billing management.");
