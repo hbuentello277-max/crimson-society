@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { NavigateToMeetButton } from "@/components/meets/NavigateToMeetButton";
 import { RiderSosResponseControls } from "@/components/rider-sos/RiderSosResponseControls";
 import { useSosResponse } from "@/hooks/useSosResponse";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/rider-sos/nearby-format";
 import { requestCurrentPosition } from "@/lib/rider-sos/geolocation";
 import { loadActiveSosAlertDetail } from "@/lib/rider-sos/load-nearby-alerts";
+import { buildRiderSosNavigationTarget } from "@/lib/rider-sos/navigation";
 import type { NearbyRiderSosAlert } from "@/lib/rider-sos/nearby-types";
 import { buildMapsUrl, sosTypeLabel } from "@/lib/rider-sos/sos-types";
 
@@ -118,6 +120,7 @@ export default function RiderSosAlertDetailPage() {
       Number.isFinite(Number(alert.longitude)),
     [alert],
   );
+  const navigationTarget = useMemo(() => buildRiderSosNavigationTarget(alert), [alert]);
 
   if (authLoading || loading) {
     return (
@@ -195,6 +198,11 @@ export default function RiderSosAlertDetailPage() {
                 <p className="text-xs text-zinc-500">
                   {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
                 </p>
+                <NavigateToMeetButton
+                  target={navigationTarget}
+                  label="Navigate to Rider"
+                  className="flex w-full items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-5 py-3 text-[10px] uppercase tracking-[0.24em] text-[#f1c3c7] transition hover:bg-[#b4141e]/30"
+                />
                 <a
                   href={buildMapsUrl(Number(alert.latitude), Number(alert.longitude))}
                   target="_blank"
