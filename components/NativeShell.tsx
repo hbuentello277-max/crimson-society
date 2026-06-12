@@ -4,8 +4,9 @@ import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { resolveNativeDeepLinkAction } from "@/lib/navigation/native-deep-link";
+import { applyNativeDeepLink } from "@/lib/navigation/apply-native-deep-link";
 import { getAppOrigins } from "@/lib/native/app-domains";
+import { initializeNativeIosPushListeners } from "@/lib/push/native-ios";
 
 export function NativeShell() {
   const router = useRouter();
@@ -18,19 +19,12 @@ export function NativeShell() {
     const allowedOrigins = getAppOrigins();
 
     function handleIncomingUrl(incomingUrl: string) {
-      const action = resolveNativeDeepLinkAction(incomingUrl, allowedOrigins);
-
-      if (action.type === "ignore") {
-        return;
-      }
-
-      if (action.type === "full-load") {
-        window.location.href = action.href;
-        return;
-      }
-
-      router.push(action.path);
+      applyNativeDeepLink(incomingUrl, allowedOrigins, (path) => {
+        router.push(path);
+      });
     }
+
+    const cleanupPush = initializeNativeIosPushListeners(handleIncomingUrl);
 
     void App.getLaunchUrl().then((result) => {
       if (result?.url) {
@@ -47,6 +41,7 @@ export function NativeShell() {
     });
 
     return () => {
+      cleanupPush?.();
       void listenerHandle?.remove();
     };
   }, [router]);

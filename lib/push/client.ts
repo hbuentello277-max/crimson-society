@@ -1,13 +1,27 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import { resolvePushNotificationUrl } from "@/lib/notifications/push-url-resolve";
 import { supabase } from "@/lib/supabase";
 import { getFirebasePublicConfig, getFirebaseVapidKey, isPushConfiguredOnClient } from "@/lib/push/firebase-public";
+import {
+  getCachedNativeIosPushToken,
+  getNativeIosPushPermissionState,
+  isNativeIosPush,
+  isNativeIosPushSupported,
+  obtainNativeIosPushToken,
+} from "@/lib/push/native-ios";
 import { savePushTokenRow, setPushNotificationsEnabled } from "@/lib/push/save-token";
 
 const PUSH_DEVICE_ID_STORAGE_KEY = "crimson_push_device_id";
 
 function detectPushPlatform(): "web" | "ios" | "android" {
+  if (typeof window !== "undefined") {
+    const platform = Capacitor.getPlatform();
+    if (platform === "ios") return "ios";
+    if (platform === "android") return "android";
+  }
+
   if (typeof navigator === "undefined") return "web";
   const ua = navigator.userAgent;
   if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
@@ -186,6 +200,10 @@ async function registerPushTokenViaApi(token: string) {
 export type PushPermissionState = NotificationPermission | "unsupported";
 
 export function getPushPermissionState(): PushPermissionState {
+  if (isNativeIosPush()) {
+    return getNativeIosPushPermissionState();
+  }
+
   if (typeof window === "undefined" || !("Notification" in window)) {
     return "unsupported";
   }
@@ -194,6 +212,10 @@ export function getPushPermissionState(): PushPermissionState {
 }
 
 export function isPushSupported() {
+  if (isNativeIosPushSupported()) {
+    return true;
+  }
+
   return (
     typeof window !== "undefined" &&
     "Notification" in window &&
@@ -282,6 +304,14 @@ async function loadFirebaseMessaging() {
 }
 
 export async function getExistingPushToken() {
+  if (isNativeIosPush()) {
+    if (getPushPermissionState() !== "granted") {
+      return null;
+    }
+
+    return getCachedNativeIosPushToken();
+  }
+
   if (!isPushSupported() || getPushPermissionState() !== "granted") {
     return null;
   }
@@ -385,6 +415,10 @@ export async function ensurePushSubscription(): Promise<EnsurePushSubscriptionRe
 }
 
 export async function obtainWebPushToken() {
+  if (isNativeIosPush()) {
+    return obtainNativeIosPushToken();
+  }
+
   if (!isPushSupported()) {
     throw new Error("Push notifications are not supported on this device.");
   }
@@ -452,6 +486,12 @@ export async function disablePushOnServer() {
 }
 
 export async function enableDevicePush() {
+  if (isNativeIosPush()) {
+    const token = await obtainNativeIosPushToken();
+    await registerPushTokenWithServer(token);
+    return token;
+  }
+
   const token = await obtainWebPushToken();
   await registerPushTokenWithServer(token);
   await registerForegroundPushHandler();

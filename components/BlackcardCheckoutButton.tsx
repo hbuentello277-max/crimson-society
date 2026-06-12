@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 export function BlackcardCheckoutButton({
   planType,
@@ -31,7 +32,7 @@ export function BlackcardCheckoutButton({
       }
 
       if (data.url) {
-        window.location.href = data.url;
+        await openExternalUrl(data.url);
       } else {
         alert("No checkout URL returned.");
       }

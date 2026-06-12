@@ -5,6 +5,7 @@ import {
   isPushSupported,
 } from "@/lib/push/client";
 import { isPushConfiguredOnClient } from "@/lib/push/firebase-public";
+import { isNativeIosPush } from "@/lib/push/native-ios";
 import {
   clearPushPromptPending,
   hasPushPromptTrigger,
@@ -41,14 +42,14 @@ export async function evaluatePushPromptState(
     hasServerSubscription: false,
   };
 
-  if (typeof window === "undefined" || !isPushConfiguredOnClient()) {
+  if (typeof window === "undefined" || (!isNativeIosPush() && !isPushConfiguredOnClient())) {
     return { mode: "hidden", ...base };
   }
 
   const bypassDismiss = canBypassDismiss();
 
   if (!isPushSupported()) {
-    if (isIosBrowser() && !isStandalonePwa()) {
+    if (!isNativeIosPush() && isIosBrowser() && !isStandalonePwa()) {
       if (!bypassDismiss && isPushPromptDismissed()) {
         return { mode: "hidden", ...base };
       }

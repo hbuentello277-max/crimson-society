@@ -129,6 +129,7 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
   const accessToken = await getAccessToken(account);
 
   const collapseKey = payload.collapseKey?.trim() || payload.notificationId;
+  const deepLink = payload.targetUrl?.trim() || payload.url;
 
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`,
@@ -160,15 +161,40 @@ export async function sendFcmToToken(token: string, payload: PushPayload) {
             groupKey: payload.groupKey || collapseKey,
             group_key: payload.groupKey || collapseKey,
           },
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
           android: {
             collapse_key: collapseKey,
+            notification: {
+              title: payload.title,
+              body: payload.body,
+            },
           },
           apns: {
             headers: {
+              "apns-priority": "10",
               "apns-collapse-id": collapseKey.slice(0, 64),
+            },
+            payload: {
+              aps: {
+                alert: {
+                  title: payload.title,
+                  body: payload.body,
+                },
+                sound: "default",
+              },
+            },
+            fcm_options: {
+              link: deepLink,
             },
           },
           webpush: {
+            notification: {
+              title: payload.title,
+              body: payload.body,
+            },
             fcm_options: {
               link: payload.url,
             },

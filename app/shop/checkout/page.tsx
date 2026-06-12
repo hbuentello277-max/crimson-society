@@ -12,6 +12,7 @@ import type { CheckoutCartValidationResult } from "@/lib/shop/validate-checkout-
 import { resolveLineImageUrl } from "@/lib/shop/product-image-url";
 import { PickupLocationCard } from "@/components/shop/PickupLocationCard";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
+import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 export default function ShopCheckoutPage() {
   return (
@@ -157,7 +158,7 @@ function ShopCheckoutPageInner() {
         return;
       }
 
-      window.location.href = data.url;
+      await openExternalUrl(data.url);
     } catch {
       setCheckoutError("Could not start checkout. Try again.");
       setCheckoutLoading(false);

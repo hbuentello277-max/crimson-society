@@ -20,6 +20,7 @@ import { useCreditRewardsPage } from "@/hooks/useCreditRewardsPage";
 import { authedFetch } from "@/lib/auth/authed-fetch";
 import { useCart } from "@/lib/cart-store";
 import { supabase } from "@/lib/supabase";
+import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 type PendingRedeem = {
   reward: CreditsRewardCatalogItem;
@@ -92,7 +93,7 @@ export function ShopCreditRewardsPanel() {
         if (!response.ok || !payload.url) {
           throw new Error(payload.error || "Could not start checkout.");
         }
-        window.location.href = payload.url;
+        await openExternalUrl(payload.url);
       } catch (checkoutError) {
         setBuyError(
           checkoutError instanceof Error ? checkoutError.message : "Could not start checkout.",
