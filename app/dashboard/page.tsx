@@ -8,6 +8,7 @@ import { DashboardFeedSection } from "@/components/dashboard/DashboardFeedSectio
 import { DashboardMeetsSection } from "@/components/dashboard/DashboardMeetsSection";
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { ActiveSosFeedSection } from "@/components/rider-sos/ActiveSosFeedSection";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import {
   DashboardFeedSkeleton,
@@ -18,6 +19,7 @@ import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { useAchievementMilestones } from "@/hooks/useAchievementMilestones";
 import { useDashboardFeed } from "@/hooks/useDashboardFeed";
 import { useDashboardMeets } from "@/hooks/useDashboardMeets";
+import { useNearbyActiveSos } from "@/hooks/useNearbyActiveSos";
 import { useRiderOnboardingChecklist } from "@/hooks/useRiderOnboardingChecklist";
 
 const NewRiderChecklistCard = dynamic(
@@ -55,6 +57,8 @@ function DashboardPageContent() {
     deepLinkCommentId: searchParams.get("comment"),
     onToast: showToast,
   });
+
+  const nearbySos = useNearbyActiveSos(Boolean(userId));
 
   const meets = useDashboardMeets({
     session,
@@ -177,6 +181,13 @@ function DashboardPageContent() {
             compact
           />
         </div>
+
+        <ActiveSosFeedSection
+          alerts={nearbySos.alerts}
+          loading={nearbySos.loading}
+          error={nearbySos.error}
+          locationNote={nearbySos.locationNote}
+        />
 
         <DashboardMeetsSection
           dashboardLoading={meets.dashboardLoading}
