@@ -32,6 +32,7 @@ import {
 } from "@/lib/messages/reactions";
 import { incomingUndeliveredMessageIds } from "@/lib/messages/read-receipts";
 import { DM_VOICE_MAX_SECONDS, DM_VOICE_MIN_SECONDS } from "@/lib/messages/voice-recorder";
+import { sosTypeLabel } from "@/lib/rider-sos/sos-types";
 import { CS_BADGE_SM, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
@@ -48,6 +49,8 @@ type Conversation = {
   timeLabel: string;
   unread: number;
   isGroup?: boolean;
+  isSos?: boolean;
+  conversationStatus?: string | null;
   members?: number;
   online?: boolean;
 };
@@ -89,6 +92,11 @@ type ConversationRow = {
   conversation_type: string | null;
   title: string | null;
   avatar_url: string | null;
+  conversation_status?: string | null;
+  sos_event_id?: string | null;
+  sos_type?: string | null;
+  sos_owner_name?: string | null;
+  sos_active_responder_count?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -320,18 +328,35 @@ function buildConversations(
         new Date(message.created_at).getTime() > lastReadAt,
     ).length;
 
-    const isGroup = conversation.conversation_type === "group";
+    const isSos = conversation.conversation_type === "sos";
+    const isGroup = conversation.conversation_type === "group" || isSos;
 
     return {
       id: conversation.id,
-      name: isGroup ? conversation.title || "Crimson Group" : profileName(otherProfile),
-      handle: isGroup ? `${conversationMembers.length} riders` : profileHandle(otherProfile),
+      name: isSos
+        ? conversation.title || "🚨 SOS Assistance Chat"
+        : isGroup
+          ? conversation.title || "Crimson Group"
+          : profileName(otherProfile),
+      handle: isSos
+        ? [
+            conversation.sos_type ? sosTypeLabel(conversation.sos_type) : null,
+            conversation.sos_owner_name,
+            `${conversation.sos_active_responder_count ?? 0} Responders Active`,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : isGroup
+          ? `${conversationMembers.length} riders`
+          : profileHandle(otherProfile),
       profileHref: isGroup ? null : publicProfileHref(otherProfile),
       photo: conversation.avatar_url || profilePhoto(otherProfile),
       lastMessage: latest ? dmMessagePreview(latest) : "No messages yet.",
       timeLabel: timeLabel(latest?.created_at || conversation.updated_at),
       unread,
       isGroup,
+      isSos,
+      conversationStatus: conversation.conversation_status ?? "active",
       members: conversationMembers.length,
       online: false,
     };
@@ -495,7 +520,7 @@ export default function MessagesPanel({
     const [conversationsResponse, allMembersResponse, messagesResponse, blocksResponse] = await Promise.all([
       supabase
         .from("conversations")
-        .select("id, conversation_type, title, avatar_url, created_at, updated_at")
+        .select("id, conversation_type, title, avatar_url, conversation_status, sos_event_id, sos_type, sos_owner_name, sos_active_responder_count, created_at, updated_at")
         .in("id", conversationIds)
         .order("updated_at", { ascending: false }),
       supabase
@@ -615,7 +640,7 @@ export default function MessagesPanel({
       userId,
       profilesById,
     )
-      .filter((conversation) => conversationHasMessages(conversation.id, visibleMessages))
+      .filter((conversation) => conversation.isSos || conversationHasMessages(conversation.id, visibleMessages))
       .sort((a, b) => {
       const aMessage = visibleMessages.filter((message) => message.conversation_id === a.id).at(-1);
       const bMessage = visibleMessages.filter((message) => message.conversation_id === b.id).at(-1);
@@ -1249,6 +1274,8 @@ export default function MessagesPanel({
           uploadingMedia={uploadingMedia}
           mediaUploadKind={mediaUploadKind}
           uploadError={errorMsg || null}
+          readOnly={active.isSos && active.conversationStatus === "archived"}
+          readOnlyReason="SOS archived — message history is read-only."
         />
       )}
 

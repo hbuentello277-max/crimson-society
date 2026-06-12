@@ -43,6 +43,13 @@ describe("resolvePushNotificationPath", () => {
     );
   });
 
+  it("resolves SOS chat by conversationId", () => {
+    assert.equal(
+      resolvePushNotificationPath({ conversationId: "conv-1", type: "sos_chat_message" }),
+      "/inbox?conversation=conv-1",
+    );
+  });
+
   it("resolves SOS alert detail by entityId", () => {
     assert.equal(
       resolvePushNotificationPath({ entityId: "alert-1", type: "sos_activated" }),

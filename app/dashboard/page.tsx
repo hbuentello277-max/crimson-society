@@ -8,6 +8,7 @@ import { DashboardFeedSection } from "@/components/dashboard/DashboardFeedSectio
 import { DashboardMeetsSection } from "@/components/dashboard/DashboardMeetsSection";
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { ActiveSosChatBadge } from "@/components/rider-sos/ActiveSosChatBadge";
 import { ActiveSosFeedSection } from "@/components/rider-sos/ActiveSosFeedSection";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import {
@@ -188,6 +189,8 @@ function DashboardPageContent() {
           error={nearbySos.error}
           locationNote={nearbySos.locationNote}
         />
+
+        <ActiveSosChatBadge />
 
         <DashboardMeetsSection
           dashboardLoading={meets.dashboardLoading}

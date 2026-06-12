@@ -12,6 +12,7 @@ import { useSosResponders } from "@/hooks/useSosResponders";
 import { useSosResponse } from "@/hooks/useSosResponse";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { getDistanceMiles } from "@/lib/gps/distance";
+import { getRiderSosConversationId, sosChatHref } from "@/lib/rider-sos/chat";
 import {
   loadSosResponderLiveLocations,
   responderLocationToMapRider,
@@ -42,12 +43,13 @@ export default function RiderSosAlertDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? "";
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, isAdmin } = useAuth();
   const [alert, setAlert] = useState<NearbyRiderSosAlert | null>(null);
   const [liveLocations, setLiveLocations] = useState<RiderSosResponderLocationView[]>([]);
   const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
   const isOwner = Boolean(alert && session?.user && alert.user_id === session.user.id);
   const canRespond = Boolean(alert && session?.user && alert.user_id !== session.user.id);
   const sosResponse = useSosResponse(alert?.id ?? null, canRespond);
@@ -183,6 +185,24 @@ export default function RiderSosAlertDetailPage() {
     };
   }, [alert, isOwner]);
 
+  const canOpenSosChat = Boolean(alert?.id && (isOwner || sosResponse.isResponding || isAdmin));
+
+  async function openSosChat() {
+    if (!alert?.id || openingChat) return;
+
+    setOpeningChat(true);
+    try {
+      const conversationId = await getRiderSosConversationId(alert.id);
+      if (conversationId) {
+        router.push(sosChatHref(conversationId));
+      }
+    } catch (chatError) {
+      setError(chatError instanceof Error ? chatError.message : "Could not open SOS chat.");
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <main className={`min-h-screen bg-[#050505] px-4 pt-8 text-white ${BOTTOM_NAV_CLEARANCE}`}>
@@ -241,6 +261,17 @@ export default function RiderSosAlertDetailPage() {
                 <dd className="mt-1">{new Date(alert.created_at).toLocaleString()}</dd>
               </div>
             </dl>
+
+            {canOpenSosChat ? (
+              <button
+                type="button"
+                onClick={() => void openSosChat()}
+                disabled={openingChat}
+                className="mt-5 flex w-full items-center justify-center rounded-full border border-[#b4141e]/60 bg-[#b4141e]/20 px-5 py-3 text-[10px] uppercase tracking-[0.24em] text-[#f1c3c7] transition hover:bg-[#b4141e]/30 disabled:opacity-60"
+              >
+                {openingChat ? "Opening SOS Chat..." : "💬 Open SOS Chat"}
+              </button>
+            ) : null}
 
             {hasCoords ? (
               <div className="mt-5 space-y-3">

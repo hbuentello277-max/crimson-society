@@ -67,6 +67,8 @@ type MessageThreadScreenProps = {
   uploadingMedia?: boolean;
   mediaUploadKind?: "image" | "audio" | null;
   uploadError?: string | null;
+  readOnly?: boolean;
+  readOnlyReason?: string | null;
 };
 
 const LONG_PRESS_MS = 420;
@@ -107,6 +109,8 @@ export function MessageThreadScreen({
   uploadingMedia = false,
   mediaUploadKind = null,
   uploadError = null,
+  readOnly = false,
+  readOnlyReason = null,
 }: MessageThreadScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
@@ -487,18 +491,26 @@ export function MessageThreadScreen({
         </div>
       </div>
 
-      <MessageComposer
-        draft={draft}
-        inputRef={composerRef}
-        onDraftChange={onDraftChange}
-        onSend={onSend}
-        onImageSelected={onImageSelected}
-        onAudioRecorded={onAudioRecorded}
-        sending={sending}
-        uploadingMedia={uploadingMedia}
-        mediaUploadKind={mediaUploadKind}
-        uploadError={uploadError}
-      />
+      {readOnly ? (
+        <div className="border-t border-white/10 bg-[#070707] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 text-center">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+            {readOnlyReason || "This conversation is read-only."}
+          </p>
+        </div>
+      ) : (
+        <MessageComposer
+          draft={draft}
+          inputRef={composerRef}
+          onDraftChange={onDraftChange}
+          onSend={onSend}
+          onImageSelected={onImageSelected}
+          onAudioRecorded={onAudioRecorded}
+          sending={sending}
+          uploadingMedia={uploadingMedia}
+          mediaUploadKind={mediaUploadKind}
+          uploadError={uploadError}
+        />
+      )}
 
       {previewImageUrl &&
         createPortal(

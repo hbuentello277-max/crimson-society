@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sosTypeLabel } from "@/lib/rider-sos/sos-types";
 
 export type DirectConversationPreview = {
   id: string;
@@ -10,6 +11,8 @@ export type DirectConversationPreview = {
   timeLabel: string;
   unread: number;
   isGroup: boolean;
+  isSos?: boolean;
+  conversationStatus?: string | null;
 };
 
 type ProfileRow = {
@@ -46,7 +49,7 @@ export async function fetchDirectConversationPreview(
 ): Promise<DirectConversationPreview | null> {
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
-    .select("id, conversation_type, title, updated_at")
+    .select("id, conversation_type, title, conversation_status, sos_type, sos_owner_name, sos_active_responder_count, updated_at")
     .eq("id", conversationId)
     .maybeSingle();
 
@@ -64,6 +67,31 @@ export async function fetchDirectConversationPreview(
   }
 
   const memberIds = (members || []).map((row) => row.user_id as string);
+  const isSos = conversation.conversation_type === "sos";
+  const isGroup = conversation.conversation_type === "group" || isSos;
+
+  if (isSos) {
+    return {
+      id: conversationId,
+      name: conversation.title?.trim() || "🚨 SOS Assistance Chat",
+      handle: [
+        conversation.sos_type ? sosTypeLabel(String(conversation.sos_type)) : null,
+        conversation.sos_owner_name as string | null | undefined,
+        `${Number(conversation.sos_active_responder_count ?? 0)} Responders Active`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      profileHref: null,
+      photo: null,
+      lastMessage: "No messages yet",
+      timeLabel: "Now",
+      unread: 0,
+      isGroup: true,
+      isSos: true,
+      conversationStatus: conversation.conversation_status ?? "active",
+    };
+  }
+
   const otherUserId =
     peerIdHint && memberIds.includes(peerIdHint)
       ? peerIdHint
@@ -84,19 +112,22 @@ export async function fetchDirectConversationPreview(
   }
 
   const profileRow = profile as ProfileRow;
-  const isGroup = conversation.conversation_type === "group";
 
   return {
     id: conversationId,
-    name: isGroup
-      ? conversation.title?.trim() || "Group ride"
+    name: isSos
+      ? conversation.title?.trim() || "🚨 SOS Assistance Chat"
+      : isGroup
+        ? conversation.title?.trim() || "Group ride"
       : profileName(profileRow),
-    handle: isGroup ? "Group" : profileHandle(profileRow),
+    handle: isSos ? "SOS Assistance" : isGroup ? "Group" : profileHandle(profileRow),
     profileHref: isGroup ? null : publicProfileHref(profileRow),
     photo: profilePhoto(profileRow),
     lastMessage: "No messages yet",
     timeLabel: "Now",
     unread: 0,
     isGroup,
+    isSos,
+    conversationStatus: conversation.conversation_status ?? "active",
   };
 }

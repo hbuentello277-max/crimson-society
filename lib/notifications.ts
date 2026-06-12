@@ -45,7 +45,8 @@ export type NotificationType =
   | "crimson_credits_reward"
   | "sos_activated"
   | "sos_responded"
-  | "sos_arrived";
+  | "sos_arrived"
+  | "sos_chat_message";
 
 export type NotificationActor = {
   id: string;
@@ -201,6 +202,7 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "sos_activated",
   "sos_responded",
   "sos_arrived",
+  "sos_chat_message",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -370,6 +372,10 @@ export function notificationDestination(
     return messageThreadPath(notification.conversation_id);
   }
 
+  if (notification.type === "sos_chat_message" && notification.conversation_id) {
+    return `/inbox?conversation=${notification.conversation_id}`;
+  }
+
   if (notification.type === "direct_message") {
     return "/messages";
   }
@@ -495,6 +501,8 @@ export function notificationTypeLabel(type: NotificationType) {
       return "SOS response";
     case "sos_arrived":
       return "Help arrived";
+    case "sos_chat_message":
+      return "SOS chat";
     case "shop_order_paid":
     case "admin_order_paid":
       return "Shop order";
@@ -590,6 +598,7 @@ export function notificationSummary(
     case "sos_activated":
     case "sos_responded":
     case "sos_arrived":
+    case "sos_chat_message":
       return trimmedBody || notification.title;
     case "shop_order_paid":
     case "admin_order_created":

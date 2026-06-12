@@ -244,6 +244,36 @@ describe("rider sos notifications", () => {
     assert.equal(payload.groupKey, "rider_sos:sos_activated:alert-9:rider-2");
   });
 
+  it("opens SOS chat notifications in the inbox thread", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "sos_chat_message",
+          ride_id: null,
+          conversation_id: "conversation-1",
+          target_url: "/inbox?conversation=conversation-1",
+          metadata: { entity_type: "sos_chat_message", entity_id: "conversation-1" },
+        },
+        actor,
+      ),
+      "/inbox?conversation=conversation-1",
+    );
+  });
+
+  it("falls back to the SOS inbox conversation for SOS chat notifications", () => {
+    assert.equal(
+      notificationDestination(
+        {
+          type: "sos_chat_message",
+          ride_id: null,
+          conversation_id: "conversation-2",
+        },
+        actor,
+      ),
+      "/inbox?conversation=conversation-2",
+    );
+  });
+
   it("builds deterministic SOS notification group keys", () => {
     assert.equal(
       riderSosGroupKey("sos_arrived", "alert-1", "owner-1"),

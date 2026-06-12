@@ -51,6 +51,7 @@ const TYPE_STYLES: Record<
   sos_activated: { bg: "bg-[#b4141e]/90 border border-[#f1c3c7]/40", label: "Rider SOS", glyph: "!" },
   sos_responded: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "Rider SOS", glyph: "↗" },
   sos_arrived: { bg: "bg-emerald-500/85", label: "Rider SOS", glyph: "✓" },
+  sos_chat_message: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "SOS Chat", glyph: "✉" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

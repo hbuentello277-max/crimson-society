@@ -24,6 +24,9 @@ export function resolvePushNotificationPath(data: PushUrlData): string | null {
       ? `/rider-sos/alerts/${data.entityId}`
       : null) ||
     (data.orderId ? `/profile/orders/${data.orderId}` : null) ||
+    (data.conversationId && data.type === "sos_chat_message"
+      ? `/inbox?conversation=${data.conversationId}`
+      : null) ||
     (data.conversationId ? `/messages/${data.conversationId}` : null) ||
     (data.rideId
       ? data.type === "meet_chat_message" || data.type === "meet_chat_photo"

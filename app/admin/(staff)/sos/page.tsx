@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
+import { getRiderSosConversationId, sosChatHref } from "@/lib/rider-sos/chat";
 import { loadAdminSosRespondersByEventIds } from "@/lib/rider-sos/load-sos-responses";
 import {
   formatResponseStatusLabel,
@@ -29,6 +31,7 @@ function riderDisplayName(profile: ProfileSummary) {
 }
 
 export default function AdminSosPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<RiderSosEventRow[]>([]);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileSummary>>({});
   const [respondersByEventId, setRespondersByEventId] = useState<
@@ -36,6 +39,21 @@ export default function AdminSosPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openingChatId, setOpeningChatId] = useState<string | null>(null);
+
+  async function openSosChat(eventId: string) {
+    if (openingChatId) return;
+
+    setOpeningChatId(eventId);
+    try {
+      const conversationId = await getRiderSosConversationId(eventId);
+      if (conversationId) router.push(sosChatHref(conversationId));
+    } catch (chatError) {
+      setError(chatError instanceof Error ? chatError.message : "Could not open SOS chat.");
+    } finally {
+      setOpeningChatId(null);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -208,15 +226,34 @@ export default function AdminSosPage() {
             ) : null}
 
             {hasCoords ? (
-              <a
-                href={buildMapsUrl(Number(event.latitude), Number(event.longitude))}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/50"
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={buildMapsUrl(Number(event.latitude), Number(event.longitude))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#e87a82] transition hover:border-[#b4141e]/50"
+                >
+                  Open in Maps
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void openSosChat(event.id)}
+                  disabled={openingChatId === event.id}
+                  className="inline-flex rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20 disabled:opacity-60"
+                >
+                  {openingChatId === event.id ? "Opening Chat..." : "Open Chat"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void openSosChat(event.id)}
+                disabled={openingChatId === event.id}
+                className="mt-4 inline-flex rounded-full border border-[#b4141e]/45 bg-[#b4141e]/12 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-[#f1c3c7] transition hover:bg-[#b4141e]/20 disabled:opacity-60"
               >
-                Open in Maps
-              </a>
-            ) : null}
+                {openingChatId === event.id ? "Opening Chat..." : "Open Chat"}
+              </button>
+            )}
           </article>
         );
       }),
