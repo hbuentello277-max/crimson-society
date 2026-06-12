@@ -12,6 +12,8 @@ import {
   hasCompleteEmergencyProfile,
   sosTypeLabel,
 } from "@/lib/rider-sos/sos-types";
+import { RiderSosOwnerRespondersPanel } from "@/components/rider-sos/RiderSosOwnerRespondersPanel";
+import { useSosResponders } from "@/hooks/useSosResponders";
 import type { RiderSosProfileInput } from "@/lib/rider-sos/types";
 import { supabase } from "@/lib/supabase";
 
@@ -37,6 +39,13 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeEventId = activeEvent?.id ?? null;
+  const {
+    responders,
+    loading: respondersLoading,
+    error: respondersError,
+    refresh: refreshResponders,
+  } = useSosResponders(activeEventId, step === "active" && Boolean(activeEventId));
 
   const loadActiveEvent = useCallback(async () => {
     setLoadingActive(true);
@@ -180,6 +189,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     setActiveEvent(null);
     setSelectedType(null);
     setStep("idle");
+    void refreshResponders();
     void data;
   }
 
@@ -206,9 +216,14 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
         <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Active SOS</p>
         <h2 className="mt-2 font-serif text-2xl text-white">{sosTypeLabel(activeEvent.sos_type)}</h2>
         <p className="mt-2 text-sm text-zinc-300">
-          Your SOS is active. Crimson Society admins can see this alert. Push notifications and
-          nearby rider alerts are not enabled yet.
+          Your SOS is active. Nearby Crimson Society riders can see this alert and volunteer help.
         </p>
+
+        <RiderSosOwnerRespondersPanel
+          responders={responders}
+          loading={respondersLoading}
+          error={respondersError}
+        />
         <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-500">
           Sent {new Date(activeEvent.created_at).toLocaleString()}
         </p>

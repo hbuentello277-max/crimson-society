@@ -13,11 +13,5 @@ export type NearbyRiderSosAlert = {
   longitude: number | null;
   created_at: string;
   distance_miles: number | null;
-};
-
-/** Phase 3B placeholder: volunteer responder tracking will attach to alert id. */
-export type RiderSosAlertResponder = {
-  alert_id: string;
-  responder_user_id: string;
-  status: "responding" | "arrived" | "cancelled";
+  responder_count?: number | null;
 };

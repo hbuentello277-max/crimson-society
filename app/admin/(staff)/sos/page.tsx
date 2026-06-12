@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
+import { loadAdminSosRespondersByEventIds } from "@/lib/rider-sos/load-sos-responses";
+import { formatResponseStatusLabel } from "@/lib/rider-sos/response-format";
+import type { RiderSosResponderView } from "@/lib/rider-sos/response-types";
 import {
   type RiderSosEventRow,
   buildMapsUrl,
@@ -24,6 +27,9 @@ function riderDisplayName(profile: ProfileSummary) {
 export default function AdminSosPage() {
   const [events, setEvents] = useState<RiderSosEventRow[]>([]);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileSummary>>({});
+  const [respondersByEventId, setRespondersByEventId] = useState<
+    Record<string, RiderSosResponderView[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +56,7 @@ export default function AdminSosPage() {
       const userIds = [...new Set(activeEvents.map((event) => event.user_id))];
       if (userIds.length === 0) {
         setProfilesById({});
+        setRespondersByEventId({});
         setLoading(false);
         return;
       }
@@ -71,6 +78,11 @@ export default function AdminSosPage() {
       }
 
       setProfilesById(nextProfiles);
+
+      const responders = await loadAdminSosRespondersByEventIds(
+        activeEvents.map((event) => event.id),
+      );
+      setRespondersByEventId(responders);
       setLoading(false);
     }
 
@@ -84,6 +96,9 @@ export default function AdminSosPage() {
       events.map((event) => {
         const profile = profilesById[event.user_id];
         const riderName = profile ? riderDisplayName(profile) : "Unknown rider";
+        const responders = respondersByEventId[event.id] ?? [];
+        const respondingCount = responders.filter((item) => item.status === "responding").length;
+        const arrivedCount = responders.filter((item) => item.status === "arrived").length;
         const hasCoords =
           event.latitude != null &&
           event.longitude != null &&
@@ -108,6 +123,11 @@ export default function AdminSosPage() {
 
             <p className="mt-3 text-xs uppercase tracking-[0.16em] text-zinc-500">
               {new Date(event.created_at).toLocaleString()}
+            </p>
+
+            <p className="mt-3 text-sm text-[#e87a82]">
+              👥 {responders.length} responder{responders.length === 1 ? "" : "s"} · {respondingCount}{" "}
+              responding · {arrivedCount} arrived
             </p>
 
             <dl className="mt-4 space-y-2 text-sm text-zinc-300">
@@ -150,6 +170,30 @@ export default function AdminSosPage() {
               </div>
             </dl>
 
+            {responders.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Responders</p>
+                {responders.map((responder) => (
+                  <div
+                    key={responder.id}
+                    className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-zinc-300"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-white">{responder.rider_name}</p>
+                        {responder.bike_info ? (
+                          <p className="mt-1 text-xs text-zinc-500">{responder.bike_info}</p>
+                        ) : null}
+                      </div>
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[#e87a82]">
+                        {formatResponseStatusLabel(responder.status)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {hasCoords ? (
               <a
                 href={buildMapsUrl(Number(event.latitude), Number(event.longitude))}
@@ -163,7 +207,7 @@ export default function AdminSosPage() {
           </article>
         );
       }),
-    [events, profilesById],
+    [events, profilesById, respondersByEventId],
   );
 
   return (
@@ -180,7 +224,7 @@ export default function AdminSosPage() {
           <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Admin</p>
           <h1 className="mt-2 font-serif text-3xl text-white sm:text-4xl">Active SOS Alerts</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Live rider SOS events. Riders resolve or cancel alerts from their SOS page.
+            Live rider SOS events with volunteer responder tracking.
           </p>
         </header>
 

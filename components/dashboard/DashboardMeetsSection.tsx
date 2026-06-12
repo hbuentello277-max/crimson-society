@@ -8,7 +8,6 @@ import {
   dashboardMeetToStartRideInput,
   StartRideLink,
 } from "@/components/meets/StartRideLink";
-import { EmptyState } from "@/components/ui/EmptyState";
 import {
   DashboardMeetCardSkeleton,
   DashboardMeetsMapSkeleton,
@@ -58,6 +57,8 @@ type DashboardMeetsSectionProps = {
   mapRecenterSignal: number;
   activeNowExpanded: boolean;
   onActiveNowExpandedChange: (expanded: boolean) => void;
+  upcomingSoonExpanded: boolean;
+  onUpcomingSoonExpandedChange: (expanded: boolean) => void;
   onMapRecenter: () => void;
   onMeetMarkerSelect: (meetId: string) => void;
   onSelectMeet: (meetId: string) => void;
@@ -81,6 +82,8 @@ export function DashboardMeetsSection({
   mapRecenterSignal,
   activeNowExpanded,
   onActiveNowExpandedChange,
+  upcomingSoonExpanded,
+  onUpcomingSoonExpandedChange,
   onMapRecenter,
   onMeetMarkerSelect,
   onSelectMeet,
@@ -220,39 +223,47 @@ export function DashboardMeetsSection({
         ) : null}
       </section>
 
-      {[{ title: "Upcoming Soon", meets: upcomingMapMeets.slice(0, 3) }].map((section) => (
-        <section
-          key={section.title}
-          className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
-        >
-          <div className="flex items-center justify-between gap-3">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+        {upcomingMapMeets.length === 0 ? (
+          <div className="flex w-full items-center">
             <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
-              {section.title}
+              Upcoming Soon (0)
             </p>
-            <Link
-              href="/meets"
-              className="rounded-full border border-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
-            >
-              See All
-            </Link>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onUpcomingSoonExpandedChange(!upcomingSoonExpanded)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            aria-expanded={upcomingSoonExpanded}
+          >
+            <p className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/15 px-3 py-1 text-[9px] uppercase tracking-[0.18em] text-[#f1c3c7]">
+              Upcoming Soon ({upcomingMapMeets.length})
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/meets"
+                onClick={(event) => event.stopPropagation()}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#b4141e]/50 hover:text-[#e87a82]"
+              >
+                See All
+              </Link>
+              <span className="text-sm text-zinc-500" aria-hidden>
+                {upcomingSoonExpanded ? "−" : "+"}
+              </span>
+            </div>
+          </button>
+        )}
 
-          <div className="mt-4 grid gap-3">
+        {upcomingSoonExpanded && upcomingMapMeets.length > 0 ? (
+          <div className="mt-3 grid gap-3">
             {dashboardLoading &&
               Array.from({ length: 2 }).map((_, index) => (
-                <DashboardMeetCardSkeleton key={`${section.title}-${index}`} />
+                <DashboardMeetCardSkeleton key={`upcoming-soon-${index}`} />
               ))}
 
-            {!dashboardLoading && section.meets.length === 0 ? (
-              <EmptyState
-                className="rounded-xl p-6"
-                title="No upcoming meets scheduled."
-                body="Open Meets to host or join the next run."
-              />
-            ) : null}
-
             {!dashboardLoading &&
-              section.meets.map((meet) => (
+              upcomingMapMeets.slice(0, 3).map((meet) => (
                 <DashboardMeetCard
                   key={meet.id}
                   meet={meet}
@@ -261,8 +272,8 @@ export function DashboardMeetsSection({
                 />
               ))}
           </div>
-        </section>
-      ))}
+        ) : null}
+      </section>
     </section>
   );
 }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { RiderSosResponseControls } from "@/components/rider-sos/RiderSosResponseControls";
+import { useSosResponse } from "@/hooks/useSosResponse";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { getDistanceMiles } from "@/lib/gps/distance";
 import { RIDER_SOS_NEARBY_RADIUS_MILES } from "@/lib/rider-sos/nearby-config";
@@ -35,6 +37,8 @@ export default function RiderSosAlertDetailPage() {
   const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const canRespond = Boolean(alert && session?.user && alert.user_id !== session.user.id);
+  const sosResponse = useSosResponse(alert?.id ?? null, canRespond);
 
   useEffect(() => {
     if (authLoading) return;
@@ -67,6 +71,11 @@ export default function RiderSosAlertDetailPage() {
           setAlert(null);
           setError("This SOS alert is no longer active.");
           setLoading(false);
+          return;
+        }
+
+        if (row.user_id === session?.user?.id) {
+          router.replace("/rider-sos");
           return;
         }
 
@@ -198,6 +207,16 @@ export default function RiderSosAlertDetailPage() {
             ) : (
               <p className="mt-5 text-sm text-zinc-500">Location was not shared for this SOS alert.</p>
             )}
+
+            <RiderSosResponseControls
+              loading={sosResponse.loading}
+              submitting={sosResponse.submitting}
+              error={sosResponse.error}
+              status={sosResponse.response?.status ?? null}
+              onRespond={() => void sosResponse.respond()}
+              onMarkArrived={() => void sosResponse.markArrived()}
+              onCancel={() => void sosResponse.cancelResponse()}
+            />
           </article>
         ) : null}
       </div>

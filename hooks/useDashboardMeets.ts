@@ -48,6 +48,7 @@ export function useDashboardMeets({ session, isAdmin, router, onToast }: UseDash
   const [now, setNow] = useState(() => Date.now());
   const [joinBusy, setJoinBusy] = useState(false);
   const [activeNowExpanded, setActiveNowExpanded] = useState(false);
+  const [upcomingSoonExpanded, setUpcomingSoonExpanded] = useState(false);
 
   const loadDashboardSections = useCallback(async () => {
     if (!session) return;
@@ -398,6 +399,8 @@ export function useDashboardMeets({ session, isAdmin, router, onToast }: UseDash
     joinBusy,
     activeNowExpanded,
     setActiveNowExpanded,
+    upcomingSoonExpanded,
+    setUpcomingSoonExpanded,
     loadDashboardSections,
     openMapHref,
     activeMapMeets,

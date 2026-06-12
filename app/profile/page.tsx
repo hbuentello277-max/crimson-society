@@ -492,9 +492,9 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       <div className="flex shrink-0 items-center gap-2">
         <Link
           href="/rider-sos"
-          className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20 sm:px-4 sm:text-[11px]"
+          className="rounded-full border-2 border-[#b4141e]/65 bg-[#b4141e]/15 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#e87a82] shadow-[0_0_22px_-8px_rgba(180,20,30,0.75)] transition hover:border-[#b4141e]/85 hover:bg-[#b4141e]/25 sm:px-5 sm:py-3 sm:text-xs"
         >
-          SOS
+          🚨 SOS
         </Link>
         <button
           type="button"

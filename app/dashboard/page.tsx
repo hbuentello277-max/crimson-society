@@ -207,6 +207,8 @@ function DashboardPageContent() {
           mapRecenterSignal={meets.mapRecenterSignal}
           activeNowExpanded={meets.activeNowExpanded}
           onActiveNowExpandedChange={meets.setActiveNowExpanded}
+          upcomingSoonExpanded={meets.upcomingSoonExpanded}
+          onUpcomingSoonExpandedChange={meets.setUpcomingSoonExpanded}
           onMapRecenter={() => meets.setMapRecenterSignal((value) => value + 1)}
           onMeetMarkerSelect={meets.handleDashboardMeetMarkerSelect}
           onSelectMeet={meets.setSelectedMapMeetId}

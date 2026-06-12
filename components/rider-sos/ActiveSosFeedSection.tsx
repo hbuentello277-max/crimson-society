@@ -6,6 +6,7 @@ import {
   formatSosTimeAgo,
   riderSosDisplayName,
 } from "@/lib/rider-sos/nearby-format";
+import { formatResponderCount } from "@/lib/rider-sos/response-format";
 import type { NearbyRiderSosAlert } from "@/lib/rider-sos/nearby-types";
 import { RIDER_SOS_NEARBY_RADIUS_MILES } from "@/lib/rider-sos/nearby-config";
 import { sosTypeLabel } from "@/lib/rider-sos/sos-types";
@@ -30,6 +31,11 @@ function ActiveSosCard({ alert }: { alert: NearbyRiderSosAlert }) {
           <p className="mt-1 text-sm text-zinc-300">{sosTypeLabel(alert.sos_type)}</p>
           <p className="mt-2 text-xs text-zinc-500">{formatSosDistanceMiles(alert.distance_miles)}</p>
           <p className="mt-1 text-xs text-zinc-500">{formatSosTimeAgo(alert.created_at)}</p>
+          {formatResponderCount(alert.responder_count ?? 0) ? (
+            <p className="mt-2 text-xs font-medium text-[#e87a82]">
+              {formatResponderCount(alert.responder_count ?? 0)}
+            </p>
+          ) : null}
         </div>
         <span className="shrink-0 rounded-full border border-[#b4141e]/45 bg-[#b4141e]/15 px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-[#e87a82]">
           Active
