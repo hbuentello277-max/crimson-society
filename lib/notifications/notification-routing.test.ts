@@ -12,6 +12,7 @@ import {
   shouldNotifyPostOwner,
 } from "@/lib/notifications";
 import { buildNotificationPushMetadata } from "@/lib/notifications/push-metadata";
+import { riderSosGroupKey } from "@/lib/notifications/grouping";
 
 const actor = {
   id: "actor-1",
@@ -195,6 +196,62 @@ describe("meet notifications", () => {
         null,
       ),
       "/meets/meet-3",
+    );
+  });
+});
+
+describe("rider sos notifications", () => {
+  it("opens rider SOS alert detail for SOS notifications", () => {
+    for (const type of ["sos_activated", "sos_responded", "sos_arrived"] as const) {
+      assert.equal(
+        notificationDestination(
+          {
+            type,
+            ride_id: null,
+            metadata: {
+              entity_type: "rider_sos",
+              entity_id: "alert-1",
+              sos_alert_id: "alert-1",
+            },
+          },
+          null,
+        ),
+        "/rider-sos/alerts/alert-1",
+      );
+    }
+  });
+
+  it("includes SOS entity id and target URL in push metadata", () => {
+    const payload = buildNotificationPushMetadata(
+      {
+        id: "notification-1",
+        type: "sos_activated",
+        ride_id: null,
+        target_url: "/rider-sos/alerts/alert-9",
+        metadata: {
+          entity_type: "rider_sos",
+          entity_id: "alert-9",
+          sos_alert_id: "alert-9",
+        },
+        notification_group_key: "rider_sos:sos_activated:alert-9:rider-2",
+      },
+      null,
+      "https://crimsonsociety.app",
+    );
+
+    assert.equal(payload.entityId, "alert-9");
+    assert.equal(payload.targetUrl, "https://crimsonsociety.app/rider-sos/alerts/alert-9");
+    assert.equal(payload.groupKey, "rider_sos:sos_activated:alert-9:rider-2");
+  });
+
+  it("builds deterministic SOS notification group keys", () => {
+    assert.equal(
+      riderSosGroupKey("sos_arrived", "alert-1", "owner-1"),
+      "rider_sos:sos_arrived:alert-1:owner-1",
+    );
+    assert.notEqual(
+      riderSosGroupKey("sos_responded", "alert-1", "owner-1"),
+      riderSosGroupKey("sos_arrived", "alert-1", "owner-1"),
     );
   });
 });

@@ -43,6 +43,13 @@ describe("resolvePushNotificationPath", () => {
     );
   });
 
+  it("resolves SOS alert detail by entityId", () => {
+    assert.equal(
+      resolvePushNotificationPath({ entityId: "alert-1", type: "sos_activated" }),
+      "/rider-sos/alerts/alert-1",
+    );
+  });
+
   it("resolves admin order by orderId for buyer paths", () => {
     assert.equal(
       resolvePushNotificationPath({ orderId: "order-5" }),
@@ -56,6 +63,10 @@ describe("resolvePushNotificationPath", () => {
 
   it("falls back for missing message thread", () => {
     assert.equal(resolvePushNotificationPath({ type: "direct_message" }), "/messages");
+  });
+
+  it("falls back for missing SOS target", () => {
+    assert.equal(resolvePushNotificationPath({ type: "sos_arrived" }), "/rider-sos");
   });
 
   it("falls back for admin shop types", () => {

@@ -16,6 +16,7 @@ export const NOTIFICATION_GROUP_KEY_PATTERNS = {
   postComment: "post_comment:{postId}:{ownerId}",
   adminReportQueue: "admin_report_queue:{adminId}",
   adminLowInventory: "admin_low_inventory:{productId}:{adminId}",
+  riderSos: "rider_sos:{eventType}:{alertId}:{recipientUserId}",
 } as const;
 
 export function directMessageGroupKey(conversationId: string, recipientUserId: string) {
@@ -80,6 +81,14 @@ export function adminReportQueueGroupKey(adminId: string) {
 
 export function adminLowInventoryGroupKey(productId: string, adminId: string) {
   return `admin_low_inventory:${productId}:${adminId}`;
+}
+
+export function riderSosGroupKey(
+  eventType: "sos_activated" | "sos_responded" | "sos_arrived",
+  alertId: string,
+  recipientUserId: string,
+) {
+  return `rider_sos:${eventType}:${alertId}:${recipientUserId}`;
 }
 
 type CollapseInput = Pick<

@@ -42,7 +42,10 @@ export type NotificationType =
   | "admin_order_paid"
   | "admin_low_inventory"
   | "meet_cancelled"
-  | "crimson_credits_reward";
+  | "crimson_credits_reward"
+  | "sos_activated"
+  | "sos_responded"
+  | "sos_arrived";
 
 export type NotificationActor = {
   id: string;
@@ -88,6 +91,7 @@ export type NotificationMetadata = {
   comment_id?: string;
   order_id?: string;
   meet_id?: string;
+  sos_alert_id?: string;
   amount?: number;
   reason?: string;
   credit_role?: string;
@@ -194,6 +198,9 @@ const KNOWN_NOTIFICATION_TYPES: NotificationType[] = [
   "admin_low_inventory",
   "meet_cancelled",
   "crimson_credits_reward",
+  "sos_activated",
+  "sos_responded",
+  "sos_arrived",
 ];
 
 export function isKnownNotificationType(value: string): value is NotificationType {
@@ -309,6 +316,14 @@ function metadataRoute(
     return "/profile/credits/history";
   }
 
+  if (
+    metadata.entity_type === "rider_sos" ||
+    String(notificationType || "").startsWith("sos_")
+  ) {
+    const sosAlertId = metadata.sos_alert_id || metadata.entity_id;
+    return sosAlertId ? `/rider-sos/alerts/${sosAlertId}` : "/rider-sos";
+  }
+
   return null;
 }
 
@@ -407,6 +422,14 @@ export function notificationDestination(
     return "/profile/credits/history";
   }
 
+  if (
+    notification.type === "sos_activated" ||
+    notification.type === "sos_responded" ||
+    notification.type === "sos_arrived"
+  ) {
+    return metadataRoute(notification.metadata, notification.type) || "/rider-sos";
+  }
+
   if (MEET_DETAIL_TYPES.has(notification.type)) {
     return "/meets";
   }
@@ -466,6 +489,12 @@ export function notificationTypeLabel(type: NotificationType) {
       return "Host meet";
     case "crimson_credits_reward":
       return "Crimson Credits";
+    case "sos_activated":
+      return "Rider SOS";
+    case "sos_responded":
+      return "SOS response";
+    case "sos_arrived":
+      return "Help arrived";
     case "shop_order_paid":
     case "admin_order_paid":
       return "Shop order";
@@ -558,6 +587,10 @@ export function notificationSummary(
       return trimmedBody || `${name} started ride tracking`;
     case "host_meet_created":
       return trimmedBody || `${name} created a new meet`;
+    case "sos_activated":
+    case "sos_responded":
+    case "sos_arrived":
+      return trimmedBody || notification.title;
     case "shop_order_paid":
     case "admin_order_created":
     case "admin_order_paid":

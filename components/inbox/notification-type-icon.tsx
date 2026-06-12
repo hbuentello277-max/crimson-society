@@ -48,6 +48,9 @@ const TYPE_STYLES: Record<
   favorite_rider_meet: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_post: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
   favorite_rider_ride_started: { bg: "bg-zinc-600/80", label: "Legacy", glyph: "★" },
+  sos_activated: { bg: "bg-[#b4141e]/90 border border-[#f1c3c7]/40", label: "Rider SOS", glyph: "!" },
+  sos_responded: { bg: "bg-[#b4141e]/80 border border-[#b4141e]", label: "Rider SOS", glyph: "↗" },
+  sos_arrived: { bg: "bg-emerald-500/85", label: "Rider SOS", glyph: "✓" },
 };
 
 export function NotificationTypeIcon({ type }: { type: NotificationType }) {

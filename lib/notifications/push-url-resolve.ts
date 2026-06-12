@@ -6,6 +6,7 @@ export type PushUrlData = {
   url?: string | null;
   requestId?: string | null;
   orderId?: string | null;
+  entityId?: string | null;
   postId?: string | null;
   commentId?: string | null;
   rideId?: string | null;
@@ -19,6 +20,9 @@ export function resolvePushNotificationPath(data: PushUrlData): string | null {
     data.targetUrl?.trim() ||
     data.url?.trim() ||
     (data.requestId ? `/connect/requests/${data.requestId}` : null) ||
+    (String(data.type || "").startsWith("sos_") && data.entityId
+      ? `/rider-sos/alerts/${data.entityId}`
+      : null) ||
     (data.orderId ? `/profile/orders/${data.orderId}` : null) ||
     (data.conversationId ? `/messages/${data.conversationId}` : null) ||
     (data.rideId
@@ -39,6 +43,7 @@ export function resolvePushNotificationPath(data: PushUrlData): string | null {
       return "/admin/shop";
     }
     if (String(data.type || "").startsWith("meet_")) return "/meets";
+    if (String(data.type || "").startsWith("sos_")) return "/rider-sos";
     if (String(data.type || "").startsWith("order_")) return "/profile/orders";
     return null;
   }
