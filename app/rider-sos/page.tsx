@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import PrivacyToggle from "@/components/profile/PrivacyToggle";
 import { useAuth } from "@/components/AuthProvider";
 import { BOTTOM_NAV_CLEARANCE, CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
+import { RiderSosActivationPanel } from "@/components/rider-sos/RiderSosActivationPanel";
 import { formatRiderSosBikeInfo } from "@/lib/rider-sos/bike-info";
 import type { RiderSosProfileInput, RiderSosProfileRow } from "@/lib/rider-sos/types";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +48,7 @@ export default function RiderSosPage() {
   const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<RiderSosProfileInput>(emptyForm);
+  const [hasSavedProfile, setHasSavedProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -99,11 +101,13 @@ export default function RiderSosPage() {
 
         if (sosResult.data) {
           const next = rowToForm(sosResult.data as RiderSosProfileRow);
+          setHasSavedProfile(true);
           setForm({
             ...next,
             bike_info: next.bike_info || bikeInfo,
           });
         } else {
+          setHasSavedProfile(false);
           setForm({
             ...emptyForm(),
             bike_info: bikeInfo,
@@ -162,6 +166,7 @@ export default function RiderSosPage() {
       return;
     }
 
+    setHasSavedProfile(true);
     setMessage("SOS profile saved.");
   }
 
@@ -191,12 +196,22 @@ export default function RiderSosPage() {
 
         <header className="mt-4">
           <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Rider SOS</p>
-          <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Emergency setup</h1>
+          <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Rider SOS</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Save your emergency details privately. This information is not public and live alerts are
-            not enabled yet.
+            Activate SOS in an emergency and keep your private profile details up to date. Push
+            notifications and nearby rider alerts are not enabled yet.
           </p>
         </header>
+
+        {userId ? (
+          <div className="mt-6">
+            <RiderSosActivationPanel
+              userId={userId}
+              profileForm={form}
+              hasSavedProfile={hasSavedProfile}
+            />
+          </div>
+        ) : null}
 
         <form onSubmit={handleSave} className="mt-6 space-y-5">
           <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm sm:p-6">
@@ -310,7 +325,7 @@ export default function RiderSosPage() {
 
           <PrivacyToggle
             label="Location Sharing"
-            description="Prepare SOS to include your location during an emergency when live alerts launch."
+            description="When enabled, SOS activation will request your GPS location. You can still send SOS without GPS if permission is denied."
             enabled={form.location_sharing_enabled}
             onChange={(enabled) => updateField("location_sharing_enabled", enabled)}
           />

@@ -861,7 +861,7 @@ function AdminPageContent() {
             ) : null}
 
             <div className="mt-12 rounded-2xl border border-[#b4141e]/25 bg-[#b4141e]/10 p-6">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                 {[
                   {
                     eyebrow: "Blackcard",
@@ -886,6 +886,12 @@ function AdminPageContent() {
                     title: "Internal sound library",
                     href: "/admin/sounds",
                     cta: "Sounds",
+                  },
+                  {
+                    eyebrow: "Rider SOS",
+                    title: "Active emergency alerts",
+                    href: "/admin/sos",
+                    cta: "SOS",
                   },
                 ].map((item) => (
                   <div key={item.href} className="rounded-2xl border border-white/10 bg-black/25 p-5">
