@@ -510,6 +510,12 @@ return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] tex
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <Link
+          href="/rider-sos"
+          className="rounded-full border border-[#b4141e]/50 bg-[#b4141e]/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-[#e87a82] transition hover:border-[#b4141e]/70 hover:bg-[#b4141e]/20 sm:px-4 sm:text-[11px]"
+        >
+          SOS
+        </Link>
         <button
           type="button"
           onClick={() => setInviteRidersOpen(true)}
