@@ -8,7 +8,7 @@ export function filterNearbySosAlerts(
   radiusMiles = RIDER_SOS_NEARBY_RADIUS_MILES,
 ) {
   if (!viewer) {
-    return alerts;
+    return [];
   }
 
   return alerts.filter((alert) => {

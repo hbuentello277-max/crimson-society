@@ -198,8 +198,8 @@ export default function RiderSosPage() {
           <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Rider SOS</p>
           <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Rider SOS</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Activate SOS in an emergency and keep your private profile details up to date. Push
-            notifications and nearby rider alerts are not enabled yet.
+            Activate SOS in an emergency and keep your private profile details up to date. Staff
+            are alerted on activation, and nearby rider alerts use your optional GPS location.
           </p>
         </header>
 

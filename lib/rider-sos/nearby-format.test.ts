@@ -52,8 +52,8 @@ describe("filterNearbySosAlerts", () => {
     assert.equal(nearby[0]?.id, "alert-1");
   });
 
-  it("returns all alerts when viewer location is unavailable", () => {
+  it("hides nearby alerts when viewer location is unavailable", () => {
     const alerts = [baseAlert, { ...baseAlert, id: "alert-2" }];
-    assert.equal(filterNearbySosAlerts(alerts, null).length, 2);
+    assert.equal(filterNearbySosAlerts(alerts, null).length, 0);
   });
 });

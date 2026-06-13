@@ -87,6 +87,7 @@ export default function RiderSosAlertDetailPage() {
           viewer,
           RIDER_SOS_NEARBY_RADIUS_MILES,
           session?.user?.id,
+          { canBypassNearby: isAdmin },
         );
 
         if (!active) return;
@@ -127,7 +128,7 @@ export default function RiderSosAlertDetailPage() {
     return () => {
       active = false;
     };
-  }, [authLoading, eventId, router, session?.user]);
+  }, [authLoading, eventId, isAdmin, router, session?.user]);
 
   const hasCoords = useMemo(
     () =>
