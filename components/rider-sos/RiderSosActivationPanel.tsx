@@ -271,9 +271,8 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     <section className="rounded-[28px] border border-[#b4141e]/35 bg-[#b4141e]/8 p-5 sm:p-6">
       <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Activate SOS</p>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Send an emergency alert to Crimson Society admins with your saved profile details and
-        optional GPS location. Nearby riders are alerted only when GPS confirms they are within 10
-        miles.
+        Send an emergency alert with your saved profile details and location to help nearby riders
+        respond faster.
       </p>
 
       {missingProfile ? (

@@ -199,9 +199,7 @@ export default function RiderSosPage() {
           <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Rider SOS</p>
           <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Rider SOS</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Activate SOS in an emergency and keep your private profile details up to date. For
-            emergency rider alerts, turn Location Sharing ON. Without GPS, admins can still see
-            your SOS, but nearby riders may not be alerted.
+            Activate SOS in an emergency and keep your emergency profile information up to date.
           </p>
         </header>
 
