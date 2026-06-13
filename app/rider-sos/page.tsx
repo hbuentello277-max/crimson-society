@@ -15,6 +15,7 @@ const INPUT_CLASS =
   "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#b4141e]/60";
 
 const LABEL_CLASS = "mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500";
+const RIDER_SOS_BOTTOM_CLEARANCE = "pb-[calc(var(--bottom-nav-clearance)+2rem)]";
 
 function emptyForm(): RiderSosProfileInput {
   return {
@@ -186,7 +187,7 @@ export default function RiderSosPage() {
     <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
-      <div className={`relative mx-auto max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}>
+      <div className={`relative mx-auto max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 ${RIDER_SOS_BOTTOM_CLEARANCE}`}>
         <Link
           href="/profile"
           className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]"
@@ -204,8 +205,17 @@ export default function RiderSosPage() {
           </p>
         </header>
 
+        <div className="mt-6">
+          <PrivacyToggle
+            label="Location Sharing"
+            description="Turn this ON so nearby riders can be alerted with your GPS location during an SOS"
+            enabled={form.location_sharing_enabled}
+            onChange={(enabled) => updateField("location_sharing_enabled", enabled)}
+          />
+        </div>
+
         {userId ? (
-          <div className="mt-6">
+          <div className="mt-4">
             <RiderSosActivationPanel
               userId={userId}
               profileForm={form}
@@ -323,13 +333,6 @@ export default function RiderSosPage() {
               {form.bike_info.trim() || "No bike info on your profile yet."}
             </div>
           </section>
-
-          <PrivacyToggle
-            label="Location Sharing"
-            description="For emergency rider alerts, turn Location Sharing ON. Without GPS, admins can still see your SOS, but nearby riders may not be alerted."
-            enabled={form.location_sharing_enabled}
-            onChange={(enabled) => updateField("location_sharing_enabled", enabled)}
-          />
 
           {error ? (
             <p className="text-xs uppercase tracking-[0.2em] text-red-400">{error}</p>
