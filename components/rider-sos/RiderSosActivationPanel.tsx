@@ -46,6 +46,8 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     error: respondersError,
     refresh: refreshResponders,
   } = useSosResponders(activeEventId, step === "active" && Boolean(activeEventId));
+  const noGpsNearbyWarning =
+    "Admins can still see your SOS, but nearby riders may not be accurately alerted without GPS.";
 
   const loadActiveEvent = useCallback(async () => {
     setLoadingActive(true);
@@ -85,7 +87,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
 
     if (!profileForm.location_sharing_enabled) {
       setLocationNote(
-        "Location sharing is off in your SOS profile. You can send SOS without GPS or enable sharing below.",
+        `Location Sharing is OFF. ${noGpsNearbyWarning}`,
       );
       return;
     }
@@ -101,7 +103,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
       return;
     }
 
-    setLocationNote(result.message);
+    setLocationNote(`${result.message} ${noGpsNearbyWarning}`);
   }
 
   async function handleSelectType(type: SosType) {
@@ -128,7 +130,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
         longitude = result.longitude;
         accuracy = result.accuracy;
       } else {
-        setLocationNote(result.message);
+        setLocationNote(`${result.message} ${noGpsNearbyWarning}`);
       }
     }
 
@@ -270,7 +272,8 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
       <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Activate SOS</p>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
         Send an emergency alert to Crimson Society admins with your saved profile details and
-        optional GPS location.
+        optional GPS location. Nearby riders are alerted only when GPS confirms they are within 10
+        miles.
       </p>
 
       {missingProfile ? (

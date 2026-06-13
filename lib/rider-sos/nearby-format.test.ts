@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { RIDER_SOS_NEARBY_RADIUS_MILES } from "@/lib/rider-sos/nearby-config";
 import { filterNearbySosAlerts } from "@/lib/rider-sos/nearby-filter";
 import {
   formatSosDistanceMiles,
@@ -24,6 +25,10 @@ const baseAlert: NearbyRiderSosAlert = {
 };
 
 describe("nearby sos formatting", () => {
+  it("uses a 10 mile nearby SOS radius", () => {
+    assert.equal(RIDER_SOS_NEARBY_RADIUS_MILES, 10);
+  });
+
   it("formats distance and time ago", () => {
     assert.equal(formatSosDistanceMiles(2.1), "2.1 miles away");
     assert.equal(formatSosDistanceMiles(null), "Distance unknown");

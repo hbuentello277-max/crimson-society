@@ -198,8 +198,9 @@ export default function RiderSosPage() {
           <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Rider SOS</p>
           <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Rider SOS</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Activate SOS in an emergency and keep your private profile details up to date. Staff
-            are alerted on activation, and nearby rider alerts use your optional GPS location.
+            Activate SOS in an emergency and keep your private profile details up to date. For
+            emergency rider alerts, turn Location Sharing ON. Without GPS, admins can still see
+            your SOS, but nearby riders may not be alerted.
           </p>
         </header>
 
@@ -325,7 +326,7 @@ export default function RiderSosPage() {
 
           <PrivacyToggle
             label="Location Sharing"
-            description="When enabled, SOS activation will request your GPS location. You can still send SOS without GPS if permission is denied."
+            description="For emergency rider alerts, turn Location Sharing ON. Without GPS, admins can still see your SOS, but nearby riders may not be alerted."
             enabled={form.location_sharing_enabled}
             onChange={(enabled) => updateField("location_sharing_enabled", enabled)}
           />

@@ -37,6 +37,9 @@ export async function loadActiveSosAlertDetail(
 ) {
   const { data, error } = await supabase.rpc("get_active_rider_sos_alert", {
     p_event_id: eventId,
+    p_viewer_lat: viewer?.lat ?? null,
+    p_viewer_lng: viewer?.lng ?? null,
+    p_radius_miles: radiusMiles,
   });
 
   if (error) {
@@ -46,10 +49,6 @@ export async function loadActiveSosAlertDetail(
   const row = ((data ?? [])[0] ?? null) as NearbyRiderSosAlert | null;
   if (!row) {
     return null;
-  }
-
-  if (!viewer) {
-    return row;
   }
 
   if (viewerUserId && row.user_id === viewerUserId) {
