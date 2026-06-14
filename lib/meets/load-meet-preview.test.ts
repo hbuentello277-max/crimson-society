@@ -36,8 +36,8 @@ describe("mapMeetPreviewRow", () => {
     const preview = mapMeetPreviewRow({
       id: "meet-1",
       name: "Saturday Night Ride",
-      date: "2026-06-14",
-      time: "20:00",
+      meet_date: "2026-06-14",
+      meet_time: "20:00",
       meet_point: "Downtown",
       destination: "Hill Country",
       city: "San Antonio",
@@ -76,8 +76,8 @@ describe("mapMeetPreviewRow", () => {
     const preview = mapMeetPreviewRow({
       id: "meet-2",
       name: null,
-      date: null,
-      time: null,
+      meet_date: null,
+      meet_time: null,
       meet_point: null,
       destination: null,
       city: null,

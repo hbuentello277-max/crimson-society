@@ -68,8 +68,8 @@ create or replace function public.get_public_meet_preview(p_meet_id uuid)
 returns table (
   id uuid,
   name text,
-  date text,
-  time text,
+  meet_date text,
+  meet_time text,
   meet_point text,
   destination text,
   city text,

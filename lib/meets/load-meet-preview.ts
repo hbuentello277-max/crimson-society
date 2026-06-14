@@ -7,8 +7,8 @@ import type { MeetType } from "@/lib/meets/types";
 type MeetPreviewRow = {
   id: string;
   name: string | null;
-  date: string | null;
-  time: string | null;
+  meet_date: string | null;
+  meet_time: string | null;
   meet_point: string | null;
   destination: string | null;
   city: string | null;
@@ -65,8 +65,8 @@ export function mapMeetPreviewRow(row: MeetPreviewRow): MeetPublicPreview {
   return {
     id: row.id,
     name: row.name?.trim() || "Private Meet on Crimson Society",
-    date: row.date?.trim() || "",
-    time: row.time?.trim() || "",
+    date: row.meet_date?.trim() || "",
+    time: row.meet_time?.trim() || "",
     meetPoint: row.meet_point?.trim() || "",
     destination: row.destination?.trim() || "",
     city: row.city?.trim() || "",
