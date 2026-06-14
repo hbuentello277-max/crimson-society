@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/LanguageProvider";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
+import { AppQrPanel } from "@/components/credits/AppQrPanel";
 import { ReferralQrPanel } from "@/components/credits/ReferralQrPanel";
 import { useOwnReferralStats } from "@/hooks/useOwnReferralStats";
 import { supabase } from "@/lib/supabase";
@@ -46,6 +47,8 @@ export function ReferralQrPageContent() {
         referralCode={stats.referral_code}
         loading={authLoading || loading}
       />
+
+      <AppQrPanel />
     </CreditsPageShell>
   );
 }
