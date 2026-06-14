@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/LanguageProvider";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { MemberReferralCodeCard } from "@/components/credits/MemberReferralCodeCard";
@@ -67,6 +68,19 @@ export function CreditsReferralsPageContent() {
       ) : null}
 
       <MemberReferralCodeCard referralCode={stats.referral_code} loading={authLoading || loading} />
+
+      <Link
+        href="/profile/credits/referrals/qr"
+        className="flex items-center justify-between rounded-[22px] border border-white/10 bg-white/[0.02] px-4 py-4 transition hover:border-[#b4141e]/40 hover:bg-[#b4141e]/5"
+      >
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">{copy.openMyQrCode}</p>
+          <p className="mt-1 text-sm text-zinc-300">{copy.myQrCodeSubtitle}</p>
+        </div>
+        <span className="text-lg text-zinc-500" aria-hidden>
+          →
+        </span>
+      </Link>
 
       <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
         <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">{copy.referralProgress}</p>

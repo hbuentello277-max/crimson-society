@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import {
   buildInviteRidersShareMessage,
   buildInviteRidersShareUrl,
@@ -17,6 +19,8 @@ type Props = {
 };
 
 export function InviteRidersSheet({ open, stats, loading = false, onClose }: Props) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.credits;
   const [copyLabel, setCopyLabel] = useState("Copy Code");
   const [shareLabel, setShareLabel] = useState("Share");
 
@@ -160,6 +164,20 @@ export function InviteRidersSheet({ open, stats, loading = false, onClose }: Pro
               </p>
             </div>
           </div>
+
+          <Link
+            href="/profile/credits/referrals/qr"
+            onClick={onClose}
+            className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3.5 transition hover:border-[#b4141e]/40 hover:bg-[#b4141e]/5"
+          >
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[#e87a82]">{copy.openMyQrCode}</p>
+              <p className="mt-1 text-sm text-zinc-400">{copy.myQrCodeSubtitle}</p>
+            </div>
+            <span className="text-lg text-zinc-500" aria-hidden>
+              →
+            </span>
+          </Link>
         </div>
       </section>
     </div>
