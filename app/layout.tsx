@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { DeletionPendingGate } from "@/components/DeletionPendingGate";
 import { RestrictedAccountGate } from "@/components/RestrictedAccountGate";
 import { NativeShell } from "@/components/NativeShell";
+import { LanguageProvider } from "@/components/LanguageProvider";
 
 const serif = Cormorant_Garamond({
   subsets: ["latin"],
@@ -56,14 +57,16 @@ export default function RootLayout({
     <html lang="en" className={`${serif.variable} ${sans.variable} h-full w-full overflow-x-hidden`}>
       <body className="h-full w-full max-w-full overflow-x-hidden bg-[#050505] font-sans text-white antialiased">
         <AuthProvider>
-          <NativeShell />
-          <DeletionPendingGate>
-            <RestrictedAccountGate>
-              {children}
-            </RestrictedAccountGate>
-          </DeletionPendingGate>
-          <BottomNav />
-          <LazyGlobalShopUI />
+          <LanguageProvider>
+            <NativeShell />
+            <DeletionPendingGate>
+              <RestrictedAccountGate>
+                {children}
+              </RestrictedAccountGate>
+            </DeletionPendingGate>
+            <BottomNav />
+            <LazyGlobalShopUI />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

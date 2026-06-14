@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { canSelfJoinMeet, canViewMeetForUser, getMeetJoinBlockMessage } from "@/lib/meet-privacy";
 import { hasBlackcardAccess, type MembershipRow } from "@/lib/membership";
@@ -115,14 +117,18 @@ function profileHref(username?: string | null) {
   return clean ? `/profile/${clean}` : null;
 }
 
-function meetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
-  return mapMeetRowToMeet(row, resolvedRoute);
+function meetRowToMeet(
+  row: MeetRow,
+  resolvedRoute?: RoutePoint[],
+  language: SupportedLanguage = "en",
+): Meet {
+  return mapMeetRowToMeet(row, resolvedRoute, language);
 }
 
 function meetToForm(ride: Meet): HostMeetForm {
   return {
     cover: ride.cover,
-    name: ride.name,
+    name: ride.nameEn || ride.name,
     date: ride.date,
     time: ride.time,
     meetPoint: ride.meetPoint,
@@ -136,7 +142,17 @@ function meetToForm(ride: Meet): HostMeetForm {
     type: ride.type,
     privacy: ride.privacy,
     visibility: ride.visibility,
-    description: ride.description,
+    description: ride.descriptionEn ?? ride.description,
+    nameEs: ride.nameEs ?? "",
+    descriptionEs: ride.descriptionEs ?? "",
+    routeNotesEn: ride.routeNotesEn ?? "",
+    routeNotesEs: ride.routeNotesEs ?? "",
+    safetyNotesEn: ride.safetyNotesEn ?? "",
+    safetyNotesEs: ride.safetyNotesEs ?? "",
+    locationNotesEn: ride.locationNotesEn ?? "",
+    locationNotesEs: ride.locationNotesEs ?? "",
+    instructionsEn: ride.instructionsEn ?? "",
+    instructionsEs: ride.instructionsEs ?? "",
   };
 }
 
@@ -254,6 +270,11 @@ function MeetCard({
               {ride.description}
             </p>
           ) : null}
+          {ride.contentFallbackNotice ? (
+            <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
+              {ride.contentFallbackNotice}
+            </p>
+          ) : null}
 
           <div className="mt-4 flex items-center justify-between gap-3">
            <div className="flex items-center gap-2">
@@ -355,6 +376,7 @@ function MeetsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading: authLoading, isAdmin } = useAuth();
+  const { language } = useI18n();
   const [viewerHasBlackcard, setViewerHasBlackcard] = useState(false);
   const [followingHostIds, setFollowingHostIds] = useState<Set<string>>(new Set());
   const [favoritedHostIds, setFavoritedHostIds] = useState<Set<string>>(new Set());
@@ -494,13 +516,13 @@ function MeetsPageContent() {
       void markMeetRead(ride.id);
 
       void (async () => {
-        const detail = await loadMeetDetailForModal(ride.id);
+        const detail = await loadMeetDetailForModal(ride.id, language);
         if (!detail) return;
 
         setSelectedMeet((current) => (current?.id === ride.id ? detail : current));
       })();
     },
-    [markMeetRead],
+    [language, markMeetRead],
   );
 
   useEffect(() => {
@@ -525,7 +547,7 @@ function MeetsPageContent() {
     }
 
     void (async () => {
-      const detail = await loadMeetDetailForModal(meetParam);
+      const detail = await loadMeetDetailForModal(meetParam, language);
       if (!detail) return;
 
       setSelectedMeet((current) => (current?.id === meetParam || !current ? detail : current));
@@ -541,7 +563,7 @@ function MeetsPageContent() {
       );
       void markMeetRead(detail.id);
     })();
-  }, [markMeetRead, meetParam, realMeets]);
+  }, [language, markMeetRead, meetParam, realMeets]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -744,11 +766,11 @@ const rowsWithHosts = rows.map((row) => ({
 const ridesWithRoutes = rowsWithHosts.map((row) => {
   const savedRoute = parseRoute(row.route);
   if (hasRoadGeometry(savedRoute)) {
-    return meetRowToMeet(row as MeetRow, savedRoute);
+    return meetRowToMeet(row as MeetRow, savedRoute, language);
   }
 
   const endpointRoute = endpointRouteFromRow(row as MeetRow);
-  return meetRowToMeet(row as MeetRow, endpointRoute.length >= 2 ? endpointRoute : []);
+  return meetRowToMeet(row as MeetRow, endpointRoute.length >= 2 ? endpointRoute : [], language);
 });
 
       if (active) {
@@ -764,7 +786,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
     return () => {
       active = false;
     };
-  }, [authLoading, isAdmin, loadUnreadCounts, session?.user?.id]);
+  }, [authLoading, isAdmin, language, loadUnreadCounts, session?.user?.id]);
 
   useEffect(() => {
     const userId = session?.user?.id;
@@ -1112,6 +1134,18 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
       distance,
       duration,
       description: newMeet.description || null,
+      title_en: newMeet.name || null,
+      title_es: newMeet.nameEs || null,
+      description_en: newMeet.description || null,
+      description_es: newMeet.descriptionEs || null,
+      route_notes_en: newMeet.routeNotesEn || null,
+      route_notes_es: newMeet.routeNotesEs || null,
+      safety_notes_en: newMeet.safetyNotesEn || null,
+      safety_notes_es: newMeet.safetyNotesEs || null,
+      location_notes_en: newMeet.locationNotesEn || null,
+      location_notes_es: newMeet.locationNotesEs || null,
+      instructions_en: newMeet.instructionsEn || null,
+      instructions_es: newMeet.instructionsEs || null,
       cover: newMeet.cover || DEFAULT_COVER,
       status: "active",
       route,
@@ -1140,7 +1174,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
           .maybeSingle();
 
         if (!existingError && existingRow) {
-          const existingMeet = meetRowToMeet(existingRow as MeetRow);
+          const existingMeet = meetRowToMeet(existingRow as MeetRow, undefined, language);
           setRealMeets((current) =>
             dedupeMeetsById(
               current.some((ride) => ride.id === existingMeet.id)
@@ -1201,7 +1235,7 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
       savedRow.attendeeRiders = [hostAttendee];
     }
 
-    const savedMeet = meetRowToMeet(savedRow);
+    const savedMeet = meetRowToMeet(savedRow, undefined, language);
 
     setRealMeets((current) =>
       dedupeMeetsById(

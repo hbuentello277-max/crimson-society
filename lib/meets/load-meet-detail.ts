@@ -3,6 +3,7 @@ import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { MEET_LIST_SELECT } from "@/lib/meets/list-query";
 import { mapMeetRowToMeet } from "@/lib/meets/meet-row-mapper";
 import { profileToMeetAttendee } from "@/lib/meets/map-profile-attendee";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 import {
   hasRoadGeometry,
   parseRoute,
@@ -31,12 +32,16 @@ export function mapMeetDetailRow(
     coHost?: MeetRow["coHost"];
     attendeeRiders?: MeetAttendee[];
   },
+  language: SupportedLanguage = "en",
 ): Meet {
   const resolvedRoute = resolveMeetDetailRoute(row);
-  return mapMeetRowToMeet(row, resolvedRoute.length > 0 ? resolvedRoute : undefined);
+  return mapMeetRowToMeet(row, resolvedRoute.length > 0 ? resolvedRoute : undefined, language);
 }
 
-export async function loadMeetDetailForModal(meetId: string): Promise<Meet | null> {
+export async function loadMeetDetailForModal(
+  meetId: string,
+  language: SupportedLanguage = "en",
+): Promise<Meet | null> {
   const { data: row, error } = await supabase
     .from(MEET_TABLES.meets)
     .select(MEET_DETAIL_SELECT)
@@ -105,10 +110,13 @@ export async function loadMeetDetailForModal(meetId: string): Promise<Meet | nul
         };
   });
 
-  return mapMeetDetailRow({
-    ...typedRow,
-    host: profileMap.get(typedRow.host_id) || null,
-    coHost: typedRow.co_host_id ? profileMap.get(typedRow.co_host_id) || null : null,
-    attendeeRiders,
-  });
+  return mapMeetDetailRow(
+    {
+      ...typedRow,
+      host: profileMap.get(typedRow.host_id) || null,
+      coHost: typedRow.co_host_id ? profileMap.get(typedRow.co_host_id) || null : null,
+      attendeeRiders,
+    },
+    language,
+  );
 }

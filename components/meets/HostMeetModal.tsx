@@ -14,6 +14,7 @@ import {
 } from "@/lib/meets/location-search";
 import { buildSnappedRoute } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
+import { useI18n } from "@/components/LanguageProvider";
 
 import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
 
@@ -38,6 +39,16 @@ export interface HostMeetForm {
   privacy: MeetPrivacy;
   visibility: MeetVisibility;
   description: string;
+  nameEs: string;
+  descriptionEs: string;
+  routeNotesEn: string;
+  routeNotesEs: string;
+  safetyNotesEn: string;
+  safetyNotesEs: string;
+  locationNotesEn: string;
+  locationNotesEs: string;
+  instructionsEn: string;
+  instructionsEs: string;
   cover?: string;
 }
 
@@ -59,6 +70,16 @@ const EMPTY_FORM: HostMeetForm = {
   privacy: "Open",
   visibility: "public",
   description: "",
+  nameEs: "",
+  descriptionEs: "",
+  routeNotesEn: "",
+  routeNotesEs: "",
+  safetyNotesEn: "",
+  safetyNotesEs: "",
+  locationNotesEn: "",
+  locationNotesEs: "",
+  instructionsEn: "",
+  instructionsEs: "",
   cover: "",
 };
 
@@ -79,6 +100,8 @@ export function HostMeetModal({
   onClose,
   onCreate,
 }: Props) {
+  const { dictionary } = useI18n();
+  const meetCopy = dictionary.meets;
   const [form, setForm] = useState<HostMeetForm>(initialForm ?? EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof HostMeetForm, string>>>({});
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -490,6 +513,98 @@ export function HostMeetModal({
     placeholder="Tell riders what to expect…"
     value={form.description}
     onChange={(e) => set("description", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.spanishTitleOptional}>
+  <input
+    type="text"
+    placeholder="ej. Ruta del cañón del domingo"
+    value={form.nameEs}
+    onChange={(e) => set("nameEs", e.target.value)}
+    className={inputCls(false)}
+  />
+</Field>
+
+<Field label={meetCopy.spanishDescriptionOptional}>
+  <textarea
+    rows={3}
+    placeholder="Cuenta a los riders qué esperar…"
+    value={form.descriptionEs}
+    onChange={(e) => set("descriptionEs", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.routeNotesEnglishOptional}>
+  <textarea
+    rows={2}
+    value={form.routeNotesEn}
+    onChange={(e) => set("routeNotesEn", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.routeNotesSpanishOptional}>
+  <textarea
+    rows={2}
+    value={form.routeNotesEs}
+    onChange={(e) => set("routeNotesEs", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.safetyNotesEnglishOptional}>
+  <textarea
+    rows={2}
+    value={form.safetyNotesEn}
+    onChange={(e) => set("safetyNotesEn", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.safetyNotesSpanishOptional}>
+  <textarea
+    rows={2}
+    value={form.safetyNotesEs}
+    onChange={(e) => set("safetyNotesEs", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.locationNotesEnglishOptional}>
+  <textarea
+    rows={2}
+    value={form.locationNotesEn}
+    onChange={(e) => set("locationNotesEn", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.locationNotesSpanishOptional}>
+  <textarea
+    rows={2}
+    value={form.locationNotesEs}
+    onChange={(e) => set("locationNotesEs", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.instructionsEnglishOptional}>
+  <textarea
+    rows={2}
+    value={form.instructionsEn}
+    onChange={(e) => set("instructionsEn", e.target.value)}
+    className={`${inputCls(false)} resize-none`}
+  />
+</Field>
+
+<Field label={meetCopy.instructionsSpanishOptional}>
+  <textarea
+    rows={2}
+    value={form.instructionsEs}
+    onChange={(e) => set("instructionsEs", e.target.value)}
     className={`${inputCls(false)} resize-none`}
   />
 </Field>

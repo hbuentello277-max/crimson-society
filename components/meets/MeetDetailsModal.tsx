@@ -52,6 +52,7 @@ import {
   parseRoute,
 } from "@/lib/meets/route-geometry";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { canSelfJoinMeet } from "@/lib/meet-privacy";
 import { buildMeetRouteCopyText, shareMeetLink } from "@/lib/meets/share-meet";
 import { supabase } from "@/lib/supabase";
@@ -204,6 +205,8 @@ export function MeetDetailsModal({
   onEditMeet,
 }: Props) {
   const { session } = useAuth();
+  const { dictionary } = useI18n();
+  const meetCopy = dictionary.meets;
   const [messages, setMessages] = useState<RideMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -852,6 +855,12 @@ export function MeetDetailsModal({
     });
   }
   const trimmedDescription = meet.description?.trim() ?? "";
+  const safetySections = [
+    { label: meetCopy.routeNotes, value: meet.routeNotes },
+    { label: meetCopy.safetyNotes, value: meet.safetyNotes },
+    { label: meetCopy.locationNotes, value: meet.locationNotes },
+    { label: meetCopy.instructions, value: meet.instructions },
+  ].filter((section) => section.value?.trim());
   const memberCountLabel =
     meet.going.length === 1 ? "1 member" : `${meet.going.length} members`;
   const mapsTarget = { lat: meet.lat, lng: meet.lng, label: meet.meetPoint };
@@ -1150,7 +1159,25 @@ export function MeetDetailsModal({
                 {meet.duration !== "TBD" ? ` · ${meet.duration}` : ""}
               </p>
             )}
+            {meet.contentFallbackNotice ? (
+              <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-amber-200/80">
+                {meet.contentFallbackNotice}
+              </p>
+            ) : null}
           </div>
+
+          {safetySections.length > 0 ? (
+            <div className="mt-5 space-y-3">
+              {safetySections.map((section) => (
+                <div key={section.label} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    {section.label}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{section.value}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mt-5 space-y-3">
             <div>

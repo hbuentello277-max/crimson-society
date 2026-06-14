@@ -6,12 +6,16 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { redirectAfterAuth } from "@/lib/auth/redirect-after-auth";
+import { useI18n } from "@/components/LanguageProvider";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deletionRequested = searchParams.get("deletion") === "requested";
   const { session, loading: authLoading } = useAuth();
+  const { dictionary, language, setLanguage } = useI18n();
+  const t = dictionary.auth;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +43,7 @@ function LoginPageContent() {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail || !password.trim()) {
-      setMessage("Enter your email and password.");
+      setMessage(t.enterEmailPassword);
       setLoading(false);
       return;
     }
@@ -57,7 +61,7 @@ function LoginPageContent() {
         lowerMessage.includes("email_not_confirmed") ||
         lowerMessage.includes("confirm")
       ) {
-        setMessage("Your email has not been confirmed yet.");
+        setMessage(t.emailNotConfirmed);
         setShowResend(true);
         setLoading(false);
         return;
@@ -86,7 +90,7 @@ function LoginPageContent() {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      setMessage("Enter your email first so we know where to resend it.");
+      setMessage(t.enterEmailFirst);
       return;
     }
 
@@ -107,10 +111,14 @@ function LoginPageContent() {
       return;
     }
 
-    setMessage("Confirmation email sent. Check your inbox and spam folder.");
+    setMessage(t.confirmationSent);
     setShowResend(true);
     setResending(false);
   }
+
+  const changeLanguage = (next: SupportedLanguage) => {
+    void setLanguage(next);
+  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505] px-6 py-12 text-white">
@@ -146,7 +154,7 @@ function LoginPageContent() {
 
           <div className="mt-6 text-center">
             <p className="text-[10px] uppercase tracking-[0.5em] text-zinc-500">
-              Members Only
+              {t.membersOnly}
             </p>
             <h1 className="mt-4 font-serif text-4xl font-light tracking-wide text-white">
               Crimson <span className="italic text-[#b4141e]">Society</span>
@@ -161,13 +169,13 @@ function LoginPageContent() {
             </div>
 
             <p className="mt-4 text-[11px] uppercase tracking-[0.35em] text-zinc-400">
-              Welcome Back
+              {t.welcomeBack}
             </p>
           </div>
 
           {deletionRequested && (
             <p className="mt-6 rounded-xl border border-[#b4141e]/40 bg-[#b4141e]/10 px-4 py-3 text-center text-sm leading-6 text-[#f0c9ce]">
-              Your account deletion request was submitted and is pending admin approval.
+              {t.deletionRequested}
             </p>
           )}
 
@@ -180,7 +188,7 @@ function LoginPageContent() {
           >
             <div>
               <label className="mb-2 block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Email
+                {t.email}
               </label>
               <input
                 type="email"
@@ -194,13 +202,13 @@ function LoginPageContent() {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <label className="block text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                  Password
+                  {t.password}
                 </label>
                 <Link
                   href="/forgot"
                   className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 transition hover:text-[#b4141e]"
                 >
-                  Forgot
+                  {t.forgot}
                 </Link>
               </div>
               <input
@@ -226,8 +234,8 @@ function LoginPageContent() {
                 className="text-left text-[11px] uppercase tracking-[0.25em] text-zinc-300 transition hover:text-[#e87a82] disabled:opacity-60"
               >
                 {resending
-                  ? "Sending confirmation email..."
-                  : "Didn’t get it? Resend confirmation email."}
+                  ? t.sendingConfirmation
+                  : t.resendConfirmation}
               </button>
             )}
 
@@ -237,7 +245,7 @@ function LoginPageContent() {
               className="group relative mt-4 inline-flex w-full items-center justify-center overflow-hidden rounded-sm bg-gradient-to-b from-[#b4141e] to-[#7a0d14] px-6 py-4 text-[11px] uppercase tracking-[0.45em] text-white shadow-[0_18px_40px_-12px_rgba(180,20,30,0.7)] transition hover:from-[#c8161f] hover:to-[#8a0e16] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="relative z-10 flex items-center gap-3">
-                {loading ? "Entering..." : "Enter Society"}
+                {loading ? t.entering : t.enterSociety}
                 <span className="transition group-hover:translate-x-0.5">→</span>
               </span>
               <span
@@ -252,12 +260,12 @@ function LoginPageContent() {
           </form>
 
           <p className="mt-8 text-center text-[11px] tracking-[0.2em] text-zinc-500">
-            New here?{" "}
+            {t.newHere}{" "}
             <Link
               href="/signup"
               className="text-zinc-200 underline-offset-4 transition hover:text-[#b4141e] hover:underline"
             >
-              Request Access
+              {t.signupTitle}
             </Link>
           </p>
         </div>
@@ -265,6 +273,43 @@ function LoginPageContent() {
         <p className="mt-6 text-center text-[9px] uppercase tracking-[0.5em] text-zinc-600">
           Ride · Community · Legacy
         </p>
+      </div>
+
+      <div
+        className="fixed right-4 z-50"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+        }}
+      >
+        <div className="flex items-center gap-1 rounded-full border border-red-700/60 bg-black/45 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => changeLanguage("en")}
+            aria-pressed={language === "en"}
+            className={`min-h-[36px] rounded-full px-3 text-xs font-medium transition ${
+              language === "en"
+                ? "bg-red-700 text-white"
+                : "text-zinc-300 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {dictionary.common.english}
+          </button>
+
+          <span className="text-xs text-zinc-500">|</span>
+
+          <button
+            type="button"
+            onClick={() => changeLanguage("es")}
+            aria-pressed={language === "es"}
+            className={`min-h-[36px] rounded-full px-3 text-xs font-medium transition ${
+              language === "es"
+                ? "bg-red-700 text-white"
+                : "text-zinc-300 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {dictionary.common.spanish}
+          </button>
+        </div>
       </div>
     </main>
   );

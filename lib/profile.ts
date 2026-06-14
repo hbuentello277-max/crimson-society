@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { normalizeLanguage, type SupportedLanguage } from "@/lib/i18n/language";
 
 export type AppProfile = {
   id: string;
@@ -38,6 +39,7 @@ export type AppProfile = {
   blackcard_public?: boolean | null;
   referral_code?: string | null;
   referred_by_user_id?: string | null;
+  preferred_language?: SupportedLanguage | null;
 };
 
 export type ProfileIdentityInput = {
@@ -55,6 +57,10 @@ export type ProfileIdentityInput = {
 export type ProfilePrivacyInput = {
   hide_from_suggestions: boolean;
   hide_location_from_suggestions: boolean;
+};
+
+export type ProfileLanguageInput = {
+  preferred_language: SupportedLanguage;
 };
 
 export type ProfileSaveOperation = "select" | "update" | "upsert" | "avatar-update" | "avatar-upsert";
@@ -106,7 +112,7 @@ export function getProfileSaveErrorDetails(error: unknown): ProfileSaveErrorDeta
 }
 
 export const PROFILE_SELECT =
-  "id, role, status, is_admin, is_platform_owner, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url, is_premium, premium_tier, premium_expires_at, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, referral_code, referred_by_user_id";
+  "id, role, status, is_admin, is_platform_owner, username, display_name, full_name, avatar_url, profile_image_url, bio, location, city, state, riding_area, bike_type, riding_style, profile_tags, hide_location_from_suggestions, hide_from_suggestions, quote, instagram_url, tiktok_url, youtube_url, website_url, is_premium, premium_tier, premium_expires_at, is_founder_blackcard, founder_blackcard_granted_at, is_founding_blackcard, founding_blackcard_granted_at, membership_tier, blackcard_public, referral_code, referred_by_user_id, preferred_language";
 
 export function cleanUsername(value: string) {
   const cleaned = value
@@ -194,6 +200,7 @@ function profileDefaults(user: User) {
     username: null,
     avatar_url: avatarUrl,
     status: "active",
+    preferred_language: normalizeLanguage(user.user_metadata?.preferred_language),
   };
 }
 
@@ -260,6 +267,30 @@ export async function updateProfilePrivacy(
   userId: string,
   input: ProfilePrivacyInput,
 ): Promise<AppProfile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(input)
+    .eq("id", userId)
+    .select(PROFILE_SELECT)
+    .maybeSingle();
+
+  if (error) throw new ProfileSaveError("update", error);
+
+  if (!data) {
+    throw new ProfileSaveError("update", new Error("Profile not found."));
+  }
+
+  return data as AppProfile;
+}
+
+export async function updateProfileLanguage(
+  userId: string,
+  preferredLanguage: SupportedLanguage,
+): Promise<AppProfile> {
+  const input: ProfileLanguageInput = {
+    preferred_language: preferredLanguage,
+  };
+
   const { data, error } = await supabase
     .from("profiles")
     .update(input)

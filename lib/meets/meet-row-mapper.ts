@@ -1,5 +1,7 @@
 import { normalizeMeetVisibility } from "@/lib/meet-visibility";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 import { parseMeetStatus, parseMeetTrackingStatus } from "@/lib/meets/lifecycle";
+import { resolveLocalizedMeetContent } from "@/lib/meets/localized-content";
 import { profileToMeetAttendee } from "@/lib/meets/map-profile-attendee";
 import { hasRoadGeometry, parseRoute } from "@/lib/meets/route-geometry";
 import type {
@@ -52,18 +54,23 @@ function finiteCoordinate(value: number | null | undefined, fallback: number) {
 }
 
 /** Maps a Supabase rides row (including pre-refactor records) into the app Meet model. */
-export function mapMeetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Meet {
+export function mapMeetRowToMeet(
+  row: MeetRow,
+  resolvedRoute?: RoutePoint[],
+  language: SupportedLanguage = "en",
+): Meet {
   const savedRoute = parseRoute(row.route);
   const route = resolvedRoute ?? (hasRoadGeometry(savedRoute) ? savedRoute : []);
   const waypoints = parseMeetWaypoints(row.waypoints);
   const host = profileToMeetAttendee(row.host);
   const coHost = row.co_host_id ? profileToMeetAttendee(row.coHost) : null;
+  const content = resolveLocalizedMeetContent(row, language);
 
   return {
     id: row.id,
     hostId: row.host_id,
     coHostId: row.co_host_id ?? null,
-    name: row.name?.trim() || "Untitled Meet",
+    name: content.name,
     date: row.date?.trim() || "",
     time: row.time?.trim() || "",
     meetPoint: row.meet_point?.trim() || "Meet point pending",
@@ -77,7 +84,24 @@ export function mapMeetRowToMeet(row: MeetRow, resolvedRoute?: RoutePoint[]): Me
     host,
     coHost,
     going: row.attendeeRiders || [],
-    description: row.description?.trim() || "",
+    description: content.description,
+    nameEn: row.title_en?.trim() || row.name?.trim() || "",
+    nameEs: row.title_es?.trim() || "",
+    descriptionEn: row.description_en?.trim() || row.description?.trim() || "",
+    descriptionEs: row.description_es?.trim() || "",
+    routeNotes: content.routeNotes,
+    routeNotesEn: row.route_notes_en?.trim() || "",
+    routeNotesEs: row.route_notes_es?.trim() || "",
+    safetyNotes: content.safetyNotes,
+    safetyNotesEn: row.safety_notes_en?.trim() || "",
+    safetyNotesEs: row.safety_notes_es?.trim() || "",
+    locationNotes: content.locationNotes,
+    locationNotesEn: row.location_notes_en?.trim() || "",
+    locationNotesEs: row.location_notes_es?.trim() || "",
+    instructions: content.instructions,
+    instructionsEn: row.instructions_en?.trim() || "",
+    instructionsEs: row.instructions_es?.trim() || "",
+    contentFallbackNotice: content.fallbackNotice,
     privacy: row.privacy === "Invite" || row.privacy === "Blackcard" ? row.privacy : "Open",
     visibility: normalizeMeetVisibility(row.visibility, row.privacy),
     lat: finiteCoordinate(row.meet_point_lat, DEFAULT_LAT),

@@ -12,104 +12,14 @@ import {
   isPasswordValid,
 } from "@/lib/password";
 import { supabase } from "@/lib/supabase";
+import { useI18n } from "@/components/LanguageProvider";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 
-type Language = "en" | "es";
 type LoadingState = "signup" | "resend" | null;
-
-const copy = {
-  en: {
-    eyebrow: "RIDE • CULTURE • LEGACY",
-    title: "Request Access",
-    subtitle:
-      "Create your Crimson Society account and step into a private circle built for riders, status, and legacy.",
-    email: "Email",
-    password: "Password",
-    confirmPassword: "Confirm Password",
-    createAccount: "Create Account",
-    creating: "Creating...",
-    alreadyMember: "Already a member?",
-    goToLogin: "Go to Login",
-    checkEmailTitle: "Check Your Email",
-    checkEmailBody:
-      "We sent you a confirmation link. Open your inbox, verify your email, then return to log in.",
-    didntGetIt: "Didn’t get it?",
-    resend: "Resend Email",
-    resending: "Resending...",
-    backToSignup: "Back to Signup",
-    fillAllFields: "Please fill in all fields.",
-    passwordsNoMatch: "Passwords do not match.",
-    passwordInvalid: "Password does not meet all requirements below.",
-    passwordRequirements: "Password must include:",
-    reqMinLength: "At least 8 characters",
-    reqUppercase: "At least one uppercase letter (A–Z)",
-    reqLowercase: "At least one lowercase letter (a–z)",
-    reqNumber: "At least one number (0–9)",
-    accountCreated: "Account created. Check your email to confirm your account.",
-    enterEmailToResend: "Enter your email to resend confirmation.",
-    confirmationResent: "Confirmation email resent.",
-    genericError: "Something went wrong.",
-    ageConfirm: "I confirm I am 18 years or older.",
-    termsAgree: "I agree to the",
-    termsLink: "Terms of Service",
-    guidelinesAgree: "I agree to the",
-    guidelinesLink: "Community Guidelines",
-    complianceRequired:
-      "Please confirm you are 18 or older and agree to the Terms and Community Guidelines before creating your account.",
-    referralCodeOptional: "Referral Code (Optional)",
-    referralCodeHint: "Enter a member's code if someone invited you.",
-  },
-  es: {
-    eyebrow: "RIDE • CULTURE • LEGACY",
-    title: "Solicitar acceso",
-    subtitle:
-      "Crea tu cuenta de Crimson Society y entra a un círculo privado creado para motociclistas, estatus y legado.",
-    email: "Correo electrónico",
-    password: "Contraseña",
-    confirmPassword: "Confirmar contraseña",
-    createAccount: "Crear cuenta",
-    creating: "Creando...",
-    alreadyMember: "¿Ya eres miembro?",
-    goToLogin: "Ir a Iniciar sesión",
-    checkEmailTitle: "Revisa tu correo",
-    checkEmailBody:
-      "Te enviamos un enlace de confirmación. Abre tu bandeja de entrada, verifica tu correo y luego vuelve para iniciar sesión.",
-    didntGetIt: "¿No te llegó?",
-    resend: "Reenviar correo",
-    resending: "Reenviando...",
-    backToSignup: "Volver al registro",
-    fillAllFields: "Completa todos los campos.",
-    passwordsNoMatch: "Las contraseñas no coinciden.",
-    passwordInvalid: "La contraseña no cumple todos los requisitos indicados.",
-    passwordRequirements: "La contraseña debe incluir:",
-    reqMinLength: "Al menos 8 caracteres",
-    reqUppercase: "Al menos una letra mayúscula (A–Z)",
-    reqLowercase: "Al menos una letra minúscula (a–z)",
-    reqNumber: "Al menos un número (0–9)",
-    accountCreated: "Cuenta creada. Revisa tu correo para confirmar tu cuenta.",
-    enterEmailToResend: "Ingresa tu correo para reenviar la confirmación.",
-    confirmationResent: "Correo de confirmación reenviado.",
-    genericError: "Algo salió mal.",
-    ageConfirm: "Confirmo que tengo 18 años o más.",
-    termsAgree: "Acepto los",
-    termsLink: "Términos de servicio",
-    guidelinesAgree: "Acepto las",
-    guidelinesLink: "Normas de la comunidad",
-    complianceRequired:
-      "Confirma que tienes 18 años o más y acepta los Términos y las Normas de la comunidad antes de crear tu cuenta.",
-    referralCodeOptional: "Código de referido (opcional)",
-    referralCodeHint: "Ingresa el código de un miembro si te invitaron.",
-  },
-} as const;
 
 function SignUpPageContent() {
   const searchParams = useSearchParams();
-
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "en";
-
-    const saved = window.localStorage.getItem("signup-language");
-    return saved === "en" || saved === "es" ? saved : "en";
-  });
+  const { dictionary, language, setLanguage } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -140,15 +50,11 @@ function SignUpPageContent() {
     passwordsMatch &&
     email.trim().length > 0;
 
-  const changeLanguage = (next: Language) => {
-    setLanguage(next);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("signup-language", next);
-    }
+  const changeLanguage = (next: SupportedLanguage) => {
+    void setLanguage(next);
   };
 
-  const t = copy[language];
+  const t = dictionary.auth;
 
   const requirementLabels: Record<keyof typeof passwordChecks, string> = {
     minLength: t.reqMinLength,
@@ -196,7 +102,10 @@ function SignUpPageContent() {
       const { error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
-        options: emailRedirectTo ? { emailRedirectTo } : undefined,
+        options: {
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
+          data: { preferred_language: language },
+        },
       });
 
       if (error) {
@@ -265,11 +174,11 @@ function SignUpPageContent() {
               </p>
 
               <h1 className="text-center text-4xl font-semibold tracking-[0.04em] text-white">
-                {t.title}
+                {t.signupTitle}
               </h1>
 
               <p className="mx-auto mt-4 max-w-sm text-center text-sm leading-6 text-zinc-300">
-                {t.subtitle}
+                {t.signupSubtitle}
               </p>
 
               <form onSubmit={handleSignUp} className="mt-8 space-y-4">

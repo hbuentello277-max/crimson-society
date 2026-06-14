@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   clearProfileMenuScrollTop,
   readProfileMenuScrollTop,
@@ -32,6 +32,8 @@ import {
 import { hrefWithProfileMenuFrom } from "@/lib/navigation/profile-menu-return";
 import { ProfileVisibilityMenuSection } from "@/components/profile/ProfileVisibilityMenuSection";
 import type { AppProfile, ProfilePrivacyInput } from "@/lib/profile";
+import { useI18n } from "@/components/LanguageProvider";
+import type { SupportedLanguage } from "@/lib/i18n/language";
 
 /** Compact gray/black row — matches pre–large-menu profile sheet */
 const MENU_ROW =
@@ -129,6 +131,9 @@ export function ProfileSettingsMenuSheet({
   onRequestDeletion,
 }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const { dictionary, language, setLanguage } = useI18n();
+  const t = dictionary.profileMenu;
+  const [languageStatus, setLanguageStatus] = useState<string | null>(null);
 
   const persistScrollPosition = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -166,35 +171,46 @@ export function ProfileSettingsMenuSheet({
   if (!open) return null;
 
   const mainItems: MenuLinkItem[] = [
-    { href: "/profile/edit", label: "Settings", icon: <IconMenuSettings /> },
-    { href: "/inbox?tab=notifications", label: "Notifications", icon: <IconMenuBell /> },
-    { href: "/privacy", label: "Privacy", icon: <IconMenuPrivacy /> },
-    { href: "/meets/live", label: "Location Sharing", icon: <IconMenuLocation /> },
-    { href: "/blackcard", label: "Blackcard", icon: <IconMenuBlackcard /> },
-    { href: "/safety", label: "Safety", icon: <IconMenuSafety /> },
-    { href: "/support", label: "Support", icon: <IconMenuSupport /> },
+    { href: "/profile/edit", label: t.settings, icon: <IconMenuSettings /> },
+    { href: "/inbox?tab=notifications", label: t.notifications, icon: <IconMenuBell /> },
+    { href: "/privacy", label: t.privacy, icon: <IconMenuPrivacy /> },
+    { href: "/meets/live", label: t.locationSharing, icon: <IconMenuLocation /> },
+    { href: "/blackcard", label: t.blackcard, icon: <IconMenuBlackcard /> },
+    { href: "/safety", label: t.safety, icon: <IconMenuSafety /> },
+    { href: "/support", label: t.support, icon: <IconMenuSupport /> },
   ];
 
   const shopItems: MenuLinkItem[] = [
-    { href: "/shop", label: "Shop", icon: <IconMenuRewards /> },
-    { href: "/profile/orders", label: "Orders", icon: <IconMenuRewards /> },
+    { href: "/shop", label: t.shop, icon: <IconMenuRewards /> },
+    { href: "/profile/orders", label: t.orders, icon: <IconMenuRewards /> },
   ];
 
   const creditsItems: MenuLinkItem[] = [
-    { href: "/profile/credits/history", label: "Credits History", icon: <IconMenuCredits /> },
-    { href: "/profile/credits/referrals", label: "Referrals", icon: <IconMenuReferrals /> },
-    { href: "/profile/credits/how-it-works", label: "How It Works", icon: <IconMenuInfo /> },
+    { href: "/profile/credits/history", label: t.creditsHistory, icon: <IconMenuCredits /> },
+    { href: "/profile/credits/referrals", label: t.referrals, icon: <IconMenuReferrals /> },
+    { href: "/profile/credits/how-it-works", label: t.howItWorks, icon: <IconMenuInfo /> },
   ];
 
   const legalItems: MenuLinkItem[] = [
-    { href: "/community-guidelines", label: "Community Guidelines", icon: <IconMenuDocument /> },
-    { href: "/terms", label: "Terms of Service", icon: <IconMenuDocument /> },
-    { href: "/privacy", label: "Privacy Policy", icon: <IconMenuDocument /> },
-    { href: "/safety", label: "Safety Policy", icon: <IconMenuSafety /> },
+    { href: "/community-guidelines", label: t.communityGuidelines, icon: <IconMenuDocument /> },
+    { href: "/terms", label: t.terms, icon: <IconMenuDocument /> },
+    { href: "/privacy", label: t.privacyPolicy, icon: <IconMenuDocument /> },
+    { href: "/safety", label: t.safetyPolicy, icon: <IconMenuSafety /> },
   ];
 
   const deletionPendingLabel =
-    deletionRequest && deletionDisabled ? "Deletion Request Pending" : "Request Account Deletion";
+    deletionRequest && deletionDisabled ? t.deletionRequestPending : t.requestAccountDeletion;
+
+  const handleLanguageChange = async (next: SupportedLanguage) => {
+    setLanguageStatus(null);
+
+    try {
+      await setLanguage(next);
+      setLanguageStatus(t.languageSaved);
+    } catch {
+      setLanguageStatus(t.languageError);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-sm">
@@ -207,8 +223,8 @@ export function ProfileSettingsMenuSheet({
       <section className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#080809] shadow-[0_30px_90px_rgba(0,0,0,0.7)]">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Profile Menu</p>
-            <h2 className="mt-0.5 font-serif text-xl text-white">Settings</h2>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{t.eyebrow}</p>
+            <h2 className="mt-0.5 font-serif text-xl text-white">{t.settings}</h2>
           </div>
           <button
             type="button"
@@ -235,7 +251,7 @@ export function ProfileSettingsMenuSheet({
               <MenuLinkRow
                 item={{
                   href: "/admin",
-                  label: "Admin Dashboard",
+                  label: t.adminDashboard,
                   icon: <IconAdmin className="h-3.5 w-3.5" />,
                 }}
                 className={MENU_ROW}
@@ -254,7 +270,40 @@ export function ProfileSettingsMenuSheet({
           ) : null}
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Shop</p>
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">{t.language}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => void handleLanguageChange("en")}
+                aria-pressed={language === "en"}
+                className={`rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.14em] transition ${
+                  language === "en"
+                    ? "border-[#b4141e]/70 bg-[#b4141e]/22 text-[#f4dadd]"
+                    : "border-white/10 bg-black/20 text-zinc-500 hover:border-white/15 hover:text-zinc-300"
+                }`}
+              >
+                {dictionary.common.english}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLanguageChange("es")}
+                aria-pressed={language === "es"}
+                className={`rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.14em] transition ${
+                  language === "es"
+                    ? "border-[#b4141e]/70 bg-[#b4141e]/22 text-[#f4dadd]"
+                    : "border-white/10 bg-black/20 text-zinc-500 hover:border-white/15 hover:text-zinc-300"
+                }`}
+              >
+                {dictionary.common.spanish}
+              </button>
+            </div>
+            {languageStatus ? (
+              <p className="mt-2 px-1 text-xs leading-5 text-zinc-500">{languageStatus}</p>
+            ) : null}
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">{t.shop}</p>
             <div className="mt-2 grid gap-1.5">
               {shopItems.map((item) => (
                 <MenuLinkRow
@@ -269,7 +318,7 @@ export function ProfileSettingsMenuSheet({
           </div>
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Crimson Credits</p>
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">{t.credits}</p>
             <div className="mt-2 grid gap-1.5">
               {creditsItems.map((item) => (
                 <MenuLinkRow
@@ -284,7 +333,7 @@ export function ProfileSettingsMenuSheet({
           </div>
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">Legal</p>
+            <p className="text-[10px] uppercase tracking-[0.26em] text-zinc-500">{t.legal}</p>
             <div className="mt-2 grid gap-1.5">
               {legalItems.map((item) => (
                 <MenuLinkRow
@@ -298,10 +347,9 @@ export function ProfileSettingsMenuSheet({
             </div>
 
             <div className="mt-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Account deletion</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{t.accountDeletion}</p>
               <p className="mt-1.5 text-xs leading-5 text-zinc-500">
-                You will be signed out immediately. Your account enters deletion_pending until an admin
-                approves. You can sign back in only to check status or cancel while pending.
+                {t.accountDeletionDescription}
               </p>
               <Link
                 href={hrefWithProfileMenuFrom("/account-deletion")}
@@ -312,14 +360,14 @@ export function ProfileSettingsMenuSheet({
                 }}
                 className="mt-1.5 inline-block text-[10px] uppercase tracking-[0.16em] text-zinc-400 hover:text-[#e87a82]"
               >
-                How account deletion works
+                {t.howDeletionWorks}
               </Link>
               {deletionRequestLoading ? (
-                <p className="mt-2 text-xs leading-5 text-zinc-600">Loading request status…</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-600">{t.loadingRequestStatus}</p>
               ) : deletionRequest ? (
                 <div className="mt-2 space-y-1">
                   <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">
-                    Status: {deletionStatusLabel(deletionRequest.status)}
+                    {t.status}: {deletionStatusLabel(deletionRequest.status)}
                   </p>
                   <p className="text-xs leading-5 text-zinc-500">
                     {deletionStatusUserMessage(deletionRequest)}
@@ -332,7 +380,7 @@ export function ProfileSettingsMenuSheet({
               <MenuLinkRow
                 item={{
                   href: hrefWithProfileMenuFrom("/deletion-pending"),
-                  label: "Manage deletion status",
+                  label: t.manageDeletionStatus,
                   icon: <IconMenuDocument />,
                 }}
                 className={`${MENU_ROW_LEGAL} mt-1.5`}
@@ -344,7 +392,7 @@ export function ProfileSettingsMenuSheet({
 
           <div className="mt-3 grid gap-1.5 border-t border-white/10 pt-3">
             <button type="button" onClick={onSignOut} className={`${MENU_ROW} text-left`}>
-              <RowLabel icon={<IconMenuLogOut />} label="Log Out" />
+              <RowLabel icon={<IconMenuLogOut />} label={t.logOut} />
               <RowChevron />
             </button>
 
@@ -354,7 +402,7 @@ export function ProfileSettingsMenuSheet({
               disabled={deletionDisabled || deleteRequesting}
               className={DESTRUCTIVE_BTN}
             >
-              {deleteRequesting ? "Submitting…" : deletionPendingLabel}
+              {deleteRequesting ? t.submitting : deletionPendingLabel}
             </button>
 
             {deleteRequestStatus && (
