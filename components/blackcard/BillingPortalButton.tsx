@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import { openExternalUrl } from "@/lib/checkout/open-external-url";
 
 type Props = {
@@ -10,8 +11,10 @@ type Props = {
 
 export function BillingPortalButton({
   className = "rounded-full border border-white/15 px-6 py-3 text-xs uppercase tracking-[0.28em] text-zinc-200 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-60",
-  label = "Manage Subscription",
+  label,
 }: Props) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.blackcard;
   const [loading, setLoading] = useState(false);
 
   async function handleOpenPortal() {
@@ -25,19 +28,19 @@ export function BillingPortalButton({
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Unable to open billing portal.");
+        alert(data.error || copy.billingUnavailable);
         return;
       }
 
       if (!data.url) {
-        alert("Billing portal URL was not returned.");
+        alert(copy.billingMissingUrl);
         return;
       }
 
       await openExternalUrl(data.url);
     } catch (error) {
       console.error(error);
-      alert("Something went wrong opening billing management.");
+      alert(copy.billingError);
     } finally {
       setLoading(false);
     }
@@ -50,7 +53,7 @@ export function BillingPortalButton({
       disabled={loading}
       className={className}
     >
-      {loading ? "Opening..." : label}
+      {loading ? copy.opening : label ?? copy.manageSubscription}
     </button>
   );
 }

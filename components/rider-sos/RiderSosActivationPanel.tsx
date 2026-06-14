@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
 import { requestCurrentPosition } from "@/lib/rider-sos/geolocation";
 import {
@@ -26,6 +27,8 @@ type Props = {
 };
 
 export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }: Props) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.sos;
   const [step, setStep] = useState<ActivationStep>("idle");
   const [selectedType, setSelectedType] = useState<SosType | null>(null);
   const [activeEvent, setActiveEvent] = useState<RiderSosEventRow | null>(null);
@@ -46,8 +49,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     error: respondersError,
     refresh: refreshResponders,
   } = useSosResponders(activeEventId, step === "active" && Boolean(activeEventId));
-  const noGpsNearbyWarning =
-    "Admins can still see your SOS, but nearby riders may not be accurately alerted without GPS.";
+  const noGpsNearbyWarning = copy.nearbyWarning;
 
   const loadActiveEvent = useCallback(async () => {
     setLoadingActive(true);
@@ -86,9 +88,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     setPendingCoords({ latitude: null, longitude: null, accuracy: null });
 
     if (!profileForm.location_sharing_enabled) {
-      setLocationNote(
-        `Location Sharing is OFF. ${noGpsNearbyWarning}`,
-      );
+      setLocationNote(copy.locationOffWarning);
       return;
     }
 
@@ -99,7 +99,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
         longitude: result.longitude,
         accuracy: result.accuracy,
       });
-      setLocationNote("Current location captured.");
+      setLocationNote(copy.locationCaptured);
       return;
     }
 
@@ -156,7 +156,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     setSubmitting(false);
 
     if (insertError) {
-      setError(insertError.message || "Could not send SOS.");
+      setError(insertError.message || copy.sendError);
       return;
     }
 
@@ -184,7 +184,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
     setResolving(false);
 
     if (updateError) {
-      setError(updateError.message || "Could not update SOS.");
+      setError(updateError.message || copy.updateError);
       return;
     }
 
@@ -215,10 +215,10 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
 
     return (
       <section className="rounded-[28px] border border-[#b4141e]/40 bg-[#b4141e]/10 p-5 sm:p-6">
-        <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Active SOS</p>
+        <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">{copy.active}</p>
         <h2 className="mt-2 font-serif text-2xl text-white">{sosTypeLabel(activeEvent.sos_type)}</h2>
         <p className="mt-2 text-sm text-zinc-300">
-          Your SOS is active. Nearby Crimson Society riders can see this alert and volunteer help.
+          {copy.activeDescription}
         </p>
 
         <RiderSosOwnerRespondersPanel
@@ -227,7 +227,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
           error={respondersError}
         />
         <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-500">
-          Sent {new Date(activeEvent.created_at).toLocaleString()}
+          {copy.sent} {new Date(activeEvent.created_at).toLocaleString()}
         </p>
 
         {hasCoords ? (
@@ -237,10 +237,10 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
             rel="noreferrer"
             className="mt-4 inline-flex text-xs uppercase tracking-[0.16em] text-[#e87a82] hover:text-[#f1c3c7]"
           >
-            View shared coordinates
+            {copy.viewCoordinates}
           </a>
         ) : (
-          <p className="mt-4 text-xs text-zinc-500">No GPS coordinates were attached.</p>
+          <p className="mt-4 text-xs text-zinc-500">{copy.noCoordinates}</p>
         )}
 
         {error ? <p className="mt-4 text-xs uppercase tracking-[0.2em] text-red-400">{error}</p> : null}
@@ -252,7 +252,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
             disabled={resolving}
             className={`${CS_CTA_PRIMARY_LG} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            {resolving ? "Saving..." : "Mark Resolved"}
+            {resolving ? dictionary.common.savingPlain : copy.markResolved}
           </button>
           <button
             type="button"
@@ -260,7 +260,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
             disabled={resolving}
             className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3.5 text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Cancel SOS
+            {copy.cancelSos}
           </button>
         </div>
       </section>
@@ -269,16 +269,14 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
 
   return (
     <section className="rounded-[28px] border border-[#b4141e]/35 bg-[#b4141e]/8 p-5 sm:p-6">
-      <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">Activate SOS</p>
+      <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">{copy.activate}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Send an emergency alert with your saved profile details and location to help nearby riders
-        respond faster.
+        {copy.activateDescription}
       </p>
 
       {missingProfile ? (
         <p className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-6 text-amber-100/90">
-          Your emergency contact is incomplete. You can still activate SOS, but admins may have
-          limited contact information.
+          {copy.missingProfileWarning}
         </p>
       ) : null}
 
@@ -291,7 +289,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
           }}
           className={`mt-5 w-full ${CS_CTA_PRIMARY_LG}`}
         >
-          Activate SOS
+          {copy.activate}
         </button>
       ) : null}
 
@@ -313,7 +311,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
             onClick={() => setStep("idle")}
             className="w-full pt-2 text-[11px] uppercase tracking-[0.16em] text-zinc-500 hover:text-zinc-300"
           >
-            Back
+            {copy.back}
           </button>
         </div>
       ) : null}
@@ -321,7 +319,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
       {step === "confirm_send" && selectedType ? (
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">SOS Type</p>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">{copy.sosType}</p>
             <p className="mt-1 text-sm text-white">{sosTypeLabel(selectedType)}</p>
           </div>
 
@@ -349,7 +347,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
               disabled={submitting}
               className={`${CS_CTA_PRIMARY_LG} disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              {submitting ? "Sending..." : "Send SOS"}
+              {submitting ? copy.sending : copy.sendSos}
             </button>
             <button
               type="button"
@@ -360,7 +358,7 @@ export function RiderSosActivationPanel({ userId, profileForm, hasSavedProfile }
               disabled={submitting}
               className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-3.5 text-sm uppercase tracking-[0.3em] text-zinc-300 transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Back
+              {copy.back}
             </button>
           </div>
         </div>

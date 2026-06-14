@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 
 type DashboardShellProps = {
@@ -35,6 +36,9 @@ export function DashboardShell({
   onMouseMove,
   onMouseUp,
 }: DashboardShellProps) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.dashboard;
+
   return (
     <main
       className={`min-h-screen bg-[#050505] text-white ${BOTTOM_NAV_CLEARANCE}`}
@@ -49,14 +53,14 @@ export function DashboardShell({
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-end justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">The Feed</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-[#e87a82]">{copy.feedEyebrow}</p>
             <h1 className="font-serif text-2xl italic text-white">Crimson Society</h1>
           </div>
           <Link
             href="/create"
             className="rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-4 py-2 text-xs uppercase tracking-[0.25em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
           >
-            + Post
+            {copy.post}
           </Link>
         </div>
       </header>
@@ -87,7 +91,7 @@ export function DashboardShell({
             ↻
           </div>
           <p className="text-[9px] uppercase tracking-[0.35em] text-white/50">
-            {refreshing ? "Refreshing" : willRefresh ? "Release" : "Pull"}
+            {refreshing ? copy.refreshing : willRefresh ? copy.release : copy.pull}
           </p>
         </div>
       </div>

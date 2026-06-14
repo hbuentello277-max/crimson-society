@@ -3,6 +3,7 @@
 import AdminPricingManager from "./AdminPricingManager";
 import type { MembershipPlan } from "./types";
 import { formatPrice } from "./types";
+import { useI18n } from "@/components/LanguageProvider";
 import { BLACKCARD_MEMBERSHIP_PERKS } from "@/lib/blackcard/perks";
 import { resolveBlackcardPlanPerks } from "@/lib/blackcard/plan-perks";
 
@@ -27,6 +28,8 @@ export default function BlackcardPaywall({
   isAdmin,
   onRefreshPlans,
 }: Props) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.blackcard;
   const monthlyPlan = plans.find((plan) => plan.plan_type === "monthly");
   const yearlyPlan = plans.find((plan) => plan.plan_type === "yearly");
   const selectedPlanData = selectedPlan === "monthly" ? monthlyPlan : yearlyPlan;
@@ -43,7 +46,7 @@ export default function BlackcardPaywall({
           onClick={onBack}
           className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.24em] text-zinc-300 transition hover:border-[#b4141e]/60 hover:text-[#e87a82]"
         >
-          Back
+          {dictionary.common.back}
         </button>
 
         <div className="mt-7 flex items-center justify-center gap-4">
@@ -53,16 +56,15 @@ export default function BlackcardPaywall({
         </div>
 
         <p className="mt-5 text-center text-[11px] uppercase tracking-[0.42em] text-[#e87a82]">
-          BLACKCARD MEMBERS
+          {copy.members}
         </p>
 
         <h1 className="mt-3 text-center font-serif text-[2.35rem] leading-[0.95] text-white md:text-[3.1rem]">
-          Reserved for premium riders
+          {copy.paywallTitle}
         </h1>
 
         <p className="mx-auto mt-4 max-w-[34rem] text-center text-[13px] leading-6 text-zinc-400/80 md:text-sm">
-          Entry grants earlier access, preferred placement, private privileges,
-          and a quieter tier of access held beyond the public line.
+          {copy.paywallDescription}
         </p>
       </div>
 
@@ -141,7 +143,7 @@ export default function BlackcardPaywall({
           disabled={!selectedPlanData}
           className="mt-7 w-full rounded-full bg-[#b4141e]/80 px-5 py-3 text-[11px] uppercase tracking-[0.28em] text-white transition hover:bg-[#b4141e] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Continue with {selectedPlanData?.title ?? "Selected Plan"}
+          {copy.continueWithPlan.replace("{plan}", selectedPlanData?.title ?? copy.selectedPlan)}
         </button>
 
         {isAdmin && (

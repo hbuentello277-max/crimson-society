@@ -6,11 +6,8 @@ import {
   formatMembershipPlanType,
   type MembershipPlanType,
 } from "@/lib/membership";
-import {
-  BLACKCARD_ACTIVE_PERKS,
-  BLACKCARD_CREDITS_TAGLINE,
-  BLACKCARD_HERO_DESCRIPTION,
-} from "@/lib/blackcard/perks";
+import { BLACKCARD_ACTIVE_PERKS } from "@/lib/blackcard/perks";
+import { useI18n } from "@/components/LanguageProvider";
 import { resolveBlackcardPlanPerks } from "@/lib/blackcard/plan-perks";
 import {
   formatPrice,
@@ -25,6 +22,9 @@ import { useBlackcardAccess } from "@/hooks/useBlackcardAccess";
 import { supabase } from "@/lib/supabase";
 import { CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
 import { openExternalUrl } from "@/lib/checkout/open-external-url";
+import type { TranslationDictionary } from "@/lib/i18n/language";
+
+type BlackcardCopy = TranslationDictionary["blackcard"];
 
 function formatMembershipDate(value?: string | null) {
   if (!value) return null;
@@ -37,11 +37,13 @@ function formatMembershipDate(value?: string | null) {
 function membershipStatusLine({
   isAdmin,
   membership,
+  copy,
 }: {
   isAdmin: boolean;
   membership: ReturnType<typeof useBlackcardAccess>["membership"];
+  copy: BlackcardCopy;
 }) {
-  if (isAdmin) return "Admin Blackcard Access · active";
+  if (isAdmin) return copy.adminAccess;
 
   const plan = formatMembershipPlanType(membership?.plan_type);
   const status = membership?.status ?? "active";
@@ -50,8 +52,8 @@ function membershipStatusLine({
   if (!periodEnd) return `${plan} · ${status}`;
 
   const periodAction = membership?.cancel_at_period_end
-    ? "Cancels on"
-    : "Renews on";
+    ? copy.cancelsOn
+    : copy.renewsOn;
 
   return `${plan} · ${status} · ${periodAction} ${periodEnd}`;
 }
@@ -59,9 +61,11 @@ function membershipStatusLine({
 function CheckoutButton({
   planType,
   label,
+  copy,
 }: {
   planType: MembershipPlanType;
   label: string;
+  copy: BlackcardCopy;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +86,7 @@ function CheckoutButton({
       if (!res.ok) {
         if (data.code === "already_subscribed") {
           const openPortal = window.confirm(
-            `${data.error}\n\nOpen billing management now?`,
+            `${data.error}\n\n${copy.openBillingPrompt}`,
           );
           if (openPortal) {
             const portalRes = await fetch("/api/stripe/billing-portal", {
@@ -96,19 +100,19 @@ function CheckoutButton({
           return;
         }
 
-        alert(data.error || "Unable to start checkout.");
+        alert(data.error || copy.checkoutUnavailable);
         return;
       }
 
       if (!data.url) {
-        alert("Checkout URL was not returned.");
+        alert(copy.checkoutMissingUrl);
         return;
       }
 
       await openExternalUrl(data.url);
     } catch (error) {
       console.error(error);
-      alert("Something went wrong starting checkout.");
+      alert(copy.checkoutError);
     } finally {
       setLoading(false);
     }
@@ -120,12 +124,14 @@ function CheckoutButton({
       disabled={loading}
       className={`w-full ${CS_CTA_PRIMARY_LG} disabled:cursor-not-allowed disabled:opacity-60`}
     >
-      {loading ? "Redirecting..." : label}
+      {loading ? copy.redirecting : label}
     </button>
   );
 }
 
 export default function BlackcardPage() {
+  const { dictionary } = useI18n();
+  const copy = dictionary.blackcard;
   const {
     loading: accessLoading,
     membership,
@@ -175,7 +181,7 @@ export default function BlackcardPage() {
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
           <div className="w-full rounded-[32px] border border-white/10 bg-[#090909] p-8">
-            <p className="text-sm text-zinc-400">Loading Blackcard...</p>
+            <p className="text-sm text-zinc-400">{copy.loading}</p>
           </div>
         </div>
       </main>
@@ -188,14 +194,13 @@ export default function BlackcardPage() {
         <div className="mx-auto max-w-6xl px-6 py-14">
           <div className="rounded-[32px] border border-red-900/30 bg-[radial-gradient(circle_at_top,rgba(120,0,0,0.18),transparent_40%),#090909] p-8 md:p-10 shadow-[0_0_100px_rgba(120,0,0,0.12)]">
             <p className="text-xs uppercase tracking-[0.38em] text-red-500/70">
-              Blackcard Members
+              {copy.members}
             </p>
             <h1 className="mt-4 text-4xl font-light tracking-tight md:text-5xl">
-              Blackcard access is active.
+              {copy.activeTitle}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">
-              You are inside the premium layer of Crimson Society. Member-only rides,
-              early collections, and elevated identity are unlocked across the app.
+              {copy.activeDescription}
             </p>
 
             <div className="mt-8 grid gap-2 md:grid-cols-2">
@@ -210,49 +215,49 @@ export default function BlackcardPage() {
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                  Rides
+                  {copy.rides}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Member-only meets
+                  {copy.memberOnlyMeets}
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Filter Blackcard meets on the meets page and host private runs for members.
+                  {copy.memberOnlyMeetsDescription}
                 </p>
               </div>
 
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                  Commerce
+                  {copy.commerce}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Early collection access
+                  {copy.earlyCollectionAccess}
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  First-window access to select drops, private releases, and premium pieces.
+                  {copy.earlyCollectionAccessDescription}
                 </p>
               </div>
 
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                  Identity
+                  {copy.identity}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Elevated member presence
+                  {copy.elevatedPresence}
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Your Blackcard badge is visible on your profile and member cards.
+                  {copy.elevatedPresenceDescription}
                 </p>
               </div>
 
               <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                  Status
+                  {copy.status}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Membership on record
+                  {copy.membershipOnRecord}
                 </h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  {membershipStatusLine({ isAdmin, membership })}
+                  {membershipStatusLine({ isAdmin, membership, copy })}
                 </p>
               </div>
             </div>
@@ -275,15 +280,15 @@ export default function BlackcardPage() {
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(120,0,0,0.14),transparent_38%),#090909] p-8 md:p-10 shadow-[0_0_80px_rgba(120,0,0,0.1)]">
           <p className="text-xs uppercase tracking-[0.38em] text-red-500/70">
-            Blackcard
+            {copy.title}
           </p>
           <h1 className="mt-4 text-4xl font-light tracking-tight md:text-5xl">
-            Enter the inner circle.
+            {copy.heroTitle}
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">{BLACKCARD_HERO_DESCRIPTION}</p>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">{copy.heroDescription}</p>
           <div className="mt-3 flex max-w-2xl items-start gap-2.5">
             <CrimsonRewardsIcon size={20} className="mt-0.5 shrink-0 opacity-90" />
-            <p className="text-xs leading-6 text-zinc-500">{BLACKCARD_CREDITS_TAGLINE}</p>
+            <p className="text-xs leading-6 text-zinc-500">{copy.creditsTagline}</p>
           </div>
 
           {errorMsg && (
@@ -299,17 +304,17 @@ export default function BlackcardPage() {
                 className="group rounded-[24px] border border-white/10 bg-white/[0.03] p-6 transition duration-200 hover:border-red-900/25 hover:shadow-[0_0_28px_rgba(120,0,0,0.12)]"
               >
                 <p className="text-xs uppercase tracking-[0.24em] text-red-400/80">
-                  {plan.plan_type === "monthly" ? "Monthly" : "Annual"}
+                  {plan.plan_type === "monthly" ? copy.monthly : copy.annual}
                 </p>
                 <h2 className="mt-3 text-2xl font-light">{plan.title}</h2>
                 <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
                 <p className="mt-3 text-xs leading-5 text-zinc-500">
-                  Earn credits as a member. Redeem future rewards when redemption launches.
+                  {copy.memberCreditsNote}
                 </p>
                 <p className="mt-5 font-serif text-4xl text-white">
                   ${formatPrice(plan.price)}
                   <span className="ml-2 font-sans text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    / {plan.plan_type === "monthly" ? "mo" : "yr"}
+                    / {plan.plan_type === "monthly" ? copy.monthAbbrev : copy.yearAbbrev}
                   </span>
                 </p>
                 <ul className="mt-5 space-y-2">
@@ -323,7 +328,8 @@ export default function BlackcardPage() {
                 <div className="mt-6">
                   <CheckoutButton
                     planType={plan.plan_type}
-                    label={`Start ${plan.plan_type === "monthly" ? "Monthly" : "Annual"} Membership`}
+                    label={plan.plan_type === "monthly" ? copy.startMonthly : copy.startAnnual}
+                    copy={copy}
                   />
                 </div>
               </div>
@@ -333,7 +339,7 @@ export default function BlackcardPage() {
           {plans.filter((plan) => plan.active).length === 0 && (
             <div className="mt-10 rounded-[24px] border border-white/10 bg-white/[0.03] p-6">
               <p className="text-sm text-zinc-400">
-                No active Blackcard plans are available right now.
+                {copy.noActivePlans}
               </p>
             </div>
           )}

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import {
   getUserReportTargetType,
   userReportTargetLabel,
@@ -242,6 +243,8 @@ function AdminSkeleton() {
 function AdminPageContent() {
   const searchParams = useSearchParams();
   const { session, loading: authLoading, profile, role, status, isAdmin } = useAuth();
+  const { dictionary } = useI18n();
+  const adminCopy = dictionary.admin;
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
@@ -279,7 +282,10 @@ function AdminPageContent() {
   const myUserId = session?.user?.id ?? null;
   const canUseNexusVoice = isAdmin || profile?.is_platform_owner === true;
 
-  const profileCountLabel = useMemo(() => String(profiles.length) + " total", [profiles.length]);
+  const profileCountLabel = useMemo(
+    () => `${profiles.length} ${adminCopy.total}`,
+    [adminCopy.total, profiles.length],
+  );
   const pendingReportCount = useMemo(
     () => reports.filter((report) => (report.status || "pending") === "pending").length,
     [reports],
@@ -460,7 +466,7 @@ function AdminPageContent() {
         | null;
 
       if (!response.ok) {
-        throw new Error(result?.error || "Failed to update report.");
+        throw new Error(result?.error || adminCopy.reportUpdateError);
       }
 
       if (result?.report) {
@@ -469,9 +475,9 @@ function AdminPageContent() {
         );
       }
 
-      setSuccessMsg("Report status updated.");
+      setSuccessMsg(adminCopy.reportUpdated);
     } catch (error) {
-      setModerationError(error instanceof Error ? error.message : "Failed to update report.");
+      setModerationError(error instanceof Error ? error.message : adminCopy.reportUpdateError);
     } finally {
       setModerationSavingId(null);
     }
@@ -503,7 +509,7 @@ function AdminPageContent() {
         | null;
 
       if (!response.ok) {
-        throw new Error(result?.error || "Failed to update deletion request.");
+        throw new Error(result?.error || adminCopy.deletionUpdateError);
       }
 
       if (result?.request) {
@@ -518,19 +524,22 @@ function AdminPageContent() {
           | { canceledIds?: string[] }
           | undefined;
         const parts = [
-          "Account deletion approved and executed.",
+          adminCopy.deletionExecuted,
           stripe?.canceledIds?.length
-            ? `Stripe subscriptions canceled (${stripe.canceledIds.length}).`
-            : "No active Stripe subscriptions were found.",
-          "User content removed and auth account deleted. Moderation audit retained.",
+            ? adminCopy.stripeSubscriptionsCanceled.replace(
+                "{count}",
+                String(stripe.canceledIds.length),
+              )
+            : adminCopy.noStripeSubscriptions,
+          adminCopy.contentRemoved,
         ];
         setSuccessMsg(parts.join(" "));
       } else {
-        setSuccessMsg("Deletion request status updated.");
+        setSuccessMsg(adminCopy.deletionUpdated);
       }
     } catch (error) {
       setModerationError(
-        error instanceof Error ? error.message : "Failed to update deletion request.",
+        error instanceof Error ? error.message : adminCopy.deletionUpdateError,
       );
     } finally {
       setModerationSavingId(null);
@@ -547,19 +556,19 @@ function AdminPageContent() {
       setSuccessMsg("");
 
       if (!session?.user) {
-        setErrorMsg("You need to be logged in.");
+        setErrorMsg(adminCopy.loginRequired);
         setLoading(false);
         return;
       }
 
       if (!profile) {
-        setErrorMsg("Your profile row was not found.");
+        setErrorMsg(adminCopy.profileMissing);
         setLoading(false);
         return;
       }
 
       if (!isAdmin) {
-        setErrorMsg("You do not have access to this page.");
+        setErrorMsg(adminCopy.accessDenied);
         setLoading(false);
         return;
       }
@@ -569,7 +578,15 @@ function AdminPageContent() {
     }
 
     void loadAdminPage();
-  }, [authLoading, session, profile, isAdmin]);
+  }, [
+    adminCopy.accessDenied,
+    adminCopy.loginRequired,
+    adminCopy.profileMissing,
+    authLoading,
+    isAdmin,
+    profile,
+    session,
+  ]);
 
   async function updateProfileAccess(id: string, nextRole: UserRole, nextStatus: UserStatus) {
     if (!myUserId) return;
@@ -585,7 +602,7 @@ function AdminPageContent() {
     }
 
     if (id === myUserId && nextStatus !== "active") {
-      setErrorMsg("You cannot suspend, block, or limit your own admin account.");
+      setErrorMsg(adminCopy.ownAccountProtection);
       return;
     }
 
@@ -605,7 +622,7 @@ function AdminPageContent() {
     const data = await res.json();
 
     if (!res.ok) {
-      setErrorMsg(data.error ?? "Could not update profile access.");
+      setErrorMsg(data.error ?? adminCopy.profileAccessError);
       setSavingId(null);
       return;
     }
@@ -624,7 +641,7 @@ function AdminPageContent() {
       ),
     );
 
-    setSuccessMsg("Profile access updated.");
+    setSuccessMsg(adminCopy.profileAccessUpdated);
     setSavingId(null);
   }
 
@@ -681,17 +698,17 @@ function AdminPageContent() {
         | null;
 
       if (!response.ok) {
-        throw new Error(result?.error || "Membership update failed.");
+        throw new Error(result?.error || adminCopy.membershipError);
       }
 
       if (result?.profile) {
         setProfiles((prev) => prev.map((item) => (item.id === id ? { ...item, ...result.profile } : item)));
       }
 
-      setSuccessMsg("Membership updated.");
+      setSuccessMsg(adminCopy.membershipUpdated);
     } catch (error) {
       setProfiles(previousProfiles);
-      setErrorMsg(error instanceof Error ? error.message : "Membership update failed.");
+      setErrorMsg(error instanceof Error ? error.message : adminCopy.membershipError);
     } finally {
       setSavingId(null);
     }
@@ -732,7 +749,7 @@ function AdminPageContent() {
         | null;
 
       if (!response.ok) {
-        throw new Error(result?.error || "Membership action failed.");
+        throw new Error(result?.error || adminCopy.membershipError);
       }
 
       if (result?.profile) {
@@ -746,9 +763,9 @@ function AdminPageContent() {
         [profileId]: result?.subscription ?? current[profileId] ?? null,
       }));
 
-      setSuccessMsg("Membership updated.");
+      setSuccessMsg(adminCopy.membershipUpdated);
     } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : "Membership action failed.");
+      setErrorMsg(error instanceof Error ? error.message : adminCopy.membershipError);
     } finally {
       setSavingId(null);
     }
@@ -808,8 +825,8 @@ function AdminPageContent() {
           <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin</p>
-                <h1 className="mt-3 text-4xl font-semibold">Control Room</h1>
+                <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{adminCopy.admin}</p>
+                <h1 className="mt-3 text-4xl font-semibold">{adminCopy.controlRoom}</h1>
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -817,7 +834,7 @@ function AdminPageContent() {
                   href="/profile"
                   className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
                 >
-                  Profile
+                  {adminCopy.profile}
                 </Link>
               </div>
             </div>
@@ -835,8 +852,8 @@ function AdminPageContent() {
       <div className="mx-auto max-w-6xl px-5 py-8 md:px-6 md:py-10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Admin</p>
-            <h1 className="mt-3 text-4xl font-semibold">Control Room</h1>
+            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{adminCopy.admin}</p>
+            <h1 className="mt-3 text-4xl font-semibold">{adminCopy.controlRoom}</h1>
             {role && status && (
               <p className="mt-2 text-xs uppercase tracking-[0.25em] text-zinc-500">
                 {role} · {status}
@@ -849,7 +866,7 @@ function AdminPageContent() {
               href="/profile"
               className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-zinc-300 transition hover:border-white/30"
             >
-              Profile
+              {adminCopy.profile}
             </Link>
           </div>
         </div>
@@ -878,34 +895,34 @@ function AdminPageContent() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                 {[
                   {
-                    eyebrow: "Blackcard",
-                    title: "Membership controls",
+                    eyebrow: adminCopy.blackcard,
+                    title: adminCopy.membershipControls,
                     href: "/admin/blackcard",
-                    cta: "Members",
+                    cta: adminCopy.members,
                   },
                   {
-                    eyebrow: "Crimson Credits",
-                    title: "Credits control center",
+                    eyebrow: adminCopy.crimsonCredits,
+                    title: adminCopy.creditsControlCenter,
                     href: "/admin/credits",
-                    cta: "Credits",
+                    cta: adminCopy.credits,
                   },
                   {
-                    eyebrow: "Shop",
-                    title: "Shop & rewards",
+                    eyebrow: adminCopy.shop,
+                    title: adminCopy.shopRewards,
                     href: "/admin/shop",
-                    cta: "Shop",
+                    cta: adminCopy.shop,
                   },
                   {
-                    eyebrow: "Crimson Sounds",
-                    title: "Internal sound library",
+                    eyebrow: adminCopy.crimsonSounds,
+                    title: adminCopy.soundLibrary,
                     href: "/admin/sounds",
-                    cta: "Sounds",
+                    cta: adminCopy.sounds,
                   },
                   {
-                    eyebrow: "Rider SOS",
-                    title: "Active emergency alerts",
+                    eyebrow: adminCopy.riderSos,
+                    title: adminCopy.activeEmergencyAlerts,
                     href: "/admin/sos",
-                    cta: "SOS",
+                    cta: adminCopy.sos,
                   },
                 ].map((item) => (
                   <div key={item.href} className="rounded-2xl border border-white/10 bg-black/25 p-5">
@@ -915,7 +932,7 @@ function AdminPageContent() {
                       href={item.href}
                       className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[#b4141e]/40 bg-black/30 px-5 py-2 text-xs uppercase tracking-[0.22em] text-[#f1c3c7] transition hover:border-[#b4141e]/70"
                     >
-                      Manage {item.cta}
+                      {adminCopy.manage.replace("{label}", item.cta)}
                     </Link>
                   </div>
                 ))}

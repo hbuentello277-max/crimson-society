@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { useI18n } from "@/components/LanguageProvider";
 import { ShopCatalogSkeleton } from "@/components/ui/skeletons";
 import {
   Category,
@@ -69,6 +70,8 @@ export default function ShopPage() {
 function ShopPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { dictionary } = useI18n();
+  const copy = dictionary.shop;
   const shopTab: ShopTab =
     searchParams.get("tab") === "credit-rewards" ? "credit-rewards" : "merch";
   const [category, setCategory] = useState<Category>("all");
@@ -186,7 +189,7 @@ function ShopPageInner() {
     if (!active) return;
 
     if (isComingSoon(active)) {
-      showToast("Coming soon", "This piece has not been released yet");
+      showToast(copy.comingSoonToastTitle, copy.comingSoonToastBody);
       return;
     }
 
@@ -202,7 +205,7 @@ function ShopPageInner() {
     }
 
     if (isSizeOutOfStock(active, size)) {
-      showToast("Out of stock", `Size ${size} is not available`);
+      showToast(copy.outOfStockTitle, copy.outOfStockBody.replace("{size}", size));
       return;
     }
 
@@ -215,7 +218,7 @@ function ShopPageInner() {
     if (!active || !waitlistEmail.trim()) return;
 
     joinWaitlist(active.id, waitlistEmail.trim());
-    showToast("Added to the waitlist", "We'll write when it returns");
+    showToast(copy.waitlistTitle, copy.waitlistBody);
     closeProduct();
   };
 
@@ -240,7 +243,7 @@ function ShopPageInner() {
 
             {shopTab === "merch" ? (
               <button type="button" onClick={openDrawer} className={CS_SHOP_BAG_BTN}>
-                <span>Bag</span>
+                <span>{copy.bag}</span>
                 <span className="text-[10px] opacity-60">·</span>
                 <motion.span
                   key={cartCount}
@@ -265,25 +268,25 @@ function ShopPageInner() {
             </div>
 
             <h1 className="mt-6 font-serif text-7xl leading-none text-white">
-              Shop
+              {copy.title}
             </h1>
 
             <p className="mt-4 font-serif italic text-3xl text-[#e87a82]">
-              Outfitter
+              {copy.outfitter}
             </p>
 
             <p className="mx-auto mt-3 max-w-xl text-xs uppercase tracking-[0.28em] text-white/50">
               {shopTab === "merch"
-                ? "Limited pieces · Crimson Society issue · Hand-finished drop"
-                : "Redeem credits for stickers, gear, discounts & more"}
+                ? copy.merchTagline
+                : copy.rewardsTagline}
             </p>
           </div>
 
           <div className="mx-auto mt-8 flex max-w-xs justify-center gap-2">
             {(
               [
-                { id: "merch" as const, label: "Merch" },
-                { id: "credit-rewards" as const, label: "Credit Rewards" },
+                { id: "merch" as const, label: copy.merch },
+                { id: "credit-rewards" as const, label: copy.creditRewards },
               ] as const
             ).map((tab) => (
               <button
@@ -324,12 +327,12 @@ function ShopPageInner() {
 
             <div className="mt-3 flex items-center justify-between">
               <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                {filtered.length} piece{filtered.length === 1 ? "" : "s"}
+                {filtered.length} {filtered.length === 1 ? copy.piece : copy.pieces}
               </p>
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                  Sort
+                  {copy.sort}
                 </span>
 
                 <select
@@ -337,10 +340,10 @@ function ShopPageInner() {
                   onChange={(e) => setSort(e.target.value as SortKey)}
                   className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-white outline-none hover:border-white/30"
                 >
-                  <option value="featured">Featured</option>
-                  <option value="newest">Newest</option>
-                  <option value="price-low">Price · Low</option>
-                  <option value="price-high">Price · High</option>
+                  <option value="featured">{copy.featured}</option>
+                  <option value="newest">{copy.newest}</option>
+                  <option value="price-low">{copy.priceLow}</option>
+                  <option value="price-high">{copy.priceHigh}</option>
                 </select>
               </div>
             </div>
@@ -373,13 +376,13 @@ function ShopPageInner() {
 
           <div className="absolute left-5 top-5 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-sm">
             <p className="text-[9px] uppercase tracking-[0.32em] text-[#e87a82]">
-              SILENT MOVEMENT
+              {copy.silentMovement}
             </p>
           </div>
 
           <div className="absolute inset-x-0 bottom-8 flex justify-center px-5">
             <div className="max-w-md rounded-2xl bg-gradient-to-t from-black/60 via-black/30 to-transparent px-5 pb-4 pt-8 text-center">
-            <p className="mt-6 text-[9px] uppercase tracking-[0.22em] text-white/45">                Eight pieces · Hand-finished · Limited run
+            <p className="mt-6 text-[9px] uppercase tracking-[0.22em] text-white/45">                {copy.silentMovementCaption}
               </p>
             </div>
           </div>
@@ -395,9 +398,9 @@ function ShopPageInner() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center">
-                        <p className="font-serif text-2xl italic text-white">COMING SOON</p>
+            <p className="font-serif text-2xl italic text-white">{copy.comingSoonTitle}</p>
             <p className="mt-3 max-w-sm text-center text-sm text-zinc-400">
-              Exclusive pieces. Limited runs. Stay tuned.
+              {copy.emptyDescription}
             </p>
           </div>
         ) : (
@@ -431,7 +434,7 @@ function ShopPageInner() {
                           : badgeStyle(p.badge)
                       }`}
                     >
-                      {p.status === "coming_soon" ? "Coming Soon" : badgeLabel(p.badge)}
+                      {p.status === "coming_soon" ? copy.comingSoon : badgeLabel(p.badge)}
                     </span>
                   )}
                 </div>

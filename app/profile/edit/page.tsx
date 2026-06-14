@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChangeEvent, Suspense, useEffect, useState } from "react";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ReferralCodeSection from "@/components/profile/ReferralCodeSection";
+import { useI18n } from "@/components/LanguageProvider";
 import { dispatchRiderOnboardingRefresh } from "@/lib/growth/rider-checklist";
 import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { useAuth } from "@/components/AuthProvider";
@@ -43,13 +44,6 @@ type MotorcycleTextField = "label" | "name" | "year" | "finish";
 
 const GARAGE_PHOTO_BUCKET = "garage-bike-photos";
 
-const policyLinks = [
-  { href: "/terms", label: "Terms" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/community-guidelines", label: "Guidelines" },
-  { href: "/safety", label: "Safety" },
-];
-
 function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Upload timed out. Please try again.")), ms);
@@ -81,6 +75,8 @@ function storageExtension(file: File) {
 }
 
 function ProfileEditPageContent() {
+  const { dictionary } = useI18n();
+  const settingsCopy = dictionary.settings;
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, error, updateIdentity, updateAvatar, refresh } =
     useProfile();
@@ -92,6 +88,12 @@ function ProfileEditPageContent() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [garageExpanded, setGarageExpanded] = useState(false);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
+  const translatedPolicyLinks = [
+    { href: "/terms", label: settingsCopy.terms },
+    { href: "/privacy", label: settingsCopy.privacy },
+    { href: "/community-guidelines", label: settingsCopy.guidelines },
+    { href: "/safety", label: settingsCopy.safety },
+  ];
 
   useEffect(() => {
     if (authLoading || !userId) return;
@@ -120,7 +122,7 @@ function ProfileEditPageContent() {
           : [
               {
                 id: crypto.randomUUID(),
-                label: "Garage One",
+              label: settingsCopy.garageOne,
                 name: "",
                 year: "",
                 finish: "",
@@ -134,7 +136,7 @@ function ProfileEditPageContent() {
     };
 
     void loadGarage();
-  }, [authLoading, userId]);
+  }, [authLoading, settingsCopy.garageOne, userId]);
 
   function updateMotorcycle(
     id: string,
@@ -183,11 +185,11 @@ function ProfileEditPageContent() {
 
     try {
       await updateIdentity(values);
-      setProfileMsg("Profile saved.");
+      setProfileMsg(settingsCopy.profileSaved);
       dispatchRiderOnboardingRefresh();
     } catch (saveError) {
       const message =
-        saveError instanceof Error ? saveError.message : "Could not save profile. Please try again.";
+        saveError instanceof Error ? saveError.message : settingsCopy.profileSaveError;
       setProfileMsg(message);
     } finally {
       setSavingProfile(false);
@@ -199,7 +201,7 @@ function ProfileEditPageContent() {
     setGarageMsg("");
 
     if (!userId) {
-      setGarageMsg("You need to be logged in to save.");
+      setGarageMsg(settingsCopy.saveLoginRequired);
       setSavingGarage(false);
       return;
     }
@@ -226,7 +228,7 @@ function ProfileEditPageContent() {
     }
 
     setMotorcycles((prev) => prev.map((bike) => ({ ...bike, isNew: false })));
-    setGarageMsg("Garage saved.");
+    setGarageMsg(settingsCopy.garageSaved);
     setSavingGarage(false);
     dispatchRiderOnboardingRefresh();
   }
@@ -236,11 +238,11 @@ function ProfileEditPageContent() {
     if (!file || !userId) return;
 
     setUploadingImage(true);
-    setProfileMsg("Uploading photo...");
+    setProfileMsg(settingsCopy.uploadingPhoto);
 
     try {
-      if (!file.type.startsWith("image/")) throw new Error("Please select an image file.");
-      if (file.size > 6 * 1024 * 1024) throw new Error("Image must be under 6MB.");
+      if (!file.type.startsWith("image/")) throw new Error(settingsCopy.imageFileRequired);
+      if (file.size > 6 * 1024 * 1024) throw new Error(settingsCopy.imageTooLarge);
 
       const filePath = `${userId}/avatar.jpg`;
       const { error: uploadError } = await withTimeout(
@@ -255,7 +257,7 @@ function ProfileEditPageContent() {
 
       const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
       const rawImageUrl = publicUrlData.publicUrl;
-      if (!rawImageUrl) throw new Error("Could not generate avatar URL.");
+      if (!rawImageUrl) throw new Error(settingsCopy.avatarUrlError);
 
       await updateAvatar(withCacheBust(rawImageUrl));
       setProfileMsg("Profile photo saved to Supabase.");
@@ -552,7 +554,7 @@ function ProfileEditPageContent() {
         <section className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.025] p-5">
           <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Policies & Safety</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {policyLinks.map((link) => (
+            {translatedPolicyLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

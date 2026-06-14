@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { DashboardFeedSection } from "@/components/dashboard/DashboardFeedSection";
 import { DashboardMeetsSection } from "@/components/dashboard/DashboardMeetsSection";
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
@@ -35,6 +36,7 @@ function DashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading, isAdmin } = useAuth();
+  const { dictionary } = useI18n();
   const userId = session?.user?.id ?? null;
   const {
     status: riderOnboardingStatus,
@@ -105,7 +107,7 @@ function DashboardPageContent() {
   if (loading && !session) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
-        <p className="text-sm uppercase tracking-[0.3em] text-white/50">Opening...</p>
+        <p className="text-sm uppercase tracking-[0.3em] text-white/50">{dictionary.common.opening}</p>
       </main>
     );
   }

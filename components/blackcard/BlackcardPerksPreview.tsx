@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 
+import { useI18n } from "@/components/LanguageProvider";
 import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { BLACKCARD_MEMBERSHIP_PERKS } from "@/lib/blackcard/perks";
 
@@ -10,6 +13,9 @@ type Props = {
 };
 
 export function BlackcardPerksPreview({ unlocked }: Props) {
+  const { dictionary } = useI18n();
+  const copy = dictionary.blackcard;
+
   return (
     <section
       className={`mt-8 rounded-[28px] border p-5 ${
@@ -24,14 +30,14 @@ export function BlackcardPerksPreview({ unlocked }: Props) {
             unlocked ? "text-[#e87a82]" : "text-red-400/80"
           }`}
         >
-          {unlocked ? "Blackcard Preview" : "Locked Blackcard Preview"}
+          {unlocked ? copy.preview : copy.lockedPreview}
         </p>
         {!unlocked && (
           <Link
             href="/blackcard"
             className="text-[10px] uppercase tracking-[0.2em] text-[#d85f6c] transition hover:text-[#e87a82]"
           >
-            Subscribe to unlock
+            {copy.subscribeToUnlock}
           </Link>
         )}
       </div>
@@ -40,8 +46,8 @@ export function BlackcardPerksPreview({ unlocked }: Props) {
         <CrimsonRewardsIcon size={24} className="mt-0.5 shrink-0 drop-shadow-[0_0_10px_rgba(180,20,30,0.35)]" />
         <p className="text-sm leading-6 text-zinc-400">
           {unlocked
-            ? "Your membership unlocks Crimson Credits redemption (coming soon), early merch access, and exclusive meets."
-            : "Subscribe to unlock Crimson Credits redemption for future rewards, early merch access, and exclusive meets."}
+            ? copy.previewUnlockedDescription
+            : copy.previewLockedDescription}
         </p>
       </div>
 
@@ -61,7 +67,7 @@ export function BlackcardPerksPreview({ unlocked }: Props) {
                 unlocked ? "text-[#e87a82]" : "text-zinc-600"
               }`}
             >
-              {unlocked ? "Unlocked" : "Locked"}
+              {unlocked ? copy.unlocked : copy.locked}
             </span>
           </div>
         ))}

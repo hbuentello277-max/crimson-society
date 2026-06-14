@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { InboxOverflowMenu } from "@/components/inbox/InboxOverflowMenu";
 import { InboxTabSkeleton } from "@/components/ui/skeletons";
 import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
@@ -39,6 +40,8 @@ export default function InboxSwipeTabs() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, loading } = useAuth();
+  const { dictionary } = useI18n();
+  const copy = dictionary.inbox;
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [newMessageRequestId, setNewMessageRequestId] = useState(0);
@@ -197,7 +200,7 @@ export default function InboxSwipeTabs() {
           className="fixed left-0 right-0 top-0 z-[90] border-b border-white/10 bg-black px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]"
         >
           <div className="mx-auto mb-2 flex max-w-sm items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Inbox</p>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">{copy.title}</p>
             <InboxOverflowMenu activeTab={activeTab} />
           </div>
           <div className="mx-auto flex max-w-sm gap-2">
@@ -206,7 +209,7 @@ export default function InboxSwipeTabs() {
               onClick={() => setTab("messages")}
               className={`flex-1 text-center ${csPill(activeTab === "messages", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
             >
-              Messages
+              {copy.messages}
               <TabBadge count={messageUnreadCount} />
             </button>
             <button
@@ -214,7 +217,7 @@ export default function InboxSwipeTabs() {
               onClick={() => setTab("notifications")}
               className={`flex-1 text-center ${csPill(activeTab === "notifications", "md")} py-2.5 text-[10px] tracking-[0.18em]`}
             >
-              Notifications
+              {copy.notifications}
               <TabBadge count={notificationUnreadCount} />
             </button>
           </div>
@@ -226,7 +229,7 @@ export default function InboxSwipeTabs() {
                 onClick={() => setNewMessageRequestId((current) => current + 1)}
                 className={`w-full ${CS_CTA_PRIMARY_MD}`}
               >
-                + New Message
+                {copy.newMessage}
               </button>
             </div>
           )}

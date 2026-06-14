@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import PrivacyToggle from "@/components/profile/PrivacyToggle";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { BOTTOM_NAV_CLEARANCE, CS_CTA_PRIMARY_LG } from "@/lib/crimson-accent";
 import { RiderSosActivationPanel } from "@/components/rider-sos/RiderSosActivationPanel";
 import { formatRiderSosBikeInfo } from "@/lib/rider-sos/bike-info";
@@ -46,6 +47,8 @@ function rowToForm(row: RiderSosProfileRow): RiderSosProfileInput {
 export default function RiderSosPage() {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
+  const { dictionary } = useI18n();
+  const copy = dictionary.sos;
   const userId = session?.user?.id ?? null;
 
   const [form, setForm] = useState<RiderSosProfileInput>(emptyForm);
@@ -116,7 +119,7 @@ export default function RiderSosPage() {
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Could not load SOS profile.");
+          setError(loadError instanceof Error ? loadError.message : copy.loadProfileError);
         }
       } finally {
         if (!cancelled) {
@@ -130,7 +133,7 @@ export default function RiderSosPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, router, userId]);
+  }, [authLoading, copy.loadProfileError, router, userId]);
 
   function updateField<K extends keyof RiderSosProfileInput>(field: K, value: RiderSosProfileInput[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -163,12 +166,12 @@ export default function RiderSosPage() {
     setSaving(false);
 
     if (saveError) {
-      setError(saveError.message || "Could not save SOS profile.");
+      setError(saveError.message || copy.saveProfileError);
       return;
     }
 
     setHasSavedProfile(true);
-    setMessage("SOS profile saved.");
+    setMessage(copy.profileSaved);
   }
 
   if (authLoading || loading) {
@@ -192,21 +195,21 @@ export default function RiderSosPage() {
           href="/profile"
           className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-zinc-500 transition hover:text-[#e87a82]"
         >
-          ‹ Back to Profile
+          {copy.backToProfile}
         </Link>
 
         <header className="mt-4">
-          <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">Rider SOS</p>
-          <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Rider SOS</h1>
+          <p className="text-[10px] uppercase tracking-[0.34em] text-[#e87a82]">{copy.title}</p>
+          <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">{copy.title}</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Activate SOS in an emergency and keep your emergency profile information up to date.
+            {copy.intro}
           </p>
         </header>
 
         <div className="mt-6">
           <PrivacyToggle
-            label="Location Sharing"
-            description="Turn this ON so nearby riders can be alerted with your GPS location during an SOS"
+            label={copy.locationSharing}
+            description={copy.locationDescription}
             enabled={form.location_sharing_enabled}
             onChange={(enabled) => updateField("location_sharing_enabled", enabled)}
           />
@@ -224,12 +227,12 @@ export default function RiderSosPage() {
 
         <form onSubmit={handleSave} className="mt-6 space-y-5">
           <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm sm:p-6">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Emergency Contact</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">{copy.emergencyContact}</p>
 
             <div className="mt-5 space-y-4">
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-contact-name">
-                  Emergency Contact Name
+                  {copy.emergencyContactName}
                 </label>
                 <input
                   id="sos-contact-name"
@@ -244,7 +247,7 @@ export default function RiderSosPage() {
 
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-contact-phone">
-                  Emergency Contact Phone
+                  {copy.emergencyContactPhone}
                 </label>
                 <input
                   id="sos-contact-phone"
@@ -259,14 +262,14 @@ export default function RiderSosPage() {
 
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-relationship">
-                  Relationship
+                  {copy.relationship}
                 </label>
                 <input
                   id="sos-relationship"
                   type="text"
                   value={form.relationship}
                   onChange={(event) => updateField("relationship", event.target.value)}
-                  placeholder="Spouse, parent, friend"
+                  placeholder={copy.relationshipPlaceholder}
                   className={INPUT_CLASS}
                 />
               </div>
@@ -274,12 +277,12 @@ export default function RiderSosPage() {
           </section>
 
           <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm sm:p-6">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Medical Info (Optional)</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">{copy.medicalInfo}</p>
 
             <div className="mt-5 space-y-4">
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-blood-type">
-                  Blood Type
+                  {copy.bloodType}
                 </label>
                 <input
                   id="sos-blood-type"
@@ -293,7 +296,7 @@ export default function RiderSosPage() {
 
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-allergies">
-                  Allergies
+                  {copy.allergies}
                 </label>
                 <input
                   id="sos-allergies"
@@ -307,13 +310,13 @@ export default function RiderSosPage() {
 
               <div>
                 <label className={LABEL_CLASS} htmlFor="sos-medical-notes">
-                  Medical Notes
+                  {copy.medicalNotes}
                 </label>
                 <textarea
                   id="sos-medical-notes"
                   value={form.medical_notes}
                   onChange={(event) => updateField("medical_notes", event.target.value)}
-                  placeholder="Conditions, medications, or notes for responders"
+                  placeholder={copy.medicalNotesPlaceholder}
                   rows={4}
                   className={`${INPUT_CLASS} rounded-2xl`}
                 />
@@ -322,13 +325,12 @@ export default function RiderSosPage() {
           </section>
 
           <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm sm:p-6">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Bike Info</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">{copy.bikeInfo}</p>
             <p className="mt-2 text-xs leading-6 text-zinc-500">
-              Auto-filled from your profile and garage. Update your garage in Edit Profile to change
-              this.
+              {copy.bikeInfoDescription}
             </p>
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-300">
-              {form.bike_info.trim() || "No bike info on your profile yet."}
+              {form.bike_info.trim() || copy.noBikeInfo}
             </div>
           </section>
 
@@ -344,7 +346,7 @@ export default function RiderSosPage() {
             disabled={saving}
             className={`w-full ${CS_CTA_PRIMARY_LG} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            {saving ? "Saving..." : "Save SOS Profile"}
+            {saving ? dictionary.common.savingPlain : copy.saveProfile}
           </button>
         </form>
       </div>

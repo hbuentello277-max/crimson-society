@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { MessageThreadScreen } from "@/components/inbox/MessageThreadScreen";
 import { MessagesAvatar } from "@/components/inbox/MessagesAvatar";
 import { NewMessageSheet } from "@/components/inbox/NewMessageSheet";
@@ -381,6 +380,8 @@ export default function MessagesPanel({
   const conversationParam = searchParams.get("conversation");
   const peerParam = searchParams.get("peer");
   const { session, loading: authLoading } = useAuth();
+  const { dictionary } = useI18n();
+  const copy = dictionary.inbox;
   const userId = session?.user?.id ?? null;
 
   const [activeId, setActiveId] = useState<string | null>(conversationParam);
@@ -435,6 +436,11 @@ export default function MessagesPanel({
 
     return blockedPeerIds.has(peerId);
   }, [activeId, blockedPeerIds, threads, userId]);
+  const tabLabels = {
+    all: copy.all,
+    unread: copy.unread,
+    groups: copy.groups,
+  };
 
   const filtered = useMemo(
     () =>
@@ -1217,7 +1223,7 @@ export default function MessagesPanel({
     if (embedded) {
       return (
         <div className="flex h-full min-h-0 items-center justify-center bg-black text-white">
-          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">Opening messages</p>
+          <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">{copy.openingMessages}</p>
         </div>
       );
     }
@@ -1225,7 +1231,7 @@ export default function MessagesPanel({
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#050405] text-white">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
-          Opening messages
+          {copy.openingMessages}
         </p>
       </main>
     );
@@ -1259,9 +1265,9 @@ export default function MessagesPanel({
               senderName: message.senderName || active.name,
               preview:
                 message.messageType === "image"
-                  ? "[Photo]"
+                  ? copy.photoPreview
                   : message.messageType === "audio"
-                    ? "[Voice message]"
+                    ? copy.voicePreview
                     : message.text,
             })
           }
@@ -1275,7 +1281,7 @@ export default function MessagesPanel({
           mediaUploadKind={mediaUploadKind}
           uploadError={errorMsg || null}
           readOnly={active.isSos && active.conversationStatus === "archived"}
-          readOnlyReason="SOS archived — message history is read-only."
+          readOnlyReason={copy.sosArchivedReadOnly}
         />
       )}
 
@@ -1311,7 +1317,7 @@ export default function MessagesPanel({
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search riders, groups..."
+                    placeholder={copy.searchPlaceholder}
                     className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
                   />
                 </div>
@@ -1323,7 +1329,7 @@ export default function MessagesPanel({
                       onClick={() => setTab(t)}
                       className={`flex-1 ${csPill(tab === t)} py-2 text-[11px] tracking-[0.22em]`}
                     >
-                      {t}
+                      {tabLabels[t]}
                     </button>
                   ))}
                 </div>
@@ -1339,7 +1345,7 @@ export default function MessagesPanel({
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search riders, groups..."
+                placeholder={copy.searchPlaceholder}
                 className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
               />
             </div>
@@ -1351,7 +1357,7 @@ export default function MessagesPanel({
                   onClick={() => setTab(t)}
                   className={`flex-1 ${csPill(tab === t, "sm")} py-1.5 text-[10px] tracking-[0.18em]`}
                 >
-                  {t}
+                  {tabLabels[t]}
                 </button>
               ))}
             </div>
@@ -1384,16 +1390,16 @@ export default function MessagesPanel({
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0d] to-[#070707] p-10 text-center">
               {conversations.length === 0 ? (
                 <>
-                  <p className="font-serif text-2xl italic text-white">No messages yet.</p>
+                  <p className="font-serif text-2xl italic text-white">{copy.noMessages}</p>
                   <p className="mt-3 text-sm leading-6 text-zinc-400">
-                    Start a conversation from a rider profile or the Riders page.
+                    {copy.noMessagesDescription}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="font-serif text-2xl italic text-white">Silence on the line.</p>
+                  <p className="font-serif text-2xl italic text-white">{copy.silenceOnTheLine}</p>
                   <p className="mt-2 text-xs uppercase tracking-[0.3em] text-white/40">
-                    No conversations match
+                    {copy.noConversationMatches}
                   </p>
                 </>
               )}
@@ -1484,10 +1490,10 @@ export default function MessagesPanel({
 
       <ReportContentModal
         open={Boolean(reportMessageTarget)}
-        title="Report Message"
+        title={copy.reportMessage}
         subtitle={
           reportMessageTarget
-            ? `Report a message from ${reportMessageTarget.senderName}.`
+            ? copy.reportMessageSubtitle.replace("{name}", reportMessageTarget.senderName)
             : undefined
         }
         reasons={DEFAULT_REPORT_REASONS}
@@ -1512,7 +1518,7 @@ export default function MessagesPanel({
             return;
           }
           setReportMessageTarget(null);
-          setErrorMsg("Message report submitted.");
+          setErrorMsg(copy.messageReportSubmitted);
           window.setTimeout(() => setErrorMsg(""), 2600);
         }}
       />

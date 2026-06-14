@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { supabase } from "@/lib/supabase";
 import { NavTabBadge } from "@/components/NavTabBadge";
 import { syncAppIconBadge } from "@/lib/app-icon-badge";
@@ -20,7 +21,7 @@ const BADGE_REFRESH_DEBOUNCE_MS = 400;
 const NAV = [
   {
     href: "/dashboard",
-    label: "Home",
+    labelKey: "home",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9z" />
@@ -29,7 +30,7 @@ const NAV = [
   },
   {
     href: "/connect",
-    label: "Riders",
+    labelKey: "riders",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <circle cx="11" cy="11" r="6" />
@@ -39,7 +40,7 @@ const NAV = [
   },
   {
     href: "/shop",
-    label: "Shop",
+    labelKey: "shop",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <path d="M5 8h14l-1.5 11a2 2 0 0 1-2 1.8H8.5a2 2 0 0 1-2-1.8L5 8z" />
@@ -49,7 +50,7 @@ const NAV = [
   },
   {
     href: "/meets",
-    label: "Meets",
+    labelKey: "meets",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <circle cx="5.5" cy="17" r="3" />
@@ -61,7 +62,7 @@ const NAV = [
   },
   {
     href: "/inbox",
-    label: "Inbox",
+    labelKey: "inbox",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <path d="M4 6.5C4 5.4 4.9 4.5 6 4.5h12c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H9l-4 3v-3H6c-1.1 0-2-.9-2-2v-9z" />
@@ -72,7 +73,7 @@ const NAV = [
   },
   {
     href: "/profile",
-    label: "Profile",
+    labelKey: "profile",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6">
         <circle cx="12" cy="8.5" r="3.75" />
@@ -80,12 +81,14 @@ const NAV = [
       </svg>
     ),
   },
-];
+] as const;
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { session, loading, status: profileStatus } = useAuth();
+  const { dictionary } = useI18n();
+  const navCopy = dictionary.nav;
   const [meetBadgeCount, setMeetBadgeCount] = useState(0);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
@@ -267,20 +270,20 @@ export default function BottomNav() {
                 >
                   {n.icon}
                   {n.href === "/meets" ? (
-                    <NavTabBadge count={meetBadgeCount} label="Meets" />
+                    <NavTabBadge count={meetBadgeCount} label={navCopy.meets} />
                   ) : null}
                   {n.href === "/inbox" ? (
-                    <NavTabBadge count={inboxUnreadTotal} label="Inbox" />
+                    <NavTabBadge count={inboxUnreadTotal} label={navCopy.inbox} />
                   ) : null}
                   {n.href === "/connect" ? (
-                    <NavTabBadge count={connectBadgeCount} label="Riders" />
+                    <NavTabBadge count={connectBadgeCount} label={navCopy.riders} />
                   ) : null}
                   {n.href === "/profile" ? (
-                    <NavTabBadge count={profileBadgeCount} label="Profile" />
+                    <NavTabBadge count={profileBadgeCount} label={navCopy.profile} />
                   ) : null}
                 </span>
                 <span className="max-w-full truncate text-center text-[9px] uppercase leading-none tracking-[0.2em]">
-                  {n.label}
+                  {navCopy[n.labelKey]}
                 </span>
               </Link>
             </li>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/components/LanguageProvider";
 import { NotificationLeadingVisual } from "@/components/inbox/NotificationLeadingVisual";
 import { BOTTOM_NAV_CLEARANCE } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
@@ -42,6 +43,8 @@ type NotificationRow = NotificationItem & {
 export default function NotificationsPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
+  const { dictionary } = useI18n();
+  const copy = dictionary.inbox;
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [actorsById, setActorsById] = useState<Record<string, NotificationActor>>({});
   const [loading, setLoading] = useState(true);
@@ -267,18 +270,18 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
   const notificationList = (
     <>
       {loading ? (
-        <div className="px-4 py-6 text-sm text-zinc-500">Loading notifications...</div>
+        <div className="px-4 py-6 text-sm text-zinc-500">{copy.loadingNotifications}</div>
       ) : notifications.length === 0 ? (
         <div className="px-4 py-10 text-center">
-          <p className="text-lg font-medium text-white">No notifications yet.</p>
+          <p className="text-lg font-medium text-white">{copy.noNotifications}</p>
           <p className="mt-2 text-sm text-zinc-500">
-            Follows, meets, and messages will appear here.
+            {copy.notificationsEmptyDescription}
           </p>
           <Link
             href="/meets"
             className="mt-5 inline-flex rounded-full border border-[#b4141e] bg-[#b4141e]/20 px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-[#e87a82] transition hover:bg-[#b4141e]/30"
           >
-            View Meets
+            {copy.viewMeets}
           </Link>
         </div>
       ) : (
@@ -430,15 +433,15 @@ export default function NotificationsPanel({ embedded = false }: { embedded?: bo
         className={`relative mx-auto max-w-[760px] ${topPadding} sm:px-6 ${BOTTOM_NAV_CLEARANCE}`}
       >
         <header className="px-4 sm:px-0">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">Activity</p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#d85f6c]">{copy.activity}</p>
           <h1 className="mt-3 font-serif text-[46px] leading-none text-[#f4f0ea] sm:text-7xl">
-            Notifications
+            {copy.notifications}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-            Follows, meet joins, removals, cancellations, ride endings, and meet chat in one ledger.
+            {copy.notificationsDescription}
           </p>
           <p className="mt-2 text-xs text-zinc-600">
-            Use the ⋯ menu to mark all as read or open notification settings.
+            {copy.notificationsMenuHint}
           </p>
         </header>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import { CreditsAccountOverview } from "@/components/credits/CreditsAccountOverview";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { CreditsTransactionList } from "@/components/credits/CreditsTransactionList";
@@ -10,6 +11,8 @@ import { useCrimsonCreditsAccount } from "@/hooks/useCrimsonCreditsAccount";
 import { supabase } from "@/lib/supabase";
 
 export function CreditsHistoryPageContent() {
+  const { dictionary } = useI18n();
+  const copy = dictionary.credits;
   const [userId, setUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -50,8 +53,8 @@ export function CreditsHistoryPageContent() {
 
   return (
     <CreditsPageShell
-      title="Credits History"
-      subtitle="Your balance, monthly progress, and full earn history."
+      title={copy.historyTitle}
+      subtitle={copy.historySubtitle}
     >
       {accountError || txError ? (
         <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -62,7 +65,7 @@ export function CreditsHistoryPageContent() {
       <CreditsAccountOverview account={account} loading={loading} />
 
       <section>
-        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Transaction history</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">{copy.transactionHistory}</h2>
         <div className="mt-3">
           <CreditsTransactionList
             transactions={transactions}

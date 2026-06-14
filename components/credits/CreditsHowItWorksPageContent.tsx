@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/LanguageProvider";
 import { AchievementBadgeIcon } from "@/components/credits/AchievementBadgeIcon";
 import { CrimsonRewardsIcon } from "@/components/credits/CrimsonRewardsIcon";
 import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
@@ -7,29 +8,41 @@ import { useCrimsonCreditsEconomy } from "@/hooks/useCrimsonCreditsEconomy";
 import { ACHIEVEMENT_MILESTONE_GROUPS } from "@/lib/credits/achievements";
 import { formatCreditsRewardValueUsd } from "@/lib/credits/config";
 
-function RuleRow({ label, value, enabled }: { label: string; value: string; enabled: boolean }) {
+function RuleRow({
+  label,
+  value,
+  enabled,
+  offLabel,
+}: {
+  label: string;
+  value: string;
+  enabled: boolean;
+  offLabel: string;
+}) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5">
       <span className="text-sm text-zinc-300">{label}</span>
       <span className={`text-sm font-medium ${enabled ? "text-white" : "text-zinc-600"}`}>
-        {enabled ? value : "Off"}
+        {enabled ? value : offLabel}
       </span>
     </li>
   );
 }
 
 export function CreditsHowItWorksPageContent() {
+  const { dictionary } = useI18n();
+  const copy = dictionary.credits;
   const { economy, loading, error } = useCrimsonCreditsEconomy();
   const sampleValue = formatCreditsRewardValueUsd(100);
 
   return (
     <CreditsPageShell
-      title="How It Works"
-      subtitle="Earn credits from meets and referrals, then redeem in Shop → Credit Rewards."
+      title={copy.howItWorksTitle}
+      subtitle={copy.howItWorksSubtitle}
     >
       {error ? (
         <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-          Showing default earn rules. Live economy settings could not be loaded.
+          {copy.defaultRulesWarning}
         </p>
       ) : null}
 
@@ -62,38 +75,42 @@ export function CreditsHowItWorksPageContent() {
       </section>
 
       <section className="rounded-[22px] border border-[#b4141e]/20 bg-[#b4141e]/5 p-4">
-        <h2 className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Current earn rules</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{copy.currentEarnRules}</h2>
         <ul className="mt-3 space-y-2">
           <RuleRow
-            label="Attend Meet"
+            label={copy.attendMeet}
             value={`${economy.attend_meet_credits} credits`}
             enabled={economy.earn_attend_meet_enabled}
+            offLabel={dictionary.common.off}
           />
           <RuleRow
-            label="Host Meet"
+            label={copy.hostMeet}
             value={`${economy.host_meet_credits} credits`}
             enabled={economy.earn_host_meet_enabled}
+            offLabel={dictionary.common.off}
           />
           <RuleRow
-            label="Referral Signup"
+            label={copy.referralSignup}
             value={`${economy.referral_signup_credits} credits`}
             enabled={economy.earn_referral_signup_enabled}
+            offLabel={dictionary.common.off}
           />
           <RuleRow
-            label="Referral → Blackcard"
+            label={copy.referralBlackcard}
             value={`${economy.referral_blackcard_credits} credits`}
             enabled={economy.earn_referral_blackcard_enabled}
+            offLabel={dictionary.common.off}
           />
         </ul>
         <p className="mt-4 text-xs leading-6 text-zinc-500">
-          Admins may adjust credit values during beta. Past ledger history always remains unchanged.
+          {copy.earnRulesNote}
         </p>
       </section>
 
       <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">Milestone Rewards</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.28em] text-[#e87a82]">{copy.milestoneRewards}</h2>
         <p className="mt-2 text-xs leading-6 text-zinc-500">
-          One-time achievement rewards. Each milestone awards once and appears in Credits History only.
+          {copy.milestoneDescription}
         </p>
 
         <div className="mt-4 space-y-5">
