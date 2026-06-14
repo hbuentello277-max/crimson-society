@@ -197,7 +197,21 @@
     "qrImageAlt": "Crimson Society referral QR code",
     "qrPrintHint": "High-contrast QR for stickers, thank-you cards, merch inserts, and event flyers.",
     "qrMissingCode": "You do not have a referral code yet. Create one on Edit Profile.",
-    "qrEditProfileCta": "Edit Profile"
+    "qrEditProfileCta": "Edit Profile",
+    "appQrTitle": "Crimson Society App QR",
+    "appQrDescription": "Share Crimson Society with riders and friends.",
+    "appQrImageAlt": "Crimson Society app signup QR code",
+    "appQrShareText": "Join Crimson Society — sign up here:",
+    "appQrPrintHint": "Print-ready app QR for stickers, thank-you cards, merch inserts, flyers, and events.",
+    "copyAppLink": "Copy App Link",
+    "copiedAppLink": "Link copied",
+    "copyAppLinkFailed": "Copy failed",
+    "shareAppQr": "Share App QR",
+    "sharedAppQr": "Shared",
+    "shareAppQrFailed": "Share failed",
+    "downloadAppQr": "Save App QR Image",
+    "downloadedAppQr": "Saved",
+    "downloadAppQrFailed": "Download failed"
   },
   "blackcard": {
     "title": "Blackcard",

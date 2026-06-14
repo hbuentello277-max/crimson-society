@@ -197,7 +197,21 @@
     "qrImageAlt": "Código QR de referido de Crimson Society",
     "qrPrintHint": "QR de alto contraste para stickers, tarjetas, inserts de merch y flyers.",
     "qrMissingCode": "Aún no tienes un código de referido. Créalo en Editar perfil.",
-    "qrEditProfileCta": "Editar perfil"
+    "qrEditProfileCta": "Editar perfil",
+    "appQrTitle": "QR de la app Crimson Society",
+    "appQrDescription": "Comparte Crimson Society con riders y amigos.",
+    "appQrImageAlt": "Código QR de registro de Crimson Society",
+    "appQrShareText": "Únete a Crimson Society — regístrate aquí:",
+    "appQrPrintHint": "QR listo para imprimir en stickers, tarjetas, inserts de merch, flyers y eventos.",
+    "copyAppLink": "Copiar enlace de la app",
+    "copiedAppLink": "Enlace copiado",
+    "copyAppLinkFailed": "Error al copiar",
+    "shareAppQr": "Compartir QR de la app",
+    "sharedAppQr": "Compartido",
+    "shareAppQrFailed": "Error al compartir",
+    "downloadAppQr": "Guardar imagen QR de la app",
+    "downloadedAppQr": "Guardado",
+    "downloadAppQrFailed": "Error al guardar"
   },
   "blackcard": {
     "title": "Blackcard",

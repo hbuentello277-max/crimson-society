@@ -16,3 +16,7 @@ export function referralQrDownloadFilename(referralCode: string) {
   const key = referralCodeLookupKey(referralCode) || "REFERRAL";
   return `crimson-society-referral-${key.toLowerCase()}.png`;
 }
+
+export function appQrDownloadFilename() {
+  return "crimson-society-app-signup.png";
+}
