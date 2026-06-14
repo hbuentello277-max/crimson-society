@@ -483,11 +483,13 @@ Your account cannot use app features right now. </p> </div> </main>
 return ( <main className="relative min-h-screen overflow-hidden bg-[#050505] text-white"> <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(180,20,30,0.25),transparent_65%)]" />
 
   <div className={`relative mx-auto max-w-5xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8 ${BOTTOM_NAV_CLEARANCE}`}>
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
-        <h1 className="mt-1 font-serif text-2xl leading-none text-white sm:text-3xl">Profile</h1>
-      </div>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <span className="text-[10px] uppercase tracking-[0.34em] text-zinc-500">Profile</span>
+          <h1 className="mt-1 truncate font-serif text-2xl leading-none text-white sm:text-3xl">
+            {profileHandle(profile)}
+          </h1>
+        </div>
 
       <div className="flex shrink-0 items-center gap-2">
         <Link
