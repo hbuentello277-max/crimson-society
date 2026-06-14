@@ -171,9 +171,6 @@ export function FoundingLeaderboard({ data, loading = false, error = null }: Pro
                     <LeaderboardAvatar avatarUrl={entry.avatarUrl} label={name} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-white">{name}</p>
-                      {entry.username ? (
-                        <p className="truncate text-xs text-zinc-500">@{entry.username}</p>
-                      ) : null}
                     </div>
                     <p className="shrink-0 text-sm font-medium text-[#f1c3c7]">
                       {foundingLeaderboardRowPoints(entry)}

@@ -32,6 +32,7 @@ import {
 import { incomingUndeliveredMessageIds } from "@/lib/messages/read-receipts";
 import { DM_VOICE_MAX_SECONDS, DM_VOICE_MIN_SECONDS } from "@/lib/messages/voice-recorder";
 import { sosTypeLabel } from "@/lib/rider-sos/sos-types";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 import { CS_BADGE_SM, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { DEFAULT_REPORT_REASONS, submitUserReport } from "@/lib/user-reports";
 
@@ -146,11 +147,11 @@ function buildProfileMap(profiles: ProfileRow[]) {
 }
 
 function profileName(profile: ProfileRow | null | undefined) {
-  return profile?.display_name || profile?.full_name || profile?.username || "Crimson Rider";
+  return formatRiderIdentity(profile, { fallback: "Crimson Rider" });
 }
 
 function profileHandle(profile: ProfileRow | null | undefined) {
-  return profile?.username ? `@${profile.username}` : "@member";
+  return "";
 }
 
 function profilePhoto(profile: ProfileRow | null | undefined) {

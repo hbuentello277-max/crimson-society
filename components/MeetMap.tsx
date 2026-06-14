@@ -13,6 +13,7 @@ import {
 import type { LeafletMouseEvent } from "leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 type RoutePoint = { lat: number; lng: number };
 
@@ -564,11 +565,14 @@ export default function MeetMap({
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ display: "block", fontSize: 14 }}>
-                      {selfMarker.rider_display_name || selfMarker.rider_name || "You"}
+                      {formatRiderIdentity(
+                        {
+                          username: selfMarker.rider_username,
+                          display_name: selfMarker.rider_display_name || selfMarker.rider_name,
+                        },
+                        { fallback: "You" },
+                      )}
                     </strong>
-                    <span style={{ display: "block", color: "#6f6265", fontSize: 12 }}>
-                      {selfMarker.rider_username ? `@${selfMarker.rider_username}` : "Current location"}
-                    </span>
                   </div>
                 </div>
 
@@ -662,11 +666,14 @@ export default function MeetMap({
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ display: "block", fontSize: 14 }}>
-                      {rider.rider_display_name || rider.rider_name || "Crimson rider"}
+                      {formatRiderIdentity(
+                        {
+                          username: rider.rider_username,
+                          display_name: rider.rider_display_name || rider.rider_name,
+                        },
+                        { fallback: "Crimson rider" },
+                      )}
                     </strong>
-                    <span style={{ display: "block", color: "#6f6265", fontSize: 12 }}>
-                      {rider.rider_username ? `@${rider.rider_username}` : "Crimson Society"}
-                    </span>
                   </div>
                 </div>
 

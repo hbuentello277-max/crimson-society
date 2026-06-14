@@ -1,4 +1,5 @@
 import type { MeetAttendee } from "@/lib/meets/types";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 const DEFAULT_PHOTO = "/icon.png";
 
@@ -12,14 +13,8 @@ type ProfileLike = {
 };
 
 export function profileToMeetAttendee(profile: ProfileLike | null | undefined): MeetAttendee {
-  const name =
-    profile?.display_name?.trim() ||
-    profile?.full_name?.trim() ||
-    profile?.username?.trim() ||
-    "Crimson Member";
-
   return {
-    name,
+    name: formatRiderIdentity(profile, { fallback: "Crimson Member" }),
     photo: profile?.profile_image_url || profile?.avatar_url || DEFAULT_PHOTO,
     username: profile?.username ?? null,
   };

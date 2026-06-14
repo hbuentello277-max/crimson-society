@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_FOCUS_RING } from "@/lib/crimson-accent";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
 import { supabase } from "@/lib/supabase";
+import { formatRiderIdentity, riderIdentityInitial } from "@/lib/rider-identity";
 
 type ConnectionRow = {
   id: string;
@@ -34,11 +35,11 @@ type ProfileRow = {
 };
 
 function displayName(profile: ProfileRow | null) {
-  return profile?.display_name || profile?.full_name || profile?.username || "Crimson Rider";
+  return formatRiderIdentity(profile, { fallback: "Crimson Rider" });
 }
 
-function handleFor(profile: ProfileRow | null) {
-  return profile?.username ? `@${profile.username}` : "@member";
+function handleFor(_profile: ProfileRow | null) {
+  return "";
 }
 
 function avatarFor(profile: ProfileRow | null) {
@@ -289,7 +290,6 @@ export default function ConnectionRequestReviewPage() {
 
               <div className="min-w-0 flex-1">
                 <p className="font-serif text-2xl text-white">{displayName(subjectProfile)}</p>
-                <p className="text-sm text-zinc-400">{handleFor(subjectProfile)}</p>
                 <p className="mt-2 text-sm text-zinc-500">{locationFor(subjectProfile)}</p>
                 {subjectProfile.bio ? (
                   <p className="mt-3 text-sm leading-6 text-zinc-300">{subjectProfile.bio}</p>

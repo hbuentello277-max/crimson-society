@@ -24,7 +24,7 @@ describe("mapPostToFeed", () => {
     assert.equal(feedPost.id, "post-1");
     assert.equal(feedPost.type, "photo");
     assert.equal(feedPost.author.handle, "@rider1");
-    assert.equal(feedPost.author.name, "Rider One");
+    assert.equal(feedPost.author.name, "@rider1");
     assert.equal(feedPost.likes, 3);
     assert.equal(feedPost.comments, 1);
     assert.equal(feedPost.timeLabel, "5m");

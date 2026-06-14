@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sosTypeLabel } from "@/lib/rider-sos/sos-types";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 export type DirectConversationPreview = {
   id: string;
@@ -25,11 +26,11 @@ type ProfileRow = {
 };
 
 function profileName(profile: ProfileRow | null | undefined) {
-  return profile?.display_name || profile?.full_name || profile?.username || "Crimson Rider";
+  return formatRiderIdentity(profile, { fallback: "Crimson Rider" });
 }
 
 function profileHandle(profile: ProfileRow | null | undefined) {
-  return profile?.username ? `@${profile.username}` : "@member";
+  return formatRiderIdentity(profile, { fallback: "@member" });
 }
 
 function profilePhoto(profile: ProfileRow | null | undefined) {

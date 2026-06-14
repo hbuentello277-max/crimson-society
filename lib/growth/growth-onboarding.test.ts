@@ -142,7 +142,7 @@ describe("founding leaderboard", () => {
     assert.equal(parsed.entries.length, 1);
     assert.equal(parsed.currentUser.rank, 1);
     assert.equal(parsed.cutoffPoints, 120);
-    assert.equal(foundingLeaderboardDisplayName(parsed.entries[0]), "Alpha");
+    assert.equal(foundingLeaderboardDisplayName(parsed.entries[0]), "@alpha");
   });
 });
 

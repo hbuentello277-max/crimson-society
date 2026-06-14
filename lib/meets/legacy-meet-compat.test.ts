@@ -84,8 +84,8 @@ describe("legacy meet row mapping", () => {
       },
     });
 
-    assert.equal(meet.coHost?.name, "Co Host");
-    assert.equal(meet.host.name, "Host Rider");
+    assert.equal(meet.coHost?.name, "@cohost");
+    assert.equal(meet.host.name, "@host");
     assert.equal(meet.going.length, 1);
   });
 

@@ -215,13 +215,10 @@ function normalizeInAppPath(path: string) {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
+import { formatRiderIdentity } from "@/lib/rider-identity";
+
 export function actorDisplayName(actor: NotificationActor | null | undefined) {
-  return (
-    actor?.display_name?.trim() ||
-    actor?.full_name?.trim() ||
-    actor?.username?.trim()?.replace(/^@+/, "") ||
-    "Crimson Member"
-  );
+  return formatRiderIdentity(actor, { fallback: "Crimson Member" });
 }
 
 export function actorPhotoUrl(actor: NotificationActor | null | undefined) {

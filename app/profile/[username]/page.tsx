@@ -864,7 +864,7 @@ export default function PublicProfilePage() {
                                     postId: post.id,
                                     authorId: profile?.id || "",
                                     authorUsername: profile?.username,
-                                    authorName: displayName,
+                                    authorName: handle,
                                     isOwner: isOwnProfile,
                                   });
                                 }}
@@ -978,7 +978,7 @@ export default function PublicProfilePage() {
             ? {
                 profileId: profile.id,
                 username: profile.username,
-                displayName,
+                displayName: handle,
                 isOwnProfile,
                 isBlocked,
               }
@@ -1016,7 +1016,7 @@ export default function PublicProfilePage() {
         title="Report Post"
         subtitle={
           profile
-            ? `Report a post by ${displayName} for moderator review.`
+            ? `Report a post by ${handle} for moderator review.`
             : undefined
         }
         reasons={DEFAULT_REPORT_REASONS}
