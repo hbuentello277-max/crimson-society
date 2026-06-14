@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "@/components/LanguageProvider";
-import { QrActionButtons, QrCodeImageFrame } from "@/components/credits/QrCodePanelParts";
-import { useQrCodeImage } from "@/hooks/useQrCodeImage";
+import { AppQrBrandedFrame } from "@/components/credits/AppQrBrandedFrame";
+import { defaultAppQrBrandCopy } from "@/lib/credits/app-qr-brand-image";
+import {
+  downloadBrandedAppQrImage,
+  shareBrandedAppQrImage,
+} from "@/lib/credits/app-qr-brand-share";
 import { PUBLIC_APP_SIGNUP_URL } from "@/lib/credits/referral-public-origin";
 import { appQrDownloadFilename } from "@/lib/credits/referral-qr-options";
-import {
-  copySignupLink,
-  downloadQrImage,
-  shareQrImage,
-} from "@/lib/credits/referral-qr-share";
+import { copySignupLink } from "@/lib/credits/referral-qr-share";
 
 export function AppQrPanel() {
   const { dictionary } = useI18n();
@@ -19,9 +19,13 @@ export function AppQrPanel() {
   const [shareLabel, setShareLabel] = useState(copy.shareAppQr);
   const [downloadLabel, setDownloadLabel] = useState(copy.downloadAppQr);
 
-  const { qrDataUrl, qrError, loading } = useQrCodeImage(
-    PUBLIC_APP_SIGNUP_URL,
-    copy.qrGenerateFailed,
+  const brand = useMemo(
+    () =>
+      defaultAppQrBrandCopy({
+        heading: copy.appQrHeading,
+        slogan: copy.appQrSlogan,
+      }),
+    [copy.appQrHeading, copy.appQrSlogan],
   );
 
   const handleCopyLink = useCallback(async () => {
@@ -37,8 +41,8 @@ export function AppQrPanel() {
   }, [copy]);
 
   const handleShareQr = useCallback(async () => {
-    const result = await shareQrImage({
-      targetUrl: PUBLIC_APP_SIGNUP_URL,
+    const result = await shareBrandedAppQrImage({
+      brand,
       filename: appQrDownloadFilename(),
       shareTitle: copy.appQrTitle,
       shareText: copy.appQrShareText,
@@ -54,11 +58,11 @@ export function AppQrPanel() {
 
     setShareLabel(copy.sharedAppQr);
     window.setTimeout(() => setShareLabel(copy.shareAppQr), 2200);
-  }, [copy]);
+  }, [brand, copy]);
 
   const handleDownloadQr = useCallback(async () => {
-    const result = await downloadQrImage({
-      targetUrl: PUBLIC_APP_SIGNUP_URL,
+    const result = await downloadBrandedAppQrImage({
+      brand,
       filename: appQrDownloadFilename(),
     });
     if (!result.ok) {
@@ -69,27 +73,23 @@ export function AppQrPanel() {
 
     setDownloadLabel(copy.downloadedAppQr);
     window.setTimeout(() => setDownloadLabel(copy.downloadAppQr), 2200);
-  }, [copy]);
+  }, [brand, copy]);
 
   return (
     <section className="rounded-[22px] border border-white/10 bg-white/[0.02] p-4">
       <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">{copy.appQrTitle}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-400">{copy.appQrDescription}</p>
 
-      <QrCodeImageFrame
-        qrDataUrl={qrDataUrl}
-        qrError={qrError}
-        loading={loading}
-        loadingLabel={copy.qrLoading}
-        imageAlt={copy.appQrImageAlt}
-      />
-
-      <p className="mt-3 break-all text-center text-xs leading-5 text-zinc-500">
-        {PUBLIC_APP_SIGNUP_URL}
-      </p>
-
-      <QrActionButtons
-        copyLabel={copyLinkLabel}
+      <AppQrBrandedFrame
+        copy={{
+          heading: brand.heading,
+          slogan: brand.slogan,
+          targetUrl: brand.targetUrl,
+          loadingLabel: copy.qrLoading,
+          failedLabel: copy.qrGenerateFailed,
+          imageAlt: copy.appQrImageAlt,
+        }}
+        copyLinkLabel={copyLinkLabel}
         shareLabel={shareLabel}
         downloadLabel={downloadLabel}
         onCopy={() => void handleCopyLink()}

@@ -44,9 +44,11 @@ function HeaderSocialIcon({ label }: { label: (typeof HEADER_SOCIAL_ORDER)[numbe
 function HeaderSocialLink({
   label,
   href,
+  className = "",
 }: {
   label: (typeof HEADER_SOCIAL_ORDER)[number];
   href?: string;
+  className?: string;
 }) {
   if (!href) {
     return null;
@@ -57,7 +59,7 @@ function HeaderSocialLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex max-w-[7.5rem] shrink-0 items-center justify-end gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-zinc-500 transition hover:border-[#b4141e]/40 hover:text-[#e87a82] sm:max-w-none"
+      className={`inline-flex max-w-[7.5rem] shrink-0 items-center justify-end gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-zinc-500 transition hover:border-[#b4141e]/40 hover:text-[#e87a82] sm:max-w-none ${className}`}
     >
       <HeaderSocialIcon label={label} />
       <span className="truncate">{label}</span>
@@ -86,6 +88,7 @@ type CompactProfileCardProps = {
   actions: ReactNode;
   details?: ProfileCardDetails;
   notice?: ReactNode;
+  showHandle?: boolean;
 };
 
 export function CompactProfileCard({
@@ -98,6 +101,7 @@ export function CompactProfileCard({
   actions,
   details,
   notice,
+  showHandle = false,
 }: CompactProfileCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -160,17 +164,37 @@ export function CompactProfileCard({
           </div>
 
           <div className="min-w-0 flex-1 pt-0.5">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5">
-              <h2 className="truncate font-serif text-xl leading-tight text-white">{displayName}</h2>
-              <HeaderSocialLink label="Instagram" href={headerSocialByLabel[0]?.href} />
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
+              <h2 className="col-start-1 row-start-1 truncate font-serif text-xl leading-tight text-white">
+                {displayName}
+              </h2>
+              <HeaderSocialLink
+                label="Instagram"
+                href={headerSocialByLabel[0]?.href}
+                className="col-start-2 row-start-1"
+              />
 
-              <p className="truncate text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                {handle}
-              </p>
-              <HeaderSocialLink label="TikTok" href={headerSocialByLabel[1]?.href} />
+              {showHandle ? (
+                <p className="col-start-1 row-start-2 truncate text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+                  {handle}
+                </p>
+              ) : (
+                <p className="col-start-1 row-start-2 truncate text-xs text-zinc-400">{location}</p>
+              )}
+              <HeaderSocialLink
+                label="TikTok"
+                href={headerSocialByLabel[1]?.href}
+                className="col-start-2 row-start-2"
+              />
 
-              <p className="truncate text-xs text-zinc-400">{location}</p>
-              <HeaderSocialLink label="YouTube" href={headerSocialByLabel[2]?.href} />
+              {showHandle ? (
+                <p className="col-start-1 row-start-3 truncate text-xs text-zinc-400">{location}</p>
+              ) : null}
+              <HeaderSocialLink
+                label="YouTube"
+                href={headerSocialByLabel[2]?.href}
+                className={showHandle ? "col-start-2 row-start-3" : "col-start-2 row-start-3"}
+              />
             </div>
 
             {!expanded && previewText && (
