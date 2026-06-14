@@ -1,13 +1,44 @@
-export async function shareMeetLink(meetId: string, meetName: string) {
+import {
+  buildMeetPublicUrl,
+  buildMeetShareText,
+  resolveMeetShareOrigin,
+} from "@/lib/meets/meet-public-url";
+
+export type ShareMeetInput = {
+  meetId: string;
+  meetName: string;
+  hostName: string;
+  origin?: string | null;
+};
+
+export function buildMeetPublicSharePayload(input: ShareMeetInput) {
+  const url = buildMeetPublicUrl(input.meetId, input.origin);
+  const text = buildMeetShareText(input.meetName, input.hostName, url);
+
+  return {
+    url,
+    text,
+    title: input.meetName,
+  };
+}
+
+export async function shareMeetLink(input: ShareMeetInput) {
   if (typeof window === "undefined") {
     return { ok: false as const, error: "Share is only available in the browser." };
   }
 
-  const url = `${window.location.origin}/meets?meet=${encodeURIComponent(meetId)}`;
+  const payload = buildMeetPublicSharePayload({
+    ...input,
+    origin: input.origin ?? resolveMeetShareOrigin(),
+  });
 
   if (typeof navigator.share === "function") {
     try {
-      await navigator.share({ title: meetName, text: `Join ${meetName} on Crimson Society`, url });
+      await navigator.share({
+        title: payload.title,
+        text: payload.text,
+        url: payload.url,
+      });
       return { ok: true as const };
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -16,12 +47,26 @@ export async function shareMeetLink(meetId: string, meetName: string) {
     }
   }
 
-  if (typeof navigator.clipboard?.writeText === "function") {
-    await navigator.clipboard.writeText(url);
-    return { ok: true as const, copied: true };
+  return { ok: false as const, error: "Native share is unavailable on this device." };
+}
+
+export async function copyMeetLink(input: Pick<ShareMeetInput, "meetId" | "origin">) {
+  if (typeof window === "undefined") {
+    return { ok: false as const, error: "Copy link is only available in the browser." };
   }
 
-  return { ok: false as const, error: "Could not share this meet." };
+  const url = buildMeetPublicUrl(input.meetId, input.origin ?? resolveMeetShareOrigin());
+
+  if (typeof navigator.clipboard?.writeText !== "function") {
+    return { ok: false as const, error: "Could not copy this meet link." };
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    return { ok: true as const, url };
+  } catch {
+    return { ok: false as const, error: "Could not copy this meet link." };
+  }
 }
 
 export function buildMeetRouteCopyText(meet: {

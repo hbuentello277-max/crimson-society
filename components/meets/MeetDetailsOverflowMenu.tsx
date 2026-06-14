@@ -14,6 +14,7 @@ type MeetDetailsOverflowMenuProps = {
   canAssignCoHost: boolean;
   onReport: () => void;
   onShare: () => void;
+  onCopyLink: () => void;
   onCopyRoute: () => void;
   onEditMeet?: () => void;
   onAddCoHost?: () => void;
@@ -68,6 +69,7 @@ export function MeetDetailsOverflowMenu({
   canAssignCoHost,
   onReport,
   onShare,
+  onCopyLink,
   onCopyRoute,
   onEditMeet,
   onAddCoHost,
@@ -174,6 +176,7 @@ export function MeetDetailsOverflowMenu({
       className="overflow-hidden rounded-xl border border-white/10 bg-[#0d080a] py-1 shadow-[0_18px_50px_rgba(0,0,0,0.75)]"
     >
       <MenuButton onClick={() => void runAction(onShare)}>Share Meet</MenuButton>
+      <MenuButton onClick={() => void runAction(onCopyLink)}>Copy Link</MenuButton>
       <MenuButton onClick={() => void runAction(onCopyRoute)}>Copy Route</MenuButton>
       {hostProfileHref ? (
         <MenuLink href={hostProfileHref} onNavigate={() => setOpen(false)}>

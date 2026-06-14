@@ -84,12 +84,13 @@ describe("meet details overflow menu", () => {
     const modal = readFileSync("components/meets/MeetDetailsModal.tsx", "utf8");
 
     const shareIndex = overflow.indexOf("Share Meet");
-    const copyIndex = overflow.indexOf("Copy Route");
+    const copyLinkIndex = overflow.indexOf("Copy Link");
+    const copyRouteIndex = overflow.indexOf("Copy Route");
     const profileIndex = overflow.indexOf("View Host Profile");
     const reportIndex = overflow.indexOf("Report Meet");
 
-    assert.ok(shareIndex > -1 && copyIndex > shareIndex);
-    assert.ok(profileIndex > copyIndex);
+    assert.ok(shareIndex > -1 && copyLinkIndex > shareIndex);
+    assert.ok(copyRouteIndex > copyLinkIndex);
     assert.ok(reportIndex > profileIndex);
     assert.ok(overflow.includes("Edit Meet"));
     assert.ok(overflow.includes("Cancel Meet"));

@@ -1,0 +1,30 @@
+import type { MeetType, RoutePoint } from "@/lib/meets/types";
+import type { MeetVisibility } from "@/lib/meet-visibility";
+
+export type MeetPublicPreview = {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+  meetPoint: string;
+  destination: string;
+  city: string;
+  description: string;
+  cover: string;
+  distance: string;
+  duration: string;
+  type: MeetType;
+  hostName: string;
+  hostUsername: string | null;
+  riderCount: number;
+  visibility: MeetVisibility;
+  status: "active" | "canceled";
+  isAccessible: boolean;
+  canOpenInApp: boolean;
+  lockMessage: string | null;
+  route: RoutePoint[];
+  lat: number | null;
+  lng: number | null;
+  destinationLat: number | null;
+  destinationLng: number | null;
+};

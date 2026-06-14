@@ -54,7 +54,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { useI18n } from "@/components/LanguageProvider";
 import { canSelfJoinMeet } from "@/lib/meet-privacy";
-import { buildMeetRouteCopyText, shareMeetLink } from "@/lib/meets/share-meet";
+import { buildMeetRouteCopyText, copyMeetLink, shareMeetLink } from "@/lib/meets/share-meet";
 import { supabase } from "@/lib/supabase";
 
 import { MapLoadingPlaceholder } from "@/components/ui/MapLoadingPlaceholder";
@@ -552,13 +552,27 @@ export function MeetDetailsModal({
   }
 
   async function handleShareMeet() {
-    const result = await shareMeetLink(meet.id, meet.name);
+    const result = await shareMeetLink({
+      meetId: meet.id,
+      meetName: meet.name,
+      hostName: meet.host.name,
+    });
     if (!result.ok) {
       setActionToast(result.error ?? "Could not share meet.");
-    } else if (result.copied) {
-      setActionToast("Meet link copied.");
+    } else if (result.canceled) {
+      return;
     } else {
       setActionToast("Meet shared.");
+    }
+    window.setTimeout(() => setActionToast(null), 2200);
+  }
+
+  async function handleCopyMeetLink() {
+    const result = await copyMeetLink({ meetId: meet.id });
+    if (!result.ok) {
+      setActionToast(result.error ?? "Could not copy link.");
+    } else {
+      setActionToast("Link copied successfully.");
     }
     window.setTimeout(() => setActionToast(null), 2200);
   }
@@ -1018,6 +1032,7 @@ export function MeetDetailsModal({
               canAssignCoHost={!coHostAssignmentBlockedReason(hostContext, !meet.coHostId)}
               onReport={() => setReportOpen(true)}
               onShare={() => void handleShareMeet()}
+              onCopyLink={() => void handleCopyMeetLink()}
               onCopyRoute={() => void handleCopyRoute()}
               onEditMeet={onEditMeet}
               onAddCoHost={
