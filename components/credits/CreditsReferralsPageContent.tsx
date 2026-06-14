@@ -7,6 +7,7 @@ import { CreditsPageShell } from "@/components/credits/CreditsPageShell";
 import { MemberReferralCodeCard } from "@/components/credits/MemberReferralCodeCard";
 import { useOwnReferralStats } from "@/hooks/useOwnReferralStats";
 import { supabase } from "@/lib/supabase";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 function RewardStatus({ awarded, pendingLabel, awardedLabel }: { awarded: boolean; pendingLabel: string; awardedLabel: string }) {
   return (
@@ -119,10 +120,7 @@ export function CreditsReferralsPageContent() {
           <h2 className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">{copy.referredMembers}</h2>
           <ul className="mt-3 space-y-2">
             {stats.referred_users.map((person) => {
-              const label =
-                person.display_name?.trim() ||
-                (person.username ? `@${person.username}` : copy.crimsonMember);
-              const handle = person.username ? `@${person.username}` : null;
+              const label = formatRiderIdentity(person, { fallback: copy.crimsonMember });
 
               return (
                 <li
@@ -130,9 +128,6 @@ export function CreditsReferralsPageContent() {
                   className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3"
                 >
                   <p className="text-sm font-medium text-white">{label}</p>
-                  {handle && person.display_name ? (
-                    <p className="text-xs text-zinc-500">{handle}</p>
-                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-2">
                     <RewardStatus
                       awarded={person.signup_reward_awarded}

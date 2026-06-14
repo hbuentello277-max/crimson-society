@@ -1,5 +1,6 @@
 import type { LiveRideRider } from "@/components/MeetMap";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 import { supabase } from "@/lib/supabase";
 
 type ProfileRow = {
@@ -20,12 +21,7 @@ type LiveLocationRow = {
 };
 
 function riderName(profile: ProfileRow | null | undefined) {
-  return (
-    profile?.display_name?.trim() ||
-    profile?.full_name?.trim() ||
-    profile?.username?.trim() ||
-    "Crimson Member"
-  );
+  return formatRiderIdentity(profile, { fallback: "Crimson Member" });
 }
 
 function riderPhoto(profile: ProfileRow | null | undefined) {

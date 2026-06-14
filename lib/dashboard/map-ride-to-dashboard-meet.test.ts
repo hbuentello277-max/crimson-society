@@ -33,7 +33,7 @@ describe("mapRideToDashboardMeet", () => {
   it("maps an upcoming meet with attendee and live counts", () => {
     const attendeeCounts = new Map([["ride-1", 4]]);
     const liveCounts = new Map([["ride-1", 2]]);
-    const hostNames = new Map([["host-1", "Host Rider"]]);
+    const hostNames = new Map([["host-1", "@host_rider"]]);
 
     const meet = mapRideToDashboardMeet(
       baseRide,
@@ -48,7 +48,7 @@ describe("mapRideToDashboardMeet", () => {
     assert.equal(meet.lifecyclePhase, "upcoming");
     assert.equal(meet.riderCount, 4);
     assert.equal(meet.liveRiderCount, 2);
-    assert.equal(meet.hostName, "Host Rider");
+    assert.equal(meet.hostName, "@host_rider");
     assert.equal(meet.waypoints.length, 1);
     assert.equal(meet.route.length, 2);
   });

@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { BOTTOM_NAV_CLEARANCE, CS_AVATAR_FALLBACK, CS_AVATAR_RING, CS_FOCUS_RING, csPill } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
 import { requireCompleteProfile } from "@/lib/requireCompleteProfile";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 type Status = "none" | "pending" | "requested" | "connected";
 
@@ -80,11 +81,11 @@ function isMissingProfileColumn(error?: { message?: string; code?: string } | nu
 }
 
 function displayName(profile: ProfileRow) {
-  return profile.display_name || profile.full_name || profile.username || "Crimson Rider";
+  return formatRiderIdentity(profile, { fallback: "Crimson Rider" });
 }
 
 function handleFor(profile: ProfileRow) {
-  return profile.username ? `@${profile.username}` : "@member";
+  return formatRiderIdentity(profile, { fallback: "@member" });
 }
 
 function avatarFor(profile: ProfileRow) {
@@ -632,18 +633,6 @@ export default function ConnectPage() {
                         <h3 className="truncate text-base font-semibold leading-tight text-white">
                           {m.name}
                         </h3>
-                      )}
-
-                      {profileHref ? (
-                        <Link
-                          href={profileHref}
-                          prefetch
-                          className="mt-0.5 block truncate text-xs text-zinc-500 transition hover:text-[#e87a82]"
-                        >
-                          {m.handle}
-                        </Link>
-                      ) : (
-                        <p className="mt-0.5 truncate text-xs text-zinc-500">{m.handle}</p>
                       )}
 
                       <p className="mt-0.5 truncate text-xs text-zinc-500">{m.city}</p>

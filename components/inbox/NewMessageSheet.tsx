@@ -192,7 +192,7 @@ export function NewMessageSheet({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-white">{member.name}</p>
                   <p className="mt-1 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                    {member.handle} · {member.reason}
+                    {member.reason}
                   </p>
                 </div>
               </button>

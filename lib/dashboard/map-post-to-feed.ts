@@ -3,6 +3,7 @@ import {
   getGarageBuildPhotoUrls,
   parseGarageBuildMetadata,
 } from "@/lib/garage/garage-build";
+import { formatRiderHandle, formatRiderIdentity } from "@/lib/rider-identity";
 import { getBestImageUrl, getVideoPlaybackUrl } from "@/lib/media";
 import { getPostImageUrls } from "@/lib/posts/post-images";
 import { dashboardTimeAgo } from "@/lib/dashboard/time";
@@ -28,8 +29,8 @@ export function mapPostToFeed(post: DashboardRawPost): DashboardFeedPost {
     "feed",
   );
 
-  const name = profile?.display_name || profile?.full_name || "Unknown Rider";
-  const handle = profile?.username ? `@${profile.username}` : "@unknown";
+  const name = formatRiderIdentity(profile, { fallback: "Unknown Rider" });
+  const handle = formatRiderHandle(profile?.username, "@unknown");
   const photo = profile?.profile_image_url || profile?.avatar_url || null;
 
   return {

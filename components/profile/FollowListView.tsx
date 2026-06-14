@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { supabase } from "@/lib/supabase";
+import { formatRiderIdentity, riderIdentityInitial } from "@/lib/rider-identity";
 
 export type FollowListKind = "followers" | "following";
 
@@ -34,13 +35,8 @@ type Props = {
   backHref: string;
 };
 
-function displayName(profile: FollowProfile) {
-  return profile.display_name?.trim() || profile.full_name?.trim() || "Crimson Member";
-}
-
-function handle(profile: FollowProfile) {
-  const username = profile.username?.trim();
-  return username ? `@${username}` : "@crimson-member";
+function riderIdentity(profile: FollowProfile) {
+  return formatRiderIdentity(profile, { fallback: "Crimson Member" });
 }
 
 function locationLabel(profile: FollowProfile) {
@@ -308,6 +304,7 @@ export default function FollowListView({
           <ul className="mt-8 space-y-3">
             {rows.map((person) => {
               const href = profilePath(person.username);
+              const identity = riderIdentity(person);
               const avatarUrl = person.profile_image_url || person.avatar_url;
               const location = locationLabel(person);
               const isSelf = person.id === currentUserId;
@@ -322,7 +319,7 @@ export default function FollowListView({
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
-                        alt={`${displayName(person)} avatar`}
+                        alt={`${identity} avatar`}
                         fill
                         sizes="48px"
                         className="object-cover"
@@ -330,15 +327,12 @@ export default function FollowListView({
                       />
                     ) : (
                       <div className={`${CS_AVATAR_FALLBACK} text-lg`}>
-                        {displayName(person).charAt(0).toUpperCase()}
+                        {riderIdentityInitial(identity)}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-white">{displayName(person)}</p>
-                    <p className="truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500">
-                      {handle(person)}
-                    </p>
+                    <p className="truncate font-medium text-white">{identity}</p>
                     {location && (
                       <p className="mt-1 truncate text-xs text-zinc-500">{location}</p>
                     )}

@@ -12,6 +12,7 @@ import { dashboardStatusBgMap } from "@/lib/dashboard/constants";
 import { getDashboardProfileHref } from "@/lib/dashboard/profile";
 import type { DashboardFeedPost } from "@/lib/dashboard/types";
 import type { PostActionTarget } from "@/components/social/PostActionSheet";
+import { riderIdentityInitial } from "@/lib/rider-identity";
 
 const ReelPlayer = dynamic(
   () => import("@/components/feed/ReelPlayer").then((module) => module.ReelPlayer),
@@ -88,20 +89,21 @@ export function DashboardFeedSection({
               post.userId && currentUserId && (post.userId === currentUserId || isAdmin),
             );
             const profileHref = getDashboardProfileHref(post.author.handle);
+            const authorIdentity = post.author.handle;
 
             const avatar = (
               <div className={`relative h-10 w-10 ${CS_AVATAR_RING}`}>
                 {post.author.photo ? (
                   <Image
                     src={post.author.photo}
-                    alt={post.author.name}
+                    alt={authorIdentity}
                     fill
                     sizes="40px"
                     className="object-cover"
                   />
                 ) : (
                   <div className={`${CS_AVATAR_FALLBACK} text-sm`}>
-                    {(post.author.name || "C").charAt(0)}
+                    {riderIdentityInitial(authorIdentity)}
                   </div>
                 )}
               </div>
@@ -109,11 +111,12 @@ export function DashboardFeedSection({
 
             const authorDetails = (
               <div className="min-w-0 flex-1">
-                <p className="break-words text-sm text-white">{post.author.name}</p>
-                <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-                  {post.author.handle}
-                  {post.location && ` · ${post.location}`}
-                </p>
+                <p className="truncate text-sm text-white">{authorIdentity}</p>
+                {post.location ? (
+                  <p className="truncate text-[10px] uppercase tracking-[0.25em] text-white/40">
+                    {post.location}
+                  </p>
+                ) : null}
               </div>
             );
 
@@ -161,7 +164,7 @@ export function DashboardFeedSection({
                           postId: post.id,
                           authorId: post.userId || "",
                           authorUsername: post.author.handle.replace(/^@+/, ""),
-                          authorName: post.author.name,
+                          authorName: authorIdentity,
                           isOwner: canDeletePost,
                         })
                       }
@@ -200,7 +203,7 @@ export function DashboardFeedSection({
                       >
                         <Image
                           src={src}
-                          alt={`${post.author.name} post image ${idx + 1}`}
+                          alt={`${authorIdentity} post image ${idx + 1}`}
                           fill
                           sizes="(max-width: 768px) 100vw, 768px"
                           priority={postIndex === 0 && idx === 0}
@@ -226,7 +229,7 @@ export function DashboardFeedSection({
                       mediaStatus={post.mediaStatus || "ready"}
                       isActive={activeReelId === post.id}
                       onBecameVisible={onActiveReelChange}
-                      authorName={post.author.name}
+                      authorName={authorIdentity}
                       priority={postIndex === 0}
                     />
                   </div>
@@ -241,7 +244,7 @@ export function DashboardFeedSection({
                       mediaStatus={post.mediaStatus || "ready"}
                       isActive={activeReelId === post.id}
                       onBecameVisible={onActiveReelChange}
-                      authorName={post.author.name}
+                      authorName={authorIdentity}
                       priority={postIndex === 0}
                     />
 

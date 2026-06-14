@@ -40,8 +40,8 @@ describe("nearby sos formatting", () => {
     assert.equal(formatSosStatusLabel("resolved"), "Resolved");
   });
 
-  it("prefers rider display name", () => {
-    assert.equal(riderSosDisplayName(baseAlert), "Javi");
+  it("prefers @username for rider identity", () => {
+    assert.equal(riderSosDisplayName(baseAlert), "@javi");
   });
 });
 

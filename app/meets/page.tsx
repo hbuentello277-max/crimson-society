@@ -737,15 +737,7 @@ for (const attendee of typedAttendanceRows) {
   const profile = profileMap.get(attendee.user_id);
 
   const rider: MeetAttendee = profile
-    ? {
-        name:
-          profile.display_name?.trim() ||
-          profile.full_name?.trim() ||
-          profile.username?.trim() ||
-          "Crimson Member",
-        photo: profile.profile_image_url || profile.avatar_url || DEFAULT_HOST_PHOTO,
-        username: profile.username,
-      }
+    ? profileToMeetAttendee(profile)
     : {
         name: "Crimson Member",
         photo: DEFAULT_HOST_PHOTO,
@@ -1225,13 +1217,10 @@ const ridesWithRoutes = rowsWithHosts.map((row) => {
         .maybeSingle();
 
       savedRow.host = profile || null;
-      hostAttendee.name =
-        profile?.display_name?.trim() ||
-        profile?.full_name?.trim() ||
-        profile?.username?.trim() ||
-        "Crimson Member";
-      hostAttendee.photo = profile?.profile_image_url || profile?.avatar_url || DEFAULT_HOST_PHOTO;
-      hostAttendee.username = profile?.username ?? null;
+      const mappedHost = profileToMeetAttendee(profile);
+      hostAttendee.name = mappedHost.name;
+      hostAttendee.photo = mappedHost.photo;
+      hostAttendee.username = mappedHost.username;
       savedRow.attendeeRiders = [hostAttendee];
     }
 

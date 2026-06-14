@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { CS_AVATAR_FALLBACK, CS_AVATAR_RING } from "@/lib/crimson-accent";
 import { ProfileMenuBackLink } from "@/components/navigation/ProfileMenuBackLink";
 import { supabase } from "@/lib/supabase";
+import { formatRiderIdentity, riderIdentityInitial } from "@/lib/rider-identity";
 
 type BlockedProfile = {
   id: string;
@@ -17,13 +18,8 @@ type BlockedProfile = {
   avatar_url: string | null;
 };
 
-function displayName(profile: BlockedProfile) {
-  return profile.display_name?.trim() || profile.full_name?.trim() || "Crimson Member";
-}
-
-function handleFor(profile: BlockedProfile) {
-  const username = profile.username?.trim();
-  return username ? `@${username}` : "@crimson-member";
+function riderIdentity(profile: BlockedProfile) {
+  return formatRiderIdentity(profile, { fallback: "Crimson Member" });
 }
 
 export default function BlockedMembersPage() {
@@ -219,6 +215,7 @@ export default function BlockedMembersPage() {
             {rows.map((person) => {
               const avatarUrl = person.profile_image_url || person.avatar_url;
               const username = person.username?.trim();
+              const identity = riderIdentity(person);
 
               return (
                 <li
@@ -230,7 +227,7 @@ export default function BlockedMembersPage() {
                       {avatarUrl ? (
                         <Image
                           src={avatarUrl}
-                          alt={`${displayName(person)} avatar`}
+                          alt={`${identity} avatar`}
                           fill
                           sizes="48px"
                           className="object-cover"
@@ -238,15 +235,12 @@ export default function BlockedMembersPage() {
                         />
                       ) : (
                         <div className={`${CS_AVATAR_FALLBACK} text-lg`}>
-                          {displayName(person).charAt(0).toUpperCase()}
+                          {riderIdentityInitial(identity)}
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-white">{displayName(person)}</p>
-                      <p className="truncate text-[10px] uppercase tracking-[0.16em] text-zinc-500">
-                        {handleFor(person)}
-                      </p>
+                      <p className="truncate font-medium text-white">{identity}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
                       {username && (

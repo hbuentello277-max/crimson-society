@@ -54,9 +54,6 @@ export function LeaderboardRiderPreviewSheet({ entry, onClose }: Props) {
             </div>
 
             <h2 className="mt-5 font-serif text-3xl text-white">{name}</h2>
-            {entry.username ? (
-              <p className="mt-1 text-sm text-zinc-500">@{entry.username}</p>
-            ) : null}
 
             <p className="mt-5 text-sm text-zinc-400">
               Rank <span className="font-medium text-white">#{entry.rank}</span>

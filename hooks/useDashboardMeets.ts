@@ -17,6 +17,7 @@ import { meetNavigationHref } from "@/lib/meets/load-navigation-meet";
 import { writeActiveMeetSession } from "@/lib/meets/active-meet-session";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { mapRideToDashboardMeet } from "@/lib/dashboard/map-ride-to-dashboard-meet";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 import {
   emptyDashboardLiveMapPreview,
   type DashboardAttendeeRow,
@@ -155,13 +156,7 @@ export function useDashboardMeets({ session, isAdmin, router, onToast }: UseDash
     const hostNames = new Map<string, string>();
     for (const hostId of hostIds) {
       const profile = liveProfileMap.get(hostId);
-      hostNames.set(
-        hostId,
-        profile?.display_name?.trim() ||
-          profile?.full_name?.trim() ||
-          profile?.username?.trim() ||
-          "Crimson Member",
-      );
+      hostNames.set(hostId, formatRiderIdentity(profile, { fallback: "Crimson Member" }));
     }
 
     const nextMeets = rows
@@ -177,11 +172,7 @@ export function useDashboardMeets({ session, isAdmin, router, onToast }: UseDash
       const profile = liveProfileMap.get(location.user_id);
       return {
         userId: location.user_id,
-        name:
-          profile?.display_name?.trim() ||
-          profile?.full_name?.trim() ||
-          profile?.username?.trim() ||
-          "Rider",
+        name: formatRiderIdentity(profile, { fallback: "Rider" }),
         username: profile?.username || null,
         photo: profile?.profile_image_url || profile?.avatar_url || null,
         lat: location.lat,

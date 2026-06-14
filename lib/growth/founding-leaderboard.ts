@@ -101,13 +101,16 @@ export function parseFoundingLeaderboardPayload(
   };
 }
 
+import { formatRiderIdentity } from "@/lib/rider-identity";
+
 export function foundingLeaderboardDisplayName(entry: {
   displayName: string | null;
   username: string | null;
 }) {
-  if (entry.displayName?.trim()) return entry.displayName.trim();
-  if (entry.username?.trim()) return `@${entry.username.trim()}`;
-  return "Crimson Rider";
+  return formatRiderIdentity(
+    { username: entry.username, display_name: entry.displayName },
+    { fallback: "Crimson Rider" },
+  );
 }
 
 /** Leaderboard race score shown in rows and rider preview sheets. */

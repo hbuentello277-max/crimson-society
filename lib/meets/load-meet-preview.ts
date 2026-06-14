@@ -3,6 +3,7 @@ import { normalizeMeetVisibility } from "@/lib/meet-visibility";
 import { hasRoadGeometry, parseRoute } from "@/lib/meets/route-geometry";
 import type { MeetPublicPreview } from "@/lib/meets/meet-preview-types";
 import type { MeetType } from "@/lib/meets/types";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 type MeetPreviewRow = {
   id: string;
@@ -75,7 +76,10 @@ export function mapMeetPreviewRow(row: MeetPreviewRow): MeetPublicPreview {
     distance: row.distance?.trim() || "TBD",
     duration: row.duration?.trim() || "TBD",
     type: parseMeetType(row.meet_type),
-    hostName: row.host_name?.trim() || "Crimson Rider",
+    hostName: formatRiderIdentity(
+      { username: row.host_username, display_name: row.host_name },
+      { fallback: "Crimson Rider" },
+    ),
     hostUsername: row.host_username?.trim() || null,
     riderCount: toCount(row.rider_count),
     visibility: normalizeMeetVisibility(row.visibility),

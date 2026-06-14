@@ -66,7 +66,7 @@ describe("mapMeetPreviewRow", () => {
     });
 
     assert.equal(preview.name, "Saturday Night Ride");
-    assert.equal(preview.hostName, "Javi");
+    assert.equal(preview.hostName, "@javi");
     assert.equal(preview.riderCount, 3);
     assert.equal(preview.isAccessible, true);
     assert.equal(preview.route.length, 3);

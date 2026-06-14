@@ -1,4 +1,5 @@
 import type { NearbyRiderSosAlert } from "@/lib/rider-sos/nearby-types";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 export function formatSosDistanceMiles(distanceMiles: number | null | undefined) {
   if (distanceMiles == null || !Number.isFinite(Number(distanceMiles))) {
@@ -34,5 +35,8 @@ export function formatSosStatusLabel(status: NearbyRiderSosAlert["status"]) {
 }
 
 export function riderSosDisplayName(alert: Pick<NearbyRiderSosAlert, "rider_name" | "rider_username">) {
-  return alert.rider_name?.trim() || (alert.rider_username ? `@${alert.rider_username}` : "Crimson Rider");
+  return formatRiderIdentity(
+    { username: alert.rider_username, display_name: alert.rider_name },
+    { fallback: "Crimson Rider" },
+  );
 }

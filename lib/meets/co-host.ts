@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { MEET_TABLES } from "@/lib/meets/db-tables";
 import { hasMeetCoHost, isValidCoHostCandidate, type MeetHostContext } from "@/lib/meets/permissions";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 
 export type MemberProfileOption = {
   id: string;
@@ -10,19 +11,6 @@ export type MemberProfileOption = {
 };
 
 const DEFAULT_PHOTO = "/icon.png";
-
-function profileDisplayName(profile: {
-  display_name?: string | null;
-  full_name?: string | null;
-  username?: string | null;
-}) {
-  return (
-    profile.display_name?.trim() ||
-    profile.full_name?.trim() ||
-    profile.username?.trim() ||
-    "Crimson Member"
-  );
-}
 
 export function mapMemberProfileOption(profile: {
   id: string;
@@ -34,7 +22,7 @@ export function mapMemberProfileOption(profile: {
 }): MemberProfileOption {
   return {
     id: profile.id,
-    name: profileDisplayName(profile),
+    name: formatRiderIdentity(profile, { fallback: "Crimson Member" }),
     username: profile.username ?? null,
     photo: profile.profile_image_url || profile.avatar_url || DEFAULT_PHOTO,
   };

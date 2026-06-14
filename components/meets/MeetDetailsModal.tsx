@@ -22,6 +22,7 @@ import {
   type MeetFooterAction,
 } from "@/lib/meets/footer-actions";
 import { formatMeetHostDisplayLines } from "@/lib/meets/host-display";
+import { formatRiderIdentity } from "@/lib/rider-identity";
 import { MeetDetailsOverflowMenu } from "@/components/meets/MeetDetailsOverflowMenu";
 import {
   END_MEET_CONFIRM_BODY,
@@ -1437,11 +1438,9 @@ export function MeetDetailsModal({
                 </p>
               ) : (
                 messages.map((message) => {
-                  const senderName =
-                    message.sender?.display_name?.trim() ||
-                    message.sender?.full_name?.trim() ||
-                    message.sender?.username?.trim() ||
-                    "Crimson Member";
+                  const senderName = formatRiderIdentity(message.sender, {
+                    fallback: "Crimson Member",
+                  });
 
                   const senderPhoto =
                     message.sender?.profile_image_url ||

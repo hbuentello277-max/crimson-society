@@ -286,11 +286,13 @@ export function MessageThreadScreen({
             <p className="truncate text-[15px] font-semibold leading-tight text-white">
               {conversation.name}
             </p>
-            <p className="truncate text-xs text-zinc-500">
-              {conversation.isGroup
-                ? `${conversation.members ?? 0} riders`
-                : handle}
-            </p>
+            {conversation.isGroup ? (
+              <p className="truncate text-xs text-zinc-500">
+                {`${conversation.members ?? 0} riders`}
+              </p>
+            ) : conversation.handle && conversation.handle !== conversation.name ? (
+              <p className="truncate text-xs text-zinc-500">{handle}</p>
+            ) : null}
           </div>
 
           <ThreadOverflowMenu
